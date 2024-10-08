@@ -30,15 +30,19 @@ type AggregateOp struct {
 	BaseOp
 	//WindowType    rsql.WindowType
 	AggregateFunc *rsql.FunctionCall
-	//dataList      *queue.Queue
-	//groupDataList map[types.GroupFields]*queue.Queue
-	ArgsProgram []*vm.Program
+	ArgsProgram   []*vm.Program
+	fn            *builtin.AggregateFunction
+	streamFunc    types.StreamFunc
 }
 
 func (o *AggregateOp) Init(context types.StreamSqlContext) error {
-	//o.groupDataList = make(map[types.GroupFields]*queue.Queue)
-
-	//o.dataList = queue.NewCircleQueue(10000)
+	if f, ok := builtin.AggregateBuiltins[o.AggregateFunc.Name]; ok {
+		o.fn = f
+		if o.fn.StreamHandler != nil {
+			newF := f.StreamHandler.New()
+			o.streamFunc = newF
+		}
+	}
 	return nil
 }
 
@@ -61,29 +65,38 @@ func (o *AggregateOp) Apply(context types.StreamSqlContext) error {
 	return nil
 }
 
+func (o *AggregateOp) New() types.StreamFunc {
+	return &AggregateOp{}
+}
+
 // AddHandler 窗口添加数据事件
 func (o *AggregateOp) AddHandler(context types.StreamSqlOperatorContext, data float64) {
-	fmt.Println(data)
+	if o.streamFunc != nil {
+		o.streamFunc.AddHandler(context, data)
+	}
 }
 
 // ArchiveHandler 清除原始数据，观察者需要保存中间过程
 func (o *AggregateOp) ArchiveHandler(context types.StreamSqlOperatorContext, dataList []float64) {
-
+	if o.streamFunc != nil {
+		o.streamFunc.ArchiveHandler(context, dataList)
+	}
 }
 
 // StartHandler 窗口开始事件
 func (o *AggregateOp) StartHandler(context types.StreamSqlOperatorContext) {
-
+	if o.streamFunc != nil {
+		o.streamFunc.StartHandler(context)
+	}
 }
 
 // EndHandler 窗口结束事件
 func (o *AggregateOp) EndHandler(context types.StreamSqlOperatorContext, dataList []float64) {
-	if f, ok := builtin.AggregateBuiltins[o.AggregateFunc.Name]; ok {
-
-		fieldId := o.AggregateFunc.Args[0].(*rsql.ExpressionLang).Val
-		values := context.GetFieldAggregateValue(fieldId)
-		result, err := f.Func(values)
+	if o.streamFunc != nil {
+		o.streamFunc.EndHandler(context, dataList)
+	} else {
+		var input []float64
+		result, err := o.fn.Func(input)
 		fmt.Println(result, err)
-		//o.dataList.Reset()
 	}
 }

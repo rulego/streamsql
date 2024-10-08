@@ -260,7 +260,7 @@ func (v Value) Emit() string {
 // MarshalJSON returns the JSON encoding of the Value.
 func (v Value) MarshalJSON() ([]byte, error) {
 	var jsonVal struct {
-		Type  string
+		Type  Type
 		Value interface{}
 	}
 	jsonVal.Type = v.Type()

@@ -84,3 +84,20 @@ func StringSlice(k string, v []string) KeyValue {
 func Stringer(k string, v fmt.Stringer) KeyValue {
 	return Key(k).String(v.String())
 }
+
+func Interface(k string, data interface{}) KeyValue {
+	switch v := data.(type) {
+	case string:
+		return String(k, v)
+	case int:
+		return Int(k, v)
+	case int64:
+		return Int64(k, v)
+	case float64:
+		return Float64(k, v)
+	case bool:
+		return Bool(k, v)
+	default:
+		return String(k, fmt.Sprintf("%v", data))
+	}
+}

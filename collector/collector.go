@@ -32,7 +32,7 @@ type DefaultSelectStreamSqlContext struct {
 	msgAsMap    map[string]interface{}
 	msg         types.Msg
 	locker      sync.RWMutex
-	groupValues types.GroupValues
+	groupValues dataset.GroupValues
 }
 
 func NewDefaultSelectStreamSqlContext(ctx context.Context, collector *StreamCollector, msg types.Msg) *DefaultSelectStreamSqlContext {
@@ -68,17 +68,17 @@ func (c *DefaultSelectStreamSqlContext) RawInput() types.Msg {
 	return c.msg
 }
 
-func (c *DefaultSelectStreamSqlContext) SetGroupByKey(groupByKey types.GroupFields) {
+func (c *DefaultSelectStreamSqlContext) SetGroupByKey(groupByKey dataset.GroupFields) {
 	c.Collector.SetGroupByKey(groupByKey)
 }
-func (c *DefaultSelectStreamSqlContext) GetGroupByKey() types.GroupFields {
+func (c *DefaultSelectStreamSqlContext) GetGroupByKey() dataset.GroupFields {
 	return c.Collector.GetGroupByKey()
 }
-func (c *DefaultSelectStreamSqlContext) IsInitWindow(groupValues types.GroupValues) bool {
+func (c *DefaultSelectStreamSqlContext) IsInitWindow(groupValues dataset.GroupValues) bool {
 	return c.Collector.IsInitWindow(groupValues)
 }
 
-func (c *DefaultSelectStreamSqlContext) AddWindow(groupByKey types.GroupValues, window types.Window) {
+func (c *DefaultSelectStreamSqlContext) AddWindow(groupByKey dataset.GroupValues, window types.Window) {
 	c.Collector.AddWindow(groupByKey, window)
 }
 
@@ -86,19 +86,19 @@ func (c *DefaultSelectStreamSqlContext) CreteWindowObserver() types.WindowObserv
 	return c.Collector.CreteWindowObserver()
 }
 
-func (c *DefaultSelectStreamSqlContext) GetWindow(groupByKey types.GroupValues) types.Window {
+func (c *DefaultSelectStreamSqlContext) GetWindow(groupByKey dataset.GroupValues) types.Window {
 	return c.Collector.GetWindow(groupByKey)
 }
 
-func (c *DefaultSelectStreamSqlContext) GetRow(groupValues types.GroupValues) (*dataset.Row, bool) {
+func (c *DefaultSelectStreamSqlContext) GetRow(groupValues dataset.GroupValues) (*dataset.Row, bool) {
 	return c.Collector.GetRow(groupValues)
 }
 
-func (c *DefaultSelectStreamSqlContext) AddColumn(groupValues types.GroupValues, kv dataset.KeyValue) {
+func (c *DefaultSelectStreamSqlContext) AddColumn(groupValues dataset.GroupValues, kv dataset.KeyValue) {
 	c.Collector.AddColumn(groupValues, kv)
 }
 
-func (c *DefaultSelectStreamSqlContext) GetColumn(groupValues types.GroupValues, key dataset.Key) (dataset.KeyValue, bool) {
+func (c *DefaultSelectStreamSqlContext) GetColumn(groupValues dataset.GroupValues, key dataset.Key) (dataset.KeyValue, bool) {
 	return c.Collector.GetColumn(groupValues, key)
 }
 
@@ -116,24 +116,24 @@ func (c *DefaultSelectStreamSqlContext) GetColumn(groupValues types.GroupValues,
 //	return v, ok
 //}
 
-func (c *DefaultSelectStreamSqlContext) SetCurrentGroupValues(groupValues types.GroupValues) {
+func (c *DefaultSelectStreamSqlContext) SetCurrentGroupValues(groupValues dataset.GroupValues) {
 	c.groupValues = groupValues
 }
 
-func (c *DefaultSelectStreamSqlContext) GetCurrentGroupValues() types.GroupValues {
+func (c *DefaultSelectStreamSqlContext) GetCurrentGroupValues() dataset.GroupValues {
 	return c.groupValues
 }
 
-func (c *DefaultSelectStreamSqlContext) AddFieldAggregateValue(groupValues types.GroupValues, fieldId string, value float64) {
+func (c *DefaultSelectStreamSqlContext) AddFieldAggregateValue(groupValues dataset.GroupValues, fieldId string, value float64) {
 	c.Collector.AddFieldAggregateValue(groupValues, fieldId, value)
 }
 
-func (c *DefaultSelectStreamSqlContext) GetFieldAggregateValue(groupValues types.GroupValues, fieldId string) []float64 {
+func (c *DefaultSelectStreamSqlContext) GetFieldAggregateValue(groupValues dataset.GroupValues, fieldId string) []float64 {
 	return c.Collector.GetFieldAggregateValue(groupValues, fieldId)
 }
 
 type aggregateFieldValue struct {
-	GroupFields  types.GroupFields
+	GroupFields  dataset.GroupFields
 	FieldWindows map[string]types.Window
 }
 
@@ -152,32 +152,32 @@ func (afv *aggregateFieldValue) GetFieldValues(fieldId string) []float64 {
 // StreamCollector 收集器
 type StreamCollector struct {
 	context.Context
-	keyedWindow          map[types.GroupValues]types.Window
+	keyedWindow          map[dataset.GroupValues]types.Window
 	planner              types.LogicalPlan
 	aggregateOperators   []types.AggregateOperator
-	groupByKey           types.GroupFields
-	aggregateFieldValues map[types.GroupValues]*aggregateFieldValue
+	groupByKey           dataset.GroupFields
+	aggregateFieldValues map[dataset.GroupValues]*aggregateFieldValue
 	rows                 *dataset.Rows
 	sync.Mutex
 }
 
-func (c *StreamCollector) SetGroupByKey(groupByKey types.GroupFields) {
+func (c *StreamCollector) SetGroupByKey(groupByKey dataset.GroupFields) {
 	c.groupByKey = groupByKey
 }
-func (c *StreamCollector) GetGroupByKey() types.GroupFields {
+func (c *StreamCollector) GetGroupByKey() dataset.GroupFields {
 	return c.groupByKey
 }
 
-func (c *StreamCollector) IsInitWindow(groupValues types.GroupValues) bool {
+func (c *StreamCollector) IsInitWindow(groupValues dataset.GroupValues) bool {
 	_, ok := c.keyedWindow[groupValues]
 	return ok
 }
 
-func (c *StreamCollector) AddWindow(groupByKey types.GroupValues, window types.Window) {
+func (c *StreamCollector) AddWindow(groupByKey dataset.GroupValues, window types.Window) {
 	c.keyedWindow[groupByKey] = window
 }
 
-func (c *StreamCollector) GetWindow(groupByKey types.GroupValues) types.Window {
+func (c *StreamCollector) GetWindow(groupByKey dataset.GroupValues) types.Window {
 	return c.keyedWindow[groupByKey]
 }
 
@@ -203,7 +203,7 @@ func (c *StreamCollector) CreteWindowObserver() types.WindowObserver {
 		},
 	}
 }
-func (c *StreamCollector) AddFieldAggregateValue(groupValues types.GroupValues, fieldId string, data float64) {
+func (c *StreamCollector) AddFieldAggregateValue(groupValues dataset.GroupValues, fieldId string, data float64) {
 	c.Lock()
 	defer c.Unlock()
 	if w, ok := c.keyedWindow[groupValues]; ok {
@@ -211,7 +211,7 @@ func (c *StreamCollector) AddFieldAggregateValue(groupValues types.GroupValues, 
 	}
 }
 
-func (c *StreamCollector) GetFieldAggregateValue(groupValues types.GroupValues, fieldId string) []float64 {
+func (c *StreamCollector) GetFieldAggregateValue(groupValues dataset.GroupValues, fieldId string) []float64 {
 	c.Lock()
 	defer c.Unlock()
 	if _, ok := c.keyedWindow[groupValues]; ok {
@@ -220,19 +220,19 @@ func (c *StreamCollector) GetFieldAggregateValue(groupValues types.GroupValues, 
 	return nil
 }
 
-func (c *StreamCollector) GetRow(groupValues types.GroupValues) (*dataset.Row, bool) {
+func (c *StreamCollector) GetRow(groupValues dataset.GroupValues) (*dataset.Row, bool) {
 	c.Lock()
 	defer c.Unlock()
 	return c.rows.GetRow(groupValues)
 }
 
-func (c *StreamCollector) AddColumn(groupValues types.GroupValues, kv dataset.KeyValue) {
+func (c *StreamCollector) AddColumn(groupValues dataset.GroupValues, kv dataset.KeyValue) {
 	c.Lock()
 	defer c.Unlock()
 	c.rows.AddColumn(groupValues, kv)
 }
 
-func (c *StreamCollector) GetColumn(groupValues types.GroupValues, key dataset.Key) (dataset.KeyValue, bool) {
+func (c *StreamCollector) GetColumn(groupValues dataset.GroupValues, key dataset.Key) (dataset.KeyValue, bool) {
 	c.Lock()
 	defer c.Unlock()
 	return c.rows.GetColumn(groupValues, key)
@@ -242,8 +242,8 @@ func NewStreamCollector(planner types.LogicalPlan) *StreamCollector {
 	c := &StreamCollector{
 		planner:              planner,
 		aggregateOperators:   planner.AggregateOperators(),
-		keyedWindow:          make(map[types.GroupValues]types.Window),
-		aggregateFieldValues: make(map[types.GroupValues]*aggregateFieldValue),
+		keyedWindow:          make(map[dataset.GroupValues]types.Window),
+		aggregateFieldValues: make(map[dataset.GroupValues]*aggregateFieldValue),
 		rows:                 dataset.NewRows(),
 	}
 	return c

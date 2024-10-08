@@ -17,6 +17,7 @@
 package operator
 
 import (
+	"github.com/rulego/streamsql/dataset"
 	"github.com/rulego/streamsql/types"
 	"github.com/rulego/streamsql/utils/cast"
 )
@@ -28,7 +29,7 @@ import (
 
 type GroupByOp struct {
 	*BaseOp
-	GroupByKey types.GroupFields
+	GroupByKey dataset.GroupFields
 	keys       []string
 }
 
@@ -45,13 +46,13 @@ func (o *GroupByOp) Apply(context types.StreamSqlContext) error {
 		if groupValues, ok := o.getGroupValues(selectStreamSqlContext.InputAsMap()); ok {
 			selectStreamSqlContext.SetCurrentGroupValues(groupValues)
 		} else {
-			selectStreamSqlContext.SetCurrentGroupValues(types.EmptyGroupValues)
+			selectStreamSqlContext.SetCurrentGroupValues(dataset.EmptyGroupValues)
 		}
 	}
 	return nil
 }
 
-func (o *GroupByOp) getGroupValues(data map[string]interface{}) (types.GroupValues, bool) {
+func (o *GroupByOp) getGroupValues(data map[string]interface{}) (dataset.GroupValues, bool) {
 	var list []string
 	for _, key := range o.keys {
 		if v, ok := data[key]; ok {
@@ -60,7 +61,7 @@ func (o *GroupByOp) getGroupValues(data map[string]interface{}) (types.GroupValu
 			return "", false
 		}
 	}
-	return types.NewGroupValues(list...), true
+	return dataset.NewGroupValues(list...), true
 }
 
 //// 检查是否是当前分组数据

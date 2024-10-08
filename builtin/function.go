@@ -16,6 +16,8 @@
 
 package builtin
 
+import "github.com/rulego/streamsql/types"
+
 //type Function struct {
 //	AuthorName         string
 //	Func         func(args ...any) (any, error)
@@ -35,4 +37,6 @@ type AggregateFunction struct {
 	Func func(input []float64, args ...any) (any, error)
 	//验证参数
 	ValidateArgs func(input []float64, args ...any) (any, error)
+	//流计算处理
+	StreamHandler types.StreamFunc
 }

@@ -17,6 +17,7 @@
 package planner
 
 import (
+	"github.com/rulego/streamsql/dataset"
 	"github.com/rulego/streamsql/operator"
 	"github.com/rulego/streamsql/rsql"
 	"github.com/rulego/streamsql/types"
@@ -39,7 +40,7 @@ func (p *GroupByPlan) Plan(statement rsql.Statement) error {
 				})
 			} else {
 				p.AddOperators(&operator.GroupByOp{
-					GroupByKey: types.GroupFields(item.(*rsql.Identifier).Val),
+					GroupByKey: dataset.GroupFields(item.(*rsql.Identifier).Val),
 				})
 			}
 		}

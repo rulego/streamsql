@@ -53,25 +53,38 @@ type StreamSqlContext interface {
 
 type StreamSqlOperatorContext interface {
 	StreamSqlContext
-	AddWindow(groupValues GroupValues, window Window)
+	AddWindow(groupValues dataset.GroupValues, window Window)
 	CreteWindowObserver() WindowObserver
 	//GetWindow 获取窗口实例
-	GetWindow(groupValues GroupValues) Window
-	IsInitWindow(groupValues GroupValues) bool
-	AddFieldAggregateValue(groupValues GroupValues, fieldId string, value float64)
-	GetFieldAggregateValue(groupValues GroupValues, fieldId string) []float64
-	SetGroupByKey(groupByKey GroupFields)
-	GetRow(groupValues GroupValues) (*dataset.Row, bool)
-	AddColumn(groupValues GroupValues, kv dataset.KeyValue)
-	GetColumn(groupValues GroupValues, key dataset.Key) (dataset.KeyValue, bool)
+	GetWindow(groupValues dataset.GroupValues) Window
+	IsInitWindow(groupValues dataset.GroupValues) bool
+	AddFieldAggregateValue(groupValues dataset.GroupValues, fieldId string, value float64)
+	GetFieldAggregateValue(groupValues dataset.GroupValues, fieldId string) []float64
+	SetGroupByKey(groupByKey dataset.GroupFields)
+	GetRow(groupValues dataset.GroupValues) (*dataset.Row, bool)
+	AddColumn(groupValues dataset.GroupValues, kv dataset.KeyValue)
+	GetColumn(groupValues dataset.GroupValues, key dataset.Key) (dataset.KeyValue, bool)
 }
 
 type SelectStreamSqlContext interface {
 	StreamSqlOperatorContext
 	InputAsMap() map[string]interface{}
 	RawInput() Msg
-	SetCurrentGroupValues(groupValues GroupValues)
-	GetCurrentGroupValues() GroupValues
+	SetCurrentGroupValues(groupValues dataset.GroupValues)
+	GetCurrentGroupValues() dataset.GroupValues
+}
+
+type StreamFunc interface {
+	//New 返回一个新的实例
+	New() StreamFunc
+	// AddHandler 窗口添加数据事件
+	AddHandler(context StreamSqlOperatorContext, data float64)
+	//ArchiveHandler 清除原始数据，观察者需要保存中间过程
+	ArchiveHandler(context StreamSqlOperatorContext, dataList []float64)
+	//StartHandler 窗口开始事件
+	StartHandler(context StreamSqlOperatorContext)
+	//EndHandler 窗口结束事件
+	EndHandler(context StreamSqlOperatorContext, dataList []float64)
 }
 
 // WindowObserver 窗口事件观察者
@@ -97,10 +110,12 @@ type Operator interface {
 
 type AggregateOperator interface {
 	Operator
-	AddHandler(context StreamSqlOperatorContext, data float64)
-	ArchiveHandler(context StreamSqlOperatorContext, dataList []float64)
-	StartHandler(context StreamSqlOperatorContext)
-	EndHandler(context StreamSqlOperatorContext, dataList []float64)
+	StreamFunc
+
+	//AddHandler(context StreamSqlOperatorContext, data float64)
+	//ArchiveHandler(context StreamSqlOperatorContext, dataList []float64)
+	//StartHandler(context StreamSqlOperatorContext)
+	//EndHandler(context StreamSqlOperatorContext, dataList []float64)
 }
 
 // LogicalPlan 逻辑计划接口

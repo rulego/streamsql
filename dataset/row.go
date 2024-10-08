@@ -16,14 +16,12 @@
 
 package dataset
 
-import "github.com/rulego/streamsql/types"
-
 type Row struct {
-	GroupValues types.GroupValues
+	GroupValues GroupValues
 	Columns     map[Key]KeyValue
 }
 
-func NewRow(groupValues types.GroupValues) *Row {
+func NewRow(groupValues GroupValues) *Row {
 	r := &Row{
 		GroupValues: groupValues,
 		Columns:     make(map[Key]KeyValue),
@@ -47,19 +45,19 @@ func (r *Row) GetColumn(key Key) (KeyValue, bool) {
 }
 
 type Rows struct {
-	Rows map[types.GroupValues]*Row
+	Rows map[GroupValues]*Row
 }
 
 func NewRows() *Rows {
 	r := &Rows{
-		Rows: make(map[types.GroupValues]*Row),
+		Rows: make(map[GroupValues]*Row),
 	}
 	return r
 }
 
-func (r *Rows) AddColumn(groupValues types.GroupValues, kv KeyValue) {
+func (r *Rows) AddColumn(groupValues GroupValues, kv KeyValue) {
 	if r.Rows == nil {
-		r.Rows = make(map[types.GroupValues]*Row)
+		r.Rows = make(map[GroupValues]*Row)
 	}
 	row, ok := r.Rows[groupValues]
 	if !ok {
@@ -69,7 +67,7 @@ func (r *Rows) AddColumn(groupValues types.GroupValues, kv KeyValue) {
 	row.AddColumn(kv)
 }
 
-func (r *Rows) GetColumn(groupValues types.GroupValues, key Key) (KeyValue, bool) {
+func (r *Rows) GetColumn(groupValues GroupValues, key Key) (KeyValue, bool) {
 	if r.Rows == nil {
 		return KeyValue{}, false
 	}
@@ -80,7 +78,7 @@ func (r *Rows) GetColumn(groupValues types.GroupValues, key Key) (KeyValue, bool
 	return row.GetColumn(key)
 }
 
-func (r *Rows) GetRow(groupValues types.GroupValues) (*Row, bool) {
+func (r *Rows) GetRow(groupValues GroupValues) (*Row, bool) {
 	if r.Rows == nil {
 		return nil, false
 	}
@@ -93,7 +91,7 @@ func (r *Rows) AddRow(row *Row) {
 		return
 	}
 	if r.Rows == nil {
-		r.Rows = make(map[types.GroupValues]*Row)
+		r.Rows = make(map[GroupValues]*Row)
 	}
 	r.Rows[row.GroupValues] = row
 }

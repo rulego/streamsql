@@ -18,6 +18,7 @@ package operator
 
 import (
 	"github.com/expr-lang/expr/vm"
+	"github.com/rulego/streamsql/dataset"
 	"github.com/rulego/streamsql/types"
 )
 
@@ -34,7 +35,7 @@ func (o *LookupFieldOp) Apply(context types.StreamSqlContext) error {
 	if ctx, ok := context.(types.SelectStreamSqlContext); ok {
 		if o.Field.EvalProgram != nil {
 			if result, err := o.eval(o.Field.EvalProgram, ctx.InputAsMap()); err == nil {
-				ctx.AddField(o.Field.FieldId, result)
+				ctx.AddColumn(ctx.GetCurrentGroupValues(), dataset.Interface(o.Field.FieldId, result))
 			} else {
 				return err
 			}
