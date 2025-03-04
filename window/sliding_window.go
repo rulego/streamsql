@@ -1,175 +1,166 @@
-/*
- * Copyright 2024 The RuleGo Authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package window
 
 import (
-	"github.com/rulego/streamsql/types"
-	queue2 "github.com/rulego/streamsql/utils/queue"
+	"context"
 	"sync"
 	"time"
 )
 
-// SidingWindow 滑动窗口
-type SidingWindow struct {
-	context    types.SelectStreamSqlContext
-	observer   types.WindowObserver
-	windowSize time.Duration // the size of the window
-	slide      time.Duration // the slide of the window
+// 确保 SlidingWindow 结构体实现了 Window 接口
+var _ Window = (*SlidingWindow)(nil)
 
-	fieldName string // the name of the field that is being aggregated
-	//maxCapacity 最大容量
-	maxCapacity int
-	queue       *queue2.Queue
-	startTime   time.Time
-	endTime     time.Time
-	locker      sync.Mutex
-	windowTimer *time.Timer
-	slideTicker *time.Ticker
-	//
-	slideSnapshot int32
-	//退出标志
-	quit chan struct{}
+// TimedData 用于包装数据和时间戳
+type TimedData struct {
+    Data    interface{}
+    Timestamp time.Time
 }
 
-// NewSlidingWindow creates a new siding window with the given size and slide
-func NewSlidingWindow(fieldName string, windowSize, slide time.Duration, observer types.WindowObserver) *SidingWindow {
-	maxCapacity := 100000
-	w := &SidingWindow{
-		fieldName:   fieldName,
-		observer:    observer,
-		windowSize:  windowSize,
-		slide:       slide,
-		maxCapacity: maxCapacity,
-		queue:       queue2.NewCircleQueue(maxCapacity),
+// SlidingWindow 表示一个滑动窗口，用于按时间范围处理数据
+type SlidingWindow struct {
+	// 窗口的总大小，即窗口覆盖的时间范围
+	size time.Duration
+	// 窗口每次滑动的时间间隔
+	slide time.Duration
+	// 用于保护数据并发访问的互斥锁
+	mu sync.Mutex
+	// 存储窗口内的数据
+	data []TimedData
+	// 用于输出窗口内数据的通道
+	outputChan chan []interface{}
+	// 当窗口触发时执行的回调函数
+	callback func([]interface{})
+	// 用于控制窗口生命周期的上下文
+	ctx context.Context
+	// 用于取消上下文的函数
+	cancelFunc context.CancelFunc
+	// 用于定时触发窗口的定时器
+	timer *time.Timer
+}
+
+// NewSlidingWindow 创建一个新的滑动窗口实例
+// 参数 size 表示窗口的总大小，slide 表示窗口每次滑动的时间间隔
+func NewSlidingWindow(size, slide time.Duration) *SlidingWindow {
+	// 创建一个可取消的上下文
+	ctx, cancel := context.WithCancel(context.Background())
+	return &SlidingWindow{
+		size:       size,
+		slide:      slide,
+		outputChan: make(chan []interface{}, 10),
+		ctx:        ctx,
+		cancelFunc: cancel,
+		data:       make([]TimedData, 0),
 	}
+}
 
-	//开始新的窗口
-	w.start()
-	// 创建一个通道，用于通知ticker的结束
-	w.quit = make(chan struct{})
+// Add 向滑动窗口中添加数据
+// 参数 data 表示要添加的数据
+func (sw *SlidingWindow) Add(data interface{}) {
+	// 加锁以保证数据的并发安全
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
 
-	w.windowTimer = time.AfterFunc(windowSize, func() {
+    var timestamp time.Time
+    if ts, ok := data.(interface{ GetTimestamp() time.Time }); ok {
+        timestamp = ts.GetTimestamp()
+    } else {
+        timestamp = time.Now()
+    }
 
-	})
-	//时间窗口定时器
-	//w.windowTicker = time.NewTicker(windowSize)
-	w.slideTicker = time.NewTicker(slide)
+    // 将数据添加到窗口的数据列表中
+    sw.data = append(sw.data, TimedData{
+        Data:    data,
+        Timestamp: timestamp,
+    })
+}
+
+// Start 启动滑动窗口，开始定时触发窗口
+func (sw *SlidingWindow) Start() {
 	go func() {
+		// 创建一个定时器，初始时间为窗口滑动的时间间隔
+		sw.timer = time.NewTimer(sw.slide)
 		for {
 			select {
-			//case <-w.windowTicker.C:
-			//	w.checkNextWindow()
-			case <-w.slideTicker.C:
-				w.checkNextWindow()
-			case <-w.quit:
+			// 当定时器到期时，触发窗口
+			case <-sw.timer.C:
+				sw.Trigger()
+				// 重置定时器，以便下一次触发
+				sw.timer.Reset(sw.slide)
+			// 当上下文被取消时，停止定时器并退出循环
+			case <-sw.ctx.Done():
+				sw.timer.Stop()
 				return
 			}
 		}
 	}()
-	return w
 }
 
-// 清理滑动窗口队列元素
-func (w *SidingWindow) slideClean() {
-	//w.queue.RemoveRange(w.queue.head, w.queue.tail)
-}
+// Trigger 触发滑动窗口，处理窗口内的数据
+func (sw *SlidingWindow) Trigger() {
+	// 加锁以保证数据的并发安全
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
 
-// 检查是否需要是下一个窗口
-func (w *SidingWindow) checkNextWindow() {
-	w.locker.Lock()
-	defer w.locker.Unlock()
-	if time.Now().Sub(w.startTime) > w.windowSize {
-		//结束当前窗口
-		w.end()
-		//开始新的窗口
-		w.start()
-	}
-}
-
-// 开始窗口事件
-func (w *SidingWindow) start() {
-	w.startTime = time.Now()
-	w.queue.Reset()
-
-	if w.observer.StartHandler != nil {
-		w.observer.StartHandler(w.context)
-	}
-}
-
-// 结束窗口事件
-func (w *SidingWindow) end() {
-	w.endTime = time.Now()
-	if w.observer.EndHandler != nil {
-		w.observer.EndHandler(w.context, w.queue.PopAll())
-	}
-}
-
-// 队列满，触发full事件，并重置队列
-func (w *SidingWindow) full() {
-	if w.observer.ArchiveHandler != nil {
-		w.observer.ArchiveHandler(w.context, w.queue.PopAll())
-	}
-	//重置队列
-	w.queue.Reset()
-}
-
-// Add 添加数据
-func (w *SidingWindow) Add(data float64) {
-	if time.Now().Sub(w.startTime) > w.windowSize {
-		w.checkNextWindow()
-	}
-	if w.queue.IsFull() {
-		w.full()
+	// 如果窗口内没有数据，则直接返回
+	if len(sw.data) == 0 {
+		return
 	}
 
-	_ = w.queue.Push(data)
-	if w.observer.AddHandler != nil {
-		w.observer.AddHandler(w.context, data)
+	// 计算截止时间，即当前时间减去窗口的总大小
+	cutoff := time.Now().Add(-sw.size)
+	var newData []TimedData
+	// 遍历窗口内的数据，只保留在截止时间之后的数据
+	for _, item := range sw.data {
+		if item.Timestamp.After(cutoff) {
+			newData = append(newData, item)
+		}
 	}
+
+	// 提取出 Data 字段组成 []interface{} 类型的数据
+	resultData := make([]interface{}, 0, len(newData))
+	for _, item := range newData {
+		resultData = append(resultData, item.Data)
+	}
+
+	// 如果设置了回调函数，则执行回调函数
+	if sw.callback != nil {
+		sw.callback(resultData)
+	}
+
+	// 更新窗口内的数据
+	sw.data = newData
+	// 将新的数据发送到输出通道
+	sw.outputChan <- resultData
 }
 
-// FieldName 获取聚合运算字段名称
-func (w *SidingWindow) FieldName() string {
-	return w.fieldName
+// Reset 重置滑动窗口，清空窗口内的数据
+func (sw *SlidingWindow) Reset() {
+	// 加锁以保证数据的并发安全
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	// 清空窗口内的数据
+	sw.data = nil
 }
 
-// LastData 获取最后一条数据
-func (w *SidingWindow) LastData() (float64, bool) {
-	return w.queue.Back()
+// OutputChan 返回滑动窗口的输出通道
+func (sw *SlidingWindow) OutputChan() <-chan []interface{} {
+	return sw.outputChan
 }
 
-// StartTime 获取窗口开始时间
-func (w *SidingWindow) StartTime() time.Time {
-	return w.startTime
+// SetCallback 设置滑动窗口触发时执行的回调函数
+// 参数 callback 表示要设置的回调函数
+func (sw *SlidingWindow) SetCallback(callback func([]interface{})) {
+	sw.callback = callback
 }
 
-// EndTime 获取窗口结束时间
-func (w *SidingWindow) EndTime() time.Time {
-	return w.endTime
-}
-
-// Archive 保存数据
-func (w *SidingWindow) Archive() {
-
-}
-func (w *SidingWindow) Stop() {
-
-	//if w.windowTicker != nil {
-	//	w.windowTicker.Stop()
-	//}
-	w.quit <- struct{}{}
+// GetResults 获取滑动窗口内的当前数据
+func (sw *SlidingWindow) GetResults() []interface{} {
+	// 加锁以保证数据的并发安全
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	// 提取出 Data 字段组成 []interface{} 类型的数据
+	resultData := make([]interface{}, 0, len(sw.data))
+	for _, item := range sw.data {
+		resultData = append(resultData, item.Data)
+	}
+	return resultData
 }
