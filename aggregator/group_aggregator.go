@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 )
 
 type Aggregator interface {
@@ -17,6 +18,7 @@ type GroupAggregator struct {
 	groupFields []string
 	aggregators map[string]AggregatorFunction
 	groups      map[string]map[string]AggregatorFunction
+	mu          sync.RWMutex
 }
 
 func NewGroupAggregator(groupFields []string, fieldMap map[string]AggregateType) *GroupAggregator {
@@ -34,6 +36,8 @@ func NewGroupAggregator(groupFields []string, fieldMap map[string]AggregateType)
 	}
 }
 func (ga *GroupAggregator) Add(data interface{}) error {
+	ga.mu.Lock()         // 获取写锁
+	defer ga.mu.Unlock() // 确保函数返回时释放锁
 	var v reflect.Value
 
 	switch data.(type) {
@@ -85,9 +89,13 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 
 	if _, exists := ga.groups[key]; !exists {
 		ga.groups[key] = make(map[string]AggregatorFunction)
-		for field, agg := range ga.aggregators {
+	}
+	// field级别的聚合可以分批创建
+	for field, agg := range ga.aggregators {
+		if _, exists := ga.groups[key][field]; !exists {
 			// 创建新的聚合器实例
 			ga.groups[key][field] = agg.New()
+			//fmt.Printf("groups by %s : %v \n", key, ga.groups[key])
 		}
 	}
 
@@ -104,14 +112,15 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		}
 
 		if !f.IsValid() {
-			return fmt.Errorf("field %s not found", field)
+			//return fmt.Errorf("field %s not found", field)
+			//fmt.Printf("field %s not found in %v \n ", field, data)
+			continue
 		}
 
 		fieldVal := f.Interface()
 		var value float64
 		switch vType := fieldVal.(type) {
 		case float64:
-
 			value = vType
 		case int, int32, int64:
 			value = float64(vType.(int))
@@ -122,6 +131,9 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		}
 		if groupAgg, exists := ga.groups[key][field]; exists {
 			groupAgg.Add(value)
+			//fmt.Printf("add agg group by %s:%s , %v  \n", key, field, value)
+		} else {
+
 		}
 	}
 
@@ -129,6 +141,8 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 }
 
 func (ga *GroupAggregator) GetResults() ([]map[string]interface{}, error) {
+	ga.mu.RLock()         // 获取读锁，允许并发读取
+	defer ga.mu.RUnlock() // 确保函数返回时释放锁
 	result := make([]map[string]interface{}, 0, len(ga.groups))
 	for key, aggregators := range ga.groups {
 		group := make(map[string]interface{})
@@ -145,5 +159,7 @@ func (ga *GroupAggregator) GetResults() ([]map[string]interface{}, error) {
 }
 
 func (ga *GroupAggregator) Reset() {
+	ga.mu.Lock()         // 获取写锁
+	defer ga.mu.Unlock() // 确保函数返回时释放锁
 	ga.groups = make(map[string]map[string]AggregatorFunction)
 }

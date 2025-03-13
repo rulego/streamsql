@@ -71,6 +71,7 @@ func (s *Stream) process() {
 		case data := <-s.dataChan:
 			if s.filter == nil || s.filter.Evaluate(data) {
 				s.Window.Add(data)
+				// fmt.Printf("add data to win : %v \n", data)
 			}
 		case batch := <-s.Window.OutputChan():
 			// 处理窗口批数据
