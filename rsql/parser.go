@@ -2,7 +2,6 @@ package rsql
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 )
@@ -42,49 +41,50 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 
 	return stmt, nil
 }
-
 func (p *Parser) parseSelect(stmt *SelectStatement) error {
 	p.lexer.NextToken() // 跳过SELECT
-
+	currentToken := p.lexer.NextToken()
 	for {
-		tok := p.lexer.NextToken()
-		if tok.Type == TokenFROM {
-			break
+		var expr strings.Builder
+		for {
+			if currentToken.Type == TokenFROM || currentToken.Type == TokenComma || currentToken.Type == TokenAS {
+				break
+			}
+			expr.WriteString(currentToken.Value)
+			currentToken = p.lexer.NextToken()
 		}
 
-		field := Field{Expression: tok.Value}
-		if p.lexer.peekChar() == ' ' {
-			if aliasTok := p.lexer.NextToken(); aliasTok.Type == TokenAS {
-				field.Alias = p.lexer.NextToken().Value
-			}
+		field := Field{Expression: strings.TrimSpace(expr.String())}
+
+		// 处理别名
+		if currentToken.Type == TokenAS {
+			field.Alias = p.lexer.NextToken().Value
 		}
 		stmt.Fields = append(stmt.Fields, field)
-
-		if p.lexer.NextToken().Type != TokenComma {
+		currentToken = p.lexer.NextToken()
+		if currentToken.Type == TokenFROM {
 			break
 		}
 	}
-	return nil
-}
-
-func (p *Parser) parseFrom(stmt *SelectStatement) error {
-	tok := p.lexer.NextToken()
-	if tok.Type != TokenIdent {
-		return errors.New("expected source identifier after FROM")
-	}
-	stmt.Source = tok.Value
 	return nil
 }
 
 func (p *Parser) parseWhere(stmt *SelectStatement) error {
 	var conditions []string
-	p.lexer.NextToken() // 跳过WHERE
-
+	current := p.lexer.NextToken() // 跳过WHERE
+	if current.Type != TokenWHERE {
+		return nil
+	}
 	for {
 		tok := p.lexer.NextToken()
+		if tok.Type == TokenGROUP || tok.Type == TokenEOF {
+			break
+		}
 		switch tok.Type {
-		case TokenIdent, TokenNumber, TokenString:
+		case TokenIdent, TokenNumber:
 			conditions = append(conditions, tok.Value)
+		case TokenString:
+			conditions = append(conditions, "'"+tok.Value+"'")
 		case TokenEQ:
 			conditions = append(conditions, "==")
 		case TokenAND:
@@ -92,43 +92,37 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 		case TokenOR:
 			conditions = append(conditions, "||")
 		default:
-			stmt.Condition = strings.Join(conditions, " ")
-			return nil
+			// 处理字符串值的引号
+			if len(conditions) > 0 && conditions[len(conditions)-1] == "'" {
+				conditions[len(conditions)-1] = conditions[len(conditions)-1] + tok.Value
+			} else {
+				conditions = append(conditions, tok.Value)
+			}
 		}
+
 	}
-}
-
-func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
-	p.lexer.NextToken() // 跳过GROUP
-	p.lexer.NextToken() // 跳过BY
-
-	for {
-		tok := p.lexer.NextToken()
-		if tok.Type == TokenTumbling || tok.Type == TokenSliding {
-			return p.parseWindowFunction(stmt, tok.Value)
-		}
-
-		stmt.GroupBy = append(stmt.GroupBy, tok.Value)
-
-		if p.lexer.NextToken().Type != TokenComma {
-			break
-		}
-	}
+	stmt.Condition = strings.Join(conditions, " ")
 	return nil
 }
 
 func (p *Parser) parseWindowFunction(stmt *SelectStatement, winType string) error {
-	p.lexer.NextToken() // 跳过函数名
-	params := make(map[string]interface{})
+	p.lexer.NextToken() // 跳过(
+	var params []interface{}
 
 	for p.lexer.peekChar() != ')' {
-		keyTok := p.lexer.NextToken()
-		if keyTok.Type != TokenIdent {
-			return fmt.Errorf("expected parameter key, got %v", keyTok)
-		}
-
 		valTok := p.lexer.NextToken()
-		params[keyTok.Value] = convertValue(valTok.Value)
+		if valTok.Type == TokenRParen || valTok.Type == TokenEOF {
+			break
+		}
+		if valTok.Type == TokenComma {
+			continue
+		}
+		//valTok := p.lexer.NextToken()
+		// 处理引号包裹的值
+		if strings.HasPrefix(valTok.Value, "'") && strings.HasSuffix(valTok.Value, "'") {
+			valTok.Value = strings.Trim(valTok.Value, "'")
+		}
+		params = append(params, convertValue(valTok.Value))
 	}
 
 	stmt.Window = WindowDefinition{
@@ -136,8 +130,8 @@ func (p *Parser) parseWindowFunction(stmt *SelectStatement, winType string) erro
 		Params: params,
 	}
 	return nil
-
 }
+
 func convertValue(s string) interface{} {
 	if s == "true" {
 		return true
@@ -151,8 +145,43 @@ func convertValue(s string) interface{} {
 	if f, err := strconv.ParseFloat(s, 64); err == nil {
 		return f
 	}
+	// 处理引号包裹的字符串
 	if strings.HasPrefix(s, "'") && strings.HasSuffix(s, "'") {
 		return strings.Trim(s, "'")
 	}
 	return s
+}
+
+func (p *Parser) parseFrom(stmt *SelectStatement) error {
+	tok := p.lexer.NextToken()
+	if tok.Type != TokenIdent {
+		return errors.New("expected source identifier after FROM")
+	}
+	stmt.Source = tok.Value
+	return nil
+}
+
+func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
+	//p.lexer.NextToken() // 跳过GROUP
+	p.lexer.NextToken() // 跳过BY
+
+	for {
+		tok := p.lexer.NextToken()
+		if tok.Type == TokenEOF {
+			break
+		}
+		if tok.Type == TokenComma {
+			continue
+		}
+		if tok.Type == TokenTumbling || tok.Type == TokenSliding || tok.Type == TokenCounting || tok.Type == TokenSession {
+			return p.parseWindowFunction(stmt, tok.Value)
+		}
+
+		stmt.GroupBy = append(stmt.GroupBy, tok.Value)
+
+		//if p.lexer.NextToken().Type != TokenComma {
+		//	break
+		//}
+	}
+	return nil
 }

@@ -16,7 +16,7 @@ func TestParseSQL(t *testing.T) {
 		condition string
 	}{
 		{
-			sql: "select deviceId, avg(temperature/10) as aa from Input where deviceId='aa' group by deviceId, TumblingWindow(size='10s')",
+			sql: "select deviceId, avg(temperature/10) as aa from Input where deviceId='aa' group by deviceId, TumblingWindow('10s')",
 			expected: &stream.Config{
 				WindowConfig: stream.WindowConfig{
 					Type: "tumbling",
@@ -32,7 +32,7 @@ func TestParseSQL(t *testing.T) {
 			condition: "deviceId == 'aa'",
 		},
 		{
-			sql: "select max(score) as max_score, min(age) as min_age from Sensor group by type, SlidingWindow(size='20s', slide='5s')",
+			sql: "select max(score) as max_score, min(age) as min_age from Sensor group by type, SlidingWindow('20s', '5s')",
 			expected: &stream.Config{
 				WindowConfig: stream.WindowConfig{
 					Type: "sliding",
@@ -67,7 +67,7 @@ func TestParseSQL(t *testing.T) {
 	}
 }
 func TestWindowParamParsing(t *testing.T) {
-	params := map[string]interface{}{"size": "10s", "slide": "5s"}
+	params := []interface{}{"10s", "5s"}
 	result, err := parseWindowParams(params)
 	assert.NoError(t, err)
 	assert.Equal(t, 10*time.Second, result["size"])

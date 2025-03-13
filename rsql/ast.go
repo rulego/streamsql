@@ -2,6 +2,7 @@ package rsql
 
 import (
 	"fmt"
+	"github.com/rulego/streamsql/window"
 	"strings"
 	"time"
 
@@ -24,7 +25,7 @@ type Field struct {
 
 type WindowDefinition struct {
 	Type   string
-	Params map[string]interface{}
+	Params []interface{}
 }
 
 // ToStreamConfig 将AST转换为Stream配置
@@ -33,9 +34,15 @@ func (s *SelectStatement) ToStreamConfig() (*stream.Config, string, error) {
 		return nil, "", fmt.Errorf("missing FROM clause")
 	}
 	// 解析窗口配置
-	windowType := "tumbling"
-	if s.Window.Type == "Sliding" {
-		windowType = "sliding"
+	windowType := window.TypeTumbling
+	if strings.ToUpper(s.Window.Type) == "TUMBLINGWINDOW" {
+		windowType = window.TypeTumbling
+	} else if strings.ToUpper(s.Window.Type) == "SLIDINGWINDOW" {
+		windowType = window.TypeSliding
+	} else if strings.ToUpper(s.Window.Type) == "COUNTINGWINDOW" {
+		windowType = window.TypeCounting
+	} else if strings.ToUpper(s.Window.Type) == "SESSIONWINDOW" {
+		windowType = window.TypeSession
 	}
 
 	params, err := parseWindowParams(s.Window.Params)
@@ -92,23 +99,25 @@ func parseAggregateType(expr string) aggregator.AggregateType {
 	return ""
 }
 
-func parseWindowParams(params map[string]interface{}) (map[string]interface{}, error) {
+func parseWindowParams(params []interface{}) (map[string]interface{}, error) {
 	result := make(map[string]interface{})
-
-	for k, v := range params {
-		switch k {
-		case "size", "slide":
-			if s, ok := v.(string); ok {
-				dur, err := time.ParseDuration(s)
-				if err != nil {
-					return nil, fmt.Errorf("invalid %s duration: %w", k, err)
-				}
-				result[k] = dur
-			} else {
-				return nil, fmt.Errorf("%s参数必须为字符串格式(如'5s')", k)
+	var key string
+	for index, v := range params {
+		if index == 0 {
+			key = "size"
+		} else if index == 1 {
+			key = "slide"
+		} else {
+			key = "offset"
+		}
+		if s, ok := v.(string); ok {
+			dur, err := time.ParseDuration(s)
+			if err != nil {
+				return nil, fmt.Errorf("invalid %s duration: %w", s, err)
 			}
-		default:
-			result[k] = v
+			result[key] = dur
+		} else {
+			return nil, fmt.Errorf("%s参数必须为字符串格式(如'5s')", s)
 		}
 	}
 

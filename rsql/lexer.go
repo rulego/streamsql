@@ -12,6 +12,10 @@ const (
 	TokenComma
 	TokenLParen
 	TokenRParen
+	TokenPlus
+	TokenMinus
+	TokenAsterisk
+	TokenSlash
 	TokenEQ
 	TokenNE
 	TokenGT
@@ -28,6 +32,8 @@ const (
 	TokenAS
 	TokenTumbling
 	TokenSliding
+	TokenCounting
+	TokenSession
 )
 
 type Token struct {
@@ -64,6 +70,18 @@ func (l *Lexer) NextToken() Token {
 	case ')':
 		l.readChar()
 		return Token{Type: TokenRParen, Value: ")"}
+	case '+':
+		l.readChar()
+		return Token{Type: TokenPlus, Value: "+"}
+	case '-':
+		l.readChar()
+		return Token{Type: TokenMinus, Value: "-"}
+	case '*':
+		l.readChar()
+		return Token{Type: TokenAsterisk, Value: "*"}
+	case '/':
+		l.readChar()
+		return Token{Type: TokenSlash, Value: "/"}
 	case '=':
 		l.readChar()
 		return Token{Type: TokenEQ, Value: "="}
@@ -178,10 +196,14 @@ func (l *Lexer) lookupIdent(ident string) Token {
 		return Token{Type: TokenOR, Value: ident}
 	case "AND":
 		return Token{Type: TokenAND, Value: ident}
-	case "TUMBLING":
+	case "TUMBLINGWINDOW":
 		return Token{Type: TokenTumbling, Value: ident}
-	case "SLIDING":
+	case "SLIDINGWINDOW":
 		return Token{Type: TokenSliding, Value: ident}
+	case "COUNTINGWINDOW":
+		return Token{Type: TokenCounting, Value: ident}
+	case "SESSIONWINDOW":
+		return Token{Type: TokenSession, Value: ident}
 	default:
 		return Token{Type: TokenIdent, Value: ident}
 	}
