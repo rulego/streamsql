@@ -27,7 +27,7 @@ func TestStreamProcess(t *testing.T) {
 	strm, err := NewStream(config)
 	require.NoError(t, err)
 
-	err = strm.RegisterFilter("device == 'aa'")
+	err = strm.RegisterFilter("device == 'aa' && age > 10")
 	require.NoError(t, err)
 
 	// 添加 Sink 函数来捕获结果
@@ -40,10 +40,8 @@ func TestStreamProcess(t *testing.T) {
 
 	// 准备测试数据
 	testData := []interface{}{
-		map[string]interface{}{"device": "aa", "age": 15.0},
-		map[string]interface{}{"device": "aa", "score": 100},
-		map[string]interface{}{"device": "aa", "age": 20.0},
-		map[string]interface{}{"device": "aa", "score": 200},
+		map[string]interface{}{"device": "aa", "age": 15.0, "score": 100},
+		map[string]interface{}{"device": "aa", "age": 20.0, "score": 200},
 		map[string]interface{}{"device": "bb", "age": 25.0, "score": 300},
 	}
 
@@ -112,7 +110,7 @@ func TestStreamWithoutFilter(t *testing.T) {
 		resultChan <- result
 	})
 	// 等待 3 秒触发窗口
-	//time.Sleep(3 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -157,4 +155,70 @@ func TestStreamWithoutFilter(t *testing.T) {
 		}
 		assert.True(t, found, fmt.Sprintf("Expected result for device %v not found", expectedResult["device"]))
 	}
+}
+
+func TestIncompleteStreamProcess(t *testing.T) {
+	config := Config{
+		WindowConfig: WindowConfig{
+			Type:   "tumbling",
+			Params: map[string]interface{}{"size": time.Second},
+		},
+		GroupFields: []string{"device"},
+		SelectFields: map[string]aggregator.AggregateType{
+			"age":   aggregator.Avg,
+			"score": aggregator.Sum,
+		},
+	}
+
+	strm, err := NewStream(config)
+	require.NoError(t, err)
+
+	err = strm.RegisterFilter("device == 'aa' && age > 10")
+	require.NoError(t, err)
+
+	// 添加 Sink 函数来捕获结果
+	resultChan := make(chan interface{})
+	strm.AddSink(func(result interface{}) {
+		resultChan <- result
+	})
+
+	strm.Start()
+
+	// 准备测试数据
+	testData := []interface{}{
+		map[string]interface{}{"device": "aa", "age": 15.0},
+		map[string]interface{}{"device": "aa", "score": 100},
+		map[string]interface{}{"device": "aa", "age": 20.0},
+		map[string]interface{}{"device": "aa", "score": 200},
+		map[string]interface{}{"device": "bb", "age": 25.0, "score": 300},
+	}
+
+	for _, data := range testData {
+		strm.AddData(data)
+	}
+
+	// 等待结果，并设置超时
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var actual interface{}
+	select {
+	case actual = <-strm.GetResultsChan():
+		cancel()
+	case <-ctx.Done():
+		t.Fatal("No results received within 5 seconds")
+	}
+
+	// 预期结果：只有 device='aa' 且 age>10 的数据会被聚合
+	expected := map[string]interface{}{
+		"device":    "aa",
+		"age_avg":   17.5,  // (15+20)/2
+		"score_sum": 300.0, // 100+200
+	}
+
+	// 验证结果
+	assert.IsType(t, []map[string]interface{}{}, actual)
+	resultMap := actual.([]map[string]interface{})
+	assert.InEpsilon(t, expected["age_avg"].(float64), resultMap[0]["age_avg"].(float64), 0.0001)
+	assert.InDelta(t, expected["score_sum"].(float64), resultMap[0]["score_sum"].(float64), 0.0001)
 }
