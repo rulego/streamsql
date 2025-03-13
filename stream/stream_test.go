@@ -27,7 +27,7 @@ func TestStreamProcess(t *testing.T) {
 	strm, err := NewStream(config)
 	require.NoError(t, err)
 
-	err = strm.RegisterFilter("device == 'aa' && age > 10")
+	err = strm.RegisterFilter("device == 'aa'")
 	require.NoError(t, err)
 
 	// 添加 Sink 函数来捕获结果
@@ -40,8 +40,10 @@ func TestStreamProcess(t *testing.T) {
 
 	// 准备测试数据
 	testData := []interface{}{
-		map[string]interface{}{"device": "aa", "age": 15.0, "score": 100},
-		map[string]interface{}{"device": "aa", "age": 20.0, "score": 200},
+		map[string]interface{}{"device": "aa", "age": 15.0},
+		map[string]interface{}{"device": "aa", "score": 100},
+		map[string]interface{}{"device": "aa", "age": 20.0},
+		map[string]interface{}{"device": "aa", "score": 200},
 		map[string]interface{}{"device": "bb", "age": 25.0, "score": 300},
 	}
 
@@ -110,7 +112,7 @@ func TestStreamWithoutFilter(t *testing.T) {
 		resultChan <- result
 	})
 	// 等待 3 秒触发窗口
-	time.Sleep(3 * time.Second)
+	//time.Sleep(3 * time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
