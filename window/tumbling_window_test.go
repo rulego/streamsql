@@ -2,16 +2,21 @@ package window
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/rulego/streamsql/model"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTumblingWindow(t *testing.T) {
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	tw := NewTumblingWindow(2 * time.Second)
+	tw, _ := NewTumblingWindow(model.WindowConfig{
+		Type:   "TumblingWindow",
+		Params: map[string]interface{}{"size": "2s"},
+	})
 	tw.SetCallback(func(results []interface{}) {
 		// Process results
 	})

@@ -2,9 +2,11 @@ package window
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/rulego/streamsql/model"
+	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -14,8 +16,13 @@ func TestCountingWindow(t *testing.T) {
 	defer cancel()
 
 	// Test case 1: Normal operation
-	cw := NewCountingWindow(3, func(results []interface{}) {
-		t.Logf("Received results: %v", results)
+	cw, _ := NewCountingWindow(model.WindowConfig{
+		Params: map[string]interface{}{
+			"count": 3,
+			"callback": func(results []interface{}) {
+				t.Logf("Received results: %v", results)
+			},
+		},
 	})
 	go cw.Start()
 
@@ -50,8 +57,11 @@ func TestCountingWindow(t *testing.T) {
 }
 
 func TestCountingWindowBadThreshold(t *testing.T) {
-	_, err := CreateWindow("counting", map[string]interface{}{
-		"count": 0,
+	_, err := CreateWindow(model.WindowConfig{
+		Type: "counting",
+		Params: map[string]interface{}{
+			"count": 0,
+		},
 	})
 	require.Error(t, err)
 }

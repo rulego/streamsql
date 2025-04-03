@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Parser struct {
@@ -36,6 +37,10 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 
 	// 解析GROUP BY子句
 	if err := p.parseGroupBy(stmt); err != nil {
+		return nil, err
+	}
+
+	if err := p.parseWith(stmt); err != nil {
 		return nil, err
 	}
 
@@ -125,9 +130,14 @@ func (p *Parser) parseWindowFunction(stmt *SelectStatement, winType string) erro
 		params = append(params, convertValue(valTok.Value))
 	}
 
-	stmt.Window = WindowDefinition{
-		Type:   winType,
-		Params: params,
+	if &stmt.Window != nil {
+		stmt.Window.Params = params
+		stmt.Window.Type = winType
+	} else {
+		stmt.Window = WindowDefinition{
+			Type:   winType,
+			Params: params,
+		}
 	}
 	return nil
 }
@@ -183,5 +193,70 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 		//	break
 		//}
 	}
+	return nil
+}
+
+func (p *Parser) parseWith(stmt *SelectStatement) error {
+	p.lexer.NextToken() // 跳过(
+	for p.lexer.peekChar() != ')' {
+		valTok := p.lexer.NextToken()
+		if valTok.Type == TokenRParen || valTok.Type == TokenEOF {
+			break
+		}
+		if valTok.Type == TokenComma {
+			continue
+		}
+
+		if valTok.Type == TokenTimestamp {
+			next := p.lexer.NextToken()
+			if next.Type == TokenEQ {
+				next = p.lexer.NextToken()
+				if strings.HasPrefix(next.Value, "'") && strings.HasSuffix(next.Value, "'") {
+					next.Value = strings.Trim(next.Value, "'")
+				}
+				// 检查Window是否已初始化，如果未初始化则创建新的WindowDefinition
+				if stmt.Window.Type == "" {
+					stmt.Window = WindowDefinition{
+						TsProp: next.Value,
+					}
+				} else {
+					stmt.Window.TsProp = next.Value
+				}
+			}
+		}
+		if valTok.Type == TokenTimeUnit {
+			timeUnit := time.Minute
+			next := p.lexer.NextToken()
+			if next.Type == TokenEQ {
+				next = p.lexer.NextToken()
+				if strings.HasPrefix(next.Value, "'") && strings.HasSuffix(next.Value, "'") {
+					next.Value = strings.Trim(next.Value, "'")
+				}
+				switch next.Value {
+				case "dd":
+					timeUnit = 24 * time.Hour
+				case "hh":
+					timeUnit = time.Hour
+				case "mi":
+					timeUnit = time.Minute
+				case "ss":
+					timeUnit = time.Second
+				case "ms":
+					timeUnit = time.Millisecond
+				default:
+
+				}
+				// 检查Window是否已初始化，如果未初始化则创建新的WindowDefinition
+				if stmt.Window.Type == "" {
+					stmt.Window = WindowDefinition{
+						TimeUnit: timeUnit,
+					}
+				} else {
+					stmt.Window.TimeUnit = timeUnit
+				}
+			}
+		}
+	}
+
 	return nil
 }

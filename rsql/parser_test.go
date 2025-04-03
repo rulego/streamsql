@@ -1,24 +1,25 @@
 package rsql
 
 import (
-	"github.com/rulego/streamsql/aggregator"
 	"testing"
 	"time"
 
-	"github.com/rulego/streamsql/stream"
+	"github.com/rulego/streamsql/aggregator"
+	"github.com/rulego/streamsql/model"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestParseSQL(t *testing.T) {
 	tests := []struct {
 		sql       string
-		expected  *stream.Config
+		expected  *model.Config
 		condition string
 	}{
 		{
 			sql: "select deviceId, avg(temperature/10) as aa from Input where deviceId='aa' group by deviceId, TumblingWindow('10s')",
-			expected: &stream.Config{
-				WindowConfig: stream.WindowConfig{
+			expected: &model.Config{
+				WindowConfig: model.WindowConfig{
 					Type: "tumbling",
 					Params: map[string]interface{}{
 						"size": 10 * time.Second,
@@ -33,8 +34,8 @@ func TestParseSQL(t *testing.T) {
 		},
 		{
 			sql: "select max(score) as max_score, min(age) as min_age from Sensor group by type, SlidingWindow('20s', '5s')",
-			expected: &stream.Config{
-				WindowConfig: stream.WindowConfig{
+			expected: &model.Config{
+				WindowConfig: model.WindowConfig{
 					Type: "sliding",
 					Params: map[string]interface{}{
 						"size":  20 * time.Second,
@@ -48,6 +49,23 @@ func TestParseSQL(t *testing.T) {
 				},
 			},
 			condition: "",
+		},
+		{
+			sql: "select deviceId, avg(temperature/10) as aa from Input where deviceId='aa' group by deviceId, TumblingWindow('10s') with (TIMESTAMP='ts') ",
+			expected: &model.Config{
+				WindowConfig: model.WindowConfig{
+					Type: "tumbling",
+					Params: map[string]interface{}{
+						"size": 10 * time.Second,
+					},
+					TsProp: "ts",
+				},
+				GroupFields: []string{"deviceId"},
+				SelectFields: map[string]aggregator.AggregateType{
+					"aa": "avg",
+				},
+			},
+			condition: "deviceId == 'aa'",
 		},
 	}
 
@@ -64,6 +82,9 @@ func TestParseSQL(t *testing.T) {
 		assert.Equal(t, tt.expected.GroupFields, config.GroupFields)
 		assert.Equal(t, tt.expected.SelectFields, config.SelectFields)
 		assert.Equal(t, tt.condition, cond)
+		if tt.expected.WindowConfig.TsProp != "" {
+			assert.Equal(t, tt.expected.WindowConfig.TsProp, config.WindowConfig.TsProp)
+		}
 	}
 }
 func TestWindowParamParsing(t *testing.T) {

@@ -2,13 +2,18 @@ package window
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
+
+	"github.com/rulego/streamsql/model"
+	"github.com/spf13/cast"
 )
 
 var _ Window = (*CountingWindow)(nil)
 
 type CountingWindow struct {
+	config      model.WindowConfig
 	threshold   int
 	count       int
 	mu          sync.Mutex
@@ -21,17 +26,26 @@ type CountingWindow struct {
 	triggerChan chan struct{}
 }
 
-func NewCountingWindow(threshold int, callback func([]interface{})) *CountingWindow {
+func NewCountingWindow(config model.WindowConfig) (*CountingWindow, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &CountingWindow{
+	threshold := cast.ToInt(config.Params["count"])
+	if threshold <= 0 {
+		return nil, fmt.Errorf("threshold must be a positive integer")
+	}
+
+	cw := &CountingWindow{
 		threshold:   threshold,
 		dataBuffer:  make([]interface{}, 0, threshold),
 		outputChan:  make(chan []interface{}, 10),
 		ctx:         ctx,
 		cancelFunc:  cancel,
-		callback:    callback,
 		triggerChan: make(chan struct{}, 1),
 	}
+
+	if callback, ok := config.Params["callback"].(func([]interface{})); ok {
+		cw.SetCallback(callback)
+	}
+	return cw, nil
 }
 
 func (cw *CountingWindow) Add(data interface{}) {

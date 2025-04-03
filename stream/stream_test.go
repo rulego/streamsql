@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/rulego/streamsql/aggregator"
+	"github.com/rulego/streamsql/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestStreamProcess(t *testing.T) {
-	config := Config{
-		WindowConfig: WindowConfig{
+	config := model.Config{
+		WindowConfig: model.WindowConfig{
 			Type:   "tumbling",
 			Params: map[string]interface{}{"size": time.Second},
 		},
@@ -77,8 +78,8 @@ func TestStreamProcess(t *testing.T) {
 
 // 不设置过滤器
 func TestStreamWithoutFilter(t *testing.T) {
-	config := Config{
-		WindowConfig: WindowConfig{
+	config := model.Config{
+		WindowConfig: model.WindowConfig{
 			Type:   "sliding",
 			Params: map[string]interface{}{"size": 2 * time.Second, "slide": 1 * time.Second},
 		},
@@ -158,8 +159,8 @@ func TestStreamWithoutFilter(t *testing.T) {
 }
 
 func TestIncompleteStreamProcess(t *testing.T) {
-	config := Config{
-		WindowConfig: WindowConfig{
+	config := model.Config{
+		WindowConfig: model.WindowConfig{
 			Type:   "tumbling",
 			Params: map[string]interface{}{"size": time.Second},
 		},

@@ -2,12 +2,13 @@ package rsql
 
 import (
 	"fmt"
-	"github.com/rulego/streamsql/window"
 	"strings"
 	"time"
 
+	"github.com/rulego/streamsql/model"
+	"github.com/rulego/streamsql/window"
+
 	"github.com/rulego/streamsql/aggregator"
-	"github.com/rulego/streamsql/stream"
 )
 
 type SelectStatement struct {
@@ -24,12 +25,14 @@ type Field struct {
 }
 
 type WindowDefinition struct {
-	Type   string
-	Params []interface{}
+	Type     string
+	Params   []interface{}
+	TsProp   string
+	TimeUnit time.Duration
 }
 
 // ToStreamConfig 将AST转换为Stream配置
-func (s *SelectStatement) ToStreamConfig() (*stream.Config, string, error) {
+func (s *SelectStatement) ToStreamConfig() (*model.Config, string, error) {
 	if s.Source == "" {
 		return nil, "", fmt.Errorf("missing FROM clause")
 	}
@@ -51,10 +54,12 @@ func (s *SelectStatement) ToStreamConfig() (*stream.Config, string, error) {
 	}
 
 	// 构建Stream配置
-	config := stream.Config{
-		WindowConfig: stream.WindowConfig{
-			Type:   windowType,
-			Params: params,
+	config := model.Config{
+		WindowConfig: model.WindowConfig{
+			Type:     windowType,
+			Params:   params,
+			TsProp:   s.Window.TsProp,
+			TimeUnit: s.Window.TimeUnit,
 		},
 		GroupFields:  extractGroupFields(s),
 		SelectFields: buildSelectFields(s.Fields),

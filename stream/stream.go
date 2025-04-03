@@ -5,33 +5,23 @@ import (
 	"time"
 
 	aggregator2 "github.com/rulego/streamsql/aggregator"
+	"github.com/rulego/streamsql/model"
 	"github.com/rulego/streamsql/parser"
 	"github.com/rulego/streamsql/window"
 )
-
-type Config struct {
-	WindowConfig WindowConfig
-	GroupFields  []string
-	SelectFields map[string]aggregator2.AggregateType
-}
-
-type WindowConfig struct {
-	Type   string
-	Params map[string]interface{}
-}
 
 type Stream struct {
 	dataChan   chan interface{}
 	filter     parser.Condition
 	Window     window.Window
 	aggregator aggregator2.Aggregator
-	config     Config
+	config     model.Config
 	sinks      []func(interface{})
 	resultChan chan interface{} // 结果通道
 }
 
-func NewStream(config Config) (*Stream, error) {
-	win, err := window.CreateWindow(config.WindowConfig.Type, config.WindowConfig.Params)
+func NewStream(config model.Config) (*Stream, error) {
+	win, err := window.CreateWindow(config.WindowConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -108,5 +98,5 @@ func (s *Stream) GetResultsChan() <-chan interface{} {
 }
 
 func NewStreamProcessor() (*Stream, error) {
-	return NewStream(Config{})
+	return NewStream(model.Config{})
 }

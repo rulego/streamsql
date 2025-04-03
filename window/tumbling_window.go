@@ -3,8 +3,12 @@ package window
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
+
+	"github.com/rulego/streamsql/model"
+	"github.com/spf13/cast"
 )
 
 // 确保 TumblingWindow 结构体实现了 Window 接口。
@@ -12,6 +16,8 @@ var _ Window = (*TumblingWindow)(nil)
 
 // TumblingWindow 表示一个滚动窗口，用于在固定时间间隔内收集数据并触发处理。
 type TumblingWindow struct {
+	// config 是窗口的配置信息。
+	config model.WindowConfig
 	// size 是滚动窗口的时间大小，即窗口的持续时间。
 	size time.Duration
 	// mu 用于保护对窗口数据的并发访问。
@@ -32,15 +38,20 @@ type TumblingWindow struct {
 
 // NewTumblingWindow 创建一个新的滚动窗口实例。
 // 参数 size 是窗口的时间大小。
-func NewTumblingWindow(size time.Duration) *TumblingWindow {
+func NewTumblingWindow(config model.WindowConfig) (*TumblingWindow, error) {
 	// 创建一个可取消的上下文。
 	ctx, cancel := context.WithCancel(context.Background())
+	size, err := cast.ToDurationE(config.Params["size"])
+	if err != nil {
+		return nil, fmt.Errorf("invalid size for tumbling window: %v", err)
+	}
 	return &TumblingWindow{
+		config:     config,
 		size:       size,
 		outputChan: make(chan []interface{}, 10),
 		ctx:        ctx,
 		cancelFunc: cancel,
-	}
+	}, nil
 }
 
 // Add 向滚动窗口添加数据。
