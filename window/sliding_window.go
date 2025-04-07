@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rulego/streamsql/model"
+	timex "github.com/rulego/streamsql/utils"
 	"github.com/spf13/cast"
 )
 
@@ -30,17 +31,19 @@ type SlidingWindow struct {
 	// 用于保护数据并发访问的互斥锁
 	mu sync.Mutex
 	// 存储窗口内的数据
-	data []TimedData
+	data []model.Row
 	// 用于输出窗口内数据的通道
-	outputChan chan []interface{}
+	outputChan chan []model.Row
 	// 当窗口触发时执行的回调函数
-	callback func([]interface{})
+	callback func([]model.Row)
 	// 用于控制窗口生命周期的上下文
 	ctx context.Context
 	// 用于取消上下文的函数
 	cancelFunc context.CancelFunc
 	// 用于定时触发窗口的定时器
-	timer *time.Timer
+	timer       *time.Timer
+	startSlot   *model.TimeSlot
+	currentSlot *model.TimeSlot
 }
 
 // NewSlidingWindow 创建一个新的滑动窗口实例
@@ -60,10 +63,10 @@ func NewSlidingWindow(config model.WindowConfig) (*SlidingWindow, error) {
 		config:     config,
 		size:       size,
 		slide:      slide,
-		outputChan: make(chan []interface{}, 10),
+		outputChan: make(chan []model.Row, 10),
 		ctx:        ctx,
 		cancelFunc: cancel,
-		data:       make([]TimedData, 0),
+		data:       make([]model.Row, 0),
 	}, nil
 }
 
@@ -74,10 +77,34 @@ func (sw *SlidingWindow) Add(data interface{}) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 	// 将数据添加到窗口的数据列表中
-	sw.data = append(sw.data, TimedData{
+
+	if sw.startSlot == nil {
+		sw.startSlot = sw.createSlot(GetTimestamp(data, sw.config.TsProp))
+		sw.currentSlot = sw.startSlot
+	}
+	row := model.Row{
 		Data:      data,
 		Timestamp: GetTimestamp(data, sw.config.TsProp),
-	})
+	}
+	sw.data = append(sw.data, row)
+}
+
+func (sw *SlidingWindow) createSlot(t time.Time) *model.TimeSlot {
+	// 创建一个新的时间槽位
+	start := timex.AlignTimeToWindow(t, sw.size)
+	end := start.Add(sw.size)
+	slot := model.NewTimeSlot(&start, &end)
+	return slot
+}
+
+func (sw *SlidingWindow) NextSlot() *model.TimeSlot {
+	if sw.currentSlot == nil {
+		return nil
+	}
+	start := sw.currentSlot.Start.Add(sw.slide)
+	end := sw.currentSlot.End.Add(sw.slide)
+	next := model.NewTimeSlot(&start, &end)
+	return next
 }
 
 // Start 启动滑动窗口，开始定时触发窗口
@@ -113,19 +140,22 @@ func (sw *SlidingWindow) Trigger() {
 	}
 
 	// 计算截止时间，即当前时间减去窗口的总大小
-	cutoff := time.Now().Add(-sw.size)
-	var newData []TimedData
+	next := sw.NextSlot()
+	var newData []model.Row
 	// 遍历窗口内的数据，只保留在截止时间之后的数据
 	for _, item := range sw.data {
-		if item.Timestamp.After(cutoff) {
+		if next.Contains(item.Timestamp) {
 			newData = append(newData, item)
 		}
 	}
 
 	// 提取出 Data 字段组成 []interface{} 类型的数据
-	resultData := make([]interface{}, 0, len(newData))
-	for _, item := range newData {
-		resultData = append(resultData, item.Data)
+	resultData := make([]model.Row, 0)
+	for _, item := range sw.data {
+		if sw.currentSlot.Contains(item.Timestamp) {
+			item.Slot = sw.currentSlot
+			resultData = append(resultData, item)
+		}
 	}
 
 	// 如果设置了回调函数，则执行回调函数
@@ -135,6 +165,7 @@ func (sw *SlidingWindow) Trigger() {
 
 	// 更新窗口内的数据
 	sw.data = newData
+	sw.currentSlot = next
 	// 将新的数据发送到输出通道
 	sw.outputChan <- resultData
 }
@@ -149,13 +180,13 @@ func (sw *SlidingWindow) Reset() {
 }
 
 // OutputChan 返回滑动窗口的输出通道
-func (sw *SlidingWindow) OutputChan() <-chan []interface{} {
+func (sw *SlidingWindow) OutputChan() <-chan []model.Row {
 	return sw.outputChan
 }
 
 // SetCallback 设置滑动窗口触发时执行的回调函数
 // 参数 callback 表示要设置的回调函数
-func (sw *SlidingWindow) SetCallback(callback func([]interface{})) {
+func (sw *SlidingWindow) SetCallback(callback func([]model.Row)) {
 	sw.callback = callback
 }
 

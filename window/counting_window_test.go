@@ -34,7 +34,7 @@ func TestCountingWindow(t *testing.T) {
 	// Trigger one more element to check threshold
 	cw.Add(3)
 
-	results := make(chan []interface{})
+	results := make(chan []model.Row)
 	go func() {
 		for res := range cw.OutputChan() {
 			results <- res
@@ -44,9 +44,13 @@ func TestCountingWindow(t *testing.T) {
 	select {
 	case res := <-results:
 		assert.Len(t, res, 3)
-		assert.Contains(t, res, 0)
-		assert.Contains(t, res, 1)
-		assert.Contains(t, res, 2)
+		raw := make([]interface{}, len(res))
+		for _, row := range res {
+			raw = append(raw, row.Data)
+		}
+		assert.Contains(t, raw, 0)
+		assert.Contains(t, raw, 1)
+		assert.Contains(t, raw, 2)
 	case <-time.After(2 * time.Second):
 		t.Error("No results received within timeout")
 	}

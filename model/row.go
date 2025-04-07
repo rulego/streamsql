@@ -11,6 +11,7 @@ type RowEvent interface {
 type Row struct {
 	Timestamp time.Time
 	Data      interface{}
+	Slot      *TimeSlot
 }
 
 // GetTimestamp 获取时间戳

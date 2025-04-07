@@ -17,9 +17,9 @@ type CountingWindow struct {
 	threshold   int
 	count       int
 	mu          sync.Mutex
-	callback    func([]interface{})
-	dataBuffer  []interface{}
-	outputChan  chan []interface{}
+	callback    func([]model.Row)
+	dataBuffer  []model.Row
+	outputChan  chan []model.Row
 	ctx         context.Context
 	cancelFunc  context.CancelFunc
 	ticker      *time.Ticker
@@ -35,14 +35,14 @@ func NewCountingWindow(config model.WindowConfig) (*CountingWindow, error) {
 
 	cw := &CountingWindow{
 		threshold:   threshold,
-		dataBuffer:  make([]interface{}, 0, threshold),
-		outputChan:  make(chan []interface{}, 10),
+		dataBuffer:  make([]model.Row, 0, threshold),
+		outputChan:  make(chan []model.Row, 10),
 		ctx:         ctx,
 		cancelFunc:  cancel,
 		triggerChan: make(chan struct{}, 1),
 	}
 
-	if callback, ok := config.Params["callback"].(func([]interface{})); ok {
+	if callback, ok := config.Params["callback"].(func([]model.Row)); ok {
 		cw.SetCallback(callback)
 	}
 	return cw, nil
@@ -50,21 +50,21 @@ func NewCountingWindow(config model.WindowConfig) (*CountingWindow, error) {
 
 func (cw *CountingWindow) Add(data interface{}) {
 	cw.mu.Lock()
-	cw.dataBuffer = append(cw.dataBuffer, data)
+	defer cw.mu.Unlock()
+	row := model.Row{
+		Data:      data,
+		Timestamp: GetTimestamp(data, cw.config.TsProp),
+	}
+	cw.dataBuffer = append(cw.dataBuffer, row)
 	cw.count++
 	shouldTrigger := cw.count >= cw.threshold
-	cw.mu.Unlock()
 
 	if shouldTrigger {
-		cw.mu.Lock()
-		v := append([]interface{}{}, cw.dataBuffer...)
-		cw.mu.Unlock()
-
 		go func() {
 			if cw.callback != nil {
-				cw.callback(v)
+				cw.callback(cw.dataBuffer)
 			}
-			cw.outputChan <- v
+			cw.outputChan <- cw.dataBuffer
 			cw.Reset()
 		}()
 	}
@@ -109,9 +109,10 @@ func (cw *CountingWindow) Reset() {
 	cw.dataBuffer = cw.dataBuffer[:0]
 }
 
-func (cw *CountingWindow) OutputChan() <-chan []interface{} {
+func (cw *CountingWindow) OutputChan() <-chan []model.Row {
 	return cw.outputChan
 }
-func (cw *CountingWindow) GetResults() []interface{} {
-	return append([]interface{}{}, cw.dataBuffer...)
-}
+
+// func (cw *CountingWindow) GetResults() []interface{} {
+// 	return append([]mode.Row, cw.dataBuffer...)
+// }

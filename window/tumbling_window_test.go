@@ -17,7 +17,7 @@ func TestTumblingWindow(t *testing.T) {
 		Type:   "TumblingWindow",
 		Params: map[string]interface{}{"size": "2s"},
 	})
-	tw.SetCallback(func(results []interface{}) {
+	tw.SetCallback(func(results []model.Row) {
 		// Process results
 	})
 	go tw.Start()
@@ -30,7 +30,7 @@ func TestTumblingWindow(t *testing.T) {
 
 	// Check output channel
 	resultsChan := tw.OutputChan()
-	var results []interface{}
+	var results []model.Row
 	select {
 	case results = <-resultsChan:
 	case <-time.After(3 * time.Second):

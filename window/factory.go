@@ -17,11 +17,11 @@ const (
 
 type Window interface {
 	Add(item interface{})
-	GetResults() []interface{}
+	//GetResults() []interface{}
 	Reset()
 	Start()
-	OutputChan() <-chan []interface{}
-	SetCallback(callback func([]interface{}))
+	OutputChan() <-chan []model.Row
+	SetCallback(callback func([]model.Row))
 	Trigger()
 }
 
@@ -38,7 +38,7 @@ func CreateWindow(config model.WindowConfig) (Window, error) {
 	}
 }
 
-func (cw *CountingWindow) SetCallback(callback func([]interface{})) {
+func (cw *CountingWindow) SetCallback(callback func([]model.Row)) {
 	cw.callback = callback
 }
 
