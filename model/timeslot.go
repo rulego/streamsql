@@ -34,7 +34,7 @@ func (ts TimeSlot) Hash() uint64 {
 // Contains 检查给定时间是否在槽位范围内
 func (ts TimeSlot) Contains(t time.Time) bool {
 	return (t.Equal(*ts.Start) || t.After(*ts.Start)) &&
-		(t.Equal(*ts.End) || t.Before(*ts.End))
+		t.Before(*ts.End)
 }
 
 func (ts *TimeSlot) GetStartTime() *time.Time {

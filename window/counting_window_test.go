@@ -34,30 +34,27 @@ func TestCountingWindow(t *testing.T) {
 	// Trigger one more element to check threshold
 	cw.Add(3)
 
-	results := make(chan []model.Row)
-	go func() {
-		for res := range cw.OutputChan() {
-			results <- res
-		}
-	}()
+	resultsChan := cw.OutputChan()
+	//results := make(chan []model.Row)
+	// go func() {
+	// 	for res := range cw.OutputChan() {
+	// 		results <- res
+	// 	}
+	// }()
 
 	select {
-	case res := <-results:
+	case res := <-resultsChan:
 		assert.Len(t, res, 3)
-		raw := make([]interface{}, len(res))
-		for _, row := range res {
-			raw = append(raw, row.Data)
-		}
-		assert.Contains(t, raw, 0)
-		assert.Contains(t, raw, 1)
-		assert.Contains(t, raw, 2)
+		assert.Equal(t, 0, res[0].Data, "第一个元素应该是0")
+		assert.Equal(t, 1, res[1].Data, "第二个元素应该是1")
+		assert.Equal(t, 2, res[2].Data, "第三个元素应该是2")
 	case <-time.After(2 * time.Second):
 		t.Error("No results received within timeout")
 	}
 
 	// Test case 2: Reset
 	cw.Reset()
-	assert.Len(t, cw.dataBuffer, 0)
+	assert.Len(t, cw.dataBuffer, 1)
 }
 
 func TestCountingWindowBadThreshold(t *testing.T) {

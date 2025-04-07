@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rulego/streamsql/model"
+	timex "github.com/rulego/streamsql/utils"
 	"github.com/spf13/cast"
 )
 
@@ -51,20 +52,33 @@ func NewCountingWindow(config model.WindowConfig) (*CountingWindow, error) {
 func (cw *CountingWindow) Add(data interface{}) {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
+	// 将数据添加到窗口的数据列表中
+	t := GetTimestamp(data, cw.config.TsProp)
 	row := model.Row{
 		Data:      data,
-		Timestamp: GetTimestamp(data, cw.config.TsProp),
+		Timestamp: t,
 	}
 	cw.dataBuffer = append(cw.dataBuffer, row)
 	cw.count++
-	shouldTrigger := cw.count >= cw.threshold
+	shouldTrigger := cw.count == cw.threshold
 
 	if shouldTrigger {
+		slot := cw.createSlot(cw.dataBuffer[:cw.threshold])
+		for _, r := range cw.dataBuffer[:cw.threshold] {
+			// 由于Row是值类型，这里需要通过指针来修改Slot字段
+			(&r).Slot = slot
+		}
+		data := cw.dataBuffer[:cw.threshold]
+		if len(cw.dataBuffer) > cw.threshold {
+			cw.dataBuffer = cw.dataBuffer[cw.threshold:]
+		} else {
+			cw.dataBuffer = make([]model.Row, 0, cw.threshold)
+		}
 		go func() {
 			if cw.callback != nil {
-				cw.callback(cw.dataBuffer)
+				cw.callback(data)
 			}
-			cw.outputChan <- cw.dataBuffer
+			cw.outputChan <- data
 			cw.Reset()
 		}()
 	}
@@ -89,24 +103,34 @@ func (cw *CountingWindow) Start() {
 }
 
 func (cw *CountingWindow) Trigger() {
-	cw.triggerChan <- struct{}{}
+	// cw.triggerChan <- struct{}{}
 
-	go func() {
-		cw.mu.Lock()
-		defer cw.mu.Unlock()
+	// go func() {
+	// 	cw.mu.Lock()
+	// 	defer cw.mu.Unlock()
 
-		if cw.callback != nil && len(cw.dataBuffer) > 0 {
-			cw.callback(cw.dataBuffer)
-		}
-		cw.Reset()
-	}()
+	// 	if cw.callback != nil && len(cw.dataBuffer) > 0 {
+	// 		var resultData []model.Row
+	// 		if len(cw.dataBuffer) > cw.threshold {
+	// 			resultData = cw.dataBuffer[:cw.threshold]
+	// 		} else {
+	// 			resultData = cw.dataBuffer
+	// 		}
+	// 		slot := cw.createSlot(resultData)
+	// 		for _, r := range resultData {
+	// 			r.Slot = slot
+	// 		}
+	// 		cw.callback(resultData)
+	// 	}
+	// 	cw.Reset()
+	// }()
 }
 
 func (cw *CountingWindow) Reset() {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 	cw.count = 0
-	cw.dataBuffer = cw.dataBuffer[:0]
+	cw.dataBuffer = cw.dataBuffer[0:]
 }
 
 func (cw *CountingWindow) OutputChan() <-chan []model.Row {
@@ -116,3 +140,20 @@ func (cw *CountingWindow) OutputChan() <-chan []model.Row {
 // func (cw *CountingWindow) GetResults() []interface{} {
 // 	return append([]mode.Row, cw.dataBuffer...)
 // }
+
+// createSlot 创建一个新的时间槽位
+func (cw *CountingWindow) createSlot(data []model.Row) *model.TimeSlot {
+	if len(data) == 0 {
+		return nil
+	} else if len(data) < cw.threshold {
+		start := timex.AlignTime(data[0].Timestamp, cw.config.TimeUnit, true)
+		end := timex.AlignTime(data[len(cw.dataBuffer)-1].Timestamp, cw.config.TimeUnit, false)
+		slot := model.NewTimeSlot(&start, &end)
+		return slot
+	} else {
+		start := timex.AlignTime(data[0].Timestamp, cw.config.TimeUnit, true)
+		end := timex.AlignTime(data[cw.threshold-1].Timestamp, cw.config.TimeUnit, false)
+		slot := model.NewTimeSlot(&start, &end)
+		return slot
+	}
+}

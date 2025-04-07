@@ -42,7 +42,6 @@ type SlidingWindow struct {
 	cancelFunc context.CancelFunc
 	// 用于定时触发窗口的定时器
 	timer       *time.Timer
-	startSlot   *model.TimeSlot
 	currentSlot *model.TimeSlot
 }
 
@@ -77,34 +76,15 @@ func (sw *SlidingWindow) Add(data interface{}) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 	// 将数据添加到窗口的数据列表中
-
-	if sw.startSlot == nil {
-		sw.startSlot = sw.createSlot(GetTimestamp(data, sw.config.TsProp))
-		sw.currentSlot = sw.startSlot
+	t := GetTimestamp(data, sw.config.TsProp)
+	if sw.currentSlot == nil {
+		sw.currentSlot = sw.createSlot(t)
 	}
 	row := model.Row{
 		Data:      data,
-		Timestamp: GetTimestamp(data, sw.config.TsProp),
+		Timestamp: t,
 	}
 	sw.data = append(sw.data, row)
-}
-
-func (sw *SlidingWindow) createSlot(t time.Time) *model.TimeSlot {
-	// 创建一个新的时间槽位
-	start := timex.AlignTimeToWindow(t, sw.size)
-	end := start.Add(sw.size)
-	slot := model.NewTimeSlot(&start, &end)
-	return slot
-}
-
-func (sw *SlidingWindow) NextSlot() *model.TimeSlot {
-	if sw.currentSlot == nil {
-		return nil
-	}
-	start := sw.currentSlot.Start.Add(sw.slide)
-	end := sw.currentSlot.End.Add(sw.slide)
-	next := model.NewTimeSlot(&start, &end)
-	return next
 }
 
 // Start 启动滑动窗口，开始定时触发窗口
@@ -190,15 +170,21 @@ func (sw *SlidingWindow) SetCallback(callback func([]model.Row)) {
 	sw.callback = callback
 }
 
-// GetResults 获取滑动窗口内的当前数据
-func (sw *SlidingWindow) GetResults() []interface{} {
-	// 加锁以保证数据的并发安全
-	sw.mu.Lock()
-	defer sw.mu.Unlock()
-	// 提取出 Data 字段组成 []interface{} 类型的数据
-	resultData := make([]interface{}, 0, len(sw.data))
-	for _, item := range sw.data {
-		resultData = append(resultData, item.Data)
+func (sw *SlidingWindow) NextSlot() *model.TimeSlot {
+	if sw.currentSlot == nil {
+		return nil
 	}
-	return resultData
+	start := sw.currentSlot.Start.Add(sw.slide)
+	end := sw.currentSlot.End.Add(sw.slide)
+	next := model.NewTimeSlot(&start, &end)
+	return next
+}
+
+// createSlot 创建一个新的时间槽位
+func (sw *SlidingWindow) createSlot(t time.Time) *model.TimeSlot {
+	// 创建一个新的时间槽位
+	start := timex.AlignTimeToWindow(t, sw.size)
+	end := start.Add(sw.size)
+	slot := model.NewTimeSlot(&start, &end)
+	return slot
 }

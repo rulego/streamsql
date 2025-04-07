@@ -69,12 +69,3 @@ func GetTimestamp(data interface{}, tsProp string) time.Time {
 	}
 	return time.Now()
 }
-
-// AlignTime 将时间对齐到指定的时间单位。 roundUp 为 true 时向上截断，为 false 时向下截断。
-func AlignTime(t time.Time, timeUnit time.Duration, roundUp bool) time.Time {
-	trunc := t.Truncate(timeUnit)
-	if !roundUp {
-		return trunc.Add(timeUnit)
-	}
-	return trunc
-}
