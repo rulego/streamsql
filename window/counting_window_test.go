@@ -51,10 +51,10 @@ func TestCountingWindow(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Error("No results received within timeout")
 	}
-
+	assert.Len(t, cw.dataBuffer, 1)
 	// Test case 2: Reset
 	cw.Reset()
-	assert.Len(t, cw.dataBuffer, 1)
+	assert.Len(t, cw.dataBuffer, 0)
 }
 
 func TestCountingWindowBadThreshold(t *testing.T) {

@@ -35,7 +35,6 @@ type TumblingWindow struct {
 	cancelFunc context.CancelFunc
 	// timer 用于定时触发窗口。
 	timer       *time.Timer
-	startSlot   *model.TimeSlot
 	currentSlot *model.TimeSlot
 }
 
@@ -64,15 +63,16 @@ func (tw *TumblingWindow) Add(data interface{}) {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 	// 将数据追加到窗口的数据列表中。
-	if tw.startSlot == nil {
-		tw.startSlot = tw.createSlot(GetTimestamp(data, tw.config.TsProp))
-		tw.currentSlot = tw.startSlot
+	if tw.currentSlot == nil {
+		tw.currentSlot = tw.createSlot(GetTimestamp(data, tw.config.TsProp))
 	}
-	row := model.Row{
-		Data:      data,
-		Timestamp: GetTimestamp(data, tw.config.TsProp),
-	}
-	tw.data = append(tw.data, row)
+	go func() {
+		row := model.Row{
+			Data:      data,
+			Timestamp: GetTimestamp(data, tw.config.TsProp),
+		}
+		tw.data = append(tw.data, row)
+	}()
 }
 
 func (sw *TumblingWindow) createSlot(t time.Time) *model.TimeSlot {
@@ -89,8 +89,7 @@ func (sw *TumblingWindow) NextSlot() *model.TimeSlot {
 	}
 	start := sw.currentSlot.End
 	end := sw.currentSlot.End.Add(sw.size)
-	next := model.NewTimeSlot(start, &end)
-	return next
+	return model.NewTimeSlot(start, &end)
 }
 
 // Stop 停止滚动窗口的操作。
@@ -127,17 +126,20 @@ func (tw *TumblingWindow) Trigger() {
 	// 加锁以确保并发安全。
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
-	// 计算截止时间，即当前时间减去窗口的总大小
+	// 计算下一个窗口槽位
 	next := tw.NextSlot()
-	var newData []model.Row
-	// 遍历窗口内的数据，只保留在截止时间之后的数据
+	// 保留下一个窗口的数据
+	tms := next.Start.Add(-tw.size)
+	tme := next.End.Add(tw.size)
+	temp := model.NewTimeSlot(&tms, &tme)
+	newData := make([]model.Row, 0)
 	for _, item := range tw.data {
-		if next.Contains(item.Timestamp) {
+		if temp.Contains(item.Timestamp) {
 			newData = append(newData, item)
 		}
 	}
 
-	// 提取出 Data 字段组成 []interface{} 类型的数据
+	// 提取出当前窗口数据
 	resultData := make([]model.Row, 0)
 	for _, item := range tw.data {
 		if tw.currentSlot.Contains(item.Timestamp) {
@@ -165,6 +167,7 @@ func (tw *TumblingWindow) Reset() {
 	defer tw.mu.Unlock()
 	// 清空窗口数据。
 	tw.data = nil
+	tw.currentSlot = nil
 }
 
 // OutputChan 返回一个只读通道，用于接收窗口触发时的数据。

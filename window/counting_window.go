@@ -60,7 +60,7 @@ func (cw *CountingWindow) Add(data interface{}) {
 	}
 	cw.dataBuffer = append(cw.dataBuffer, row)
 	cw.count++
-	shouldTrigger := cw.count == cw.threshold
+	shouldTrigger := cw.count >= cw.threshold
 
 	if shouldTrigger {
 		slot := cw.createSlot(cw.dataBuffer[:cw.threshold])
@@ -70,16 +70,22 @@ func (cw *CountingWindow) Add(data interface{}) {
 		}
 		data := cw.dataBuffer[:cw.threshold]
 		if len(cw.dataBuffer) > cw.threshold {
-			cw.dataBuffer = cw.dataBuffer[cw.threshold:]
+			remaining := len(cw.dataBuffer) - cw.threshold
+			newBuffer := make([]model.Row, remaining, cw.threshold)
+			copy(newBuffer, cw.dataBuffer[cw.threshold:])
+			cw.dataBuffer = newBuffer
 		} else {
 			cw.dataBuffer = make([]model.Row, 0, cw.threshold)
 		}
 		go func() {
+			cw.mu.Lock()
 			if cw.callback != nil {
 				cw.callback(data)
 			}
 			cw.outputChan <- data
-			cw.Reset()
+			cw.count = 0
+			//cw.Reset()
+			cw.mu.Unlock()
 		}()
 	}
 }
@@ -94,7 +100,7 @@ func (cw *CountingWindow) Start() {
 		for {
 			select {
 			case <-cw.ticker.C:
-				cw.Trigger()
+				//cw.Trigger()
 			case <-cw.ctx.Done():
 				return
 			}
@@ -103,34 +109,34 @@ func (cw *CountingWindow) Start() {
 }
 
 func (cw *CountingWindow) Trigger() {
-	// cw.triggerChan <- struct{}{}
+	cw.triggerChan <- struct{}{}
 
-	// go func() {
-	// 	cw.mu.Lock()
-	// 	defer cw.mu.Unlock()
+	go func() {
+		cw.mu.Lock()
+		defer cw.mu.Unlock()
 
-	// 	if cw.callback != nil && len(cw.dataBuffer) > 0 {
-	// 		var resultData []model.Row
-	// 		if len(cw.dataBuffer) > cw.threshold {
-	// 			resultData = cw.dataBuffer[:cw.threshold]
-	// 		} else {
-	// 			resultData = cw.dataBuffer
-	// 		}
-	// 		slot := cw.createSlot(resultData)
-	// 		for _, r := range resultData {
-	// 			r.Slot = slot
-	// 		}
-	// 		cw.callback(resultData)
-	// 	}
-	// 	cw.Reset()
-	// }()
+		if cw.callback != nil && len(cw.dataBuffer) > 0 {
+			var resultData []model.Row
+			if len(cw.dataBuffer) > cw.threshold {
+				resultData = cw.dataBuffer[:cw.threshold]
+			} else {
+				resultData = cw.dataBuffer
+			}
+			slot := cw.createSlot(resultData)
+			for _, r := range resultData {
+				r.Slot = slot
+			}
+			cw.callback(resultData)
+		}
+		cw.Reset()
+	}()
 }
 
 func (cw *CountingWindow) Reset() {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 	cw.count = 0
-	cw.dataBuffer = cw.dataBuffer[0:]
+	cw.dataBuffer = cw.dataBuffer[:0]
 }
 
 func (cw *CountingWindow) OutputChan() <-chan []model.Row {

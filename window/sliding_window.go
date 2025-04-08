@@ -80,11 +80,13 @@ func (sw *SlidingWindow) Add(data interface{}) {
 	if sw.currentSlot == nil {
 		sw.currentSlot = sw.createSlot(t)
 	}
-	row := model.Row{
-		Data:      data,
-		Timestamp: t,
-	}
-	sw.data = append(sw.data, row)
+	go func() {
+		row := model.Row{
+			Data:      data,
+			Timestamp: t,
+		}
+		sw.data = append(sw.data, row)
+	}()
 }
 
 // Start 启动滑动窗口，开始定时触发窗口
@@ -121,10 +123,13 @@ func (sw *SlidingWindow) Trigger() {
 
 	// 计算截止时间，即当前时间减去窗口的总大小
 	next := sw.NextSlot()
-	var newData []model.Row
-	// 遍历窗口内的数据，只保留在截止时间之后的数据
+	// 保留下一个窗口的数据
+	tms := next.Start.Add(-sw.size)
+	tme := next.End.Add(sw.size)
+	temp := model.NewTimeSlot(&tms, &tme)
+	newData := make([]model.Row, 0)
 	for _, item := range sw.data {
-		if next.Contains(item.Timestamp) {
+		if temp.Contains(item.Timestamp) {
 			newData = append(newData, item)
 		}
 	}
@@ -157,6 +162,7 @@ func (sw *SlidingWindow) Reset() {
 	defer sw.mu.Unlock()
 	// 清空窗口内的数据
 	sw.data = nil
+	sw.currentSlot = nil
 }
 
 // OutputChan 返回滑动窗口的输出通道

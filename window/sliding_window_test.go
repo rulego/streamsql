@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/rulego/streamsql/model"
+	timex "github.com/rulego/streamsql/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -59,14 +60,27 @@ func TestSlidingWindow(t *testing.T) {
 
 			// 检查窗口内的数据
 			expectedData := make([]TestDate, 0)
+
 			if windowStart.Before(t_3.Ts) && windowEnd.After(t_2.Ts) {
 				expectedData = []TestDate{t_3, t_2}
+				start := timex.AlignTimeToWindow(t_3.Ts, sw.size)
+				assert.Equal(t, start, windowStart)
+				assert.Equal(t, start.Add(sw.size), windowEnd)
 			} else if windowStart.Before(t_2.Ts) && windowEnd.After(t_1.Ts) {
 				expectedData = []TestDate{t_2, t_1}
+				start := timex.AlignTimeToWindow(t_2.Ts, sw.size)
+				assert.Equal(t, start, windowStart)
+				assert.Equal(t, start.Add(sw.size), windowEnd)
 			} else if windowStart.Before(t_1.Ts) && windowEnd.After(t_0.Ts) {
 				expectedData = []TestDate{t_1, t_0}
+				start := timex.AlignTimeToWindow(t_1.Ts, sw.size)
+				assert.Equal(t, start, windowStart)
+				assert.Equal(t, start.Add(sw.size), windowEnd)
 			} else {
 				expectedData = []TestDate{t_0}
+				start := timex.AlignTimeToWindow(t_0.Ts, sw.size)
+				assert.Equal(t, start, windowStart)
+				assert.Equal(t, start.Add(sw.size), windowEnd)
 			}
 
 			// 验证窗口数据
