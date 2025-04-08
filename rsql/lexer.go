@@ -34,6 +34,9 @@ const (
 	TokenSliding
 	TokenCounting
 	TokenSession
+	TokenWITH
+	TokenTimestamp
+	TokenTimeUnit
 )
 
 type Token struct {
@@ -204,6 +207,12 @@ func (l *Lexer) lookupIdent(ident string) Token {
 		return Token{Type: TokenCounting, Value: ident}
 	case "SESSIONWINDOW":
 		return Token{Type: TokenSession, Value: ident}
+	case "WITH":
+		return Token{Type: TokenWITH, Value: ident}
+	case "TIMESTAMP":
+		return Token{Type: TokenTimestamp, Value: ident}
+	case "TIMEUNIT":
+		return Token{Type: TokenTimeUnit, Value: ident}
 	default:
 		return Token{Type: TokenIdent, Value: ident}
 	}

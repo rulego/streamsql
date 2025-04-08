@@ -9,6 +9,7 @@ import (
 
 type Aggregator interface {
 	Add(data interface{}) error
+	Put(key string, val interface{}) error
 	GetResults() ([]map[string]interface{}, error)
 	Reset()
 }
@@ -19,9 +20,11 @@ type GroupAggregator struct {
 	aggregators map[string]AggregatorFunction
 	groups      map[string]map[string]AggregatorFunction
 	mu          sync.RWMutex
+	context     map[string]interface{}
+	fieldAlias  map[string]string
 }
 
-func NewGroupAggregator(groupFields []string, fieldMap map[string]AggregateType) *GroupAggregator {
+func NewGroupAggregator(groupFields []string, fieldMap map[string]AggregateType, fieldAlias map[string]string) *GroupAggregator {
 	aggregators := make(map[string]AggregatorFunction)
 
 	for field, aggType := range fieldMap {
@@ -33,8 +36,20 @@ func NewGroupAggregator(groupFields []string, fieldMap map[string]AggregateType)
 		groupFields: groupFields,
 		aggregators: aggregators,
 		groups:      make(map[string]map[string]AggregatorFunction),
+		fieldAlias:  fieldAlias,
 	}
 }
+
+func (ga *GroupAggregator) Put(key string, val interface{}) error {
+	ga.mu.Lock()         // 获取写锁
+	defer ga.mu.Unlock() // 确保函数返回时释放锁
+	if ga.context == nil {
+		ga.context = make(map[string]interface{})
+	}
+	ga.context[key] = val
+	return nil
+}
+
 func (ga *GroupAggregator) Add(data interface{}) error {
 	ga.mu.Lock()         // 获取写锁
 	defer ga.mu.Unlock() // 确保函数返回时释放锁
@@ -114,6 +129,19 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		if !f.IsValid() {
 			//return fmt.Errorf("field %s not found", field)
 			//fmt.Printf("field %s not found in %v \n ", field, data)
+
+			// 尝试从context中获取
+			if ga.context != nil {
+				if groupAgg, exists := ga.groups[key][field]; exists {
+					if _, ok := groupAgg.(ContextAggregator); ok {
+						key := groupAgg.(ContextAggregator).GetContextKey()
+						if val, exists := ga.context[key]; exists {
+							groupAgg.Add(val)
+							//fmt.Printf("add agg group by %s:%s , %v  \n", key, field, value)
+						}
+					}
+				}
+			}
 			continue
 		}
 
@@ -151,7 +179,20 @@ func (ga *GroupAggregator) GetResults() ([]map[string]interface{}, error) {
 			group[field] = fields[i]
 		}
 		for field, agg := range aggregators {
-			group[field+"_"+string(ga.fieldMap[field])] = agg.Result()
+			if _, ok := agg.(ContextAggregator); ok {
+				if alias, ok := ga.fieldAlias[field]; ok {
+					group[alias] = agg.Result()
+				} else {
+					group[field] = agg.Result()
+				}
+			} else {
+				if alias, ok := ga.fieldAlias[field]; ok {
+					group[alias] = agg.Result()
+				} else {
+					group[field+"_"+string(ga.fieldMap[field])] = agg.Result()
+				}
+			}
+
 		}
 		result = append(result, group)
 	}

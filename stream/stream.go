@@ -2,36 +2,27 @@ package stream
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	aggregator2 "github.com/rulego/streamsql/aggregator"
+	"github.com/rulego/streamsql/model"
 	"github.com/rulego/streamsql/parser"
 	"github.com/rulego/streamsql/window"
 )
-
-type Config struct {
-	WindowConfig WindowConfig
-	GroupFields  []string
-	SelectFields map[string]aggregator2.AggregateType
-}
-
-type WindowConfig struct {
-	Type   string
-	Params map[string]interface{}
-}
 
 type Stream struct {
 	dataChan   chan interface{}
 	filter     parser.Condition
 	Window     window.Window
 	aggregator aggregator2.Aggregator
-	config     Config
+	config     model.Config
 	sinks      []func(interface{})
 	resultChan chan interface{} // 结果通道
 }
 
-func NewStream(config Config) (*Stream, error) {
-	win, err := window.CreateWindow(config.WindowConfig.Type, config.WindowConfig.Params)
+func NewStream(config model.Config) (*Stream, error) {
+	win, err := window.CreateWindow(config.WindowConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +35,9 @@ func NewStream(config Config) (*Stream, error) {
 }
 
 func (s *Stream) RegisterFilter(condition string) error {
+	if strings.TrimSpace(condition) == "" {
+		return nil
+	}
 	filter, err := parser.NewExprCondition(condition)
 	if err != nil {
 		return fmt.Errorf("compile filter error: %w", err)
@@ -57,7 +51,7 @@ func (s *Stream) Start() {
 }
 
 func (s *Stream) process() {
-	s.aggregator = aggregator2.NewGroupAggregator(s.config.GroupFields, s.config.SelectFields)
+	s.aggregator = aggregator2.NewGroupAggregator(s.config.GroupFields, s.config.SelectFields, s.config.FieldAlias)
 
 	// 启动窗口处理协程
 	s.Window.Start()
@@ -76,10 +70,13 @@ func (s *Stream) process() {
 		case batch := <-s.Window.OutputChan():
 			// 处理窗口批数据
 			for _, item := range batch {
-				if err := s.aggregator.Add(item); err != nil {
+				s.aggregator.Put("window_start", item.Slot.WindowStart())
+				s.aggregator.Put("window_end", item.Slot.WindowEnd())
+				if err := s.aggregator.Add(item.Data); err != nil {
 					fmt.Printf("aggregate error: %v\n", err)
 				}
 			}
+
 			// 获取并发送聚合结果
 			if results, err := s.aggregator.GetResults(); err == nil {
 				// 发送结果到结果通道和 Sink 函数
@@ -108,5 +105,5 @@ func (s *Stream) GetResultsChan() <-chan interface{} {
 }
 
 func NewStreamProcessor() (*Stream, error) {
-	return NewStream(Config{})
+	return NewStream(model.Config{})
 }
