@@ -19,13 +19,17 @@ func TestGroupAggregator_MultiFieldSum(t *testing.T) {
 			"Data1": Sum,
 			"Data2": Sum,
 		},
+		map[string]string{
+			"Data1": "Data1_sum",
+			"Data2": "Data2_sum",
+		},
 	)
 
 	testData := []map[string]interface{}{
-		{"device": "aa", "data1": 20, "data2": 30},
-		{"device": "aa", "data1": 21, "data2": 0},
-		{"device": "bb", "data1": 15, "data2": 20},
-		{"device": "bb", "data1": 16, "data2": 20},
+		{"Device": "aa", "Data1": 20, "Data2": 30},
+		{"Device": "aa", "Data1": 21, "Data2": 0},
+		{"Device": "bb", "Data1": 15, "Data2": 20},
+		{"Device": "bb", "Data1": 16, "Data2": 20},
 	}
 
 	for _, d := range testData {
@@ -46,6 +50,9 @@ func TestGroupAggregator_SingleField(t *testing.T) {
 		[]string{"Device"},
 		map[string]AggregateType{
 			"Data1": Sum,
+		},
+		map[string]string{
+			"Data1": "Data1_sum",
 		},
 	)
 
@@ -75,6 +82,12 @@ func TestGroupAggregator_MultipleAggregators(t *testing.T) {
 			"Data3": Max,
 			"Data4": Min,
 		},
+		map[string]string{
+			"Data1": "Data1_sum",
+			"Data2": "Data2_avg",
+			"Data3": "Data3_max",
+			"Data4": "Data4_min",
+		},
 	)
 
 	testData := []map[string]interface{}{
@@ -88,7 +101,7 @@ func TestGroupAggregator_MultipleAggregators(t *testing.T) {
 
 	expected := []map[string]interface{}{
 		{
-			"Device": "cc",
+			"Device":    "cc",
 			"Data1_sum": 30.0,
 			"Data2_avg": 5.0,
 			"Data3_max": 12.0,

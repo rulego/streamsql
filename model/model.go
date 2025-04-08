@@ -3,13 +3,14 @@ package model
 import (
 	"time"
 
-	aggregator2 "github.com/rulego/streamsql/aggregator"
+	"github.com/rulego/streamsql/aggregator"
 )
 
 type Config struct {
 	WindowConfig WindowConfig
 	GroupFields  []string
-	SelectFields map[string]aggregator2.AggregateType
+	SelectFields map[string]aggregator.AggregateType
+	FieldAlias   map[string]string
 }
 type WindowConfig struct {
 	Type     string

@@ -22,6 +22,7 @@ type SelectStatement struct {
 type Field struct {
 	Expression string
 	Alias      string
+	AggType    string
 }
 
 type WindowDefinition struct {
@@ -52,7 +53,7 @@ func (s *SelectStatement) ToStreamConfig() (*model.Config, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("解析窗口参数失败: %w", err)
 	}
-
+	aggs, fields := buildSelectFields(s.Fields)
 	// 构建Stream配置
 	config := model.Config{
 		WindowConfig: model.WindowConfig{
@@ -62,7 +63,8 @@ func (s *SelectStatement) ToStreamConfig() (*model.Config, string, error) {
 			TimeUnit: s.Window.TimeUnit,
 		},
 		GroupFields:  extractGroupFields(s),
-		SelectFields: buildSelectFields(s.Fields),
+		SelectFields: aggs,
+		FieldAlias:   fields,
 	}
 
 	return &config, s.Condition, nil
@@ -78,28 +80,50 @@ func extractGroupFields(s *SelectStatement) []string {
 	return fields
 }
 
-func buildSelectFields(fields []Field) map[string]aggregator.AggregateType {
+func buildSelectFields(fields []Field) (aggMap map[string]aggregator.AggregateType, fieldMap map[string]string) {
 	selectFields := make(map[string]aggregator.AggregateType)
+	fieldMap = make(map[string]string)
 	for _, f := range fields {
 		if alias := f.Alias; alias != "" {
-			selectFields[alias] = parseAggregateType(f.Expression)
+			t, n := parseAggregateType(f.Expression)
+			if n != "" {
+				selectFields[n] = t
+				fieldMap[n] = alias
+			} else {
+				selectFields[alias] = t
+			}
 		}
 	}
-	return selectFields
+	return selectFields, fieldMap
 }
 
-func parseAggregateType(expr string) aggregator.AggregateType {
+func parseAggregateType(expr string) (aggType aggregator.AggregateType, name string) {
 	if strings.Contains(expr, "avg(") {
-		return "avg"
+		return "avg", extractAggField(expr)
 	}
 	if strings.Contains(expr, "sum(") {
-		return "sum"
+		return "sum", extractAggField(expr)
 	}
 	if strings.Contains(expr, "max(") {
-		return "max"
+		return "max", extractAggField(expr)
 	}
 	if strings.Contains(expr, "min(") {
-		return "min"
+		return "min", extractAggField(expr)
+	}
+	if strings.Contains(expr, "window_start(") {
+		return "window_start", "window_start"
+	}
+	if strings.Contains(expr, "window_end(") {
+		return "window_end", "window_end"
+	}
+	return "", ""
+}
+
+func extractAggField(expr string) string {
+	start := strings.Index(expr, "(")
+	end := strings.LastIndex(expr, ")")
+	if start >= 0 && end > start {
+		return strings.TrimSpace(expr[start+1 : end])
 	}
 	return ""
 }

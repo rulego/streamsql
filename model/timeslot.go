@@ -50,3 +50,17 @@ func (ts *TimeSlot) GetEndTime() *time.Time {
 	}
 	return ts.End
 }
+
+func (ts *TimeSlot) WindowStart() int64 {
+	if ts == nil || ts.Start == nil {
+		return 0
+	}
+	return ts.Start.UnixNano()
+}
+
+func (ts *TimeSlot) WindowEnd() int64 {
+	if ts == nil || ts.End == nil {
+		return 0
+	}
+	return ts.End.UnixNano()
+}

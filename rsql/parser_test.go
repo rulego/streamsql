@@ -44,8 +44,8 @@ func TestParseSQL(t *testing.T) {
 				},
 				GroupFields: []string{"type"},
 				SelectFields: map[string]aggregator.AggregateType{
-					"max_score": "max",
-					"min_age":   "min",
+					"score": "max",
+					"age":   "min",
 				},
 			},
 			condition: "",
