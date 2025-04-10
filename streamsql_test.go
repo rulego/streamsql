@@ -31,10 +31,8 @@ func TestStreamsql(t *testing.T) {
 	strm.AddSink(func(result interface{}) {
 		resultChan <- result
 	})
-	// 等待 3 秒触发窗口
-	time.Sleep(3 * time.Second)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	var actual interface{}

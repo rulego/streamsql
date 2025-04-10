@@ -1,6 +1,8 @@
 package timex
 
-import "time"
+import (
+	"time"
+)
 
 // AlignTimeToWindow 将时间对齐到窗口的起始时间。
 func AlignTimeToWindow(t time.Time, size time.Duration) time.Time {
