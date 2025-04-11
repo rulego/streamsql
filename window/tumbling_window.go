@@ -34,8 +34,11 @@ type TumblingWindow struct {
 	// cancelFunc 用于取消窗口的操作。
 	cancelFunc context.CancelFunc
 	// timer 用于定时触发窗口。
-	timer       *time.Timer
+	timer       *time.Ticker
 	currentSlot *model.TimeSlot
+	// 用于初始化窗口的通道
+	initChan    chan struct{}
+	initialized bool
 }
 
 // NewTumblingWindow 创建一个新的滚动窗口实例。
@@ -48,11 +51,13 @@ func NewTumblingWindow(config model.WindowConfig) (*TumblingWindow, error) {
 		return nil, fmt.Errorf("invalid size for tumbling window: %v", err)
 	}
 	return &TumblingWindow{
-		config:     config,
-		size:       size,
-		outputChan: make(chan []model.Row, 10),
-		ctx:        ctx,
-		cancelFunc: cancel,
+		config:      config,
+		size:        size,
+		outputChan:  make(chan []model.Row, 10),
+		ctx:         ctx,
+		cancelFunc:  cancel,
+		initChan:    make(chan struct{}),
+		initialized: false,
 	}, nil
 }
 
@@ -63,16 +68,18 @@ func (tw *TumblingWindow) Add(data interface{}) {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 	// 将数据追加到窗口的数据列表中。
-	if tw.currentSlot == nil {
+	if !tw.initialized {
 		tw.currentSlot = tw.createSlot(GetTimestamp(data, tw.config.TsProp))
+		tw.timer = time.NewTicker(tw.size)
+		// 发送初始化完成信号
+		close(tw.initChan)
+		tw.initialized = true
 	}
-	go func() {
-		row := model.Row{
-			Data:      data,
-			Timestamp: GetTimestamp(data, tw.config.TsProp),
-		}
-		tw.data = append(tw.data, row)
-	}()
+	row := model.Row{
+		Data:      data,
+		Timestamp: GetTimestamp(data, tw.config.TsProp),
+	}
+	tw.data = append(tw.data, row)
 }
 
 func (sw *TumblingWindow) createSlot(t time.Time) *model.TimeSlot {
@@ -101,8 +108,7 @@ func (tw *TumblingWindow) Stop() {
 // Start 启动滚动窗口的定时触发机制。
 func (tw *TumblingWindow) Start() {
 	go func() {
-		// 创建一个定时器，初始时间为窗口大小。
-		tw.timer = time.NewTimer(tw.size)
+		<-tw.initChan
 		// 在函数结束时关闭输出通道。
 		defer close(tw.outputChan)
 		for {
@@ -110,8 +116,6 @@ func (tw *TumblingWindow) Start() {
 			// 当定时器到期时，触发窗口。
 			case <-tw.timer.C:
 				tw.Trigger()
-				// 重置定时器以开始下一个窗口周期。
-				tw.timer.Reset(tw.size)
 			// 当上下文被取消时，停止定时器并退出循环。
 			case <-tw.ctx.Done():
 				tw.timer.Stop()
@@ -126,6 +130,9 @@ func (tw *TumblingWindow) Trigger() {
 	// 加锁以确保并发安全。
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
+	if !tw.initialized {
+		return
+	}
 	// 计算下一个窗口槽位
 	next := tw.NextSlot()
 	// 保留下一个窗口的数据
@@ -168,6 +175,8 @@ func (tw *TumblingWindow) Reset() {
 	// 清空窗口数据。
 	tw.data = nil
 	tw.currentSlot = nil
+	tw.initialized = false
+	tw.initChan = make(chan struct{})
 }
 
 // OutputChan 返回一个只读通道，用于接收窗口触发时的数据。

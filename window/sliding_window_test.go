@@ -10,6 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type TestResult struct {
+	size  int
+	data  []TestDate
+	start time.Time
+	end   time.Time
+}
+
 func TestSlidingWindow(t *testing.T) {
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -23,7 +30,13 @@ func TestSlidingWindow(t *testing.T) {
 		TimeUnit: time.Second,
 	})
 	sw.SetCallback(func(results []model.Row) {
-		t.Logf("Received results: %v", results)
+		if len(results) == 0 {
+			return
+		}
+		for _, row := range results {
+			t.Logf("Slot: %v Received row: %v", row.Slot, row.Data)
+		}
+
 	})
 	sw.Start()
 
@@ -38,65 +51,53 @@ func TestSlidingWindow(t *testing.T) {
 	sw.Add(t_1)
 	sw.Add(t_0)
 
+	// 验证每个窗口的数据
+	expected := []TestResult{
+		{size: 2, data: []TestDate{t_3, t_2}, start: timex.AlignTime(t_3.Ts, time.Second, true), end: timex.AlignTime(t_2.Ts, time.Second, false)},
+		{size: 2, data: []TestDate{t_2, t_1}, start: timex.AlignTime(t_2.Ts, time.Second, true), end: timex.AlignTime(t_1.Ts, time.Second, false)},
+		{size: 2, data: []TestDate{t_1, t_0}, start: timex.AlignTime(t_1.Ts, time.Second, true), end: timex.AlignTime(t_0.Ts, time.Second, false)},
+		{size: 1, data: []TestDate{t_0}, start: timex.AlignTime(t_0.Ts, time.Second, true), end: timex.AlignTime(t_0.Ts, time.Second, true).Add(sw.size)},
+	}
 	// 等待一段时间，触发窗口
 	//time.Sleep(3 * time.Second)
 
 	// 检查结果
-	resultsChan := sw.OutputChan()
-	var results []model.Row
-
+	// resultsChan := sw.OutputChan()
+	// results := make(chan []model.Row)
+	actual := make([]TestResult, 0)
+	timeout := time.After(6 * time.Second)
 	for {
 		select {
-		case results = <-resultsChan:
+		case results := <-sw.OutputChan():
 			raw := make([]TestDate, 0)
 			for _, row := range results {
 				raw = append(raw, row.Data.(TestDate))
 			}
-
-			// 获取当前窗口的时间范围
-			windowStart := results[0].Slot.Start
-			windowEnd := results[0].Slot.End
-			t.Logf("Window range: %v - %v", windowStart, windowEnd)
-
-			// 检查窗口内的数据
-			expectedData := make([]TestDate, 0)
-
-			if windowStart.Before(t_3.Ts) && windowEnd.After(t_2.Ts) {
-				expectedData = []TestDate{t_3, t_2}
-				start := timex.AlignTimeToWindow(t_3.Ts, sw.size)
-				assert.Equal(t, start, windowStart)
-				assert.Equal(t, start.Add(sw.size), windowEnd)
-			} else if windowStart.Before(t_2.Ts) && windowEnd.After(t_1.Ts) {
-				expectedData = []TestDate{t_2, t_1}
-				start := timex.AlignTimeToWindow(t_2.Ts, sw.size)
-				assert.Equal(t, start, windowStart)
-				assert.Equal(t, start.Add(sw.size), windowEnd)
-			} else if windowStart.Before(t_1.Ts) && windowEnd.After(t_0.Ts) {
-				expectedData = []TestDate{t_1, t_0}
-				start := timex.AlignTimeToWindow(t_1.Ts, sw.size)
-				assert.Equal(t, start, windowStart)
-				assert.Equal(t, start.Add(sw.size), windowEnd)
-			} else {
-				expectedData = []TestDate{t_0}
-				start := timex.AlignTimeToWindow(t_0.Ts, sw.size)
-				assert.Equal(t, start, windowStart)
-				assert.Equal(t, start.Add(sw.size), windowEnd)
+			if len(results) == 0 {
+				continue
 			}
-
-			// 验证窗口数据
-			assert.Equal(t, len(expectedData), len(raw), "窗口数据数量不匹配")
-			for _, expected := range expectedData {
-				assert.Contains(t, raw, expected, "窗口缺少预期数据")
-			}
-		default:
-			// 通道为空时退出
+			actual = append(actual, TestResult{
+				size:  len(results),
+				data:  raw,
+				start: *results[0].Slot.Start,
+				end:   *results[0].Slot.End})
+		case <-timeout:
 			goto END
+		default:
 		}
 	}
 
 END:
+	assert.Equal(t, len(actual), len(expected))
 	// 预期结果：保留最近 2 秒内的数据
-	assert.Len(t, results, 0)
+	for i, exp := range expected {
+		assert.Equal(t, actual[i].size, exp.size)
+		assert.Equal(t, actual[i].start, exp.start)
+		assert.Equal(t, actual[i].end, exp.end)
+		for _, d := range exp.data {
+			assert.Contains(t, actual[i].data, d)
+		}
+	}
 }
 
 type TestDate struct {

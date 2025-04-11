@@ -13,7 +13,6 @@ import (
 func TestTumblingWindow(t *testing.T) {
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
 	tw, _ := NewTumblingWindow(model.WindowConfig{
 		Type:   "TumblingWindow",
 		Params: map[string]interface{}{"size": "2s"},

@@ -41,8 +41,11 @@ type SlidingWindow struct {
 	// 用于取消上下文的函数
 	cancelFunc context.CancelFunc
 	// 用于定时触发窗口的定时器
-	timer       *time.Timer
+	timer       *time.Ticker
 	currentSlot *model.TimeSlot
+	// 用于初始化窗口的通道
+	initChan    chan struct{}
+	initialized bool
 }
 
 // NewSlidingWindow 创建一个新的滑动窗口实例
@@ -59,13 +62,15 @@ func NewSlidingWindow(config model.WindowConfig) (*SlidingWindow, error) {
 		return nil, fmt.Errorf("invalid slide for sliding window: %v", err)
 	}
 	return &SlidingWindow{
-		config:     config,
-		size:       size,
-		slide:      slide,
-		outputChan: make(chan []model.Row, 10),
-		ctx:        ctx,
-		cancelFunc: cancel,
-		data:       make([]model.Row, 0),
+		config:      config,
+		size:        size,
+		slide:       slide,
+		outputChan:  make(chan []model.Row, 10),
+		ctx:         ctx,
+		cancelFunc:  cancel,
+		data:        make([]model.Row, 0),
+		initChan:    make(chan struct{}),
+		initialized: false,
 	}, nil
 }
 
@@ -77,30 +82,32 @@ func (sw *SlidingWindow) Add(data interface{}) {
 	defer sw.mu.Unlock()
 	// 将数据添加到窗口的数据列表中
 	t := GetTimestamp(data, sw.config.TsProp)
-	if sw.currentSlot == nil {
+	if !sw.initialized {
 		sw.currentSlot = sw.createSlot(t)
+		sw.timer = time.NewTicker(sw.slide)
+		// 发送初始化完成信号
+		close(sw.initChan)
+		sw.initialized = true
 	}
-	go func() {
-		row := model.Row{
-			Data:      data,
-			Timestamp: t,
-		}
-		sw.data = append(sw.data, row)
-	}()
+	row := model.Row{
+		Data:      data,
+		Timestamp: t,
+	}
+	sw.data = append(sw.data, row)
 }
 
 // Start 启动滑动窗口，开始定时触发窗口
 func (sw *SlidingWindow) Start() {
 	go func() {
-		// 创建一个定时器，初始时间为窗口滑动的时间间隔
-		sw.timer = time.NewTimer(sw.slide)
+		// 等待初始化信号
+		<-sw.initChan
+		// 在函数结束时关闭输出通道。
+		defer close(sw.outputChan)
 		for {
 			select {
 			// 当定时器到期时，触发窗口
 			case <-sw.timer.C:
 				sw.Trigger()
-				// 重置定时器，以便下一次触发
-				sw.timer.Reset(sw.slide)
 			// 当上下文被取消时，停止定时器并退出循环
 			case <-sw.ctx.Done():
 				sw.timer.Stop()
@@ -120,7 +127,9 @@ func (sw *SlidingWindow) Trigger() {
 	if len(sw.data) == 0 {
 		return
 	}
-
+	if !sw.initialized {
+		return
+	}
 	// 计算截止时间，即当前时间减去窗口的总大小
 	next := sw.NextSlot()
 	// 保留下一个窗口的数据
@@ -163,6 +172,8 @@ func (sw *SlidingWindow) Reset() {
 	// 清空窗口内的数据
 	sw.data = nil
 	sw.currentSlot = nil
+	sw.initialized = false
+	sw.initChan = make(chan struct{})
 }
 
 // OutputChan 返回滑动窗口的输出通道
