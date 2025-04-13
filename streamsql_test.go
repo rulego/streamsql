@@ -6,10 +6,52 @@ import (
 	"testing"
 	"time"
 
+	"math/rand"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func TestStreamData(t *testing.T) {
+	ssql := New()
+	//TumblingWindow 滚动窗口，2秒滚动一次
+	rsql := "SELECT deviceId,max(temperature) as max_temp,min(humidity) as min_humidity ,window_start() as start,window_end() as end FROM  stream group by deviceId,TumblingWindow('2s')"
+	err := ssql.Execute(rsql)
+	if err != nil {
+		panic(err)
+	}
+	// 添加测试数据
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				// 生成随机测试数据
+				randomData := map[string]interface{}{
+					"deviceId":    fmt.Sprintf("device%d", rand.Intn(2)+1),
+					"temperature": 20.0 + rand.Float64()*10, // 20-30度之间
+					"humidity":    50.0 + rand.Float64()*20, // 50-70%湿度
+				}
+				ssql.stream.AddData(randomData)
+			}
+		}
+	}()
+
+	// 添加结果回调
+	resultChan := make(chan interface{})
+	ssql.stream.AddSink(func(result interface{}) {
+		resultChan <- result
+	})
+	//打印结果
+	go func() {
+		for result := range resultChan {
+			fmt.Printf("打印结果: %v\n", result)
+		}
+	}()
+
+	time.Sleep(30 * time.Second)
+}
 func TestStreamsql(t *testing.T) {
 	streamsql := New()
 	var rsql = "SELECT device,max(age) as max_age,min(score) as min_score,window_start() as start,window_end() as end FROM stream group by device,SlidingWindow('2s','1s') with (TIMESTAMP='Ts',TIMEUNIT='ss')"
