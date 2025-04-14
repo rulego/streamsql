@@ -15,17 +15,17 @@ import (
 
 func TestStreamData(t *testing.T) {
 	ssql := New()
-	//TumblingWindow 滚动窗口，2秒滚动一次
-	rsql := "SELECT deviceId,max(temperature) as max_temp,min(humidity) as min_humidity ,window_start() as start,window_end() as end FROM  stream group by deviceId,TumblingWindow('2s')"
+	// 定义SQL语句。TumblingWindow 滚动窗口，5秒滚动一次
+	rsql := "SELECT deviceId,avg(temperature) as max_temp,min(humidity) as min_humidity ," +
+		"window_start() as start,window_end() as end FROM  stream  where deviceId!='device3' group by deviceId,TumblingWindow('5s')"
+	// 根据SQL语句，创建流式分析任务。
 	err := ssql.Execute(rsql)
 	if err != nil {
 		panic(err)
 	}
 	var wg sync.WaitGroup
-
-	// 添加测试数据
 	wg.Add(1)
-	// 创建上下文和取消函数，设置测试超时时间
+	// 设置30秒测试超时时间
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	// 添加测试数据
@@ -36,54 +36,44 @@ func TestStreamData(t *testing.T) {
 		for {
 			select {
 			case <-ticker.C:
-				// 生成随机测试数据
-				randomData := map[string]interface{}{
-					"deviceId":    fmt.Sprintf("device%d", rand.Intn(2)+1),
-					"temperature": 20.0 + rand.Float64()*10, // 20-30度之间
-					"humidity":    50.0 + rand.Float64()*20, // 50-70%湿度
+				// 生成随机测试数据，每秒生成10条数据
+				for i := 0; i < 10; i++ {
+					randomData := map[string]interface{}{
+						"deviceId":    fmt.Sprintf("device%d", rand.Intn(3)+1),
+						"temperature": 20.0 + rand.Float64()*10, // 20-30度之间
+						"humidity":    50.0 + rand.Float64()*20, // 50-70%湿度
+					}
+					// 将数据添加到流中
+					ssql.stream.AddData(randomData)
 				}
-				ssql.stream.AddData(randomData)
+
 			case <-ctx.Done():
-				return // 上下文取消时退出
+				return
 			}
 		}
 	}()
 
-	// 添加结果回调
 	resultChan := make(chan interface{})
+	// 添加计算结果回调
 	ssql.stream.AddSink(func(result interface{}) {
 		resultChan <- result
 	})
-	// 计数器，用于记录收到的结果数量
+	// 记录收到的结果数量
 	resultCount := 0
-	maxResults := 5 // 设置期望接收的结果数量
-	//打印结果
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case result := <-resultChan:
-				fmt.Printf("打印结果: [%s] %v\n", time.Now().Format("15:04:05.000"), result)
-				resultCount++
-				// 收到足够的结果后取消上下文
-				if resultCount >= maxResults {
-					cancel()
-					return
-				}
-			case <-ctx.Done():
-				ssql.stream.Window.Reset()
-				return // 上下文取消时退出
-			}
+		for result := range resultChan {
+			//每隔5秒打印一次结果
+			fmt.Printf("打印结果: [%s] %v\n", time.Now().Format("15:04:05.000"), result)
+			resultCount++
 		}
 	}()
-
-	// 等待所有 goroutine 完成
+	//测试结束
 	wg.Wait()
 
 	// 验证是否收到了结果
-	assert.Equal(t, resultCount, 5, "应该至少收到一个结果")
+	assert.Equal(t, resultCount, 5)
 }
+
 func TestStreamsql(t *testing.T) {
 	streamsql := New()
 	var rsql = "SELECT device,max(age) as max_age,min(score) as min_score,window_start() as start,window_end() as end FROM stream group by device,SlidingWindow('2s','1s') with (TIMESTAMP='Ts',TIMEUNIT='ss')"

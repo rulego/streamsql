@@ -1,21 +1,23 @@
 # StreamSQL
 
-轻量级嵌入式流式SQL处理库，把无界的流式数据，通过窗口函数分割成一系列连续的有界数据，并对其进行聚合计算、转换、过滤等操作。
+English| [简体中文](README_ZH.md)
 
-## 功能特性
+**StreamSQL** is a lightweight, embedded stream SQL processing library. It splits unbounded stream data into bounded data chunks using window functions and supports operations such as aggregation, data transformation, and filtering.
 
-- 支持多种窗口类型：滑动窗口、滚动窗口、计数窗口
-- 支持聚合函数：MAX, MIN, AVG, SUM, STDDEV,MEDIAN,PERCENTILE等
-- 支持分组聚合
-- 支持过滤条件
+## Features
 
-## 安装
+- Supports multiple window types: Sliding Window, Tumbling Window, Count Window
+- Supports aggregate functions: MAX, MIN, AVG, SUM, STDDEV, MEDIAN, PERCENTILE, etc.
+- Supports group-by aggregation
+- Supports filtering conditions
+
+## Installation
 
 ```bash
 go get github.com/rulego/streamsql
 ```
 
-## 使用示例
+## Usage Example
 
 ```go
 package main
@@ -27,55 +29,73 @@ import (
 	"time"
 
 	"math/rand"
+	"sync"
 	"github.com/rulego/streamsql"
 )
 
 func main() {
 	ssql := streamsql.New()
-	//TumblingWindow 滚动窗口，2秒滚动一次
-	rsql := "SELECT deviceId,max(temperature) as max_temp,min(humidity) as min_humidity ,window_start() as start,window_end() as end FROM  stream group by deviceId,TumblingWindow('2s')"
+	// Define the SQL statement. TumblingWindow is a tumbling window that rolls every 5 seconds
+	rsql := "SELECT deviceId,avg(temperature) as max_temp,min(humidity) as min_humidity ," +
+		"window_start() as start,window_end() as end FROM  stream  where deviceId!='device3' group by deviceId,TumblingWindow('5s')"
+	// Create a stream processing task based on the SQL statement.
 	err := ssql.Execute(rsql)
 	if err != nil {
 		panic(err)
 	}
-	// 添加测试数据
+	var wg sync.WaitGroup
+	wg.Add(1)
+	// Set a 30-second test timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	// Add test data
 	go func() {
+		defer wg.Done()
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				// 生成随机测试数据
-				randomData := map[string]interface{}{
-					"deviceId":    fmt.Sprintf("device%d", rand.Intn(2)+1),
-					"temperature": 20.0 + rand.Float64()*10, // 20-30度之间
-					"humidity":    50.0 + rand.Float64()*20, // 50-70%湿度
+				// Generate random test data, generating 10 data points per second
+				for i := 0; i < 10; i++ {
+					randomData := map[string]interface{}{
+						"deviceId":    fmt.Sprintf("device%d", rand.Intn(2)+1),
+						"temperature": 20.0 + rand.Float64()*10, // Temperature between 20-30 degrees
+						"humidity":    50.0 + rand.Float64()*20, // Humidity between 50-70%
+					}
+					// Add data to the stream
+					ssql.stream.AddData(randomData)
 				}
-				ssql.stream.AddData(randomData)
+
+			case <-ctx.Done():
+				return
 			}
 		}
 	}()
 
-	// 添加结果回调
 	resultChan := make(chan interface{})
+	// Add a result callback
 	ssql.stream.AddSink(func(result interface{}) {
 		resultChan <- result
 	})
-	//打印结果
+	// Count the number of results received
+	resultCount := 0
 	go func() {
 		for result := range resultChan {
-			fmt.Printf("打印结果: %v\n", result)
+			// Print results every 5 seconds
+			fmt.Printf("Print result: [%s] %v\n", time.Now().Format("15:04:05.000"), result)
+			resultCount++
 		}
 	}()
-
-	time.Sleep(30 * time.Second)
+    // End of test
+	wg.Wait()
 }
 ```
 
-## 贡献指南
+## Contribution Guidelines
 
-欢迎提交PR和Issue。请确保代码符合Go标准，并添加相应的测试用例。
+Pull requests and issues are welcome. Please ensure that the code conforms to Go standards and include relevant test cases.
 
-## 许可证
+## License
 
 Apache License 2.0
