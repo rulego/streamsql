@@ -3,7 +3,6 @@ package stream
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	aggregator2 "github.com/rulego/streamsql/aggregator"
 	"github.com/rulego/streamsql/model"
@@ -56,10 +55,6 @@ func (s *Stream) process() {
 	// 启动窗口处理协程
 	s.Window.Start()
 
-	// 启动定时触发器
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
 	for {
 		select {
 		case data := <-s.dataChan:
@@ -86,8 +81,6 @@ func (s *Stream) process() {
 				}
 				s.aggregator.Reset()
 			}
-		case <-ticker.C:
-			s.Window.Trigger()
 		}
 	}
 }
