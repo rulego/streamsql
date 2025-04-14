@@ -16,7 +16,7 @@ import (
 func TestStreamData(t *testing.T) {
 	ssql := New()
 	// 定义SQL语句。TumblingWindow 滚动窗口，5秒滚动一次
-	rsql := "SELECT deviceId,avg(temperature) as max_temp,min(humidity) as min_humidity ," +
+	rsql := "SELECT deviceId,avg(temperature) as avg_temp,min(humidity) as min_humidity ," +
 		"window_start() as start,window_end() as end FROM  stream  where deviceId!='device3' group by deviceId,TumblingWindow('5s')"
 	// 根据SQL语句，创建流式分析任务。
 	err := ssql.Execute(rsql)
