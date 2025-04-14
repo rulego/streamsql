@@ -30,6 +30,7 @@ func TestStreamData(t *testing.T) {
 	defer cancel()
 	// 添加测试数据
 	go func() {
+		defer wg.Done()
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 		for {
@@ -81,7 +82,7 @@ func TestStreamData(t *testing.T) {
 	wg.Wait()
 
 	// 验证是否收到了结果
-	assert.Greater(t, resultCount, 5, "应该至少收到一个结果")
+	assert.Equal(t, resultCount, 5, "应该至少收到一个结果")
 }
 func TestStreamsql(t *testing.T) {
 	streamsql := New()
