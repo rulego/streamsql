@@ -82,7 +82,8 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 	}
 	for {
 		tok := p.lexer.NextToken()
-		if tok.Type == TokenGROUP || tok.Type == TokenEOF {
+		if tok.Type == TokenGROUP || tok.Type == TokenEOF || tok.Type == TokenSliding ||
+			tok.Type == TokenTumbling || tok.Type == TokenCounting || tok.Type == TokenSession {
 			break
 		}
 		switch tok.Type {
@@ -172,19 +173,25 @@ func (p *Parser) parseFrom(stmt *SelectStatement) error {
 }
 
 func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
-	//p.lexer.NextToken() // 跳过GROUP
-	p.lexer.NextToken() // 跳过BY
+	tok := p.lexer.lookupIdent(p.lexer.readPreviousIdentifier())
+	if tok.Type == TokenTumbling || tok.Type == TokenSliding || tok.Type == TokenCounting || tok.Type == TokenSession {
+		p.parseWindowFunction(stmt, tok.Value)
+	}
+	if tok.Type == TokenGROUP {
+		p.lexer.NextToken() // 跳过BY
+	}
 
 	for {
 		tok := p.lexer.NextToken()
-		if tok.Type == TokenEOF {
+		if tok.Type == TokenWITH || tok.Type == TokenOrder || tok.Type == TokenEOF {
 			break
 		}
 		if tok.Type == TokenComma {
 			continue
 		}
 		if tok.Type == TokenTumbling || tok.Type == TokenSliding || tok.Type == TokenCounting || tok.Type == TokenSession {
-			return p.parseWindowFunction(stmt, tok.Value)
+			p.parseWindowFunction(stmt, tok.Value)
+			continue
 		}
 
 		stmt.GroupBy = append(stmt.GroupBy, tok.Value)

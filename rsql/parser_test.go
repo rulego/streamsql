@@ -27,7 +27,10 @@ func TestParseSQL(t *testing.T) {
 				},
 				GroupFields: []string{"deviceId"},
 				SelectFields: map[string]aggregator.AggregateType{
-					"aa": "avg",
+					"temperature": "avg",
+				},
+				FieldAlias: map[string]string{
+					"temperature": "aa",
 				},
 			},
 			condition: "deviceId == 'aa'",
@@ -51,7 +54,7 @@ func TestParseSQL(t *testing.T) {
 			condition: "",
 		},
 		{
-			sql: "select deviceId, avg(temperature/10) as aa from Input where deviceId='aa' group by deviceId, TumblingWindow('10s') with (TIMESTAMP='ts') ",
+			sql: "select deviceId, avg(temperature/10) as aa from Input where deviceId='aa' group by TumblingWindow('10s'), deviceId  with (TIMESTAMP='ts') ",
 			expected: &model.Config{
 				WindowConfig: model.WindowConfig{
 					Type: "tumbling",
@@ -62,10 +65,32 @@ func TestParseSQL(t *testing.T) {
 				},
 				GroupFields: []string{"deviceId"},
 				SelectFields: map[string]aggregator.AggregateType{
-					"aa": "avg",
+					"temperature": "avg",
+				},
+				FieldAlias: map[string]string{
+					"temperature": "aa",
 				},
 			},
 			condition: "deviceId == 'aa'",
+		},
+		{
+			sql: "select deviceId, avg(temperature/10) as aa from Input where deviceId='aa' and temperature>0  TumblingWindow('10s') with (TIMESTAMP='ts') ",
+			expected: &model.Config{
+				WindowConfig: model.WindowConfig{
+					Type: "tumbling",
+					Params: map[string]interface{}{
+						"size": 10 * time.Second,
+					},
+					TsProp: "ts",
+				},
+				SelectFields: map[string]aggregator.AggregateType{
+					"temperature": "avg",
+				},
+				FieldAlias: map[string]string{
+					"temperature": "aa",
+				},
+			},
+			condition: "deviceId == 'aa' && temperature > 0",
 		},
 	}
 

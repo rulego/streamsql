@@ -95,12 +95,14 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		}
 	}
 
-	if key == "" {
-		return fmt.Errorf("key cannot be empty")
-	}
-
-	// 去除最后的 | 符号
-	key = key[:len(key)-1]
+	/**
+	    sql中没有'Group By'时，key为空串
+		// if key == "" {
+		// 	return fmt.Errorf("key cannot be empty")
+		// }
+		// // 去除最后的 | 符号
+		// key = key[:len(key)-1]
+	*/
 
 	if _, exists := ga.groups[key]; !exists {
 		ga.groups[key] = make(map[string]AggregatorFunction)
