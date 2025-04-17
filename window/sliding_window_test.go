@@ -115,7 +115,7 @@ func (d TestDate2) GetTimestamp() time.Time {
 
 func TestGetTimestamp(t *testing.T) {
 	t_0 := time.Now()
-	data := map[string]interface{}{"device": "aa", "age": 15.0, "score": 100, "ts": t_0}
+	data := map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60, "ts": t_0}
 	t_1 := GetTimestamp(data, "ts")
 
 	data_1 := TestDate{Ts: t_0}

@@ -7,29 +7,29 @@ import (
 )
 
 type testData struct {
-	Device string
-	Data1  float64
-	Data2  float64
+	Device      string
+	temperature float64
+	humidity    float64
 }
 
 func TestGroupAggregator_MultiFieldSum(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"Device"},
 		map[string]AggregateType{
-			"Data1": Sum,
-			"Data2": Sum,
+			"temperature": Sum,
+			"humidity":    Sum,
 		},
 		map[string]string{
-			"Data1": "Data1_sum",
-			"Data2": "Data2_sum",
+			"temperature": "temperature_sum",
+			"humidity":    "humidity_sum",
 		},
 	)
 
 	testData := []map[string]interface{}{
-		{"Device": "aa", "Data1": 20, "Data2": 30},
-		{"Device": "aa", "Data1": 21, "Data2": 0},
-		{"Device": "bb", "Data1": 15, "Data2": 20},
-		{"Device": "bb", "Data1": 16, "Data2": 20},
+		{"Device": "aa", "temperature": 25.5, "humidity": 60.0},
+		{"Device": "aa", "temperature": 26.8, "humidity": 55.0},
+		{"Device": "bb", "temperature": 22.3, "humidity": 65.0},
+		{"Device": "bb", "temperature": 23.5, "humidity": 70.0},
 	}
 
 	for _, d := range testData {
@@ -37,8 +37,8 @@ func TestGroupAggregator_MultiFieldSum(t *testing.T) {
 	}
 
 	expected := []map[string]interface{}{
-		{"Device": "aa", "Data1_sum": 41.0, "Data2_sum": 30.0},
-		{"Device": "bb", "Data1_sum": 31.0, "Data2_sum": 40.0},
+		{"Device": "aa", "temperature_sum": 52.3, "humidity_sum": 115.0},
+		{"Device": "bb", "temperature_sum": 45.8, "humidity_sum": 135.0},
 	}
 
 	results, _ := agg.GetResults()
@@ -49,16 +49,16 @@ func TestGroupAggregator_SingleField(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"Device"},
 		map[string]AggregateType{
-			"Data1": Sum,
+			"temperature": Sum,
 		},
 		map[string]string{
-			"Data1": "Data1_sum",
+			"temperature": "temperature_sum",
 		},
 	)
 
 	testData := []map[string]interface{}{
-		{"Device": "cc", "Data1": 10},
-		{"Device": "cc", "Data1": 20},
+		{"Device": "cc", "temperature": 24.5},
+		{"Device": "cc", "temperature": 27.8},
 	}
 
 	for _, d := range testData {
@@ -66,7 +66,7 @@ func TestGroupAggregator_SingleField(t *testing.T) {
 	}
 
 	expected := []map[string]interface{}{
-		{"Device": "cc", "Data1_sum": 30.0},
+		{"Device": "cc", "temperature_sum": 52.3},
 	}
 
 	results, _ := agg.GetResults()
@@ -77,22 +77,22 @@ func TestGroupAggregator_MultipleAggregators(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"Device"},
 		map[string]AggregateType{
-			"Data1": Sum,
-			"Data2": Avg,
-			"Data3": Max,
-			"Data4": Min,
+			"temperature": Sum,
+			"humidity":    Avg,
+			"presure":     Max,
+			"PM10":        Min,
 		},
 		map[string]string{
-			"Data1": "Data1_sum",
-			"Data2": "Data2_avg",
-			"Data3": "Data3_max",
-			"Data4": "Data4_min",
+			"temperature": "temperature_sum",
+			"humidity":    "humidity_avg",
+			"presure":     "presure_max",
+			"PM10":        "PM10_min",
 		},
 	)
 
 	testData := []map[string]interface{}{
-		{"Device": "cc", "Data1": 10, "Data2": 5.5, "Data3": 8, "Data4": 3},
-		{"Device": "cc", "Data1": 20, "Data2": 4.5, "Data3": 12, "Data4": 2},
+		{"Device": "cc", "temperature": 25.5, "humidity": 65.5, "presure": 1008, "PM10": 35},
+		{"Device": "cc", "temperature": 27.8, "humidity": 60.5, "presure": 1012, "PM10": 28},
 	}
 
 	for _, d := range testData {
@@ -101,11 +101,11 @@ func TestGroupAggregator_MultipleAggregators(t *testing.T) {
 
 	expected := []map[string]interface{}{
 		{
-			"Device":    "cc",
-			"Data1_sum": 30.0,
-			"Data2_avg": 5.0,
-			"Data3_max": 12.0,
-			"Data4_min": 2.0,
+			"Device":          "cc",
+			"temperature_sum": 53.3,
+			"humidity_avg":    63.0,
+			"presure_max":     1012.0,
+			"PM10_min":        28.0,
 		},
 	}
 
