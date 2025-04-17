@@ -37,6 +37,7 @@ const (
 	TokenWITH
 	TokenTimestamp
 	TokenTimeUnit
+	TokenOrder
 )
 
 type Token struct {
@@ -154,6 +155,27 @@ func (l *Lexer) readIdentifier() string {
 	return l.input[pos:l.pos]
 }
 
+func (l *Lexer) readPreviousIdentifier() string {
+	// 保存当前位置
+	endPos := l.pos
+
+	// 向前移动直到找到非字母字符或到达输入开始
+	startPos := endPos - 1
+	for startPos >= 0 && isLetter(l.input[startPos]) {
+		startPos--
+	}
+
+	// 调整到第一个字母字符的位置
+	startPos++
+
+	// 如果找到有效的标识符，返回它
+	if startPos < endPos {
+		return l.input[startPos:endPos]
+	}
+
+	return ""
+}
+
 func (l *Lexer) readNumber() string {
 	pos := l.pos
 	for isDigit(l.ch) || l.ch == '.' {
@@ -213,6 +235,8 @@ func (l *Lexer) lookupIdent(ident string) Token {
 		return Token{Type: TokenTimestamp, Value: ident}
 	case "TIMEUNIT":
 		return Token{Type: TokenTimeUnit, Value: ident}
+	case "ORDER":
+		return Token{Type: TokenOrder, Value: ident}
 	default:
 		return Token{Type: TokenIdent, Value: ident}
 	}

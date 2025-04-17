@@ -123,7 +123,18 @@ func extractAggField(expr string) string {
 	start := strings.Index(expr, "(")
 	end := strings.LastIndex(expr, ")")
 	if start >= 0 && end > start {
-		return strings.TrimSpace(expr[start+1 : end])
+		// 提取括号内的内容
+		fieldExpr := strings.TrimSpace(expr[start+1 : end])
+
+		// TODO 后期需完善函数内的运算表达式解析
+		// 如果包含运算符，提取第一个操作数作为字段名，形如 temperature/10 的表达式，应解析出字段temperature
+		for _, op := range []string{"/", "*", "+", "-"} {
+			if opIndex := strings.Index(fieldExpr, op); opIndex > 0 {
+				return strings.TrimSpace(fieldExpr[:opIndex])
+			}
+		}
+
+		return fieldExpr
 	}
 	return ""
 }
