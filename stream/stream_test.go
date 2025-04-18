@@ -20,15 +20,15 @@ func TestStreamProcess(t *testing.T) {
 		},
 		GroupFields: []string{"device"},
 		SelectFields: map[string]aggregator.AggregateType{
-			"age":   aggregator.Avg,
-			"score": aggregator.Sum,
+			"temperature": aggregator.Avg,
+			"humidity":    aggregator.Sum,
 		},
 	}
 
 	strm, err := NewStream(config)
 	require.NoError(t, err)
 
-	err = strm.RegisterFilter("device == 'aa' && age > 10")
+	err = strm.RegisterFilter("device == 'aa' && temperature > 10")
 	require.NoError(t, err)
 
 	// 添加 Sink 函数来捕获结果
@@ -41,9 +41,9 @@ func TestStreamProcess(t *testing.T) {
 
 	// 准备测试数据
 	testData := []interface{}{
-		map[string]interface{}{"device": "aa", "age": 15.0, "score": 100},
-		map[string]interface{}{"device": "aa", "age": 20.0, "score": 200},
-		map[string]interface{}{"device": "bb", "age": 25.0, "score": 300},
+		map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60},
+		map[string]interface{}{"device": "aa", "temperature": 30.0, "humidity": 55},
+		map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70},
 	}
 
 	for _, data := range testData {
@@ -62,18 +62,18 @@ func TestStreamProcess(t *testing.T) {
 		t.Fatal("No results received within 5 seconds")
 	}
 
-	// 预期结果：只有 device='aa' 且 age>10 的数据会被聚合
+	// 预期结果：只有 device='aa' 且 temperature>10 的数据会被聚合
 	expected := map[string]interface{}{
-		"device":    "aa",
-		"age_avg":   17.5,  // (15+20)/2
-		"score_sum": 300.0, // 100+200
+		"device":          "aa",
+		"temperature_avg": 27.5,  // (25+30)/2
+		"humidity_sum":    115.0, // 60+55
 	}
 
 	// 验证结果
 	assert.IsType(t, []map[string]interface{}{}, actual)
 	resultMap := actual.([]map[string]interface{})
-	assert.InEpsilon(t, expected["age_avg"].(float64), resultMap[0]["age_avg"].(float64), 0.0001)
-	assert.InDelta(t, expected["score_sum"].(float64), resultMap[0]["score_sum"].(float64), 0.0001)
+	assert.InEpsilon(t, expected["temperature_avg"].(float64), resultMap[0]["temperature_avg"].(float64), 0.0001)
+	assert.InDelta(t, expected["humidity_sum"].(float64), resultMap[0]["humidity_sum"].(float64), 0.0001)
 }
 
 // 不设置过滤器
@@ -85,8 +85,8 @@ func TestStreamWithoutFilter(t *testing.T) {
 		},
 		GroupFields: []string{"device"},
 		SelectFields: map[string]aggregator.AggregateType{
-			"age":   aggregator.Max,
-			"score": aggregator.Min,
+			"temperature": aggregator.Max,
+			"humidity":    aggregator.Min,
 		},
 	}
 
@@ -96,9 +96,9 @@ func TestStreamWithoutFilter(t *testing.T) {
 	strm.Start()
 
 	testData := []interface{}{
-		map[string]interface{}{"device": "aa", "age": 5.0, "score": 100},
-		map[string]interface{}{"device": "aa", "age": 10.0, "score": 200},
-		map[string]interface{}{"device": "bb", "age": 3.0, "score": 300},
+		map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60},
+		map[string]interface{}{"device": "aa", "temperature": 30.0, "humidity": 55},
+		map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70},
 	}
 
 	for _, data := range testData {
@@ -126,14 +126,14 @@ func TestStreamWithoutFilter(t *testing.T) {
 
 	expected := []map[string]interface{}{
 		{
-			"device":    "aa",
-			"age_max":   10.0,
-			"score_min": 100.0,
+			"device":          "aa",
+			"temperature_max": 30.0,
+			"humidity_min":    55.0,
 		},
 		{
-			"device":    "bb",
-			"age_max":   3.0,
-			"score_min": 300.0,
+			"device":          "bb",
+			"temperature_max": 22.0,
+			"humidity_min":    70.0,
 		},
 	}
 
@@ -145,14 +145,12 @@ func TestStreamWithoutFilter(t *testing.T) {
 	for _, expectedResult := range expected {
 		found := false
 		for _, resultMap := range resultSlice {
-			//if resultMap, ok := result.(map[string]interface{}); ok {
 			if resultMap["device"] == expectedResult["device"] {
-				assert.InEpsilon(t, expectedResult["age_max"].(float64), resultMap["age_max"].(float64), 0.0001)
-				assert.InEpsilon(t, expectedResult["score_min"].(float64), resultMap["score_min"].(float64), 0.0001)
+				assert.InEpsilon(t, expectedResult["temperature_max"].(float64), resultMap["temperature_max"].(float64), 0.0001)
+				assert.InEpsilon(t, expectedResult["humidity_min"].(float64), resultMap["humidity_min"].(float64), 0.0001)
 				found = true
 				break
 			}
-			//}
 		}
 		assert.True(t, found, fmt.Sprintf("Expected result for device %v not found", expectedResult["device"]))
 	}
@@ -166,15 +164,15 @@ func TestIncompleteStreamProcess(t *testing.T) {
 		},
 		GroupFields: []string{"device"},
 		SelectFields: map[string]aggregator.AggregateType{
-			"age":   aggregator.Avg,
-			"score": aggregator.Sum,
+			"temperature": aggregator.Avg,
+			"humidity":    aggregator.Sum,
 		},
 	}
 
 	strm, err := NewStream(config)
 	require.NoError(t, err)
 
-	err = strm.RegisterFilter("device == 'aa' && age > 10")
+	err = strm.RegisterFilter("device == 'aa' ")
 	require.NoError(t, err)
 
 	// 添加 Sink 函数来捕获结果
@@ -187,11 +185,11 @@ func TestIncompleteStreamProcess(t *testing.T) {
 
 	// 准备测试数据
 	testData := []interface{}{
-		map[string]interface{}{"device": "aa", "age": 15.0},
-		map[string]interface{}{"device": "aa", "score": 100},
-		map[string]interface{}{"device": "aa", "age": 20.0},
-		map[string]interface{}{"device": "aa", "score": 200},
-		map[string]interface{}{"device": "bb", "age": 25.0, "score": 300},
+		map[string]interface{}{"device": "aa", "temperature": 25.0},
+		map[string]interface{}{"device": "aa", "humidity": 60},
+		map[string]interface{}{"device": "aa", "temperature": 30.0},
+		map[string]interface{}{"device": "aa", "humidity": 55},
+		map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70},
 	}
 
 	for _, data := range testData {
@@ -210,18 +208,18 @@ func TestIncompleteStreamProcess(t *testing.T) {
 		t.Fatal("No results received within 5 seconds")
 	}
 
-	// 预期结果：只有 device='aa' 且 age>10 的数据会被聚合
+	// 预期结果：只有 device='aa' 且 temperature>10 的数据会被聚合
 	expected := map[string]interface{}{
-		"device":    "aa",
-		"age_avg":   17.5,  // (15+20)/2
-		"score_sum": 300.0, // 100+200
+		"device":          "aa",
+		"temperature_avg": 27.5,  // (25+30)/2
+		"humidity_sum":    115.0, // 60+55
 	}
 
 	// 验证结果
 	assert.IsType(t, []map[string]interface{}{}, actual)
 	resultMap := actual.([]map[string]interface{})
-	assert.InEpsilon(t, expected["age_avg"].(float64), resultMap[0]["age_avg"].(float64), 0.0001)
-	assert.InDelta(t, expected["score_sum"].(float64), resultMap[0]["score_sum"].(float64), 0.0001)
+	assert.InEpsilon(t, expected["temperature_avg"].(float64), resultMap[0]["temperature_avg"].(float64), 0.0001)
+	assert.InDelta(t, expected["humidity_sum"].(float64), resultMap[0]["humidity_sum"].(float64), 0.0001)
 }
 
 func TestWindowSlotAgg(t *testing.T) {
@@ -233,10 +231,10 @@ func TestWindowSlotAgg(t *testing.T) {
 		},
 		GroupFields: []string{"device"},
 		SelectFields: map[string]aggregator.AggregateType{
-			"age":   aggregator.Max,
-			"score": aggregator.Min,
-			"start": aggregator.WindowStart,
-			"end":   aggregator.WindowEnd,
+			"temperature": aggregator.Max,
+			"humidity":    aggregator.Min,
+			"start":       aggregator.WindowStart,
+			"end":         aggregator.WindowEnd,
 		},
 	}
 
@@ -248,9 +246,9 @@ func TestWindowSlotAgg(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	testData := []interface{}{
-		map[string]interface{}{"device": "aa", "age": 5.0, "score": 100, "ts": baseTime},
-		map[string]interface{}{"device": "aa", "age": 10.0, "score": 200, "ts": baseTime.Add(1 * time.Second)},
-		map[string]interface{}{"device": "bb", "age": 3.0, "score": 300, "ts": baseTime},
+		map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60, "ts": baseTime},
+		map[string]interface{}{"device": "aa", "temperature": 30.0, "humidity": 55, "ts": baseTime.Add(1 * time.Second)},
+		map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70, "ts": baseTime},
 	}
 
 	for _, data := range testData {
@@ -278,18 +276,18 @@ func TestWindowSlotAgg(t *testing.T) {
 
 	expected := []map[string]interface{}{
 		{
-			"device":    "aa",
-			"age_max":   10.0,
-			"score_min": 100.0,
-			"start":     baseTime.UnixNano(),
-			"end":       baseTime.Add(2 * time.Second).UnixNano(),
+			"device":          "aa",
+			"temperature_max": 30.0,
+			"humidity_min":    55.0,
+			"start":           baseTime.UnixNano(),
+			"end":             baseTime.Add(2 * time.Second).UnixNano(),
 		},
 		{
-			"device":    "bb",
-			"age_max":   3.0,
-			"score_min": 300.0,
-			"start":     baseTime.UnixNano(),
-			"end":       baseTime.Add(2 * time.Second).UnixNano(),
+			"device":          "bb",
+			"temperature_max": 22.0,
+			"humidity_min":    70.0,
+			"start":           baseTime.UnixNano(),
+			"end":             baseTime.Add(2 * time.Second).UnixNano(),
 		},
 	}
 
@@ -301,16 +299,14 @@ func TestWindowSlotAgg(t *testing.T) {
 	for _, expectedResult := range expected {
 		found := false
 		for _, resultMap := range resultSlice {
-			//if resultMap, ok := result.(map[string]interface{}); ok {
 			if resultMap["device"] == expectedResult["device"] {
-				assert.InEpsilon(t, expectedResult["age_max"].(float64), resultMap["age_max"].(float64), 0.0001)
-				assert.InEpsilon(t, expectedResult["score_min"].(float64), resultMap["score_min"].(float64), 0.0001)
+				assert.InEpsilon(t, expectedResult["temperature_max"].(float64), resultMap["temperature_max"].(float64), 0.0001)
+				assert.InEpsilon(t, expectedResult["humidity_min"].(float64), resultMap["humidity_min"].(float64), 0.0001)
 				assert.Equal(t, expectedResult["start"].(int64), resultMap["start"].(int64))
 				assert.Equal(t, expectedResult["end"].(int64), resultMap["end"].(int64))
 				found = true
 				break
 			}
-			//}
 		}
 		assert.True(t, found, fmt.Sprintf("Expected result for device %v not found", expectedResult["device"]))
 	}

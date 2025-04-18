@@ -76,15 +76,15 @@ func TestStreamData(t *testing.T) {
 
 func TestStreamsql(t *testing.T) {
 	streamsql := New()
-	var rsql = "SELECT device,max(age) as max_age,min(score) as min_score,window_start() as start,window_end() as end FROM stream group by device,SlidingWindow('2s','1s') with (TIMESTAMP='Ts',TIMEUNIT='ss')"
+	var rsql = "SELECT device,max(temperature) as max_temp,min(humidity) as min_humidity,window_start() as start,window_end() as end FROM stream group by device,SlidingWindow('2s','1s') with (TIMESTAMP='Ts',TIMEUNIT='ss')"
 	err := streamsql.Execute(rsql)
 	assert.Nil(t, err)
 	strm := streamsql.stream
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 	testData := []interface{}{
-		map[string]interface{}{"device": "aa", "age": 5.0, "score": 100, "Ts": baseTime},
-		map[string]interface{}{"device": "aa", "age": 10.0, "score": 200, "Ts": baseTime.Add(1 * time.Second)},
-		map[string]interface{}{"device": "bb", "age": 3.0, "score": 300, "Ts": baseTime},
+		map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60, "Ts": baseTime},
+		map[string]interface{}{"device": "aa", "temperature": 30.0, "humidity": 55, "Ts": baseTime.Add(1 * time.Second)},
+		map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70, "Ts": baseTime},
 	}
 
 	for _, data := range testData {
@@ -109,18 +109,18 @@ func TestStreamsql(t *testing.T) {
 
 	expected := []map[string]interface{}{
 		{
-			"device":    "aa",
-			"max_age":   10.0,
-			"min_score": 100.0,
-			"start":     baseTime.UnixNano(),
-			"end":       baseTime.Add(2 * time.Second).UnixNano(),
+			"device":      "aa",
+			"max_temp":    30.0,
+			"min_humidity": 55.0,
+			"start":       baseTime.UnixNano(),
+			"end":         baseTime.Add(2 * time.Second).UnixNano(),
 		},
 		{
-			"device":    "bb",
-			"max_age":   3.0,
-			"min_score": 300.0,
-			"start":     baseTime.UnixNano(),
-			"end":       baseTime.Add(2 * time.Second).UnixNano(),
+			"device":      "bb",
+			"max_temp":    22.0,
+			"min_humidity": 70.0,
+			"start":       baseTime.UnixNano(),
+			"end":         baseTime.Add(2 * time.Second).UnixNano(),
 		},
 	}
 
@@ -131,16 +131,14 @@ func TestStreamsql(t *testing.T) {
 	for _, expectedResult := range expected {
 		found := false
 		for _, resultMap := range resultSlice {
-			//if resultMap, ok := result.(map[string]interface{}); ok {
 			if resultMap["device"] == expectedResult["device"] {
-				assert.InEpsilon(t, expectedResult["max_age"].(float64), resultMap["max_age"].(float64), 0.0001)
-				assert.InEpsilon(t, expectedResult["min_score"].(float64), resultMap["min_score"].(float64), 0.0001)
+				assert.InEpsilon(t, expectedResult["max_temp"].(float64), resultMap["max_temp"].(float64), 0.0001)
+				assert.InEpsilon(t, expectedResult["min_humidity"].(float64), resultMap["min_humidity"].(float64), 0.0001)
 				assert.Equal(t, expectedResult["start"].(int64), resultMap["start"].(int64))
 				assert.Equal(t, expectedResult["end"].(int64), resultMap["end"].(int64))
 				found = true
 				break
 			}
-			//}
 		}
 		assert.True(t, found, fmt.Sprintf("Expected result for device %v not found", expectedResult["device"]))
 	}
@@ -148,15 +146,15 @@ func TestStreamsql(t *testing.T) {
 
 func TestStreamsqlWithoutGroupBy(t *testing.T) {
 	streamsql := New()
-	var rsql = "SELECT max(age) as max_age,min(score) as min_score,window_start() as start,window_end() as end FROM stream SlidingWindow('2s','1s') with (TIMESTAMP='Ts',TIMEUNIT='ss')"
+	var rsql = "SELECT max(temperature) as max_temp,min(humidity) as min_humidity,window_start() as start,window_end() as end FROM stream SlidingWindow('2s','1s') with (TIMESTAMP='Ts',TIMEUNIT='ss')"
 	err := streamsql.Execute(rsql)
 	assert.Nil(t, err)
 	strm := streamsql.stream
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 	testData := []interface{}{
-		map[string]interface{}{"device": "aa", "age": 5.0, "score": 100, "Ts": baseTime},
-		map[string]interface{}{"device": "aa", "age": 10.0, "score": 200, "Ts": baseTime.Add(1 * time.Second)},
-		map[string]interface{}{"device": "bb", "age": 3.0, "score": 300, "Ts": baseTime},
+		map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60, "Ts": baseTime},
+		map[string]interface{}{"device": "aa", "temperature": 30.0, "humidity": 55, "Ts": baseTime.Add(1 * time.Second)},
+		map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70, "Ts": baseTime},
 	}
 
 	for _, data := range testData {
@@ -181,10 +179,10 @@ func TestStreamsqlWithoutGroupBy(t *testing.T) {
 
 	expected := []map[string]interface{}{
 		{
-			"max_age":   10.0,
-			"min_score": 100.0,
-			"start":     baseTime.UnixNano(),
-			"end":       baseTime.Add(2 * time.Second).UnixNano(),
+			"max_temp":     30.0,
+			"min_humidity": 55.0,
+			"start":        baseTime.UnixNano(),
+			"end":          baseTime.Add(2 * time.Second).UnixNano(),
 		},
 	}
 
@@ -195,8 +193,8 @@ func TestStreamsqlWithoutGroupBy(t *testing.T) {
 	for _, expectedResult := range expected {
 		//found := false
 		for _, resultMap := range resultSlice {
-			assert.InEpsilon(t, expectedResult["max_age"].(float64), resultMap["max_age"].(float64), 0.0001)
-			assert.InEpsilon(t, expectedResult["min_score"].(float64), resultMap["min_score"].(float64), 0.0001)
+			assert.InEpsilon(t, expectedResult["max_temp"].(float64), resultMap["max_temp"].(float64), 0.0001)
+			assert.InEpsilon(t, expectedResult["min_humidity"].(float64), resultMap["min_humidity"].(float64), 0.0001)
 			assert.Equal(t, expectedResult["start"].(int64), resultMap["start"].(int64))
 			assert.Equal(t, expectedResult["end"].(int64), resultMap["end"].(int64))
 		}

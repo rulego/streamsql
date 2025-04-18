@@ -36,7 +36,7 @@ func TestParseSQL(t *testing.T) {
 			condition: "deviceId == 'aa'",
 		},
 		{
-			sql: "select max(score) as max_score, min(age) as min_age from Sensor group by type, SlidingWindow('20s', '5s')",
+			sql: "select max(humidity) as max_humidity, min(temperature) as min_temp from Sensor group by type, SlidingWindow('20s', '5s')",
 			expected: &model.Config{
 				WindowConfig: model.WindowConfig{
 					Type: "sliding",
@@ -47,8 +47,8 @@ func TestParseSQL(t *testing.T) {
 				},
 				GroupFields: []string{"type"},
 				SelectFields: map[string]aggregator.AggregateType{
-					"score": "max",
-					"age":   "min",
+					"humidity":    "max",
+					"temperature": "min",
 				},
 			},
 			condition: "",
@@ -121,8 +121,8 @@ func TestWindowParamParsing(t *testing.T) {
 }
 
 func TestConditionParsing(t *testing.T) {
-	sql := "select * from metrics where cpu > 80 || (mem < 20 && disk == '/dev/sda')"
-	expected := "cpu > 80 || (mem < 20 && disk == '/dev/sda')"
+	sql := "select cpu,mem from metrics where cpu > 80 or (mem < 20 and disk == '/dev/sda')"
+	expected := "cpu > 80 || ( mem < 20 && disk == '/dev/sda' )"
 
 	parser := NewParser(sql)
 	stmt, err := parser.Parse()
