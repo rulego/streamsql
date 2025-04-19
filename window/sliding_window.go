@@ -3,12 +3,12 @@ package window
 import (
 	"context"
 	"fmt"
+	"github.com/rulego/streamsql/utils/cast"
+	"github.com/rulego/streamsql/utils/timex"
 	"sync"
 	"time"
 
 	"github.com/rulego/streamsql/model"
-	timex "github.com/rulego/streamsql/utils"
-	"github.com/spf13/cast"
 )
 
 // 确保 SlidingWindow 结构体实现了 Window 接口

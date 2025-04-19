@@ -2,11 +2,11 @@ package window
 
 import (
 	"context"
+	"github.com/rulego/streamsql/utils/timex"
 	"testing"
 	"time"
 
 	"github.com/rulego/streamsql/model"
-	timex "github.com/rulego/streamsql/utils"
 	"github.com/stretchr/testify/assert"
 )
 

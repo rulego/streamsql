@@ -3,12 +3,12 @@ package window
 import (
 	"context"
 	"fmt"
+	"github.com/rulego/streamsql/utils/cast"
+	"github.com/rulego/streamsql/utils/timex"
 	"sync"
 	"time"
 
 	"github.com/rulego/streamsql/model"
-	timex "github.com/rulego/streamsql/utils"
-	"github.com/spf13/cast"
 )
 
 var _ Window = (*CountingWindow)(nil)
