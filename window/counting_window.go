@@ -3,31 +3,32 @@ package window
 import (
 	"context"
 	"fmt"
-	"github.com/rulego/streamsql/utils/cast"
-	"github.com/rulego/streamsql/utils/timex"
 	"sync"
 	"time"
 
-	"github.com/rulego/streamsql/model"
+	"github.com/rulego/streamsql/utils/cast"
+	"github.com/rulego/streamsql/utils/timex"
+
+	"github.com/rulego/streamsql/types"
 )
 
 var _ Window = (*CountingWindow)(nil)
 
 type CountingWindow struct {
-	config      model.WindowConfig
+	config      types.WindowConfig
 	threshold   int
 	count       int
 	mu          sync.Mutex
-	callback    func([]model.Row)
-	dataBuffer  []model.Row
-	outputChan  chan []model.Row
+	callback    func([]types.Row)
+	dataBuffer  []types.Row
+	outputChan  chan []types.Row
 	ctx         context.Context
 	cancelFunc  context.CancelFunc
 	ticker      *time.Ticker
-	triggerChan chan model.Row
+	triggerChan chan types.Row
 }
 
-func NewCountingWindow(config model.WindowConfig) (*CountingWindow, error) {
+func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	threshold := cast.ToInt(config.Params["count"])
 	if threshold <= 0 {
@@ -36,14 +37,14 @@ func NewCountingWindow(config model.WindowConfig) (*CountingWindow, error) {
 
 	cw := &CountingWindow{
 		threshold:   threshold,
-		dataBuffer:  make([]model.Row, 0, threshold),
-		outputChan:  make(chan []model.Row, 10),
+		dataBuffer:  make([]types.Row, 0, threshold),
+		outputChan:  make(chan []types.Row, 10),
 		ctx:         ctx,
 		cancelFunc:  cancel,
-		triggerChan: make(chan model.Row, 3),
+		triggerChan: make(chan types.Row, 3),
 	}
 
-	if callback, ok := config.Params["callback"].(func([]model.Row)); ok {
+	if callback, ok := config.Params["callback"].(func([]types.Row)); ok {
 		cw.SetCallback(callback)
 	}
 	return cw, nil
@@ -51,8 +52,8 @@ func NewCountingWindow(config model.WindowConfig) (*CountingWindow, error) {
 
 func (cw *CountingWindow) Add(data interface{}) {
 	// 将数据添加到窗口的数据列表中
-	t := GetTimestamp(data, cw.config.TsProp)
-	row := model.Row{
+	t := GetTimestamp(data, cw.config.TsProp, cw.config.TimeUnit)
+	row := types.Row{
 		Data:      data,
 		Timestamp: t,
 	}
@@ -99,15 +100,15 @@ func (cw *CountingWindow) Trigger() {
 	data := cw.dataBuffer[:cw.threshold]
 	if len(cw.dataBuffer) > cw.threshold {
 		remaining := len(cw.dataBuffer) - cw.threshold
-		newBuffer := make([]model.Row, remaining, cw.threshold)
+		newBuffer := make([]types.Row, remaining, cw.threshold)
 		copy(newBuffer, cw.dataBuffer[cw.threshold:])
 		cw.dataBuffer = newBuffer
 	} else {
-		cw.dataBuffer = make([]model.Row, 0, cw.threshold)
+		cw.dataBuffer = make([]types.Row, 0, cw.threshold)
 	}
 	// 重置计数
 	cw.count = len(cw.dataBuffer)
-	go func(data []model.Row) {
+	go func(data []types.Row) {
 		if cw.callback != nil {
 			cw.callback(data)
 		}
@@ -122,7 +123,7 @@ func (cw *CountingWindow) Reset() {
 	cw.dataBuffer = nil
 }
 
-func (cw *CountingWindow) OutputChan() <-chan []model.Row {
+func (cw *CountingWindow) OutputChan() <-chan []types.Row {
 	return cw.outputChan
 }
 
@@ -131,18 +132,18 @@ func (cw *CountingWindow) OutputChan() <-chan []model.Row {
 // }
 
 // createSlot 创建一个新的时间槽位
-func (cw *CountingWindow) createSlot(data []model.Row) *model.TimeSlot {
+func (cw *CountingWindow) createSlot(data []types.Row) *types.TimeSlot {
 	if len(data) == 0 {
 		return nil
 	} else if len(data) < cw.threshold {
 		start := timex.AlignTime(data[0].Timestamp, cw.config.TimeUnit, true)
 		end := timex.AlignTime(data[len(cw.dataBuffer)-1].Timestamp, cw.config.TimeUnit, false)
-		slot := model.NewTimeSlot(&start, &end)
+		slot := types.NewTimeSlot(&start, &end)
 		return slot
 	} else {
 		start := timex.AlignTime(data[0].Timestamp, cw.config.TimeUnit, true)
 		end := timex.AlignTime(data[cw.threshold-1].Timestamp, cw.config.TimeUnit, false)
-		slot := model.NewTimeSlot(&start, &end)
+		slot := types.NewTimeSlot(&start, &end)
 		return slot
 	}
 }

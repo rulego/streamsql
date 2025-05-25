@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/rulego/streamsql/aggregator"
-	"github.com/rulego/streamsql/model"
+	"github.com/rulego/streamsql/types"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -13,13 +13,13 @@ import (
 func TestParseSQL(t *testing.T) {
 	tests := []struct {
 		sql       string
-		expected  *model.Config
+		expected  *types.Config
 		condition string
 	}{
 		{
 			sql: "select deviceId, avg(temperature/10) as aa from Input where deviceId='aa' group by deviceId, TumblingWindow('10s')",
-			expected: &model.Config{
-				WindowConfig: model.WindowConfig{
+			expected: &types.Config{
+				WindowConfig: types.WindowConfig{
 					Type: "tumbling",
 					Params: map[string]interface{}{
 						"size": 10 * time.Second,
@@ -37,8 +37,8 @@ func TestParseSQL(t *testing.T) {
 		},
 		{
 			sql: "select max(humidity) as max_humidity, min(temperature) as min_temp from Sensor group by type, SlidingWindow('20s', '5s')",
-			expected: &model.Config{
-				WindowConfig: model.WindowConfig{
+			expected: &types.Config{
+				WindowConfig: types.WindowConfig{
 					Type: "sliding",
 					Params: map[string]interface{}{
 						"size":  20 * time.Second,
@@ -55,8 +55,8 @@ func TestParseSQL(t *testing.T) {
 		},
 		{
 			sql: "select deviceId, avg(temperature/10) as aa from Input where deviceId='aa' group by TumblingWindow('10s'), deviceId  with (TIMESTAMP='ts') ",
-			expected: &model.Config{
-				WindowConfig: model.WindowConfig{
+			expected: &types.Config{
+				WindowConfig: types.WindowConfig{
 					Type: "tumbling",
 					Params: map[string]interface{}{
 						"size": 10 * time.Second,
@@ -75,8 +75,8 @@ func TestParseSQL(t *testing.T) {
 		},
 		{
 			sql: "select deviceId, avg(temperature/10) as aa from Input where deviceId='aa' and temperature>0  TumblingWindow('10s') with (TIMESTAMP='ts') ",
-			expected: &model.Config{
-				WindowConfig: model.WindowConfig{
+			expected: &types.Config{
+				WindowConfig: types.WindowConfig{
 					Type: "tumbling",
 					Params: map[string]interface{}{
 						"size": 10 * time.Second,

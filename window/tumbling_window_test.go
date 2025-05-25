@@ -6,19 +6,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rulego/streamsql/model"
+	"github.com/rulego/streamsql/types"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTumblingWindow(t *testing.T) {
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	tw, _ := NewTumblingWindow(model.WindowConfig{
+	tw, _ := NewTumblingWindow(types.WindowConfig{
 		Type:   "TumblingWindow",
 		Params: map[string]interface{}{"size": "2s"},
 		TsProp: "Ts",
 	})
-	tw.SetCallback(func(results []model.Row) {
+	tw.SetCallback(func(results []types.Row) {
 		// Process results
 	})
 	go tw.Start()
@@ -36,7 +36,7 @@ func TestTumblingWindow(t *testing.T) {
 
 	// 收集窗口结果
 	resultsChan := tw.OutputChan()
-	var all [][]model.Row = make([][]model.Row, 0)
+	var all [][]types.Row = make([][]types.Row, 0)
 
 	// 收集所有窗口数据
 COLLECT:

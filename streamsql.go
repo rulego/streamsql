@@ -17,61 +17,191 @@
 package streamsql
 
 import (
+	"fmt"
+
 	"github.com/rulego/streamsql/rsql"
 	"github.com/rulego/streamsql/stream"
 )
 
-// Streamsql 流式SQL，用于对流式数据进行SQL查询和计算
+// Streamsql 是StreamSQL流处理引擎的主要接口。
+// 它封装了SQL解析、流处理、窗口管理等核心功能。
+//
+// 使用示例:
+//
+//	ssql := streamsql.New()
+//	err := ssql.Execute("SELECT AVG(temperature) FROM stream GROUP BY TumblingWindow('5s')")
+//	ssql.AddData(map[string]interface{}{"temperature": 25.5})
 type Streamsql struct {
 	stream *stream.Stream
 }
 
-// New returns a new Streamsql job runner, modified by the given options.
-func New(opts ...Option) *Streamsql {
-	return &Streamsql{}
+// New 创建一个新的StreamSQL实例。
+// 支持通过可选的Option参数进行配置。
+//
+// 参数:
+//   - options: 可变长度的配置选项，用于自定义StreamSQL行为
+//
+// 返回值:
+//   - *Streamsql: 新创建的StreamSQL实例
+//
+// 示例:
+//
+//	// 创建默认实例
+//	ssql := streamsql.New()
+//
+//	// 创建带日志配置的实例
+//	ssql := streamsql.New(
+//	    streamsql.WithLogLevel(logger.DEBUG),
+//	    streamsql.WithDiscardLog(),
+//	)
+func New(options ...Option) *Streamsql {
+	s := &Streamsql{}
+
+	// 应用所有配置选项
+	for _, option := range options {
+		option(s)
+	}
+
+	return s
 }
 
-// Execute 执行SQ
-// 如果执行成功，则返回nil，否则返回错误信息
+// Execute 解析并执行SQL查询，创建对应的流处理管道。
+// 这是StreamSQL的核心方法，负责将SQL转换为实际的流处理逻辑。
+//
+// 支持的SQL语法:
+//   - SELECT 子句: 选择字段和聚合函数
+//   - FROM 子句: 指定数据源（通常为'stream'）
+//   - WHERE 子句: 数据过滤条件
+//   - GROUP BY 子句: 分组字段和窗口函数
+//   - HAVING 子句: 聚合结果过滤
+//   - LIMIT 子句: 限制结果数量
+//   - DISTINCT: 结果去重
+//
+// 窗口函数:
+//   - TumblingWindow('5s'): 滚动窗口
+//   - SlidingWindow('30s', '10s'): 滑动窗口
+//   - CountingWindow(100): 计数窗口
+//   - SessionWindow('5m'): 会话窗口
+//
+// 参数:
+//   - sql: 要执行的SQL查询语句
+//
+// 返回值:
+//   - error: 如果SQL解析或执行失败，返回相应错误
+//
+// 示例:
+//
+//	// 基本聚合查询
+//	err := ssql.Execute("SELECT deviceId, AVG(temperature) FROM stream GROUP BY deviceId, TumblingWindow('5s')")
+//
+//	// 带过滤条件的查询
+//	err := ssql.Execute("SELECT * FROM stream WHERE temperature > 30")
+//
+//	// 复杂的窗口聚合
+//	err := ssql.Execute(`
+//	    SELECT deviceId,
+//	           AVG(temperature) as avg_temp,
+//	           MAX(humidity) as max_humidity
+//	    FROM stream
+//	    WHERE deviceId != 'test'
+//	    GROUP BY deviceId, SlidingWindow('1m', '30s')
+//	    HAVING avg_temp > 25
+//	    LIMIT 100
+//	`)
 func (s *Streamsql) Execute(sql string) error {
-	var err error
-	//根据sql初始stream，并启动stream
-	stmt, err := rsql.NewParser(sql).Parse()
+	// 解析SQL语句
+	config, condition, err := rsql.Parse(sql)
 	if err != nil {
-		return err
+		return fmt.Errorf("SQL解析失败: %w", err)
 	}
-	config, condition, err := stmt.ToStreamConfig()
-	if err != nil {
-		return err
-	}
+
+	// 创建流处理器
 	s.stream, err = stream.NewStream(*config)
 	if err != nil {
-		return err
+		return fmt.Errorf("创建流处理器失败: %w", err)
 	}
-	err = s.stream.RegisterFilter(condition)
-	if err != nil {
-		return err
+
+	// 注册过滤条件
+	if err = s.stream.RegisterFilter(condition); err != nil {
+		return fmt.Errorf("注册过滤条件失败: %w", err)
 	}
-	//开始接收和处理数据
+
+	// 启动流处理
 	s.stream.Start()
 	return nil
-
 }
 
-// Stop 停止接收和处理数据
-func (s *Streamsql) Stop() {
-}
-
-// GetResult 获取结果
-func (s *Streamsql) GetResult() <-chan interface{} {
-	return s.stream.GetResultsChan()
-}
-
-// AddData 添加流数据
+// AddData 向流中添加一条数据记录。
+// 数据会根据已配置的SQL查询进行处理和聚合。
+//
+// 支持的数据格式:
+//   - map[string]interface{}: 最常用的键值对格式
+//   - 结构体: 会自动转换为map格式处理
+//
+// 参数:
+//   - data: 要添加的数据，通常是map[string]interface{}或结构体
+//
+// 示例:
+//
+//	// 添加设备数据
+//	ssql.AddData(map[string]interface{}{
+//	    "deviceId": "sensor001",
+//	    "temperature": 25.5,
+//	    "humidity": 60.0,
+//	    "timestamp": time.Now(),
+//	})
+//
+//	// 添加用户行为数据
+//	ssql.AddData(map[string]interface{}{
+//	    "userId": "user123",
+//	    "action": "click",
+//	    "page": "/home",
+//	})
 func (s *Streamsql) AddData(data interface{}) {
-	s.stream.AddData(data)
+	if s.stream != nil {
+		s.stream.AddData(data)
+	}
 }
 
+// Stream 返回底层的流处理器实例。
+// 通过此方法可以访问更底层的流处理功能。
+//
+// 返回值:
+//   - *stream.Stream: 底层流处理器实例，如果未执行SQL则返回nil
+//
+// 常用场景:
+//   - 添加结果处理回调
+//   - 获取结果通道
+//   - 手动控制流处理生命周期
+//
+// 示例:
+//
+//	// 添加结果处理回调
+//	ssql.Stream().AddSink(func(result interface{}) {
+//	    fmt.Printf("处理结果: %v\n", result)
+//	})
+//
+//	// 获取结果通道
+//	resultChan := ssql.Stream().GetResultsChan()
+//	go func() {
+//	    for result := range resultChan {
+//	        // 处理结果
+//	    }
+//	}()
 func (s *Streamsql) Stream() *stream.Stream {
 	return s.stream
+}
+
+// Stop 停止流处理器，释放相关资源。
+// 调用此方法后，流处理器将停止接收和处理新数据。
+//
+// 建议在应用程序退出前调用此方法进行清理:
+//
+//	defer ssql.Stop()
+//
+// 注意: 停止后的StreamSQL实例不能重新启动，需要创建新实例。
+func (s *Streamsql) Stop() {
+	if s.stream != nil {
+		s.stream.Stop()
+	}
 }

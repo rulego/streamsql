@@ -1,4 +1,4 @@
-package parser
+package condition
 
 import (
 	"github.com/expr-lang/expr"
