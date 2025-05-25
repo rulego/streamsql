@@ -5,6 +5,9 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/rulego/streamsql/functions"
+	"github.com/rulego/streamsql/utils/cast"
 )
 
 type Aggregator interface {
@@ -12,6 +15,8 @@ type Aggregator interface {
 	Put(key string, val interface{}) error
 	GetResults() ([]map[string]interface{}, error)
 	Reset()
+	// RegisterExpression 注册表达式计算器
+	RegisterExpression(field, expression string, fields []string, evaluator func(data interface{}) (interface{}, error))
 }
 
 type GroupAggregator struct {
@@ -22,27 +27,53 @@ type GroupAggregator struct {
 	mu          sync.RWMutex
 	context     map[string]interface{}
 	fieldAlias  map[string]string
+	// 表达式计算器
+	expressions map[string]*ExpressionEvaluator
+}
+
+// ExpressionEvaluator 包装表达式计算功能
+type ExpressionEvaluator struct {
+	Expression   string   // 完整表达式
+	Field        string   // 主字段名
+	Fields       []string // 表达式中引用的所有字段
+	evaluateFunc func(data interface{}) (interface{}, error)
 }
 
 func NewGroupAggregator(groupFields []string, fieldMap map[string]AggregateType, fieldAlias map[string]string) *GroupAggregator {
 	aggregators := make(map[string]AggregatorFunction)
 
-	for field, aggType := range fieldMap {
-		aggregators[field] = CreateBuiltinAggregator(aggType)
+	// fieldMap的key是别名（输出字段名），value是聚合类型
+	// fieldAlias的key是别名（输出字段名），value是输入字段名
+	for alias, aggType := range fieldMap {
+		aggregators[alias] = CreateBuiltinAggregator(aggType)
 	}
 
 	return &GroupAggregator{
-		fieldMap:    fieldMap,
+		fieldMap:    fieldMap, // 别名 -> 聚合类型
 		groupFields: groupFields,
 		aggregators: aggregators,
 		groups:      make(map[string]map[string]AggregatorFunction),
-		fieldAlias:  fieldAlias,
+		fieldAlias:  fieldAlias, // 别名 -> 输入字段名
+		expressions: make(map[string]*ExpressionEvaluator),
+	}
+}
+
+// RegisterExpression 注册表达式计算器
+func (ga *GroupAggregator) RegisterExpression(field, expression string, fields []string, evaluator func(data interface{}) (interface{}, error)) {
+	ga.mu.Lock()
+	defer ga.mu.Unlock()
+
+	ga.expressions[field] = &ExpressionEvaluator{
+		Expression:   expression,
+		Field:        field,
+		Fields:       fields,
+		evaluateFunc: evaluator,
 	}
 }
 
 func (ga *GroupAggregator) Put(key string, val interface{}) error {
-	ga.mu.Lock()         // 获取写锁
-	defer ga.mu.Unlock() // 确保函数返回时释放锁
+	ga.mu.Lock()
+	defer ga.mu.Unlock()
 	if ga.context == nil {
 		ga.context = make(map[string]interface{})
 	}
@@ -50,9 +81,57 @@ func (ga *GroupAggregator) Put(key string, val interface{}) error {
 	return nil
 }
 
+// isNumericAggregator 检查聚合器是否需要数值类型输入
+func (ga *GroupAggregator) isNumericAggregator(aggType AggregateType) bool {
+	// 通过functions模块动态检查函数类型
+	if fn, exists := functions.Get(string(aggType)); exists {
+		switch fn.GetType() {
+		case functions.TypeMath:
+			// 数学函数通常需要数值输入
+			return true
+		case functions.TypeAggregation:
+			// 检查是否是数值聚合函数
+			switch string(aggType) {
+			case functions.SumStr, functions.AvgStr, functions.MinStr, functions.MaxStr, functions.CountStr,
+				functions.StdDevStr, functions.MedianStr, functions.PercentileStr,
+				functions.VarStr, functions.VarSStr, functions.StdDevSStr:
+				return true
+			case functions.CollectStr, functions.MergeAggStr, functions.DeduplicateStr, functions.LastValueStr:
+				// 这些函数可以处理任意类型
+				return false
+			default:
+				// 对于未知的聚合函数，尝试检查函数名称模式
+				funcName := string(aggType)
+				if strings.Contains(funcName, functions.SumStr) || strings.Contains(funcName, functions.AvgStr) ||
+					strings.Contains(funcName, functions.MinStr) || strings.Contains(funcName, functions.MaxStr) ||
+					strings.Contains(funcName, "std") || strings.Contains(funcName, "var") {
+					return true
+				}
+				return false
+			}
+		case functions.TypeAnalytical:
+			// 分析函数通常可以处理任意类型
+			return false
+		default:
+			// 其他类型的函数，保守起见认为不需要数值转换
+			return false
+		}
+	}
+
+	// 如果函数不存在，根据名称模式判断
+	funcName := string(aggType)
+	if strings.Contains(funcName, functions.SumStr) || strings.Contains(funcName, functions.AvgStr) ||
+		strings.Contains(funcName, functions.MinStr) || strings.Contains(funcName, functions.MaxStr) ||
+		strings.Contains(funcName, functions.CountStr) || strings.Contains(funcName, "std") ||
+		strings.Contains(funcName, "var") {
+		return true
+	}
+	return false
+}
+
 func (ga *GroupAggregator) Add(data interface{}) error {
-	ga.mu.Lock()         // 获取写锁
-	defer ga.mu.Unlock() // 确保函数返回时释放锁
+	ga.mu.Lock()
+	defer ga.mu.Unlock()
 	var v reflect.Value
 
 	switch data.(type) {
@@ -71,11 +150,9 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		var f reflect.Value
 
 		if v.Kind() == reflect.Map {
-			// 处理 map 类型
 			keyVal := reflect.ValueOf(field)
 			f = v.MapIndex(keyVal)
 		} else {
-			// 处理结构体类型
 			f = v.FieldByName(field)
 		}
 
@@ -95,51 +172,65 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		}
 	}
 
-	/**
-	    sql中没有'Group By'时，key为空串
-		// if key == "" {
-		// 	return fmt.Errorf("key cannot be empty")
-		// }
-		// // 去除最后的 | 符号
-		// key = key[:len(key)-1]
-	*/
-
 	if _, exists := ga.groups[key]; !exists {
 		ga.groups[key] = make(map[string]AggregatorFunction)
 	}
-	// field级别的聚合可以分批创建
+
+	// 为每个字段创建聚合器实例
 	for field, agg := range ga.aggregators {
 		if _, exists := ga.groups[key][field]; !exists {
-			// 创建新的聚合器实例
 			ga.groups[key][field] = agg.New()
-			//fmt.Printf("groups by %s : %v \n", key, ga.groups[key])
 		}
 	}
 
 	for field := range ga.fieldMap {
-		var f reflect.Value
+		// 检查是否有表达式计算器
+		if expr, hasExpr := ga.expressions[field]; hasExpr {
+			result, err := expr.evaluateFunc(data)
+			if err != nil {
+				continue
+			}
 
+			if groupAgg, exists := ga.groups[key][field]; exists {
+				groupAgg.Add(result)
+			}
+			continue
+		}
+
+		// 获取实际的输入字段名
+		// field现在是输出字段名（可能是别名），需要找到对应的输入字段名
+		inputFieldName := field
+		if mappedField, exists := ga.fieldAlias[field]; exists {
+			// 如果field是别名，获取实际输入字段名
+			inputFieldName = mappedField
+		}
+
+		// 特殊处理count(*)的情况
+		if inputFieldName == "*" {
+			// 对于count(*)，直接添加1，不需要获取具体字段值
+			if groupAgg, exists := ga.groups[key][field]; exists {
+				groupAgg.Add(1)
+			}
+			continue
+		}
+
+		// 获取字段值
+		var f reflect.Value
 		if v.Kind() == reflect.Map {
-			// 处理 map 类型
-			keyVal := reflect.ValueOf(field)
+			keyVal := reflect.ValueOf(inputFieldName)
 			f = v.MapIndex(keyVal)
 		} else {
-			// 处理结构体类型
-			f = v.FieldByName(field)
+			f = v.FieldByName(inputFieldName)
 		}
 
 		if !f.IsValid() {
-			//return fmt.Errorf("field %s not found", field)
-			//fmt.Printf("field %s not found in %v \n ", field, data)
-
 			// 尝试从context中获取
 			if ga.context != nil {
 				if groupAgg, exists := ga.groups[key][field]; exists {
-					if _, ok := groupAgg.(ContextAggregator); ok {
-						key := groupAgg.(ContextAggregator).GetContextKey()
-						if val, exists := ga.context[key]; exists {
+					if contextAgg, ok := groupAgg.(ContextAggregator); ok {
+						contextKey := contextAgg.GetContextKey()
+						if val, exists := ga.context[contextKey]; exists {
 							groupAgg.Add(val)
-							//fmt.Printf("add agg group by %s:%s , %v  \n", key, field, value)
 						}
 					}
 				}
@@ -148,22 +239,23 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		}
 
 		fieldVal := f.Interface()
-		var value float64
-		switch vType := fieldVal.(type) {
-		case float64:
-			value = vType
-		case int, int32, int64:
-			value = float64(vType.(int))
-		case float32:
-			value = float64(vType)
-		default:
-			return fmt.Errorf("unsupported type for field %s: %T", field, fieldVal)
-		}
-		if groupAgg, exists := ga.groups[key][field]; exists {
-			groupAgg.Add(value)
-			//fmt.Printf("add agg group by %s:%s , %v  \n", key, field, value)
-		} else {
+		aggType := ga.fieldMap[field]
 
+		// 动态检查是否需要数值转换
+		if ga.isNumericAggregator(aggType) {
+			// 对于数值聚合函数，尝试转换为数值类型
+			if numVal, err := cast.ToFloat64E(fieldVal); err == nil {
+				if groupAgg, exists := ga.groups[key][field]; exists {
+					groupAgg.Add(numVal)
+				}
+			} else {
+				return fmt.Errorf("cannot convert field %s value %v to numeric type for aggregator %s", inputFieldName, fieldVal, aggType)
+			}
+		} else {
+			// 对于非数值聚合函数，直接传递原始值
+			if groupAgg, exists := ga.groups[key][field]; exists {
+				groupAgg.Add(fieldVal)
+			}
 		}
 	}
 
@@ -171,30 +263,19 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 }
 
 func (ga *GroupAggregator) GetResults() ([]map[string]interface{}, error) {
-	ga.mu.RLock()         // 获取读锁，允许并发读取
-	defer ga.mu.RUnlock() // 确保函数返回时释放锁
+	ga.mu.RLock()
+	defer ga.mu.RUnlock()
 	result := make([]map[string]interface{}, 0, len(ga.groups))
 	for key, aggregators := range ga.groups {
 		group := make(map[string]interface{})
 		fields := strings.Split(key, "|")
 		for i, field := range ga.groupFields {
-			group[field] = fields[i]
+			if i < len(fields) {
+				group[field] = fields[i]
+			}
 		}
 		for field, agg := range aggregators {
-			if _, ok := agg.(ContextAggregator); ok {
-				if alias, ok := ga.fieldAlias[field]; ok {
-					group[alias] = agg.Result()
-				} else {
-					group[field] = agg.Result()
-				}
-			} else {
-				if alias, ok := ga.fieldAlias[field]; ok {
-					group[alias] = agg.Result()
-				} else {
-					group[field+"_"+string(ga.fieldMap[field])] = agg.Result()
-				}
-			}
-
+			group[field] = agg.Result()
 		}
 		result = append(result, group)
 	}
@@ -202,7 +283,7 @@ func (ga *GroupAggregator) GetResults() ([]map[string]interface{}, error) {
 }
 
 func (ga *GroupAggregator) Reset() {
-	ga.mu.Lock()         // 获取写锁
-	defer ga.mu.Unlock() // 确保函数返回时释放锁
+	ga.mu.Lock()
+	defer ga.mu.Unlock()
 	ga.groups = make(map[string]map[string]AggregatorFunction)
 }

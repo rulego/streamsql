@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rulego/streamsql/model"
+	"github.com/rulego/streamsql/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
@@ -16,7 +16,7 @@ func TestCountingWindow(t *testing.T) {
 	defer cancel()
 
 	// Test case 1: Normal operation
-	cw, _ := NewCountingWindow(model.WindowConfig{
+	cw, _ := NewCountingWindow(types.WindowConfig{
 		Params: map[string]interface{}{
 			"count": 3,
 			"callback": func(results []interface{}) {
@@ -35,7 +35,7 @@ func TestCountingWindow(t *testing.T) {
 	cw.Add(3)
 
 	resultsChan := cw.OutputChan()
-	//results := make(chan []model.Row)
+	//results := make(chan []types.Row)
 	// go func() {
 	// 	for res := range cw.OutputChan() {
 	// 		results <- res
@@ -58,7 +58,7 @@ func TestCountingWindow(t *testing.T) {
 }
 
 func TestCountingWindowBadThreshold(t *testing.T) {
-	_, err := CreateWindow(model.WindowConfig{
+	_, err := CreateWindow(types.WindowConfig{
 		Type: "counting",
 		Params: map[string]interface{}{
 			"count": 0,

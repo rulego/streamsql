@@ -38,6 +38,9 @@ const (
 	TokenTimestamp
 	TokenTimeUnit
 	TokenOrder
+	TokenDISTINCT
+	TokenLIMIT
+	TokenHAVING
 )
 
 type Token struct {
@@ -237,6 +240,12 @@ func (l *Lexer) lookupIdent(ident string) Token {
 		return Token{Type: TokenTimeUnit, Value: ident}
 	case "ORDER":
 		return Token{Type: TokenOrder, Value: ident}
+	case "DISTINCT":
+		return Token{Type: TokenDISTINCT, Value: ident}
+	case "LIMIT":
+		return Token{Type: TokenLIMIT, Value: ident}
+	case "HAVING":
+		return Token{Type: TokenHAVING, Value: ident}
 	default:
 		return Token{Type: TokenIdent, Value: ident}
 	}

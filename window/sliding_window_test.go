@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rulego/streamsql/model"
+	"github.com/rulego/streamsql/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,7 +21,7 @@ func TestSlidingWindow(t *testing.T) {
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	sw, _ := NewSlidingWindow(model.WindowConfig{
+	sw, _ := NewSlidingWindow(types.WindowConfig{
 		Params: map[string]interface{}{
 			"size":  "2s",
 			"slide": "1s",
@@ -29,7 +29,7 @@ func TestSlidingWindow(t *testing.T) {
 		TsProp:   "Ts",
 		TimeUnit: time.Second,
 	})
-	sw.SetCallback(func(results []model.Row) {
+	sw.SetCallback(func(results []types.Row) {
 		if len(results) == 0 {
 			return
 		}
@@ -63,7 +63,7 @@ func TestSlidingWindow(t *testing.T) {
 
 	// 检查结果
 	// resultsChan := sw.OutputChan()
-	// results := make(chan []model.Row)
+	// results := make(chan []types.Row)
 	actual := make([]TestResult, 0)
 	timeout := time.After(6 * time.Second)
 	for {
@@ -116,13 +116,13 @@ func (d TestDate2) GetTimestamp() time.Time {
 func TestGetTimestamp(t *testing.T) {
 	t_0 := time.Now()
 	data := map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60, "ts": t_0}
-	t_1 := GetTimestamp(data, "ts")
+	t_1 := GetTimestamp(data, "ts", time.Millisecond)
 
 	data_1 := TestDate{Ts: t_0}
-	t_2 := GetTimestamp(data_1, "Ts")
+	t_2 := GetTimestamp(data_1, "Ts", time.Millisecond)
 
 	data_2 := TestDate2{ts: t_0}
-	t_3 := GetTimestamp(data_2, "")
+	t_3 := GetTimestamp(data_2, "", time.Millisecond)
 
 	assert.Equal(t, t_0, t_1)
 	assert.Equal(t, t_0, t_2)

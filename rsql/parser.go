@@ -2,9 +2,12 @@ package rsql
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rulego/streamsql/types"
 )
 
 type Parser struct {
@@ -40,21 +43,69 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 		return nil, err
 	}
 
+	// 解析 HAVING 子句
+	if err := p.parseHaving(stmt); err != nil {
+		return nil, err
+	}
+
 	if err := p.parseWith(stmt); err != nil {
+		return nil, err
+	}
+
+	// 解析LIMIT子句
+	if err := p.parseLimit(stmt); err != nil {
 		return nil, err
 	}
 
 	return stmt, nil
 }
+
 func (p *Parser) parseSelect(stmt *SelectStatement) error {
 	p.lexer.NextToken() // 跳过SELECT
 	currentToken := p.lexer.NextToken()
+
+	if currentToken.Type == TokenDISTINCT {
+		stmt.Distinct = true
+		currentToken = p.lexer.NextToken() // 消费 DISTINCT，移动到下一个 token
+	}
+
+	// 设置最大字段数量限制，防止无限循环
+	maxFields := 100
+	fieldCount := 0
+
 	for {
+		fieldCount++
+		// 安全检查：防止无限循环
+		if fieldCount > maxFields {
+			return errors.New("select field list parsing exceeded maximum fields, possible syntax error")
+		}
+
 		var expr strings.Builder
+		parenthesesLevel := 0 // 跟踪括号嵌套层级
+
+		// 设置最大表达式长度，防止无限循环
+		maxExprParts := 100
+		exprPartCount := 0
+
 		for {
-			if currentToken.Type == TokenFROM || currentToken.Type == TokenComma || currentToken.Type == TokenAS {
+			exprPartCount++
+			// 安全检查：防止无限循环
+			if exprPartCount > maxExprParts {
+				return errors.New("select field expression parsing exceeded maximum length, possible syntax error")
+			}
+
+			// 跟踪括号层级
+			if currentToken.Type == TokenLParen {
+				parenthesesLevel++
+			} else if currentToken.Type == TokenRParen {
+				parenthesesLevel--
+			}
+
+			// 只有在括号层级为0时，逗号才被视为字段分隔符
+			if parenthesesLevel == 0 && (currentToken.Type == TokenFROM || currentToken.Type == TokenComma || currentToken.Type == TokenAS || currentToken.Type == TokenEOF) {
 				break
 			}
+
 			expr.WriteString(currentToken.Value)
 			currentToken = p.lexer.NextToken()
 		}
@@ -64,13 +115,31 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 		// 处理别名
 		if currentToken.Type == TokenAS {
 			field.Alias = p.lexer.NextToken().Value
+			currentToken = p.lexer.NextToken()
 		}
-		stmt.Fields = append(stmt.Fields, field)
-		currentToken = p.lexer.NextToken()
-		if currentToken.Type == TokenFROM {
+
+		// 如果表达式为空，跳过这个字段
+		if field.Expression != "" {
+			stmt.Fields = append(stmt.Fields, field)
+		}
+
+		if currentToken.Type == TokenFROM || currentToken.Type == TokenEOF {
 			break
 		}
+
+		if currentToken.Type != TokenComma {
+			// 如果不是逗号，那么应该是语法错误
+			return fmt.Errorf("unexpected token %v, expected comma or FROM", currentToken.Value)
+		}
+
+		currentToken = p.lexer.NextToken()
 	}
+
+	// 确保至少有一个字段
+	if len(stmt.Fields) == 0 {
+		return errors.New("no fields specified in SELECT clause")
+	}
+
 	return nil
 }
 
@@ -80,10 +149,22 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 	if current.Type != TokenWHERE {
 		return nil
 	}
+
+	// 设置最大次数限制，防止无限循环
+	maxIterations := 100
+	iterations := 0
+
 	for {
+		iterations++
+		// 安全检查：防止无限循环
+		if iterations > maxIterations {
+			return errors.New("WHERE clause parsing exceeded maximum iterations, possible syntax error")
+		}
+
 		tok := p.lexer.NextToken()
 		if tok.Type == TokenGROUP || tok.Type == TokenEOF || tok.Type == TokenSliding ||
-			tok.Type == TokenTumbling || tok.Type == TokenCounting || tok.Type == TokenSession {
+			tok.Type == TokenTumbling || tok.Type == TokenCounting || tok.Type == TokenSession ||
+			tok.Type == TokenHAVING || tok.Type == TokenLIMIT {
 			break
 		}
 		switch tok.Type {
@@ -105,7 +186,6 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 				conditions = append(conditions, tok.Value)
 			}
 		}
-
 	}
 	stmt.Condition = strings.Join(conditions, " ")
 	return nil
@@ -115,7 +195,17 @@ func (p *Parser) parseWindowFunction(stmt *SelectStatement, winType string) erro
 	p.lexer.NextToken() // 跳过(
 	var params []interface{}
 
+	// 设置最大次数限制，防止无限循环
+	maxIterations := 100
+	iterations := 0
+
 	for p.lexer.peekChar() != ')' {
+		iterations++
+		// 安全检查：防止无限循环
+		if iterations > maxIterations {
+			return errors.New("window function parameter parsing exceeded maximum iterations, possible syntax error")
+		}
+
 		valTok := p.lexer.NextToken()
 		if valTok.Type == TokenRParen || valTok.Type == TokenEOF {
 			break
@@ -181,9 +271,20 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 		p.lexer.NextToken() // 跳过BY
 	}
 
+	// 设置最大次数限制，防止无限循环
+	maxIterations := 100
+	iterations := 0
+
 	for {
+		iterations++
+		// 安全检查：防止无限循环
+		if iterations > maxIterations {
+			return errors.New("group by clause parsing exceeded maximum iterations, possible syntax error")
+		}
+
 		tok := p.lexer.NextToken()
-		if tok.Type == TokenWITH || tok.Type == TokenOrder || tok.Type == TokenEOF {
+		if tok.Type == TokenWITH || tok.Type == TokenOrder || tok.Type == TokenEOF ||
+			tok.Type == TokenHAVING || tok.Type == TokenLIMIT {
 			break
 		}
 		if tok.Type == TokenComma {
@@ -195,17 +296,30 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 		}
 
 		stmt.GroupBy = append(stmt.GroupBy, tok.Value)
-
-		//if p.lexer.NextToken().Type != TokenComma {
-		//	break
-		//}
 	}
 	return nil
 }
 
 func (p *Parser) parseWith(stmt *SelectStatement) error {
+	// 查看当前 token，如果不是 WITH，则返回
+	tok := p.lexer.lookupIdent(p.lexer.readPreviousIdentifier())
+	if tok.Type != TokenWITH {
+		return nil // 没有 WITH 子句，不是错误
+	}
+
 	p.lexer.NextToken() // 跳过(
+
+	// 设置最大次数限制，防止无限循环
+	maxIterations := 100
+	iterations := 0
+
 	for p.lexer.peekChar() != ')' {
+		iterations++
+		// 安全检查：防止无限循环
+		if iterations > maxIterations {
+			return errors.New("WITH clause parsing exceeded maximum iterations, possible syntax error")
+		}
+
 		valTok := p.lexer.NextToken()
 		if valTok.Type == TokenRParen || valTok.Type == TokenEOF {
 			break
@@ -266,4 +380,90 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 	}
 
 	return nil
+}
+
+// parseLimit 解析LIMIT子句
+func (p *Parser) parseLimit(stmt *SelectStatement) error {
+	// 查看当前token
+	if p.lexer.lookupIdent(p.lexer.readPreviousIdentifier()).Type == TokenLIMIT {
+		// 获取下一个token，应该是一个数字
+		tok := p.lexer.NextToken()
+		if tok.Type == TokenNumber {
+			// 将数字字符串转换为整数
+			limit, err := strconv.Atoi(tok.Value)
+			if err != nil {
+				return errors.New("LIMIT值必须是一个整数")
+			}
+			stmt.Limit = limit
+		} else {
+			return errors.New("LIMIT后必须跟一个整数")
+		}
+	}
+	return nil
+}
+
+// parseHaving 解析HAVING子句
+func (p *Parser) parseHaving(stmt *SelectStatement) error {
+	// 查看当前token
+	tok := p.lexer.lookupIdent(p.lexer.readPreviousIdentifier())
+	if tok.Type != TokenHAVING {
+		return nil // 没有 HAVING 子句，不是错误
+	}
+
+	// 设置最大次数限制，防止无限循环
+	maxIterations := 100
+	iterations := 0
+
+	var conditions []string
+	for {
+		iterations++
+		// 安全检查：防止无限循环
+		if iterations > maxIterations {
+			return errors.New("HAVING clause parsing exceeded maximum iterations, possible syntax error")
+		}
+
+		tok := p.lexer.NextToken()
+		if tok.Type == TokenLIMIT || tok.Type == TokenEOF || tok.Type == TokenWITH {
+			break
+		}
+
+		switch tok.Type {
+		case TokenIdent, TokenNumber:
+			conditions = append(conditions, tok.Value)
+		case TokenString:
+			conditions = append(conditions, "'"+tok.Value+"'")
+		case TokenEQ:
+			conditions = append(conditions, "==")
+		case TokenAND:
+			conditions = append(conditions, "&&")
+		case TokenOR:
+			conditions = append(conditions, "||")
+		default:
+			// 处理字符串值的引号
+			if len(conditions) > 0 && conditions[len(conditions)-1] == "'" {
+				conditions[len(conditions)-1] = conditions[len(conditions)-1] + tok.Value
+			} else {
+				conditions = append(conditions, tok.Value)
+			}
+		}
+	}
+
+	stmt.Having = strings.Join(conditions, " ")
+	return nil
+}
+
+// Parse 是包级别的Parse函数，用于解析SQL字符串并返回配置和条件
+func Parse(sql string) (*types.Config, string, error) {
+	parser := NewParser(sql)
+	stmt, err := parser.Parse()
+	if err != nil {
+		return nil, "", err
+	}
+
+	config, condition, err := stmt.ToStreamConfig()
+	if err != nil {
+		return nil, "", err
+	}
+
+	return config, condition, nil
 }

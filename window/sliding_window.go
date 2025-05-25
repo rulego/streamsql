@@ -3,12 +3,13 @@ package window
 import (
 	"context"
 	"fmt"
-	"github.com/rulego/streamsql/utils/cast"
-	"github.com/rulego/streamsql/utils/timex"
 	"sync"
 	"time"
 
-	"github.com/rulego/streamsql/model"
+	"github.com/rulego/streamsql/utils/cast"
+	"github.com/rulego/streamsql/utils/timex"
+
+	"github.com/rulego/streamsql/types"
 )
 
 // 确保 SlidingWindow 结构体实现了 Window 接口
@@ -23,7 +24,7 @@ type TimedData struct {
 // SlidingWindow 表示一个滑动窗口，用于按时间范围处理数据
 type SlidingWindow struct {
 	// config 窗口的配置信息
-	config model.WindowConfig
+	config types.WindowConfig
 	// 窗口的总大小，即窗口覆盖的时间范围
 	size time.Duration
 	// 窗口每次滑动的时间间隔
@@ -31,18 +32,18 @@ type SlidingWindow struct {
 	// 用于保护数据并发访问的互斥锁
 	mu sync.Mutex
 	// 存储窗口内的数据
-	data []model.Row
+	data []types.Row
 	// 用于输出窗口内数据的通道
-	outputChan chan []model.Row
+	outputChan chan []types.Row
 	// 当窗口触发时执行的回调函数
-	callback func([]model.Row)
+	callback func([]types.Row)
 	// 用于控制窗口生命周期的上下文
 	ctx context.Context
 	// 用于取消上下文的函数
 	cancelFunc context.CancelFunc
 	// 用于定时触发窗口的定时器
 	timer       *time.Ticker
-	currentSlot *model.TimeSlot
+	currentSlot *types.TimeSlot
 	// 用于初始化窗口的通道
 	initChan    chan struct{}
 	initialized bool
@@ -50,7 +51,7 @@ type SlidingWindow struct {
 
 // NewSlidingWindow 创建一个新的滑动窗口实例
 // 参数 size 表示窗口的总大小，slide 表示窗口每次滑动的时间间隔
-func NewSlidingWindow(config model.WindowConfig) (*SlidingWindow, error) {
+func NewSlidingWindow(config types.WindowConfig) (*SlidingWindow, error) {
 	// 创建一个可取消的上下文
 	ctx, cancel := context.WithCancel(context.Background())
 	size, err := cast.ToDurationE(config.Params["size"])
@@ -65,10 +66,10 @@ func NewSlidingWindow(config model.WindowConfig) (*SlidingWindow, error) {
 		config:      config,
 		size:        size,
 		slide:       slide,
-		outputChan:  make(chan []model.Row, 10),
+		outputChan:  make(chan []types.Row, 10),
 		ctx:         ctx,
 		cancelFunc:  cancel,
-		data:        make([]model.Row, 0),
+		data:        make([]types.Row, 0),
 		initChan:    make(chan struct{}),
 		initialized: false,
 	}, nil
@@ -81,7 +82,7 @@ func (sw *SlidingWindow) Add(data interface{}) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 	// 将数据添加到窗口的数据列表中
-	t := GetTimestamp(data, sw.config.TsProp)
+	t := GetTimestamp(data, sw.config.TsProp, sw.config.TimeUnit)
 	if !sw.initialized {
 		sw.currentSlot = sw.createSlot(t)
 		sw.timer = time.NewTicker(sw.slide)
@@ -89,7 +90,7 @@ func (sw *SlidingWindow) Add(data interface{}) {
 		close(sw.initChan)
 		sw.initialized = true
 	}
-	row := model.Row{
+	row := types.Row{
 		Data:      data,
 		Timestamp: t,
 	}
@@ -135,8 +136,8 @@ func (sw *SlidingWindow) Trigger() {
 	// 保留下一个窗口的数据
 	tms := next.Start.Add(-sw.size)
 	tme := next.End.Add(sw.size)
-	temp := model.NewTimeSlot(&tms, &tme)
-	newData := make([]model.Row, 0)
+	temp := types.NewTimeSlot(&tms, &tme)
+	newData := make([]types.Row, 0)
 	for _, item := range sw.data {
 		if temp.Contains(item.Timestamp) {
 			newData = append(newData, item)
@@ -144,7 +145,7 @@ func (sw *SlidingWindow) Trigger() {
 	}
 
 	// 提取出 Data 字段组成 []interface{} 类型的数据
-	resultData := make([]model.Row, 0)
+	resultData := make([]types.Row, 0)
 	for _, item := range sw.data {
 		if sw.currentSlot.Contains(item.Timestamp) {
 			item.Slot = sw.currentSlot
@@ -177,31 +178,31 @@ func (sw *SlidingWindow) Reset() {
 }
 
 // OutputChan 返回滑动窗口的输出通道
-func (sw *SlidingWindow) OutputChan() <-chan []model.Row {
+func (sw *SlidingWindow) OutputChan() <-chan []types.Row {
 	return sw.outputChan
 }
 
 // SetCallback 设置滑动窗口触发时执行的回调函数
 // 参数 callback 表示要设置的回调函数
-func (sw *SlidingWindow) SetCallback(callback func([]model.Row)) {
+func (sw *SlidingWindow) SetCallback(callback func([]types.Row)) {
 	sw.callback = callback
 }
 
-func (sw *SlidingWindow) NextSlot() *model.TimeSlot {
+func (sw *SlidingWindow) NextSlot() *types.TimeSlot {
 	if sw.currentSlot == nil {
 		return nil
 	}
 	start := sw.currentSlot.Start.Add(sw.slide)
 	end := sw.currentSlot.End.Add(sw.slide)
-	next := model.NewTimeSlot(&start, &end)
+	next := types.NewTimeSlot(&start, &end)
 	return next
 }
 
 // createSlot 创建一个新的时间槽位
-func (sw *SlidingWindow) createSlot(t time.Time) *model.TimeSlot {
+func (sw *SlidingWindow) createSlot(t time.Time) *types.TimeSlot {
 	// 创建一个新的时间槽位
 	start := timex.AlignTimeToWindow(t, sw.size)
 	end := start.Add(sw.size)
-	slot := model.NewTimeSlot(&start, &end)
+	slot := types.NewTimeSlot(&start, &end)
 	return slot
 }

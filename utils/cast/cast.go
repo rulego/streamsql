@@ -300,3 +300,19 @@ func ToStringE(input interface{}) (string, error) {
 		}
 	}
 }
+
+// ConvertIntToTime 将整数时间戳转换为 time.Time
+func ConvertIntToTime(timestampInt int64, timeUnit time.Duration) time.Time {
+	switch timeUnit {
+	case time.Second:
+		return time.Unix(timestampInt, 0)
+	case time.Millisecond:
+		return time.Unix(0, timestampInt*int64(time.Millisecond))
+	case time.Microsecond:
+		return time.Unix(0, timestampInt*int64(time.Microsecond))
+	case time.Nanosecond:
+		return time.Unix(0, timestampInt)
+	default:
+		return time.Unix(timestampInt, 0) // 默认按秒处理
+	}
+}

@@ -103,6 +103,11 @@ func main() {
 	wg.Wait()
 }
 ```
+
+## Functions
+
+StreamSQL supports a variety of function types, including mathematical, string, conversion, aggregate, analytic, window, and more. [Documentation](docs/FUNCTIONS_USAGE_GUIDE.md)
+
 ## Concepts
 
 ### Windows
