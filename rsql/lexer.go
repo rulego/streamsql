@@ -90,6 +90,11 @@ func (l *Lexer) NextToken() Token {
 		l.readChar()
 		return Token{Type: TokenSlash, Value: "/"}
 	case '=':
+		if l.peekChar() == '=' {
+			l.readChar()
+			l.readChar()
+			return Token{Type: TokenEQ, Value: "=="}
+		}
 		l.readChar()
 		return Token{Type: TokenEQ, Value: "="}
 	case '>':
@@ -114,6 +119,10 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			return Token{Type: TokenNE, Value: "!="}
 		}
+	case '\'':
+		return Token{Type: TokenString, Value: l.readString()}
+	case '"':
+		return Token{Type: TokenString, Value: l.readString()}
 	}
 
 	if isLetter(l.ch) {
@@ -123,10 +132,6 @@ func (l *Lexer) NextToken() Token {
 
 	if isDigit(l.ch) {
 		return Token{Type: TokenNumber, Value: l.readNumber()}
-	}
-
-	if l.ch == '\'' {
-		return Token{Type: TokenString, Value: l.readString()}
 	}
 
 	l.readChar()
@@ -188,16 +193,20 @@ func (l *Lexer) readNumber() string {
 }
 
 func (l *Lexer) readString() string {
-	l.readChar() // 跳过开头单引号
-	pos := l.pos
+	quoteChar := l.ch // 记录引号类型（单引号或双引号）
+	startPos := l.pos // 记录开始位置（包含引号）
+	l.readChar()      // 跳过开头引号
 
-	for l.ch != '\'' && l.ch != 0 {
+	for l.ch != quoteChar && l.ch != 0 {
 		l.readChar()
 	}
 
-	str := l.input[pos:l.pos]
-	l.readChar() // 跳过结尾单引号
-	return str
+	if l.ch == quoteChar {
+		l.readChar() // 跳过结尾引号
+	}
+
+	// 返回包含引号的完整字符串
+	return l.input[startPos:l.pos]
 }
 
 func (l *Lexer) skipWhitespace() {

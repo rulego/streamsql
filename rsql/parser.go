@@ -171,9 +171,13 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 		case TokenIdent, TokenNumber:
 			conditions = append(conditions, tok.Value)
 		case TokenString:
-			conditions = append(conditions, "'"+tok.Value+"'")
+			conditions = append(conditions, tok.Value)
 		case TokenEQ:
-			conditions = append(conditions, "==")
+			if tok.Value == "=" {
+				conditions = append(conditions, "==")
+			} else {
+				conditions = append(conditions, tok.Value)
+			}
 		case TokenAND:
 			conditions = append(conditions, "&&")
 		case TokenOR:
@@ -431,9 +435,13 @@ func (p *Parser) parseHaving(stmt *SelectStatement) error {
 		case TokenIdent, TokenNumber:
 			conditions = append(conditions, tok.Value)
 		case TokenString:
-			conditions = append(conditions, "'"+tok.Value+"'")
+			conditions = append(conditions, tok.Value)
 		case TokenEQ:
-			conditions = append(conditions, "==")
+			if tok.Value == "=" {
+				conditions = append(conditions, "==")
+			} else {
+				conditions = append(conditions, tok.Value)
+			}
 		case TokenAND:
 			conditions = append(conditions, "&&")
 		case TokenOR:

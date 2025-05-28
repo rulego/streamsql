@@ -220,10 +220,14 @@ func (f *ExpressionAggregatorFunction) New() AggregatorFunction {
 
 func (f *ExpressionAggregatorFunction) Add(value interface{}) {
 	// 对于表达式聚合器，保存最后一个计算结果
+	// 表达式的计算结果应该是每个数据项的计算结果
 	f.lastResult = value
 }
 
 func (f *ExpressionAggregatorFunction) Result() interface{} {
+	// 对于表达式聚合器，返回最后一个计算结果
+	// 注意：对于字符串函数如CONCAT，每个数据项都会产生一个结果
+	// 在窗口聚合中，我们返回最后一个计算的结果
 	return f.lastResult
 }
 

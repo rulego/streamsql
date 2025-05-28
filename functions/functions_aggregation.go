@@ -425,11 +425,13 @@ func (f *PercentileFunction) Execute(ctx *FunctionContext, args []interface{}) (
 // CollectFunction 收集函数 - 获取当前窗口所有消息的列值组成的数组
 type CollectFunction struct {
 	*BaseFunction
+	values []interface{}
 }
 
 func NewCollectFunction() *CollectFunction {
 	return &CollectFunction{
 		BaseFunction: NewBaseFunction("collect", TypeAggregation, "聚合函数", "收集所有值组成数组", 1, -1),
+		values:       make([]interface{}, 0),
 	}
 }
 
@@ -444,14 +446,47 @@ func (f *CollectFunction) Execute(ctx *FunctionContext, args []interface{}) (int
 	return result, nil
 }
 
+// 实现AggregatorFunction接口
+func (f *CollectFunction) New() AggregatorFunction {
+	return &CollectFunction{
+		BaseFunction: f.BaseFunction,
+		values:       make([]interface{}, 0),
+	}
+}
+
+func (f *CollectFunction) Add(value interface{}) {
+	f.values = append(f.values, value)
+}
+
+func (f *CollectFunction) Result() interface{} {
+	result := make([]interface{}, len(f.values))
+	copy(result, f.values)
+	return result
+}
+
+func (f *CollectFunction) Reset() {
+	f.values = make([]interface{}, 0)
+}
+
+func (f *CollectFunction) Clone() AggregatorFunction {
+	newFunc := &CollectFunction{
+		BaseFunction: f.BaseFunction,
+		values:       make([]interface{}, len(f.values)),
+	}
+	copy(newFunc.values, f.values)
+	return newFunc
+}
+
 // LastValueFunction 最后值函数 - 返回组中最后一行的值
 type LastValueFunction struct {
 	*BaseFunction
+	lastValue interface{}
 }
 
 func NewLastValueFunction() *LastValueFunction {
 	return &LastValueFunction{
 		BaseFunction: NewBaseFunction("last_value", TypeAggregation, "聚合函数", "返回最后一个值", 1, -1),
+		lastValue:    nil,
 	}
 }
 
@@ -467,14 +502,43 @@ func (f *LastValueFunction) Execute(ctx *FunctionContext, args []interface{}) (i
 	return args[len(args)-1], nil
 }
 
+// 实现AggregatorFunction接口
+func (f *LastValueFunction) New() AggregatorFunction {
+	return &LastValueFunction{
+		BaseFunction: f.BaseFunction,
+		lastValue:    nil,
+	}
+}
+
+func (f *LastValueFunction) Add(value interface{}) {
+	f.lastValue = value
+}
+
+func (f *LastValueFunction) Result() interface{} {
+	return f.lastValue
+}
+
+func (f *LastValueFunction) Reset() {
+	f.lastValue = nil
+}
+
+func (f *LastValueFunction) Clone() AggregatorFunction {
+	return &LastValueFunction{
+		BaseFunction: f.BaseFunction,
+		lastValue:    f.lastValue,
+	}
+}
+
 // MergeAggFunction 合并聚合函数 - 将组中的值合并为单个值
 type MergeAggFunction struct {
 	*BaseFunction
+	values []interface{}
 }
 
 func NewMergeAggFunction() *MergeAggFunction {
 	return &MergeAggFunction{
 		BaseFunction: NewBaseFunction("merge_agg", TypeAggregation, "聚合函数", "合并所有值", 1, -1),
+		values:       make([]interface{}, 0),
 	}
 }
 
@@ -496,6 +560,47 @@ func (f *MergeAggFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 		result.WriteString(cast.ToString(arg))
 	}
 	return result.String(), nil
+}
+
+// 实现AggregatorFunction接口
+func (f *MergeAggFunction) New() AggregatorFunction {
+	return &MergeAggFunction{
+		BaseFunction: f.BaseFunction,
+		values:       make([]interface{}, 0),
+	}
+}
+
+func (f *MergeAggFunction) Add(value interface{}) {
+	f.values = append(f.values, value)
+}
+
+func (f *MergeAggFunction) Result() interface{} {
+	if len(f.values) == 0 {
+		return nil
+	}
+
+	// 尝试合并为字符串
+	var result strings.Builder
+	for i, arg := range f.values {
+		if i > 0 {
+			result.WriteString(",")
+		}
+		result.WriteString(cast.ToString(arg))
+	}
+	return result.String()
+}
+
+func (f *MergeAggFunction) Reset() {
+	f.values = make([]interface{}, 0)
+}
+
+func (f *MergeAggFunction) Clone() AggregatorFunction {
+	newFunc := &MergeAggFunction{
+		BaseFunction: f.BaseFunction,
+		values:       make([]interface{}, len(f.values)),
+	}
+	copy(newFunc.values, f.values)
+	return newFunc
 }
 
 // StdDevSFunction 样本标准差函数

@@ -2,12 +2,12 @@ package functions
 
 import (
 	"fmt"
-	"github.com/rulego/streamsql/utils/cast"
 	"strconv"
 	"strings"
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
+	"github.com/rulego/streamsql/utils/cast"
 )
 
 // ExprBridge 桥接 StreamSQL 函数系统与 expr-lang/expr
@@ -109,6 +109,11 @@ func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression str
 
 // EvaluateExpression 评估表达式，自动选择最合适的引擎
 func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]interface{}) (interface{}, error) {
+	// 首先检查是否是CONCAT函数调用
+	if strings.HasPrefix(strings.ToUpper(expression), "CONCAT(") {
+		return bridge.evaluateConcatFunction(expression, data)
+	}
+
 	// 首先检查是否包含字符串拼接模式
 	if bridge.isStringConcatenationExpression(expression, data) {
 		result, err := bridge.evaluateStringConcatenation(expression, data)
@@ -175,6 +180,87 @@ func (bridge *ExprBridge) fallbackToCustomExpr(expression string, data map[strin
 	}
 
 	return nil, fmt.Errorf("unable to evaluate expression: %s, string concat error: %v, numeric error: %v", expression, err, err)
+}
+
+// evaluateConcatFunction 处理CONCAT函数调用
+func (bridge *ExprBridge) evaluateConcatFunction(expression string, data map[string]interface{}) (interface{}, error) {
+	// 提取CONCAT函数的参数
+	start := strings.Index(expression, "(")
+	end := strings.LastIndex(expression, ")")
+	if start == -1 || end == -1 || end <= start {
+		return nil, fmt.Errorf("invalid CONCAT function syntax: %s", expression)
+	}
+
+	// 获取参数字符串
+	paramsStr := strings.TrimSpace(expression[start+1 : end])
+	if paramsStr == "" {
+		return "", nil // 空参数返回空字符串
+	}
+
+	// 解析参数
+	params := bridge.parseParameters(paramsStr)
+	var result strings.Builder
+
+	for _, param := range params {
+		param = strings.TrimSpace(param)
+
+		// 处理字符串字面量
+		if (strings.HasPrefix(param, "'") && strings.HasSuffix(param, "'")) ||
+			(strings.HasPrefix(param, "\"") && strings.HasSuffix(param, "\"")) {
+			// 去掉引号
+			literal := param[1 : len(param)-1]
+			result.WriteString(literal)
+		} else {
+			// 处理字段引用
+			if value, exists := data[param]; exists {
+				strValue := cast.ToString(value)
+				result.WriteString(strValue)
+			} else {
+				return nil, fmt.Errorf("field %s not found in data", param)
+			}
+		}
+	}
+
+	return result.String(), nil
+}
+
+// parseParameters 解析函数参数，正确处理引号内的逗号
+func (bridge *ExprBridge) parseParameters(paramsStr string) []string {
+	var params []string
+	var current strings.Builder
+	inQuotes := false
+	quoteChar := byte(0)
+
+	for i := 0; i < len(paramsStr); i++ {
+		ch := paramsStr[i]
+
+		if !inQuotes {
+			if ch == '\'' || ch == '"' {
+				inQuotes = true
+				quoteChar = ch
+				current.WriteByte(ch)
+			} else if ch == ',' {
+				// 参数分隔符
+				params = append(params, current.String())
+				current.Reset()
+			} else {
+				current.WriteByte(ch)
+			}
+		} else {
+			if ch == quoteChar {
+				inQuotes = false
+				quoteChar = 0
+			}
+			current.WriteByte(ch)
+		}
+	}
+
+	// 添加最后一个参数
+	if current.Len() > 0 {
+		params = append(params, current.String())
+	}
+
+	return params
 }
 
 // evaluateStringConcatenation 处理字符串拼接表达式

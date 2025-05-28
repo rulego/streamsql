@@ -325,6 +325,29 @@ func extractAggFieldWithExpression(exprStr string, funcName string) (fieldName s
 	// 对于复杂表达式，包括多参数函数调用
 	expression = fieldExpr
 
+	// 对于CONCAT等字符串函数，直接保存完整表达式
+	if strings.ToLower(funcName) == "concat" {
+		// 智能解析CONCAT函数的参数来提取字段名
+		var fields []string
+		params := parseSmartParameters(fieldExpr)
+		for _, param := range params {
+			param = strings.TrimSpace(param)
+			// 如果参数不是字符串常量（不被引号包围），则认为是字段名
+			if !((strings.HasPrefix(param, "'") && strings.HasSuffix(param, "'")) ||
+				(strings.HasPrefix(param, "\"") && strings.HasSuffix(param, "\""))) {
+				if isIdentifier(param) {
+					fields = append(fields, param)
+				}
+			}
+		}
+		if len(fields) > 0 {
+			// 对于CONCAT函数，保存完整的函数调用作为表达式
+			return fields[0], funcName + "(" + fieldExpr + ")", fields
+		}
+		// 如果没有找到字段，返回空字段名但保留表达式
+		return "", funcName + "(" + fieldExpr + ")", nil
+	}
+
 	// 使用表达式引擎解析
 	parsedExpr, err := expr.NewExpression(fieldExpr)
 	if err != nil {
@@ -370,23 +393,62 @@ func extractAggFieldWithExpression(exprStr string, funcName string) (fieldName s
 	return fieldExpr, expression, nil
 }
 
+// parseSmartParameters 智能解析函数参数，正确处理引号内的逗号
+func parseSmartParameters(paramsStr string) []string {
+	var params []string
+	var current strings.Builder
+	inQuotes := false
+	quoteChar := byte(0)
+
+	for i := 0; i < len(paramsStr); i++ {
+		ch := paramsStr[i]
+
+		if !inQuotes {
+			if ch == '\'' || ch == '"' {
+				inQuotes = true
+				quoteChar = ch
+				current.WriteByte(ch)
+			} else if ch == ',' {
+				// 参数分隔符
+				params = append(params, current.String())
+				current.Reset()
+			} else {
+				current.WriteByte(ch)
+			}
+		} else {
+			if ch == quoteChar {
+				inQuotes = false
+				quoteChar = 0
+			}
+			current.WriteByte(ch)
+		}
+	}
+
+	// 添加最后一个参数
+	if current.Len() > 0 {
+		params = append(params, current.String())
+	}
+
+	return params
+}
+
 // isIdentifier 检查字符串是否是有效的标识符
 func isIdentifier(s string) bool {
 	if len(s) == 0 {
 		return false
 	}
-
+	// 第一个字符必须是字母或下划线
 	if !((s[0] >= 'a' && s[0] <= 'z') || (s[0] >= 'A' && s[0] <= 'Z') || s[0] == '_') {
 		return false
 	}
-
+	// 其余字符必须是字母、数字或下划线
 	for i := 1; i < len(s); i++ {
-		if !((s[i] >= 'a' && s[i] <= 'z') || (s[i] >= 'A' && s[i] <= 'Z') ||
-			(s[i] >= '0' && s[i] <= '9') || s[i] == '_') {
+		char := s[i]
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') || char == '_') {
 			return false
 		}
 	}
-
 	return true
 }
 
