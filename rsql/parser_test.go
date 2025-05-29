@@ -27,7 +27,7 @@ func TestParseSQL(t *testing.T) {
 				},
 				GroupFields: []string{"deviceId"},
 				SelectFields: map[string]aggregator.AggregateType{
-					"temperature": "avg",
+					"aa": "avg",
 				},
 				FieldAlias: map[string]string{
 					"temperature": "aa",
@@ -47,8 +47,8 @@ func TestParseSQL(t *testing.T) {
 				},
 				GroupFields: []string{"type"},
 				SelectFields: map[string]aggregator.AggregateType{
-					"humidity":    "max",
-					"temperature": "min",
+					"max_humidity": "max",
+					"min_temp":     "min",
 				},
 			},
 			condition: "",
@@ -65,7 +65,7 @@ func TestParseSQL(t *testing.T) {
 				},
 				GroupFields: []string{"deviceId"},
 				SelectFields: map[string]aggregator.AggregateType{
-					"temperature": "avg",
+					"aa": "avg",
 				},
 				FieldAlias: map[string]string{
 					"temperature": "aa",
@@ -84,7 +84,7 @@ func TestParseSQL(t *testing.T) {
 					TsProp: "ts",
 				},
 				SelectFields: map[string]aggregator.AggregateType{
-					"temperature": "avg",
+					"aa": "avg",
 				},
 				FieldAlias: map[string]string{
 					"temperature": "aa",
