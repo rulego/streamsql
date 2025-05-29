@@ -3,12 +3,13 @@ package stream
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/rulego/streamsql/condition"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rulego/streamsql/condition"
 
 	"github.com/rulego/streamsql/aggregator"
 	"github.com/rulego/streamsql/expr"
@@ -296,15 +297,6 @@ func (s *Stream) processDirectData(data interface{}) {
 
 // executeFunction 执行函数调用
 func (s *Stream) executeFunction(funcExpr string, data map[string]interface{}) (interface{}, error) {
-	// 使用表达式引擎执行函数
-	expression, err := expr.NewExpression(funcExpr)
-	if err != nil {
-		return nil, fmt.Errorf("parse function expression failed: %w", err)
-	}
-
-	// 对于字符串函数，不需要转换为float64，直接使用表达式引擎
-	// 但表达式引擎返回float64，需要特殊处理
-
 	// 检查是否是自定义函数
 	funcName := extractFunctionName(funcExpr)
 	if funcName != "" {
@@ -325,9 +317,15 @@ func (s *Stream) executeFunction(funcExpr string, data map[string]interface{}) (
 		}
 	}
 
-	// 回退到表达式引擎
-	result, err := expression.Evaluate(data)
-	return result, err
+	// 对于复杂的嵌套函数调用，直接使用ExprBridge
+	// 这样可以避免Expression.Evaluate的float64类型限制
+	bridge := functions.GetExprBridge()
+	result, err := bridge.EvaluateExpression(funcExpr, data)
+	if err != nil {
+		return nil, fmt.Errorf("evaluate function expression failed: %w", err)
+	}
+
+	return result, nil
 }
 
 // extractFunctionName 从表达式中提取函数名
@@ -343,7 +341,7 @@ func extractFunctionName(expr string) string {
 	return funcName
 }
 
-// parseFunctionArgs 解析函数参数
+// parseFunctionArgs 解析函数参数，支持嵌套函数调用
 func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]interface{}) ([]interface{}, error) {
 	// 提取括号内的参数
 	start := strings.Index(funcExpr, "(")
@@ -357,8 +355,12 @@ func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]interface{})
 		return []interface{}{}, nil
 	}
 
-	// 分割参数（简单实现，不处理嵌套函数）
-	argParts := strings.Split(argsStr, ",")
+	// 智能分割参数，处理嵌套函数和引号
+	argParts, err := s.smartSplitArgs(argsStr)
+	if err != nil {
+		return nil, err
+	}
+
 	args := make([]interface{}, len(argParts))
 
 	for i, arg := range argParts {
@@ -367,6 +369,15 @@ func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]interface{})
 		// 如果参数是字符串常量（用引号包围）
 		if strings.HasPrefix(arg, "'") && strings.HasSuffix(arg, "'") {
 			args[i] = strings.Trim(arg, "'")
+		} else if strings.HasPrefix(arg, "\"") && strings.HasSuffix(arg, "\"") {
+			args[i] = strings.Trim(arg, "\"")
+		} else if strings.Contains(arg, "(") {
+			// 如果参数包含函数调用，递归执行
+			result, err := s.executeFunction(arg, data)
+			if err != nil {
+				return nil, fmt.Errorf("failed to execute nested function '%s': %v", arg, err)
+			}
+			args[i] = result
 		} else if value, exists := data[arg]; exists {
 			// 如果是数据字段
 			args[i] = value
@@ -378,6 +389,67 @@ func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]interface{})
 				args[i] = arg
 			}
 		}
+	}
+
+	return args, nil
+}
+
+// smartSplitArgs 智能分割参数，考虑括号嵌套和引号
+func (s *Stream) smartSplitArgs(argsStr string) ([]string, error) {
+	var args []string
+	var current strings.Builder
+	parenDepth := 0
+	inQuotes := false
+	quoteChar := byte(0)
+
+	for i := 0; i < len(argsStr); i++ {
+		ch := argsStr[i]
+
+		switch ch {
+		case '\'':
+			if !inQuotes {
+				inQuotes = true
+				quoteChar = ch
+			} else if quoteChar == ch {
+				inQuotes = false
+				quoteChar = 0
+			}
+			current.WriteByte(ch)
+		case '"':
+			if !inQuotes {
+				inQuotes = true
+				quoteChar = ch
+			} else if quoteChar == ch {
+				inQuotes = false
+				quoteChar = 0
+			}
+			current.WriteByte(ch)
+		case '(':
+			if !inQuotes {
+				parenDepth++
+			}
+			current.WriteByte(ch)
+		case ')':
+			if !inQuotes {
+				parenDepth--
+			}
+			current.WriteByte(ch)
+		case ',':
+			if !inQuotes && parenDepth == 0 {
+				// 找到参数分隔符
+				args = append(args, strings.TrimSpace(current.String()))
+				current.Reset()
+			} else {
+				current.WriteByte(ch)
+			}
+		default:
+			current.WriteByte(ch)
+		}
+	}
+
+	// 添加最后一个参数
+	if current.Len() > 0 {
+		args = append(args, strings.TrimSpace(current.String()))
 	}
 
 	return args, nil
