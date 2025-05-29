@@ -19,7 +19,7 @@ func TestExprBridge(t *testing.T) {
 		// 测试数学函数
 		result, err := bridge.EvaluateExpression("abs(-5)", data)
 		assert.NoError(t, err)
-		assert.Equal(t, 5, result)
+		assert.Equal(t, float64(5), result)
 
 		// 测试字符串函数
 		result, err = bridge.EvaluateExpression("length(\"hello\")", data)
@@ -63,7 +63,7 @@ func TestExprBridge(t *testing.T) {
 		// 测试函数解析优先级
 		_, exists, source := bridge.ResolveFunction("abs")
 		assert.True(t, exists)
-		assert.Equal(t, "expr-lang", source) // expr-lang优先
+		assert.Equal(t, "streamsql", source) // StreamSQL优先
 
 		_, exists, source = bridge.ResolveFunction("encode")
 		assert.True(t, exists)

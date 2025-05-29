@@ -71,12 +71,17 @@ func (bridge *ExprBridge) CreateEnhancedExprEnvironment(data map[string]interfac
 		funcName := name
 		function := fn
 
-		env[funcName] = func(params ...interface{}) (interface{}, error) {
+		wrappedFunc := func(params ...interface{}) (interface{}, error) {
 			ctx := &FunctionContext{
 				Data: data, // 使用当前数据上下文
 			}
 			return function.Execute(ctx, params)
 		}
+
+		// 注册小写版本
+		env[funcName] = wrappedFunc
+		// 注册大写版本
+		env[strings.ToUpper(funcName)] = wrappedFunc
 	}
 
 	// 添加一些便捷的数学函数别名，避免与内置冲突
@@ -109,11 +114,6 @@ func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression str
 
 // EvaluateExpression 评估表达式，自动选择最合适的引擎
 func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]interface{}) (interface{}, error) {
-	// 首先检查是否是CONCAT函数调用
-	if strings.HasPrefix(strings.ToUpper(expression), "CONCAT(") {
-		return bridge.evaluateConcatFunction(expression, data)
-	}
-
 	// 首先检查是否包含字符串拼接模式
 	if bridge.isStringConcatenationExpression(expression, data) {
 		result, err := bridge.evaluateStringConcatenation(expression, data)
@@ -122,10 +122,19 @@ func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]
 		}
 	}
 
-	// 创建增强环境
-	env := bridge.CreateEnhancedExprEnvironment(data)
+	// 尝试使用编译后的程序执行（包含StreamSQL函数）
+	program, err := bridge.CompileExpressionWithStreamSQLFunctions(expression, data)
+	if err == nil {
+		// 创建增强环境
+		env := bridge.CreateEnhancedExprEnvironment(data)
+		result, err := expr.Run(program, env)
+		if err == nil {
+			return result, nil
+		}
+	}
 
-	// 尝试使用expr-lang/expr评估
+	// 如果编译失败，尝试直接使用expr.Eval
+	env := bridge.CreateEnhancedExprEnvironment(data)
 	result, err := expr.Eval(expression, env)
 	if err != nil {
 		// 如果expr失败，回退到自定义expr系统（仅限数值计算）
@@ -180,87 +189,6 @@ func (bridge *ExprBridge) fallbackToCustomExpr(expression string, data map[strin
 	}
 
 	return nil, fmt.Errorf("unable to evaluate expression: %s, string concat error: %v, numeric error: %v", expression, err, err)
-}
-
-// evaluateConcatFunction 处理CONCAT函数调用
-func (bridge *ExprBridge) evaluateConcatFunction(expression string, data map[string]interface{}) (interface{}, error) {
-	// 提取CONCAT函数的参数
-	start := strings.Index(expression, "(")
-	end := strings.LastIndex(expression, ")")
-	if start == -1 || end == -1 || end <= start {
-		return nil, fmt.Errorf("invalid CONCAT function syntax: %s", expression)
-	}
-
-	// 获取参数字符串
-	paramsStr := strings.TrimSpace(expression[start+1 : end])
-	if paramsStr == "" {
-		return "", nil // 空参数返回空字符串
-	}
-
-	// 解析参数
-	params := bridge.parseParameters(paramsStr)
-	var result strings.Builder
-
-	for _, param := range params {
-		param = strings.TrimSpace(param)
-
-		// 处理字符串字面量
-		if (strings.HasPrefix(param, "'") && strings.HasSuffix(param, "'")) ||
-			(strings.HasPrefix(param, "\"") && strings.HasSuffix(param, "\"")) {
-			// 去掉引号
-			literal := param[1 : len(param)-1]
-			result.WriteString(literal)
-		} else {
-			// 处理字段引用
-			if value, exists := data[param]; exists {
-				strValue := cast.ToString(value)
-				result.WriteString(strValue)
-			} else {
-				return nil, fmt.Errorf("field %s not found in data", param)
-			}
-		}
-	}
-
-	return result.String(), nil
-}
-
-// parseParameters 解析函数参数，正确处理引号内的逗号
-func (bridge *ExprBridge) parseParameters(paramsStr string) []string {
-	var params []string
-	var current strings.Builder
-	inQuotes := false
-	quoteChar := byte(0)
-
-	for i := 0; i < len(paramsStr); i++ {
-		ch := paramsStr[i]
-
-		if !inQuotes {
-			if ch == '\'' || ch == '"' {
-				inQuotes = true
-				quoteChar = ch
-				current.WriteByte(ch)
-			} else if ch == ',' {
-				// 参数分隔符
-				params = append(params, current.String())
-				current.Reset()
-			} else {
-				current.WriteByte(ch)
-			}
-		} else {
-			if ch == quoteChar {
-				inQuotes = false
-				quoteChar = 0
-			}
-			current.WriteByte(ch)
-		}
-	}
-
-	// 添加最后一个参数
-	if current.Len() > 0 {
-		params = append(params, current.String())
-	}
-
-	return params
 }
 
 // evaluateStringConcatenation 处理字符串拼接表达式
@@ -464,13 +392,43 @@ func (bridge *ExprBridge) GetFunctionInfo() map[string]interface{} {
 	return info
 }
 
-// ResolveFunction 解析函数调用，优先使用expr-lang/expr的函数
+// ResolveFunction 解析函数调用，优先使用StreamSQL函数
 func (bridge *ExprBridge) ResolveFunction(name string) (interface{}, bool, string) {
-	// 检查是否是expr-lang内置函数
+	// 进行大小写不敏感的查找
+	lowerName := strings.ToLower(name)
+
+	// 首先检查StreamSQL函数（优先级更高）
+	if fn, exists := bridge.streamSQLFunctions[lowerName]; exists {
+		return fn, true, "streamsql"
+	}
+
+	// 然后检查是否是expr-lang内置函数
 	exprBuiltins := []string{
 		"abs", "ceil", "floor", "round", "max", "min", // math
 		"trim", "upper", "lower", "split", "replace", "indexOf", "hasPrefix", "hasSuffix", // string
-		"all", "any", "filter", "map", "find", "count", "concat", "flatten", // array
+		"all", "any", "filter", "map", "find", "count", "flatten", // array (移除concat)
+		"now", "duration", "date", // time
+		"int", "float", "string", "type", // conversion
+		"toJSON", "fromJSON", "toBase64", "fromBase64", // encoding
+		"len", "get", // misc
+	}
+
+	for _, builtin := range exprBuiltins {
+		if strings.ToLower(builtin) == lowerName {
+			return nil, true, "expr-lang" // expr-lang会自动处理
+		}
+	}
+
+	return nil, false, ""
+}
+
+// IsExprLangFunction 检查函数名是否是expr-lang内置函数
+func (bridge *ExprBridge) IsExprLangFunction(name string) bool {
+	// expr-lang内置函数列表（移除concat避免冲突）
+	exprBuiltins := []string{
+		"abs", "ceil", "floor", "round", "max", "min", // math
+		"trim", "upper", "lower", "split", "replace", "indexOf", "hasPrefix", "hasSuffix", // string
+		"all", "any", "filter", "map", "find", "count", "flatten", // array (移除concat)
 		"now", "duration", "date", // time
 		"int", "float", "string", "type", // conversion
 		"toJSON", "fromJSON", "toBase64", "fromBase64", // encoding
@@ -479,16 +437,10 @@ func (bridge *ExprBridge) ResolveFunction(name string) (interface{}, bool, strin
 
 	for _, builtin := range exprBuiltins {
 		if builtin == name {
-			return nil, true, "expr-lang" // expr-lang会自动处理
+			return true
 		}
 	}
-
-	// 检查StreamSQL函数
-	if fn, exists := bridge.streamSQLFunctions[name]; exists {
-		return fn, true, "streamsql"
-	}
-
-	return nil, false, ""
+	return false
 }
 
 // 全局桥接器实例

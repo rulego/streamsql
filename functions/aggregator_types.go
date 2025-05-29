@@ -13,7 +13,6 @@ const (
 	Avg         AggregateType = "avg"
 	Max         AggregateType = "max"
 	Min         AggregateType = "min"
-	StdDev      AggregateType = "stddev"
 	Median      AggregateType = "median"
 	Percentile  AggregateType = "percentile"
 	WindowStart AggregateType = "window_start"
@@ -21,6 +20,7 @@ const (
 	Collect     AggregateType = "collect"
 	LastValue   AggregateType = "last_value"
 	MergeAgg    AggregateType = "merge_agg"
+	StdDev      AggregateType = "stddev"
 	StdDevS     AggregateType = "stddevs"
 	Deduplicate AggregateType = "deduplicate"
 	Var         AggregateType = "var"
@@ -41,7 +41,6 @@ const (
 	AvgStr         = string(Avg)
 	MaxStr         = string(Max)
 	MinStr         = string(Min)
-	StdDevStr      = string(StdDev)
 	MedianStr      = string(Median)
 	PercentileStr  = string(Percentile)
 	WindowStartStr = string(WindowStart)
@@ -49,6 +48,8 @@ const (
 	CollectStr     = string(Collect)
 	LastValueStr   = string(LastValue)
 	MergeAggStr    = string(MergeAgg)
+	StdStr         = "std"
+	StdDevStr      = string(StdDev)
 	StdDevSStr     = string(StdDevS)
 	DeduplicateStr = string(Deduplicate)
 	VarStr         = string(Var)

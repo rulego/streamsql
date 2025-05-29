@@ -3,6 +3,7 @@ package streamsql
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -504,107 +505,107 @@ func TestHavingClause(t *testing.T) {
 	}
 }
 
-//func TestSessionWindow(t *testing.T) {
-//	streamsql := New()
-//	defer streamsql.Stop()
-//
-//	// 使用 SESSION 窗口，超时时间为 2 秒
-//	rsql := "SELECT device, avg(temperature) as avg_temp FROM stream GROUP BY device, SESSIONWINDOW('2s') with (TIMESTAMP='Ts')"
-//	err := streamsql.Execute(rsql)
-//	assert.Nil(t, err)
-//	strm := streamsql.stream
-//
-//	// 创建结果接收通道
-//	resultChan := make(chan interface{}, 10)
-//
-//	// 添加结果回调
-//	strm.AddSink(func(result interface{}) {
-//		//fmt.Printf("接收到结果: %v\n", result)
-//		resultChan <- result
-//	})
-//
-//	baseTime := time.Now()
-//
-//	// 添加测试数据 - 两个设备，不同的时间
-//	testData := []struct {
-//		data interface{}
-//		wait time.Duration
-//	}{
-//		// 第一组数据 - device1
-//		{map[string]interface{}{"device": "device1", "temperature": 20.0, "Ts": baseTime}, 0},
-//		{map[string]interface{}{"device": "device1", "temperature": 22.0, "Ts": baseTime.Add(500 * time.Millisecond)}, 500 * time.Millisecond},
-//
-//		// 第二组数据 - device2
-//		{map[string]interface{}{"device": "device2", "temperature": 25.0, "Ts": baseTime.Add(time.Second)}, time.Second},
-//		{map[string]interface{}{"device": "device2", "temperature": 27.0, "Ts": baseTime.Add(1500 * time.Millisecond)}, 500 * time.Millisecond},
-//
-//		// 间隔超过会话超时
-//
-//		// 第三组数据 - device1，新会话
-//		{map[string]interface{}{"device": "device1", "temperature": 30.0, "Ts": baseTime.Add(5 * time.Second)}, 3 * time.Second},
-//	}
-//
-//	// 按指定的间隔添加数据
-//	for _, item := range testData {
-//		if item.wait > 0 {
-//			time.Sleep(item.wait)
-//		}
-//		strm.AddData(item.data)
-//	}
-//
-//	// 等待会话超时，使最后一个会话触发
-//	time.Sleep(3 * time.Second)
-//
-//	// 手动触发所有窗口，确保数据被处理
-//	strm.Window.Trigger()
-//
-//	// 收集结果
-//	var results []interface{}
-//
-//	// 等待接收结果
-//	timeout := time.After(5 * time.Second)
-//	done := false
-//
-//	for !done {
-//		select {
-//		case result := <-resultChan:
-//			results = append(results, result)
-//			// 我们期望至少 3 个会话结果
-//			if len(results) >= 3 {
-//				done = true
-//			}
-//		case <-timeout:
-//			// 超时，可能没有收到足够的结果
-//			done = true
-//		}
-//	}
-//
-//	// 验证结果
-//	assert.GreaterOrEqual(t, len(results), 2, "应该至少收到两个会话的结果")
-//
-//	// 检查结果中是否包含两个设备的会话
-//	hasDevice1 := false
-//	hasDevice2 := false
-//
-//	for _, result := range results {
-//		resultSlice, ok := result.([]map[string]interface{})
-//		assert.True(t, ok, "结果应该是[]map[string]interface{}类型")
-//
-//		for _, item := range resultSlice {
-//			device, ok := item["device"].(string)
-//			assert.True(t, ok, "device字段应该是string类型")
-//
-//			if device == "device1" {
-//				hasDevice1 = true
-//			} else if device == "device2" {
-//				hasDevice2 = true
-//			}
-//		}
-//	}
-//
-//	assert.True(t, hasDevice1, "结果中应该包含device1的会话")
-//	assert.True(t, hasDevice2, "结果中应该包含device2的会话")
-//}
+func TestSessionWindow(t *testing.T) {
+	streamsql := New()
+	defer streamsql.Stop()
+
+	// 使用 SESSION 窗口，超时时间为 2 秒
+	rsql := "SELECT device, avg(temperature) as avg_temp FROM stream GROUP BY device, SESSIONWINDOW('2s') with (TIMESTAMP='Ts')"
+	err := streamsql.Execute(rsql)
+	assert.Nil(t, err)
+	strm := streamsql.stream
+
+	// 创建结果接收通道
+	resultChan := make(chan interface{}, 10)
+
+	// 添加结果回调
+	strm.AddSink(func(result interface{}) {
+		//fmt.Printf("接收到结果: %v\n", result)
+		resultChan <- result
+	})
+
+	baseTime := time.Now()
+
+	// 添加测试数据 - 两个设备，不同的时间
+	testData := []struct {
+		data interface{}
+		wait time.Duration
+	}{
+		// 第一组数据 - device1
+		{map[string]interface{}{"device": "device1", "temperature": 20.0, "Ts": baseTime}, 0},
+		{map[string]interface{}{"device": "device1", "temperature": 22.0, "Ts": baseTime.Add(500 * time.Millisecond)}, 500 * time.Millisecond},
+
+		// 第二组数据 - device2
+		{map[string]interface{}{"device": "device2", "temperature": 25.0, "Ts": baseTime.Add(time.Second)}, time.Second},
+		{map[string]interface{}{"device": "device2", "temperature": 27.0, "Ts": baseTime.Add(1500 * time.Millisecond)}, 500 * time.Millisecond},
+
+		// 间隔超过会话超时
+
+		// 第三组数据 - device1，新会话
+		{map[string]interface{}{"device": "device1", "temperature": 30.0, "Ts": baseTime.Add(5 * time.Second)}, 3 * time.Second},
+	}
+
+	// 按指定的间隔添加数据
+	for _, item := range testData {
+		if item.wait > 0 {
+			time.Sleep(item.wait)
+		}
+		strm.AddData(item.data)
+	}
+
+	// 等待会话超时，使最后一个会话触发
+	time.Sleep(3 * time.Second)
+
+	// 手动触发所有窗口，确保数据被处理
+	strm.Window.Trigger()
+
+	// 收集结果
+	var results []interface{}
+
+	// 等待接收结果
+	timeout := time.After(5 * time.Second)
+	done := false
+
+	for !done {
+		select {
+		case result := <-resultChan:
+			results = append(results, result)
+			// 我们期望至少 3 个会话结果
+			if len(results) >= 3 {
+				done = true
+			}
+		case <-timeout:
+			// 超时，可能没有收到足够的结果
+			done = true
+		}
+	}
+
+	// 验证结果
+	assert.GreaterOrEqual(t, len(results), 2, "应该至少收到两个会话的结果")
+
+	// 检查结果中是否包含两个设备的会话
+	hasDevice1 := false
+	hasDevice2 := false
+
+	for _, result := range results {
+		resultSlice, ok := result.([]map[string]interface{})
+		assert.True(t, ok, "结果应该是[]map[string]interface{}类型")
+
+		for _, item := range resultSlice {
+			device, ok := item["device"].(string)
+			assert.True(t, ok, "device字段应该是string类型")
+
+			if device == "device1" {
+				hasDevice1 = true
+			} else if device == "device2" {
+				hasDevice2 = true
+			}
+		}
+	}
+
+	assert.True(t, hasDevice1, "结果中应该包含device1的会话")
+	assert.True(t, hasDevice2, "结果中应该包含device2的会话")
+}
 
 func TestExpressionInAggregation(t *testing.T) {
 	streamsql := New()
@@ -2002,4 +2003,284 @@ func TestIncrementalComputationBasic(t *testing.T) {
 	}
 
 	//fmt.Println("基本增量计算测试完成")
+}
+
+// TestExprFunctions 测试expr函数的使用
+func TestExprFunctions(t *testing.T) {
+	streamsql := New()
+	defer streamsql.Stop()
+
+	// 测试基本expr函数：字符串处理
+	var rsql = "SELECT device, upper(device) as upper_device, lower(device) as lower_device FROM stream"
+	err := streamsql.Execute(rsql)
+	assert.Nil(t, err)
+	strm := streamsql.stream
+
+	// 创建结果接收通道
+	resultChan := make(chan interface{}, 10)
+
+	// 添加结果回调
+	strm.AddSink(func(result interface{}) {
+		resultChan <- result
+	})
+
+	// 添加测试数据
+	testData := []interface{}{
+		map[string]interface{}{"device": "SensorA"},
+		map[string]interface{}{"device": "SensorB"},
+	}
+
+	// 添加数据
+	for _, data := range testData {
+		strm.AddData(data)
+	}
+
+	// 等待结果
+	var results []interface{}
+	timeout := time.After(2 * time.Second)
+	done := false
+
+	for !done && len(results) < 2 {
+		select {
+		case result := <-resultChan:
+			results = append(results, result)
+		case <-timeout:
+			done = true
+		}
+	}
+
+	// 验证结果
+	assert.Greater(t, len(results), 0, "应该收到至少一条结果")
+
+	for _, result := range results {
+		resultSlice, ok := result.([]map[string]interface{})
+		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+
+		for _, item := range resultSlice {
+			device, _ := item["device"].(string)
+			upperDevice, _ := item["upper_device"].(string)
+			lowerDevice, _ := item["lower_device"].(string)
+
+			// 验证upper函数
+			assert.Equal(t, strings.ToUpper(device), upperDevice, "upper函数应该正确转换大写")
+			// 验证lower函数
+			assert.Equal(t, strings.ToLower(device), lowerDevice, "lower函数应该正确转换小写")
+		}
+	}
+}
+
+// TestExprFunctionsInAggregation 测试在聚合中使用expr函数
+func TestExprFunctionsInAggregation(t *testing.T) {
+	streamsql := New()
+	defer streamsql.Stop()
+
+	// 测试在聚合函数中使用expr函数：数学计算
+	var rsql = "SELECT device, AVG(abs(temperature - 25)) as avg_deviation, MAX(ceil(temperature)) as max_ceil FROM stream GROUP BY device, TumblingWindow('1s') with (TIMESTAMP='Ts',TIMEUNIT='ss')"
+	err := streamsql.Execute(rsql)
+	assert.Nil(t, err)
+	strm := streamsql.stream
+
+	// 使用固定的时间基准
+	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
+
+	// 添加测试数据
+	testData := []interface{}{
+		map[string]interface{}{"device": "sensor1", "temperature": 23.5, "Ts": baseTime}, // abs(23.5-25) = 1.5, ceil(23.5) = 24
+		map[string]interface{}{"device": "sensor1", "temperature": 26.8, "Ts": baseTime}, // abs(26.8-25) = 1.8, ceil(26.8) = 27
+		map[string]interface{}{"device": "sensor2", "temperature": 24.2, "Ts": baseTime}, // abs(24.2-25) = 0.8, ceil(24.2) = 25
+		map[string]interface{}{"device": "sensor2", "temperature": 25.9, "Ts": baseTime}, // abs(25.9-25) = 0.9, ceil(25.9) = 26
+	}
+
+	// 创建结果接收通道
+	resultChan := make(chan interface{}, 10)
+
+	// 添加结果回调
+	strm.AddSink(func(result interface{}) {
+		resultChan <- result
+	})
+
+	// 添加数据
+	for _, data := range testData {
+		strm.AddData(data)
+	}
+
+	// 等待窗口初始化
+	time.Sleep(1 * time.Second)
+
+	// 手动触发窗口
+	strm.Window.Trigger()
+
+	// 等待结果
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var actual interface{}
+	select {
+	case actual = <-resultChan:
+		cancel()
+	case <-ctx.Done():
+		t.Fatal("测试超时，未收到结果")
+	}
+
+	// 验证结果
+	resultSlice, ok := actual.([]map[string]interface{})
+	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	assert.Len(t, resultSlice, 2, "应该有2个设备的聚合结果")
+
+	// 检查聚合结果
+	for _, result := range resultSlice {
+		device, _ := result["device"].(string)
+		avgDeviation, ok := result["avg_deviation"].(float64)
+		assert.True(t, ok, "avg_deviation应该是float64类型")
+		maxCeil, ok := result["max_ceil"].(float64)
+		assert.True(t, ok, "max_ceil应该是float64类型")
+
+		if device == "sensor1" {
+			// sensor1: avg(abs(23.5-25), abs(26.8-25)) = avg(1.5, 1.8) = 1.65
+			assert.InEpsilon(t, 1.65, avgDeviation, 0.01, "sensor1的平均偏差应为1.65")
+			// sensor1: max(ceil(23.5), ceil(26.8)) = max(24, 27) = 27
+			assert.Equal(t, 27.0, maxCeil, "sensor1的最大向上取整应为27")
+		} else if device == "sensor2" {
+			// sensor2: avg(abs(24.2-25), abs(25.9-25)) = avg(0.8, 0.9) = 0.85
+			assert.InEpsilon(t, 0.85, avgDeviation, 0.01, "sensor2的平均偏差应为0.85")
+			// sensor2: max(ceil(24.2), ceil(25.9)) = max(25, 26) = 26
+			assert.Equal(t, 26.0, maxCeil, "sensor2的最大向上取整应为26")
+		}
+	}
+}
+
+// TestNestedExprFunctions 测试嵌套expr函数调用
+func TestNestedExprFunctions(t *testing.T) {
+	streamsql := New()
+	defer streamsql.Stop()
+
+	// 测试嵌套函数：字符串处理 + 数组操作
+	var rsql = "SELECT device, len(split(upper(device), 'SENSOR')) as split_count FROM stream"
+	err := streamsql.Execute(rsql)
+	assert.Nil(t, err)
+	strm := streamsql.stream
+
+	// 创建结果接收通道
+	resultChan := make(chan interface{}, 10)
+
+	// 添加结果回调
+	strm.AddSink(func(result interface{}) {
+		resultChan <- result
+	})
+
+	// 添加测试数据
+	testData := []interface{}{
+		map[string]interface{}{"device": "sensor1"},      // upper -> "SENSOR1", split by "SENSOR" -> ["", "1"], len -> 2
+		map[string]interface{}{"device": "sensorsensor"}, // upper -> "SENSORSENSOR", split by "SENSOR" -> ["", "", ""], len -> 3
+		map[string]interface{}{"device": "device1"},      // upper -> "DEVICE1", split by "SENSOR" -> ["DEVICE1"], len -> 1
+	}
+
+	// 添加数据
+	for _, data := range testData {
+		strm.AddData(data)
+	}
+
+	// 等待结果
+	var results []interface{}
+	timeout := time.After(2 * time.Second)
+	done := false
+
+	for !done && len(results) < 3 {
+		select {
+		case result := <-resultChan:
+			results = append(results, result)
+		case <-timeout:
+			done = true
+		}
+	}
+
+	// 验证结果
+	assert.Greater(t, len(results), 0, "应该收到至少一条结果")
+
+	deviceResults := make(map[string]float64)
+	for _, result := range results {
+		resultSlice, ok := result.([]map[string]interface{})
+		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+
+		for _, item := range resultSlice {
+			device, _ := item["device"].(string)
+			splitCount, ok := item["split_count"].(float64)
+			if ok {
+				deviceResults[device] = splitCount
+			}
+		}
+	}
+
+	// 验证嵌套函数调用结果
+	if count, exists := deviceResults["sensor1"]; exists {
+		assert.Equal(t, 2.0, count, "sensor1经过嵌套函数处理后应该得到2")
+	}
+	if count, exists := deviceResults["sensorsensor"]; exists {
+		assert.Equal(t, 3.0, count, "sensorsensor经过嵌套函数处理后应该得到3")
+	}
+	if count, exists := deviceResults["device1"]; exists {
+		assert.Equal(t, 1.0, count, "device1经过嵌套函数处理后应该得到1")
+	}
+}
+
+// TestExprFunctionsWithStreamSQLFunctions 测试expr函数与StreamSQL函数混合使用
+func TestExprFunctionsWithStreamSQLFunctions(t *testing.T) {
+	streamsql := New()
+	defer streamsql.Stop()
+
+	// 测试混合使用：StreamSQL的concat函数 + expr的upper函数
+	var rsql = "SELECT device, concat(upper(device), '_processed') as processed_name FROM stream"
+	err := streamsql.Execute(rsql)
+	assert.Nil(t, err)
+	strm := streamsql.stream
+
+	// 创建结果接收通道
+	resultChan := make(chan interface{}, 10)
+
+	// 添加结果回调
+	strm.AddSink(func(result interface{}) {
+		resultChan <- result
+	})
+
+	// 添加测试数据
+	testData := []interface{}{
+		map[string]interface{}{"device": "sensor1"},
+		map[string]interface{}{"device": "device2"},
+	}
+
+	// 添加数据
+	for _, data := range testData {
+		strm.AddData(data)
+	}
+
+	// 等待结果
+	var results []interface{}
+	timeout := time.After(2 * time.Second)
+	done := false
+
+	for !done && len(results) < 2 {
+		select {
+		case result := <-resultChan:
+			results = append(results, result)
+		case <-timeout:
+			done = true
+		}
+	}
+
+	// 验证结果
+	assert.Greater(t, len(results), 0, "应该收到至少一条结果")
+
+	for _, result := range results {
+		resultSlice, ok := result.([]map[string]interface{})
+		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+
+		for _, item := range resultSlice {
+			device, _ := item["device"].(string)
+			processedName, _ := item["processed_name"].(string)
+
+			// 验证混合函数调用结果
+			expected := strings.ToUpper(device) + "_processed"
+			assert.Equal(t, expected, processedName, "混合函数调用应该正确处理")
+		}
+	}
 }

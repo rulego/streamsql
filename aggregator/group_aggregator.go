@@ -104,7 +104,7 @@ func (ga *GroupAggregator) isNumericAggregator(aggType AggregateType) bool {
 				funcName := string(aggType)
 				if strings.Contains(funcName, functions.SumStr) || strings.Contains(funcName, functions.AvgStr) ||
 					strings.Contains(funcName, functions.MinStr) || strings.Contains(funcName, functions.MaxStr) ||
-					strings.Contains(funcName, "std") || strings.Contains(funcName, "var") {
+					strings.Contains(funcName, functions.StdStr) || strings.Contains(funcName, functions.VarStr) {
 					return true
 				}
 				return false
@@ -122,8 +122,8 @@ func (ga *GroupAggregator) isNumericAggregator(aggType AggregateType) bool {
 	funcName := string(aggType)
 	if strings.Contains(funcName, functions.SumStr) || strings.Contains(funcName, functions.AvgStr) ||
 		strings.Contains(funcName, functions.MinStr) || strings.Contains(funcName, functions.MaxStr) ||
-		strings.Contains(funcName, functions.CountStr) || strings.Contains(funcName, "std") ||
-		strings.Contains(funcName, "var") {
+		strings.Contains(funcName, functions.CountStr) || strings.Contains(funcName, functions.StdStr) ||
+		strings.Contains(funcName, functions.VarStr) {
 		return true
 	}
 	return false

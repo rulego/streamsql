@@ -55,10 +55,10 @@ func registerBuiltinFunctions() {
 	_ = Register(NewCollectFunction())
 	_ = Register(NewLastValueFunction())
 	_ = Register(NewMergeAggFunction())
-	_ = Register(NewStdDevSFunction())
-	_ = Register(NewDeduplicateFunction())
-	_ = Register(NewVarFunction())
-	_ = Register(NewVarSFunction())
+	_ = Register(NewStdDevSAggregatorFunction())
+	_ = Register(NewDeduplicateAggregatorFunction())
+	_ = Register(NewVarAggregatorFunction())
+	_ = Register(NewVarSAggregatorFunction())
 
 	// Window functions
 	_ = Register(NewRowNumberFunction())
@@ -73,8 +73,9 @@ func registerBuiltinFunctions() {
 	_ = Register(NewWindowStartFunction())
 	_ = Register(NewWindowEndFunction())
 
-	//  表达式函数
+	// Expression functions
 	_ = Register(NewExpressionFunction())
+	_ = Register(NewExprFunction())
 
 	// User-defined functions (placeholder for future extension)
 	// Example: _=Register(NewMyUserDefinedFunction())

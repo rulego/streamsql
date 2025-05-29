@@ -56,7 +56,7 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		windowType = window.TypeSession
 	}
 
-	params, err := parseWindowParams(s.Window.Params)
+	params, err := parseWindowParamsWithType(s.Window.Params, windowType)
 	if err != nil {
 		return nil, "", fmt.Errorf("解析窗口参数失败: %w", err)
 	}
@@ -160,7 +160,14 @@ func isAggregationFunction(expr string) bool {
 		}
 	}
 
-	// 如果不是注册的函数，但包含括号，保守起见认为可能是函数
+	// 对于未注册的函数，检查是否是expr-lang内置函数
+	// 这些函数通过ExprBridge处理，不需要聚合模式
+	bridge := functions.GetExprBridge()
+	if bridge.IsExprLangFunction(funcName) {
+		return false
+	}
+
+	// 如果不是注册的函数也不是expr-lang函数，但包含括号，保守起见认为可能是聚合函数
 	if strings.Contains(expr, "(") && strings.Contains(expr, ")") {
 		return true
 	}
@@ -464,15 +471,29 @@ func extractSimpleField(fieldExpr string) string {
 }
 
 func parseWindowParams(params []interface{}) (map[string]interface{}, error) {
+	return parseWindowParamsWithType(params, "")
+}
+
+func parseWindowParamsWithType(params []interface{}, windowType string) (map[string]interface{}, error) {
 	result := make(map[string]interface{})
 	var key string
 	for index, v := range params {
-		if index == 0 {
-			key = "size"
-		} else if index == 1 {
-			key = "slide"
+		if windowType == window.TypeSession {
+			// SessionWindow 的第一个参数是 timeout
+			if index == 0 {
+				key = "timeout"
+			} else {
+				key = fmt.Sprintf("param%d", index)
+			}
 		} else {
-			key = "offset"
+			// 其他窗口类型的参数
+			if index == 0 {
+				key = "size"
+			} else if index == 1 {
+				key = "slide"
+			} else {
+				key = "offset"
+			}
 		}
 		if s, ok := v.(string); ok {
 			dur, err := time.ParseDuration(s)
