@@ -218,3 +218,123 @@ func (f *CustomFunction) Validate(args []interface{}) error {
 func (f *CustomFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	return f.executor(ctx, args)
 }
+
+func init() {
+	// 注册数学函数
+	Register(NewAbsFunction())
+	Register(NewSqrtFunction())
+	Register(NewPowerFunction())
+	Register(NewCeilingFunction())
+	Register(NewFloorFunction())
+	Register(NewRoundFunction())
+	Register(NewModFunction())
+	Register(NewMaxFunction())
+	Register(NewMinFunction())
+	Register(NewRandFunction())
+
+	// 注册字符串函数
+	Register(NewUpperFunction())
+	Register(NewLowerFunction())
+	Register(NewLengthFunction())
+	Register(NewSubstringFunction())
+	Register(NewConcatFunction())
+	Register(NewTrimFunction())
+	Register(NewLtrimFunction())
+	Register(NewRtrimFunction())
+	Register(NewReplaceFunction())
+	Register(NewSplitFunction())
+	Register(NewStartswithFunction())
+	Register(NewEndswithFunction())
+	Register(NewRegexpMatchesFunction())
+	Register(NewRegexpReplaceFunction())
+	Register(NewLpadFunction())
+	Register(NewRpadFunction())
+	Register(NewIndexofFunction())
+	Register(NewFormatFunction())
+
+	// 注册时间日期函数
+	Register(NewNowFunction())
+	Register(NewCurrentTimeFunction())
+	Register(NewCurrentDateFunction())
+	Register(NewDateAddFunction())
+	Register(NewDateSubFunction())
+	Register(NewDateDiffFunction())
+	Register(NewDateFormatFunction())
+	Register(NewDateParseFunction())
+	Register(NewExtractFunction())
+	Register(NewUnixTimestampFunction())
+	Register(NewFromUnixtimeFunction())
+	Register(NewYearFunction())
+	Register(NewMonthFunction())
+	Register(NewDayFunction())
+	Register(NewHourFunction())
+	Register(NewMinuteFunction())
+	Register(NewSecondFunction())
+	Register(NewDayOfWeekFunction())
+	Register(NewDayOfYearFunction())
+	Register(NewWeekOfYearFunction())
+
+	// 注册转换函数
+	Register(NewCastFunction())
+	Register(NewHex2DecFunction())
+	Register(NewDec2HexFunction())
+	Register(NewEncodeFunction())
+	Register(NewDecodeFunction())
+
+	// 注册聚合函数
+	Register(NewCountFunction())
+	Register(NewSumFunction())
+	Register(NewAvgFunction())
+	Register(NewMaxFunction())
+	Register(NewMinFunction())
+
+	// 注册窗口函数
+	Register(NewRowNumberFunction())
+	Register(NewLagFunction())
+	Register(NewLeadFunction())
+	Register(NewFirstValueFunction())
+	Register(NewNthValueFunction())
+
+	// 注册分析函数
+	Register(NewLatestFunction())
+	Register(NewHadChangedFunction())
+
+	// 注册JSON函数
+	Register(NewJsonExtractFunction())
+	Register(NewJsonValidFunction())
+	Register(NewJsonTypeFunction())
+	Register(NewJsonLengthFunction())
+	Register(NewToJsonFunction())
+	Register(NewFromJsonFunction())
+
+	// 注册哈希函数
+	Register(NewMd5Function())
+	Register(NewSha1Function())
+	Register(NewSha256Function())
+	Register(NewSha512Function())
+
+	// 注册数组函数
+	Register(NewArrayLengthFunction())
+	Register(NewArrayContainsFunction())
+	Register(NewArrayPositionFunction())
+	Register(NewArrayRemoveFunction())
+	Register(NewArrayDistinctFunction())
+	Register(NewArrayIntersectFunction())
+	Register(NewArrayUnionFunction())
+	Register(NewArrayExceptFunction())
+
+	// 注册类型检查函数
+	Register(NewIsNullFunction())
+	Register(NewIsNotNullFunction())
+	Register(NewIsStringFunction())
+	Register(NewIsNumericFunction())
+	Register(NewIsBoolFunction())
+	Register(NewIsArrayFunction())
+	Register(NewIsObjectFunction())
+
+	// 注册条件函数
+	Register(NewCoalesceFunction())
+	Register(NewNullIfFunction())
+	Register(NewGreatestFunction())
+	Register(NewLeastFunction())
+}

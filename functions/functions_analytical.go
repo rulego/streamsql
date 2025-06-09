@@ -45,11 +45,6 @@ func (f *LagFunction) Validate(args []interface{}) error {
 }
 
 func (f *LagFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	// 确保Offset有默认值
-	if f.Offset <= 0 {
-		f.Offset = 1
-	}
-
 	currentValue := args[0]
 
 	var result interface{}
@@ -75,12 +70,18 @@ func (f *LagFunction) Reset() {
 
 // 实现AggregatorFunction接口 - 增量计算支持
 func (f *LagFunction) New() AggregatorFunction {
-	return &LagFunction{
+	// 确保Offset有默认值
+	offset := f.Offset
+	if offset <= 0 {
+		offset = 1
+	}
+	newFunc := &LagFunction{
 		BaseFunction:   f.BaseFunction,
 		DefaultValue:   f.DefaultValue,
-		Offset:         f.Offset,
+		Offset:         offset,
 		PreviousValues: make([]interface{}, 0),
 	}
+	return newFunc
 }
 
 func (f *LagFunction) Add(value interface{}) {
@@ -93,10 +94,14 @@ func (f *LagFunction) Add(value interface{}) {
 }
 
 func (f *LagFunction) Result() interface{} {
-	if len(f.PreviousValues)-1 < f.Offset {
+	// 检查是否有足够的历史值
+	if len(f.PreviousValues) <= f.Offset {
 		return f.DefaultValue
 	}
-	return f.PreviousValues[len(f.PreviousValues)-1-f.Offset]
+	// 返回当前值之前第Offset个值
+	// 对于数组[first, second, third]，当前位置是最后一个元素
+	// offset=1时返回second（倒数第2个），offset=2时返回first（倒数第3个）
+	return f.PreviousValues[len(f.PreviousValues)-f.Offset-1]
 }
 
 func (f *LagFunction) Clone() AggregatorFunction {
