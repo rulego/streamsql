@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/rulego/streamsql/utils/cast"
 	"math"
+	"math/rand"
+	"time"
 )
 
 // AbsFunction 绝对值函数
@@ -400,6 +402,290 @@ func (f *LnFunction) Execute(ctx *FunctionContext, args []interface{}) (interfac
 		return nil, fmt.Errorf("ln: value must be positive")
 	}
 	return math.Log(val), nil
+}
+
+// LogFunction 自然对数函数 (log的别名)
+type LogFunction struct {
+	*BaseFunction
+}
+
+func NewLogFunction() *LogFunction {
+	return &LogFunction{
+		BaseFunction: NewBaseFunction("log", TypeMath, "数学函数", "计算自然对数", 1, 1),
+	}
+}
+
+func (f *LogFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *LogFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	val, err := cast.ToFloat64E(args[0])
+	if err != nil {
+		return nil, err
+	}
+	if val <= 0 {
+		return nil, fmt.Errorf("log: value must be positive")
+	}
+	return math.Log(val), nil
+}
+
+// Log10Function 以10为底的对数函数
+type Log10Function struct {
+	*BaseFunction
+}
+
+func NewLog10Function() *Log10Function {
+	return &Log10Function{
+		BaseFunction: NewBaseFunction("log10", TypeMath, "数学函数", "计算以10为底的对数", 1, 1),
+	}
+}
+
+func (f *Log10Function) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *Log10Function) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	val, err := cast.ToFloat64E(args[0])
+	if err != nil {
+		return nil, err
+	}
+	if val <= 0 {
+		return nil, fmt.Errorf("log10: value must be positive")
+	}
+	return math.Log10(val), nil
+}
+
+// Log2Function 以2为底的对数函数
+type Log2Function struct {
+	*BaseFunction
+}
+
+func NewLog2Function() *Log2Function {
+	return &Log2Function{
+		BaseFunction: NewBaseFunction("log2", TypeMath, "数学函数", "计算以2为底的对数", 1, 1),
+	}
+}
+
+func (f *Log2Function) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *Log2Function) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	val, err := cast.ToFloat64E(args[0])
+	if err != nil {
+		return nil, err
+	}
+	if val <= 0 {
+		return nil, fmt.Errorf("log2: value must be positive")
+	}
+	return math.Log2(val), nil
+}
+
+// ModFunction 取模函数
+type ModFunction struct {
+	*BaseFunction
+}
+
+func NewModFunction() *ModFunction {
+	return &ModFunction{
+		BaseFunction: NewBaseFunction("mod", TypeMath, "数学函数", "取模运算", 2, 2),
+	}
+}
+
+func (f *ModFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *ModFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	x, err := cast.ToFloat64E(args[0])
+	if err != nil {
+		return nil, err
+	}
+	y, err := cast.ToFloat64E(args[1])
+	if err != nil {
+		return nil, err
+	}
+	if y == 0 {
+		return nil, fmt.Errorf("mod: division by zero")
+	}
+	return math.Mod(x, y), nil
+}
+
+// RandFunction 随机数函数
+type RandFunction struct {
+	*BaseFunction
+}
+
+func NewRandFunction() *RandFunction {
+	return &RandFunction{
+		BaseFunction: NewBaseFunction("rand", TypeMath, "数学函数", "生成0-1之间的随机数", 0, 0),
+	}
+}
+
+func (f *RandFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *RandFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	// 使用当前时间作为种子
+	rand.Seed(time.Now().UnixNano())
+	return rand.Float64(), nil
+}
+
+// RoundFunction 四舍五入函数
+type RoundFunction struct {
+	*BaseFunction
+}
+
+func NewRoundFunction() *RoundFunction {
+	return &RoundFunction{
+		BaseFunction: NewBaseFunction("round", TypeMath, "数学函数", "四舍五入", 1, 2),
+	}
+}
+
+func (f *RoundFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *RoundFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	val, err := cast.ToFloat64E(args[0])
+	if err != nil {
+		return nil, err
+	}
+	
+	if len(args) == 1 {
+		return math.Round(val), nil
+	}
+	
+	precision, err := cast.ToIntE(args[1])
+	if err != nil {
+		return nil, err
+	}
+	
+	shift := math.Pow(10, float64(precision))
+	return math.Round(val*shift) / shift, nil
+}
+
+// SignFunction 符号函数
+type SignFunction struct {
+	*BaseFunction
+}
+
+func NewSignFunction() *SignFunction {
+	return &SignFunction{
+		BaseFunction: NewBaseFunction("sign", TypeMath, "数学函数", "返回数字的符号", 1, 1),
+	}
+}
+
+func (f *SignFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *SignFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	val, err := cast.ToFloat64E(args[0])
+	if err != nil {
+		return nil, err
+	}
+	
+	if val > 0 {
+		return 1, nil
+	} else if val < 0 {
+		return -1, nil
+	}
+	return 0, nil
+}
+
+// SinFunction 正弦函数
+type SinFunction struct {
+	*BaseFunction
+}
+
+func NewSinFunction() *SinFunction {
+	return &SinFunction{
+		BaseFunction: NewBaseFunction("sin", TypeMath, "数学函数", "计算正弦值", 1, 1),
+	}
+}
+
+func (f *SinFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *SinFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	val, err := cast.ToFloat64E(args[0])
+	if err != nil {
+		return nil, err
+	}
+	return math.Sin(val), nil
+}
+
+// SinhFunction 双曲正弦函数
+type SinhFunction struct {
+	*BaseFunction
+}
+
+func NewSinhFunction() *SinhFunction {
+	return &SinhFunction{
+		BaseFunction: NewBaseFunction("sinh", TypeMath, "数学函数", "计算双曲正弦值", 1, 1),
+	}
+}
+
+func (f *SinhFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *SinhFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	val, err := cast.ToFloat64E(args[0])
+	if err != nil {
+		return nil, err
+	}
+	return math.Sinh(val), nil
+}
+
+// TanFunction 正切函数
+type TanFunction struct {
+	*BaseFunction
+}
+
+func NewTanFunction() *TanFunction {
+	return &TanFunction{
+		BaseFunction: NewBaseFunction("tan", TypeMath, "数学函数", "计算正切值", 1, 1),
+	}
+}
+
+func (f *TanFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *TanFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	val, err := cast.ToFloat64E(args[0])
+	if err != nil {
+		return nil, err
+	}
+	return math.Tan(val), nil
+}
+
+// TanhFunction 双曲正切函数
+type TanhFunction struct {
+	*BaseFunction
+}
+
+func NewTanhFunction() *TanhFunction {
+	return &TanhFunction{
+		BaseFunction: NewBaseFunction("tanh", TypeMath, "数学函数", "计算双曲正切值", 1, 1),
+	}
+}
+
+func (f *TanhFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *TanhFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	val, err := cast.ToFloat64E(args[0])
+	if err != nil {
+		return nil, err
+	}
+	return math.Tanh(val), nil
 }
 
 // PowerFunction 幂函数

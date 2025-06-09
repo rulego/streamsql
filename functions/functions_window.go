@@ -1,5 +1,9 @@
 package functions
 
+import (
+	"fmt"
+)
+
 // RowNumberFunction 行号函数
 type RowNumberFunction struct {
 	*BaseFunction
@@ -240,4 +244,202 @@ func (f *ExpressionAggregatorFunction) Clone() AggregatorFunction {
 		BaseFunction: f.BaseFunction,
 		lastResult:   f.lastResult,
 	}
+}
+
+// FirstValueFunction 返回窗口中第一个值
+type FirstValueFunction struct {
+	*BaseFunction
+	firstValue interface{}
+	hasValue   bool
+}
+
+func NewFirstValueFunction() *FirstValueFunction {
+	return &FirstValueFunction{
+		BaseFunction: NewBaseFunction("first_value", TypeWindow, "窗口函数", "返回窗口中第一个值", 1, 1),
+		hasValue:     false,
+	}
+}
+
+func (f *FirstValueFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *FirstValueFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	return f.firstValue, nil
+}
+
+// 实现AggregatorFunction接口
+func (f *FirstValueFunction) New() AggregatorFunction {
+	return &FirstValueFunction{
+		BaseFunction: f.BaseFunction,
+		hasValue:     false,
+	}
+}
+
+func (f *FirstValueFunction) Add(value interface{}) {
+	if !f.hasValue {
+		f.firstValue = value
+		f.hasValue = true
+	}
+}
+
+func (f *FirstValueFunction) Result() interface{} {
+	return f.firstValue
+}
+
+func (f *FirstValueFunction) Reset() {
+	f.firstValue = nil
+	f.hasValue = false
+}
+
+func (f *FirstValueFunction) Clone() AggregatorFunction {
+	return &FirstValueFunction{
+		BaseFunction: f.BaseFunction,
+		firstValue:   f.firstValue,
+		hasValue:     f.hasValue,
+	}
+}
+
+// LeadFunction 返回当前行之后第N行的值
+type LeadFunction struct {
+	*BaseFunction
+	values []interface{}
+}
+
+func NewLeadFunction() *LeadFunction {
+	return &LeadFunction{
+		BaseFunction: NewBaseFunction("lead", TypeWindow, "窗口函数", "返回当前行之后第N行的值", 1, 3),
+		values:       make([]interface{}, 0),
+	}
+}
+
+func (f *LeadFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *LeadFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	if err := f.Validate(args); err != nil {
+		return nil, err
+	}
+	
+	// 获取默认值
+	var defaultValue interface{}
+	if len(args) >= 3 {
+		defaultValue = args[2]
+	}
+	
+	// Lead函数需要在窗口处理完成后才能确定值
+	// 这里返回默认值，实际实现需要在窗口引擎中处理
+	return defaultValue, nil
+}
+
+// 实现AggregatorFunction接口
+func (f *LeadFunction) New() AggregatorFunction {
+	return &LeadFunction{
+		BaseFunction: f.BaseFunction,
+		values:       make([]interface{}, 0),
+	}
+}
+
+func (f *LeadFunction) Add(value interface{}) {
+	f.values = append(f.values, value)
+}
+
+func (f *LeadFunction) Result() interface{} {
+	// Lead函数的结果需要在所有数据添加完成后计算
+	// 这里简化实现，返回nil
+	return nil
+}
+
+func (f *LeadFunction) Reset() {
+	f.values = make([]interface{}, 0)
+}
+
+func (f *LeadFunction) Clone() AggregatorFunction {
+	clone := &LeadFunction{
+		BaseFunction: f.BaseFunction,
+		values:       make([]interface{}, len(f.values)),
+	}
+	copy(clone.values, f.values)
+	return clone
+}
+
+// NthValueFunction 返回窗口中第N个值
+type NthValueFunction struct {
+	*BaseFunction
+	values []interface{}
+	n      int
+}
+
+func NewNthValueFunction() *NthValueFunction {
+	return &NthValueFunction{
+		BaseFunction: NewBaseFunction("nth_value", TypeWindow, "窗口函数", "返回窗口中第N个值", 2, 2),
+		values:       make([]interface{}, 0),
+		n:            1, // 默认第1个值
+	}
+}
+
+func (f *NthValueFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *NthValueFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	if err := f.Validate(args); err != nil {
+		return nil, err
+	}
+	
+	// 获取N值
+	n := 1
+	if nVal, ok := args[1].(int); ok {
+		n = nVal
+	} else if nVal, ok := args[1].(int64); ok {
+		n = int(nVal)
+	} else {
+		return nil, fmt.Errorf("nth_value n must be an integer")
+	}
+	
+	if n <= 0 {
+		return nil, fmt.Errorf("nth_value n must be positive, got %d", n)
+	}
+	
+	// 返回第N个值（1-based索引）
+	if len(f.values) >= n {
+		return f.values[n-1], nil
+	}
+	
+	return nil, nil
+}
+
+// 实现AggregatorFunction接口
+func (f *NthValueFunction) New() AggregatorFunction {
+	return &NthValueFunction{
+		BaseFunction: f.BaseFunction,
+		values:       make([]interface{}, 0),
+		n:            f.n,
+	}
+}
+
+func (f *NthValueFunction) Add(value interface{}) {
+	f.values = append(f.values, value)
+}
+
+func (f *NthValueFunction) Result() interface{} {
+	if len(f.values) >= f.n && f.n > 0 {
+		return f.values[f.n-1]
+	}
+	return nil
+}
+
+func (f *NthValueFunction) Reset() {
+	f.values = make([]interface{}, 0)
+}
+
+func (f *NthValueFunction) Clone() AggregatorFunction {
+	clone := &NthValueFunction{
+		BaseFunction: f.BaseFunction,
+		values:       make([]interface{}, len(f.values)),
+		n:            f.n,
+	}
+	copy(clone.values, f.values)
+	return clone
 }

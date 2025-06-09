@@ -39,6 +39,95 @@ func TestBasicFunctionRegistry(t *testing.T) {
 	assert.False(t, exists, "nonexistent function should not be found")
 }
 
+func TestNewMathFunctions(t *testing.T) {
+	ctx := &FunctionContext{
+		Data: map[string]interface{}{},
+	}
+
+	// 表驱动测试用例
+	tests := []struct {
+		name         string
+		functionName string
+		args         []interface{}
+		expected     interface{}
+		expectError  bool
+		errorMsg     string
+		delta        float64 // 用于浮点数比较的精度
+	}{
+		// Log function tests
+		{"log valid", "log", []interface{}{math.E}, 1.0, false, "", 1e-10},
+		{"log negative", "log", []interface{}{-1}, nil, true, "value must be positive", 0},
+		{"log zero", "log", []interface{}{0}, nil, true, "value must be positive", 0},
+		
+		// Log10 function tests
+		{"log10 100", "log10", []interface{}{100}, 2.0, false, "", 1e-10},
+		{"log10 10", "log10", []interface{}{10}, 1.0, false, "", 1e-10},
+		
+		// Log2 function tests
+		{"log2 8", "log2", []interface{}{8}, 3.0, false, "", 1e-10},
+		{"log2 2", "log2", []interface{}{2}, 1.0, false, "", 1e-10},
+		
+		// Mod function tests
+		{"mod 10,3", "mod", []interface{}{10, 3}, 1.0, false, "", 1e-10},
+		{"mod 7.5,2.5", "mod", []interface{}{7.5, 2.5}, 0.0, false, "", 1e-10},
+		{"mod division by zero", "mod", []interface{}{10, 0}, nil, true, "division by zero", 0},
+		
+		// Round function tests
+		{"round 3.7", "round", []interface{}{3.7}, 4.0, false, "", 1e-10},
+		{"round 3.2", "round", []interface{}{3.2}, 3.0, false, "", 1e-10},
+		{"round with precision", "round", []interface{}{3.14159, 2}, 3.14, false, "", 1e-10},
+		
+		// Sign function tests
+		{"sign positive", "sign", []interface{}{5.5}, 1, false, "", 0},
+		{"sign negative", "sign", []interface{}{-3.2}, -1, false, "", 0},
+		{"sign zero", "sign", []interface{}{0}, 0, false, "", 0},
+		
+		// Trigonometric function tests
+		{"sin 0", "sin", []interface{}{0}, 0.0, false, "", 1e-10},
+		{"sin π/2", "sin", []interface{}{math.Pi / 2}, 1.0, false, "", 1e-10},
+		{"sinh 0", "sinh", []interface{}{0}, 0.0, false, "", 1e-10},
+		{"tan 0", "tan", []interface{}{0}, 0.0, false, "", 1e-10},
+		{"tanh 0", "tanh", []interface{}{0}, 0.0, false, "", 1e-10},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fn, exists := Get(tt.functionName)
+			assert.True(t, exists, "Function %s should be registered", tt.functionName)
+			
+			result, err := fn.Execute(ctx, tt.args)
+			
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+				if tt.delta > 0 {
+					assert.InDelta(t, tt.expected, result, tt.delta)
+				} else {
+					assert.Equal(t, tt.expected, result)
+				}
+			}
+		})
+	}
+
+	// 特殊测试：rand函数（因为结果是随机的）
+	t.Run("rand function", func(t *testing.T) {
+		fn, exists := Get("rand")
+		assert.True(t, exists)
+		
+		result, err := fn.Execute(ctx, []interface{}{})
+		assert.NoError(t, err)
+		
+		val, ok := result.(float64)
+		assert.True(t, ok)
+		assert.GreaterOrEqual(t, val, 0.0)
+		assert.Less(t, val, 1.0)
+	})
+}
+
 func TestFunctionExecution(t *testing.T) {
 	ctx := &FunctionContext{
 		Data: map[string]interface{}{},
@@ -161,6 +250,10 @@ func TestFunctionExecution(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fn, exists := Get(tt.functionName)
 			assert.True(t, exists, "function %s should exist", tt.functionName)
+			if !exists || fn == nil {
+				t.Errorf("Function %s not found or is nil", tt.functionName)
+				return
+			}
 
 			result, err := fn.Execute(ctx, tt.args)
 
@@ -171,7 +264,11 @@ func TestFunctionExecution(t *testing.T) {
 				if tt.expected != nil {
 					switch expected := tt.expected.(type) {
 					case float64:
-						assert.InDelta(t, expected, result.(float64), 0.0001, "result should match for %s", tt.name)
+						if resultFloat, ok := result.(float64); ok {
+							assert.InDelta(t, expected, resultFloat, 0.0001, "result should match for %s", tt.name)
+						} else {
+							t.Errorf("Expected float64 but got %T for %s", result, tt.name)
+						}
 					case int64:
 						if tt.functionName == "now" {
 							// 对于 now 函数，我们只检查结果是否为 int64 类型，因为具体值会随时间变化
