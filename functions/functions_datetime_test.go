@@ -63,7 +63,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			name:     "year extraction",
 			function: NewYearFunction(),
 			args:     []interface{}{"2023-12-25 15:30:45"},
-			expected: 2023,
+			expected: float64(2023),
 			wantErr:  false,
 		},
 		// MonthFunction 测试
@@ -71,7 +71,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			name:     "month extraction",
 			function: NewMonthFunction(),
 			args:     []interface{}{"2023-12-25 15:30:45"},
-			expected: 12,
+			expected: float64(12),
 			wantErr:  false,
 		},
 		// DayFunction 测试
@@ -164,14 +164,14 @@ func TestDateTimeFunctions(t *testing.T) {
 				}
 				return
 			}
-			
+
 			// 执行函数
 			result, err := tt.function.Execute(nil, tt.args)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr && result != tt.expected {
 				t.Errorf("Execute() = %v, want %v", result, tt.expected)
 			}

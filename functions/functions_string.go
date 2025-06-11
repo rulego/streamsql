@@ -2,9 +2,10 @@ package functions
 
 import (
 	"fmt"
-	"github.com/rulego/streamsql/utils/cast"
 	"regexp"
 	"strings"
+
+	"github.com/rulego/streamsql/utils/cast"
 )
 
 // ConcatFunction 字符串连接函数
@@ -292,26 +293,26 @@ func (f *SubstringFunction) Execute(ctx *FunctionContext, args []interface{}) (i
 	if err != nil {
 		return nil, err
 	}
-	
+
 	strLen := int64(len(str))
 	if start < 0 || start >= strLen {
 		return "", nil
 	}
-	
+
 	if len(args) == 2 {
 		return str[start:], nil
 	}
-	
+
 	length, err := cast.ToInt64E(args[2])
 	if err != nil {
 		return nil, err
 	}
-	
+
 	end := start + length
 	if end > strLen {
 		end = strLen
 	}
-	
+
 	return str[start:end], nil
 }
 
@@ -397,7 +398,7 @@ func (f *LpadFunction) Execute(ctx *FunctionContext, args []interface{}) (interf
 	if err != nil {
 		return nil, err
 	}
-	
+
 	pad := " "
 	if len(args) == 3 {
 		pad, err = cast.ToStringE(args[2])
@@ -405,12 +406,12 @@ func (f *LpadFunction) Execute(ctx *FunctionContext, args []interface{}) (interf
 			return nil, err
 		}
 	}
-	
+
 	strLen := int64(len(str))
 	if strLen >= length {
 		return str, nil
 	}
-	
+
 	padLen := length - strLen
 	padStr := strings.Repeat(pad, int(padLen/int64(len(pad))+1))
 	return padStr[:padLen] + str, nil
@@ -440,7 +441,7 @@ func (f *RpadFunction) Execute(ctx *FunctionContext, args []interface{}) (interf
 	if err != nil {
 		return nil, err
 	}
-	
+
 	pad := " "
 	if len(args) == 3 {
 		pad, err = cast.ToStringE(args[2])
@@ -448,12 +449,12 @@ func (f *RpadFunction) Execute(ctx *FunctionContext, args []interface{}) (interf
 			return nil, err
 		}
 	}
-	
+
 	strLen := int64(len(str))
 	if strLen >= length {
 		return str, nil
 	}
-	
+
 	padLen := length - strLen
 	padStr := strings.Repeat(pad, int(padLen/int64(len(pad))+1))
 	return str + padStr[:padLen], nil
@@ -533,7 +534,7 @@ func (f *RegexpMatchesFunction) Execute(ctx *FunctionContext, args []interface{}
 	if err != nil {
 		return nil, err
 	}
-	
+
 	matched, err := regexp.MatchString(pattern, str)
 	if err != nil {
 		return nil, err
@@ -569,7 +570,7 @@ func (f *RegexpReplaceFunction) Execute(ctx *FunctionContext, args []interface{}
 	if err != nil {
 		return nil, err
 	}
-	
+
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return nil, err
@@ -601,12 +602,12 @@ func (f *RegexpSubstringFunction) Execute(ctx *FunctionContext, args []interface
 	if err != nil {
 		return nil, err
 	}
-	
+
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	match := re.FindString(str)
 	return match, nil
 }

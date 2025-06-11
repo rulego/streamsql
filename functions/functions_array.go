@@ -47,12 +47,12 @@ func (f *ArrayContainsFunction) Validate(args []interface{}) error {
 func (f *ArrayContainsFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	array := args[0]
 	value := args[1]
-	
+
 	v := reflect.ValueOf(array)
 	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
 		return nil, fmt.Errorf("array_contains requires array input")
 	}
-	
+
 	for i := 0; i < v.Len(); i++ {
 		if reflect.DeepEqual(v.Index(i).Interface(), value) {
 			return true, nil
@@ -79,12 +79,12 @@ func (f *ArrayPositionFunction) Validate(args []interface{}) error {
 func (f *ArrayPositionFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	array := args[0]
 	value := args[1]
-	
+
 	v := reflect.ValueOf(array)
 	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
 		return nil, fmt.Errorf("array_position requires array input")
 	}
-	
+
 	for i := 0; i < v.Len(); i++ {
 		if reflect.DeepEqual(v.Index(i).Interface(), value) {
 			return i + 1, nil // 返回1基索引
@@ -111,12 +111,12 @@ func (f *ArrayRemoveFunction) Validate(args []interface{}) error {
 func (f *ArrayRemoveFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	array := args[0]
 	value := args[1]
-	
+
 	v := reflect.ValueOf(array)
 	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
 		return nil, fmt.Errorf("array_remove requires array input")
 	}
-	
+
 	var result []interface{}
 	for i := 0; i < v.Len(); i++ {
 		elem := v.Index(i).Interface()
@@ -144,15 +144,15 @@ func (f *ArrayDistinctFunction) Validate(args []interface{}) error {
 
 func (f *ArrayDistinctFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	array := args[0]
-	
+
 	v := reflect.ValueOf(array)
 	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
 		return nil, fmt.Errorf("array_distinct requires array input")
 	}
-	
+
 	seen := make(map[interface{}]bool)
 	var result []interface{}
-	
+
 	for i := 0; i < v.Len(); i++ {
 		elem := v.Index(i).Interface()
 		if !seen[elem] {
@@ -181,27 +181,27 @@ func (f *ArrayIntersectFunction) Validate(args []interface{}) error {
 func (f *ArrayIntersectFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	array1 := args[0]
 	array2 := args[1]
-	
+
 	v1 := reflect.ValueOf(array1)
 	v2 := reflect.ValueOf(array2)
-	
+
 	if v1.Kind() != reflect.Slice && v1.Kind() != reflect.Array {
 		return nil, fmt.Errorf("array_intersect requires array input for first argument")
 	}
 	if v2.Kind() != reflect.Slice && v2.Kind() != reflect.Array {
 		return nil, fmt.Errorf("array_intersect requires array input for second argument")
 	}
-	
+
 	// 创建第二个数组的元素集合
 	set2 := make(map[interface{}]bool)
 	for i := 0; i < v2.Len(); i++ {
 		set2[v2.Index(i).Interface()] = true
 	}
-	
+
 	// 找交集
 	seen := make(map[interface{}]bool)
 	var result []interface{}
-	
+
 	for i := 0; i < v1.Len(); i++ {
 		elem := v1.Index(i).Interface()
 		if set2[elem] && !seen[elem] {
@@ -230,20 +230,20 @@ func (f *ArrayUnionFunction) Validate(args []interface{}) error {
 func (f *ArrayUnionFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	array1 := args[0]
 	array2 := args[1]
-	
+
 	v1 := reflect.ValueOf(array1)
 	v2 := reflect.ValueOf(array2)
-	
+
 	if v1.Kind() != reflect.Slice && v1.Kind() != reflect.Array {
 		return nil, fmt.Errorf("array_union requires array input for first argument")
 	}
 	if v2.Kind() != reflect.Slice && v2.Kind() != reflect.Array {
 		return nil, fmt.Errorf("array_union requires array input for second argument")
 	}
-	
+
 	seen := make(map[interface{}]bool)
 	var result []interface{}
-	
+
 	// 添加第一个数组的元素
 	for i := 0; i < v1.Len(); i++ {
 		elem := v1.Index(i).Interface()
@@ -252,7 +252,7 @@ func (f *ArrayUnionFunction) Execute(ctx *FunctionContext, args []interface{}) (
 			result = append(result, elem)
 		}
 	}
-	
+
 	// 添加第二个数组的元素
 	for i := 0; i < v2.Len(); i++ {
 		elem := v2.Index(i).Interface()
@@ -282,27 +282,27 @@ func (f *ArrayExceptFunction) Validate(args []interface{}) error {
 func (f *ArrayExceptFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	array1 := args[0]
 	array2 := args[1]
-	
+
 	v1 := reflect.ValueOf(array1)
 	v2 := reflect.ValueOf(array2)
-	
+
 	if v1.Kind() != reflect.Slice && v1.Kind() != reflect.Array {
 		return nil, fmt.Errorf("array_except requires array input for first argument")
 	}
 	if v2.Kind() != reflect.Slice && v2.Kind() != reflect.Array {
 		return nil, fmt.Errorf("array_except requires array input for second argument")
 	}
-	
+
 	// 创建第二个数组的元素集合
 	set2 := make(map[interface{}]bool)
 	for i := 0; i < v2.Len(); i++ {
 		set2[v2.Index(i).Interface()] = true
 	}
-	
+
 	// 找差集
 	seen := make(map[interface{}]bool)
 	var result []interface{}
-	
+
 	for i := 0; i < v1.Len(); i++ {
 		elem := v1.Index(i).Interface()
 		if !set2[elem] && !seen[elem] {

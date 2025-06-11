@@ -1,18 +1,15 @@
 package functions
 
 import (
-	"bytes"
-	"compress/gzip"
-	"compress/zlib"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"github.com/rulego/streamsql/utils/cast"
-	"io"
 	"math"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/rulego/streamsql/utils/cast"
 )
 
 // CastFunction 类型转换函数
@@ -265,19 +262,19 @@ func (f *ConvertTzFunction) Execute(ctx *FunctionContext, args []interface{}) (i
 	default:
 		return nil, fmt.Errorf("time value must be time.Time or string")
 	}
-	
+
 	// 获取目标时区
 	timezone, err := cast.ToStringE(args[1])
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// 加载时区
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
 		return nil, fmt.Errorf("invalid timezone: %s", timezone)
 	}
-	
+
 	// 转换时区
 	return t.In(loc), nil
 }
@@ -324,7 +321,7 @@ func (f *ToSecondsFunction) Execute(ctx *FunctionContext, args []interface{}) (i
 	default:
 		return nil, fmt.Errorf("time value must be time.Time or string")
 	}
-	
+
 	return t.Unix(), nil
 }
 
@@ -348,12 +345,74 @@ func (f *ChrFunction) Execute(ctx *FunctionContext, args []interface{}) (interfa
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if code < 0 || code > 127 {
 		return nil, fmt.Errorf("ASCII code must be between 0 and 127, got %d", code)
 	}
-	
+
 	return string(rune(code)), nil
+}
+
+
+
+// UrlEncodeFunction URL编码函数
+type UrlEncodeFunction struct {
+	*BaseFunction
+}
+
+func NewUrlEncodeFunction() *UrlEncodeFunction {
+	return &UrlEncodeFunction{
+		BaseFunction: NewBaseFunction("url_encode", TypeConversion, "转换函数", "URL编码", 1, 1),
+	}
+}
+
+func (f *UrlEncodeFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *UrlEncodeFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	if err := f.Validate(args); err != nil {
+		return nil, err
+	}
+
+	if args[0] == nil {
+		return nil, fmt.Errorf("url_encode: input cannot be nil")
+	}
+
+	input := cast.ToString(args[0])
+	return url.QueryEscape(input), nil
+}
+
+// UrlDecodeFunction URL解码函数
+type UrlDecodeFunction struct {
+	*BaseFunction
+}
+
+func NewUrlDecodeFunction() *UrlDecodeFunction {
+	return &UrlDecodeFunction{
+		BaseFunction: NewBaseFunction("url_decode", TypeConversion, "转换函数", "URL解码", 1, 1),
+	}
+}
+
+func (f *UrlDecodeFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *UrlDecodeFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	if err := f.Validate(args); err != nil {
+		return nil, err
+	}
+
+	if args[0] == nil {
+		return nil, fmt.Errorf("url_decode: input cannot be nil")
+	}
+
+	input := cast.ToString(args[0])
+	result, err := url.QueryUnescape(input)
+	if err != nil {
+		return nil, fmt.Errorf("URL decode failed: %v", err)
+	}
+	return result, nil
 }
 
 // TruncFunction 截断小数位数
@@ -361,138 +420,40 @@ type TruncFunction struct {
 	*BaseFunction
 }
 
+// NewTruncFunction 创建新的 trunc 函数
 func NewTruncFunction() *TruncFunction {
 	return &TruncFunction{
 		BaseFunction: NewBaseFunction("trunc", TypeConversion, "转换函数", "截断小数位数", 2, 2),
 	}
 }
 
+// Validate 验证参数
 func (f *TruncFunction) Validate(args []interface{}) error {
 	return f.ValidateArgCount(args)
 }
 
+// Execute 执行函数
 func (f *TruncFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	val, err := cast.ToFloat64E(args[0])
-	if err != nil {
+	if err := f.Validate(args); err != nil {
 		return nil, err
 	}
-	
-	precision, err := cast.ToIntE(args[1])
-	if err != nil {
-		return nil, err
-	}
-	
+
+	// 转换第一个参数为浮点数
+	num := cast.ToFloat64(args[0])
+
+	// 转换第二个参数为整数（精度）
+	precision := cast.ToInt(args[1])
+
+	// 精度不能为负数
 	if precision < 0 {
-		return nil, fmt.Errorf("precision must be non-negative, got %d", precision)
+		return nil, fmt.Errorf("trunc precision cannot be negative")
 	}
-	
+
 	// 计算截断
 	multiplier := math.Pow(10, float64(precision))
-	return math.Trunc(val*multiplier) / multiplier, nil
-}
-
-// CompressFunction 压缩函数
-type CompressFunction struct {
-	*BaseFunction
-}
-
-func NewCompressFunction() *CompressFunction {
-	return &CompressFunction{
-		BaseFunction: NewBaseFunction("compress", TypeConversion, "转换函数", "压缩字符串或二进制值", 2, 2),
+	if num >= 0 {
+		return math.Floor(num*multiplier) / multiplier, nil
+	} else {
+		return math.Ceil(num*multiplier) / multiplier, nil
 	}
-}
-
-func (f *CompressFunction) Validate(args []interface{}) error {
-	return f.ValidateArgCount(args)
-}
-
-func (f *CompressFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	if err := f.Validate(args); err != nil {
-		return nil, err
-	}
-	
-	input := cast.ToString(args[0])
-	algorithm := cast.ToString(args[1])
-	
-	var buf bytes.Buffer
-	var writer io.WriteCloser
-	
-	switch algorithm {
-	case "gzip":
-		writer = gzip.NewWriter(&buf)
-	case "zlib":
-		writer = zlib.NewWriter(&buf)
-	default:
-		return nil, fmt.Errorf("unsupported compression algorithm: %s", algorithm)
-	}
-	
-	_, err := writer.Write([]byte(input))
-	if err != nil {
-		return nil, fmt.Errorf("compression failed: %v", err)
-	}
-	
-	err = writer.Close()
-	if err != nil {
-		return nil, fmt.Errorf("compression failed: %v", err)
-	}
-	
-	// 返回base64编码的压缩数据
-	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
-}
-
-// DecompressFunction 解压缩函数
-type DecompressFunction struct {
-	*BaseFunction
-}
-
-func NewDecompressFunction() *DecompressFunction {
-	return &DecompressFunction{
-		BaseFunction: NewBaseFunction("decompress", TypeConversion, "转换函数", "解压缩字符串或二进制值", 2, 2),
-	}
-}
-
-func (f *DecompressFunction) Validate(args []interface{}) error {
-	return f.ValidateArgCount(args)
-}
-
-func (f *DecompressFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	if err := f.Validate(args); err != nil {
-		return nil, err
-	}
-	
-	input := cast.ToString(args[0])
-	algorithm := cast.ToString(args[1])
-	
-	// 解码base64数据
-	compressedData, err := base64.StdEncoding.DecodeString(input)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base64 input: %v", err)
-	}
-	
-	buf := bytes.NewReader(compressedData)
-	var reader io.ReadCloser
-	
-	switch algorithm {
-	case "gzip":
-		reader, err = gzip.NewReader(buf)
-		if err != nil {
-			return nil, fmt.Errorf("gzip decompression failed: %v", err)
-		}
-	case "zlib":
-		reader, err = zlib.NewReader(buf)
-		if err != nil {
-			return nil, fmt.Errorf("zlib decompression failed: %v", err)
-		}
-	default:
-		return nil, fmt.Errorf("unsupported decompression algorithm: %s", algorithm)
-	}
-	
-	defer reader.Close()
-	
-	result, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, fmt.Errorf("decompression failed: %v", err)
-	}
-	
-	return string(result), nil
 }

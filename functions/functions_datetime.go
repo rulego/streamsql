@@ -479,6 +479,12 @@ func (f *YearFunction) Validate(args []interface{}) error {
 }
 
 func (f *YearFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	// 首先检查是否是 time.Time 类型
+	if t, ok := args[0].(time.Time); ok {
+		return float64(t.Year()), nil
+	}
+
+	// 如果不是 time.Time，尝试转换为字符串并解析
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -491,7 +497,7 @@ func (f *YearFunction) Execute(ctx *FunctionContext, args []interface{}) (interf
 		}
 	}
 
-	return t.Year(), nil
+	return float64(t.Year()), nil
 }
 
 // MonthFunction 提取月份函数
@@ -510,6 +516,12 @@ func (f *MonthFunction) Validate(args []interface{}) error {
 }
 
 func (f *MonthFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	// 首先检查是否是 time.Time 类型
+	if t, ok := args[0].(time.Time); ok {
+		return float64(t.Month()), nil
+	}
+
+	// 如果不是 time.Time，尝试转换为字符串并解析
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -522,7 +534,7 @@ func (f *MonthFunction) Execute(ctx *FunctionContext, args []interface{}) (inter
 		}
 	}
 
-	return int(t.Month()), nil
+	return float64(t.Month()), nil
 }
 
 // DayFunction 提取日期函数

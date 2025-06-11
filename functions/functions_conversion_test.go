@@ -39,7 +39,7 @@ func TestNewConversionFunctions(t *testing.T) {
 			args:     []interface{}{"invalid-time", "UTC"},
 			wantErr:  true,
 		},
-		
+
 		// to_seconds 函数测试
 		{
 			name:     "to_seconds with time.Time",
@@ -61,7 +61,7 @@ func TestNewConversionFunctions(t *testing.T) {
 			args:     []interface{}{"invalid-time"},
 			wantErr:  true,
 		},
-		
+
 		// chr 函数测试
 		{
 			name:     "chr valid ASCII code",
@@ -89,7 +89,7 @@ func TestNewConversionFunctions(t *testing.T) {
 			args:     []interface{}{128},
 			wantErr:  true,
 		},
-		
+
 		// trunc 函数测试
 		{
 			name:     "trunc positive number",
@@ -97,6 +97,70 @@ func TestNewConversionFunctions(t *testing.T) {
 			args:     []interface{}{3.14159, 2},
 			want:     3.14,
 			wantErr:  false,
+		},
+
+		// url_encode 函数测试
+		{
+			name:     "url_encode basic",
+			funcName: "url_encode",
+			args:     []interface{}{"hello world"},
+			want:     "hello+world",
+			wantErr:  false,
+		},
+		{
+			name:     "url_encode special chars",
+			funcName: "url_encode",
+			args:     []interface{}{"hello@world.com"},
+			want:     "hello%40world.com",
+			wantErr:  false,
+		},
+		{
+			name:     "url_encode empty",
+			funcName: "url_encode",
+			args:     []interface{}{""},
+			want:     "",
+			wantErr:  false,
+		},
+		{
+			name:     "url_encode nil",
+			funcName: "url_encode",
+			args:     []interface{}{nil},
+			wantErr:  true,
+		},
+
+		// url_decode 函数测试
+		{
+			name:     "url_decode basic",
+			funcName: "url_decode",
+			args:     []interface{}{"hello+world"},
+			want:     "hello world",
+			wantErr:  false,
+		},
+		{
+			name:     "url_decode special chars",
+			funcName: "url_decode",
+			args:     []interface{}{"hello%40world.com"},
+			want:     "hello@world.com",
+			wantErr:  false,
+		},
+		{
+			name:     "url_decode empty",
+			funcName: "url_decode",
+			args:     []interface{}{""},
+			want:     "",
+			wantErr:  false,
+		},
+		{
+			name:     "url_decode nil",
+			funcName: "url_decode",
+			args:     []interface{}{nil},
+			wantErr:  true,
+		},
+		{
+			name:     "url_decode invalid",
+			funcName: "url_decode",
+			args:     []interface{}{"hello%ZZ"},
+			wantErr:  true,
 		},
 		{
 			name:     "trunc negative number",
@@ -119,20 +183,20 @@ func TestNewConversionFunctions(t *testing.T) {
 			wantErr:  true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fn, exists := Get(tt.funcName)
 			if !exists {
 				t.Fatalf("Function %s not found", tt.funcName)
 			}
-			
+
 			result, err := fn.Execute(nil, tt.args)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr {
 				// 对于时间类型，需要特殊处理比较
 				if tt.funcName == "convert_tz" {

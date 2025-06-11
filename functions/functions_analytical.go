@@ -99,9 +99,11 @@ func (f *LagFunction) Result() interface{} {
 		return f.DefaultValue
 	}
 	// 返回当前值之前第Offset个值
-	// 对于数组[first, second, third]，当前位置是最后一个元素
-	// offset=1时返回second（倒数第2个），offset=2时返回first（倒数第3个）
-	return f.PreviousValues[len(f.PreviousValues)-f.Offset-1]
+	// 对于数组[first, second, third]，当前位置是最后一个元素third（索引2）
+	// offset=1时应该返回second（索引1），计算：len-1-offset = 3-1-1 = 1
+	// offset=2时应该返回first（索引0），计算：len-1-offset = 3-1-2 = 0
+	// 索引计算：len-1-offset，即从最后一个元素往前数offset个位置
+	return f.PreviousValues[len(f.PreviousValues)-1-f.Offset]
 }
 
 func (f *LagFunction) Clone() AggregatorFunction {
