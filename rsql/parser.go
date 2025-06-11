@@ -11,12 +11,82 @@ import (
 )
 
 type Parser struct {
-	lexer *Lexer
+	lexer         *Lexer
+	errorRecovery *ErrorRecovery
+	currentToken  Token
+	input         string
 }
 
 func NewParser(input string) *Parser {
-	return &Parser{
-		lexer: NewLexer(input),
+	lexer := NewLexer(input)
+	p := &Parser{
+		lexer: lexer,
+		input: input,
+	}
+	p.errorRecovery = NewErrorRecovery(p)
+	lexer.SetErrorRecovery(p.errorRecovery)
+	return p
+}
+
+// GetErrors 获取解析过程中的所有错误
+func (p *Parser) GetErrors() []*ParseError {
+	return p.errorRecovery.GetErrors()
+}
+
+// HasErrors 检查是否有错误
+func (p *Parser) HasErrors() bool {
+	return p.errorRecovery.HasErrors()
+}
+
+// expectToken 期望特定类型的token
+func (p *Parser) expectToken(expected TokenType, context string) (Token, error) {
+	tok := p.lexer.NextToken()
+	if tok.Type != expected {
+		err := CreateUnexpectedTokenError(
+			tok.Value,
+			[]string{p.getTokenTypeName(expected)},
+			tok.Pos,
+		)
+		err.Context = context
+		p.errorRecovery.AddError(err)
+		
+		// 尝试错误恢复
+		if err.IsRecoverable() && p.errorRecovery.RecoverFromError(ErrorTypeUnexpectedToken) {
+			return p.expectToken(expected, context)
+		}
+		
+		return tok, err
+	}
+	return tok, nil
+}
+
+// getTokenTypeName 获取token类型名称
+func (p *Parser) getTokenTypeName(tokenType TokenType) string {
+	switch tokenType {
+	case TokenSELECT:
+		return "SELECT"
+	case TokenFROM:
+		return "FROM"
+	case TokenWHERE:
+		return "WHERE"
+	case TokenGROUP:
+		return "GROUP"
+	case TokenBY:
+		return "BY"
+	case TokenComma:
+		return ","
+	case TokenLParen:
+		return "("
+	case TokenRParen:
+		return ")"
+	case TokenIdent:
+		return "identifier"
+	case TokenNumber:
+		return "number"
+	case TokenString:
+		return "string"
+	default:
+		return "unknown"
 	}
 }
 
@@ -25,43 +95,101 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 
 	// 解析SELECT子句
 	if err := p.parseSelect(stmt); err != nil {
-		return nil, err
+		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
+			return nil, p.createDetailedError(err)
+		}
 	}
 
 	// 解析FROM子句
 	if err := p.parseFrom(stmt); err != nil {
-		return nil, err
+		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
+			return nil, p.createDetailedError(err)
+		}
 	}
 
 	// 解析WHERE子句
 	if err := p.parseWhere(stmt); err != nil {
-		return nil, err
+		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
+			return nil, p.createDetailedError(err)
+		}
 	}
 
 	// 解析GROUP BY子句
 	if err := p.parseGroupBy(stmt); err != nil {
-		return nil, err
+		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
+			return nil, p.createDetailedError(err)
+		}
 	}
 
 	// 解析 HAVING 子句
 	if err := p.parseHaving(stmt); err != nil {
-		return nil, err
+		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
+			return nil, p.createDetailedError(err)
+		}
 	}
 
 	if err := p.parseWith(stmt); err != nil {
-		return nil, err
+		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
+			return nil, p.createDetailedError(err)
+		}
 	}
 
 	// 解析LIMIT子句
 	if err := p.parseLimit(stmt); err != nil {
-		return nil, err
+		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
+			return nil, p.createDetailedError(err)
+		}
+	}
+
+	// 如果有错误但可以恢复，返回部分解析结果和错误信息
+	if p.errorRecovery.HasErrors() {
+		return stmt, p.createCombinedError()
 	}
 
 	return stmt, nil
 }
 
+// createDetailedError 创建详细的错误信息
+func (p *Parser) createDetailedError(err error) error {
+	if parseErr, ok := err.(*ParseError); ok {
+		parseErr.Context = FormatErrorContext(p.input, parseErr.Position, 20)
+		return parseErr
+	}
+	return err
+}
+
+// createCombinedError 创建组合错误信息
+func (p *Parser) createCombinedError() error {
+	errors := p.errorRecovery.GetErrors()
+	if len(errors) == 1 {
+		return p.createDetailedError(errors[0])
+	}
+	
+	var builder strings.Builder
+	builder.WriteString(fmt.Sprintf("Found %d parsing errors:\n", len(errors)))
+	for i, err := range errors {
+		builder.WriteString(fmt.Sprintf("%d. %s\n", i+1, err.Error()))
+	}
+	return fmt.Errorf(builder.String())
+}
+
 func (p *Parser) parseSelect(stmt *SelectStatement) error {
-	p.lexer.NextToken() // 跳过SELECT
+	// 验证第一个token是否为SELECT
+	firstToken := p.lexer.NextToken()
+	if firstToken.Type != TokenSELECT {
+		// 如果不是SELECT，检查是否是拼写错误
+		if firstToken.Type == TokenIdent {
+			// 这里的错误已经由lexer的checkForTypos处理了
+			// 我们继续解析，假设用户想要SELECT
+		} else {
+			return CreateSyntaxError(
+				fmt.Sprintf("Expected SELECT, got %s", firstToken.Value),
+				firstToken.Pos,
+				firstToken.Value,
+				[]string{"SELECT"},
+			)
+		}
+	}
 	currentToken := p.lexer.NextToken()
 
 	if currentToken.Type == TokenDISTINCT {
@@ -120,6 +248,11 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 
 		// 如果表达式为空，跳过这个字段
 		if field.Expression != "" {
+			// 验证表达式中的函数
+			validator := NewFunctionValidator(p.errorRecovery)
+			pos, _, _ := p.lexer.GetPosition()
+			validator.ValidateExpression(field.Expression, pos-len(field.Expression))
+			
 			stmt.Fields = append(stmt.Fields, field)
 		}
 
@@ -145,8 +278,9 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 
 func (p *Parser) parseWhere(stmt *SelectStatement) error {
 	var conditions []string
-	current := p.lexer.NextToken() // 跳过WHERE
+	current := p.lexer.NextToken() // 获取下一个token
 	if current.Type != TokenWHERE {
+		// 如果不是WHERE，回退token位置
 		return nil
 	}
 
@@ -191,7 +325,16 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 			}
 		}
 	}
-	stmt.Condition = strings.Join(conditions, " ")
+	
+	// 验证WHERE条件中的函数
+	whereCondition := strings.Join(conditions, " ")
+	if whereCondition != "" {
+		validator := NewFunctionValidator(p.errorRecovery)
+		pos, _, _ := p.lexer.GetPosition()
+		validator.ValidateExpression(whereCondition, pos-len(whereCondition))
+	}
+	
+	stmt.Condition = whereCondition
 	return nil
 }
 
@@ -260,7 +403,19 @@ func convertValue(s string) interface{} {
 func (p *Parser) parseFrom(stmt *SelectStatement) error {
 	tok := p.lexer.NextToken()
 	if tok.Type != TokenIdent {
-		return errors.New("expected source identifier after FROM")
+		err := CreateUnexpectedTokenError(
+			tok.Value,
+			[]string{"table_name", "stream_name"},
+			tok.Pos,
+		)
+		err.Message = "Expected source identifier after FROM"
+		err.Context = "FROM clause requires a table or stream name"
+		err.Suggestions = []string{
+			"Ensure FROM is followed by a valid table or stream name",
+			"Check if the table name is spelled correctly",
+		}
+		p.errorRecovery.AddError(err)
+		return err
 	}
 	stmt.Source = tok.Value
 	return nil
@@ -396,11 +551,42 @@ func (p *Parser) parseLimit(stmt *SelectStatement) error {
 			// 将数字字符串转换为整数
 			limit, err := strconv.Atoi(tok.Value)
 			if err != nil {
-				return errors.New("LIMIT值必须是一个整数")
+				parseErr := CreateSyntaxError(
+					"LIMIT value must be a valid integer",
+					tok.Pos,
+					tok.Value,
+					[]string{"positive_integer"},
+				)
+				parseErr.Context = "LIMIT clause"
+				parseErr.Suggestions = []string{
+					"Use a positive integer, e.g., LIMIT 10",
+					"Ensure the number format is correct",
+				}
+				p.errorRecovery.AddError(parseErr)
+				return parseErr
+			}
+			if limit < 0 {
+				parseErr := CreateSyntaxError(
+					"LIMIT value must be positive",
+					tok.Pos,
+					tok.Value,
+					[]string{"positive_integer"},
+				)
+				parseErr.Suggestions = []string{"Use a positive integer, e.g., LIMIT 10"}
+				p.errorRecovery.AddError(parseErr)
+				return parseErr
 			}
 			stmt.Limit = limit
 		} else {
-			return errors.New("LIMIT后必须跟一个整数")
+			parseErr := CreateMissingTokenError("number", tok.Pos)
+			parseErr.Message = "LIMIT must be followed by an integer"
+			parseErr.Context = "LIMIT clause"
+			parseErr.Suggestions = []string{
+				"Add a number after LIMIT, e.g., LIMIT 10",
+				"Ensure LIMIT syntax is correct",
+			}
+			p.errorRecovery.AddError(parseErr)
+			return parseErr
 		}
 	}
 	return nil
@@ -456,7 +642,15 @@ func (p *Parser) parseHaving(stmt *SelectStatement) error {
 		}
 	}
 
-	stmt.Having = strings.Join(conditions, " ")
+	// 验证HAVING条件中的函数
+	havingCondition := strings.Join(conditions, " ")
+	if havingCondition != "" {
+		validator := NewFunctionValidator(p.errorRecovery)
+		pos, _, _ := p.lexer.GetPosition()
+		validator.ValidateExpression(havingCondition, pos-len(havingCondition))
+	}
+
+	stmt.Having = havingCondition
 	return nil
 }
 

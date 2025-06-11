@@ -303,34 +303,69 @@ func (f *FirstValueFunction) Clone() AggregatorFunction {
 // LeadFunction 返回当前行之后第N行的值
 type LeadFunction struct {
 	*BaseFunction
-	values []interface{}
+	values       []interface{}
+	offset       int
+	defaultValue interface{}
+	hasDefault   bool
 }
 
 func NewLeadFunction() *LeadFunction {
 	return &LeadFunction{
 		BaseFunction: NewBaseFunction("lead", TypeWindow, "窗口函数", "返回当前行之后第N行的值", 1, 3),
 		values:       make([]interface{}, 0),
+		offset:       1, // 默认偏移量为1
 	}
 }
 
 func (f *LeadFunction) Validate(args []interface{}) error {
-	return f.ValidateArgCount(args)
+	if err := f.ValidateArgCount(args); err != nil {
+		return err
+	}
+
+	// 验证第二个参数（offset）是否为整数
+	if len(args) >= 2 {
+		if offset, ok := args[1].(int); ok {
+			f.offset = offset
+		} else {
+			return fmt.Errorf("offset must be an integer")
+		}
+	}
+
+	// 设置默认值
+	if len(args) >= 3 {
+		f.defaultValue = args[2]
+		f.hasDefault = true
+	}
+
+	return nil
 }
 
 func (f *LeadFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}
-	
-	// 获取默认值
-	var defaultValue interface{}
-	if len(args) >= 3 {
-		defaultValue = args[2]
+
+	// 获取偏移量
+	if len(args) >= 2 {
+		if offset, ok := args[1].(int); ok {
+			f.offset = offset
+		} else {
+			return nil, fmt.Errorf("offset must be an integer")
+		}
 	}
-	
+
+	// 获取默认值
+	if len(args) >= 3 {
+		f.defaultValue = args[2]
+		f.hasDefault = true
+	}
+
 	// Lead函数需要在窗口处理完成后才能确定值
 	// 这里返回默认值，实际实现需要在窗口引擎中处理
-	return defaultValue, nil
+	if f.hasDefault {
+		return f.defaultValue, nil
+	}
+	return nil, nil
 }
 
 // 实现AggregatorFunction接口
@@ -338,6 +373,9 @@ func (f *LeadFunction) New() AggregatorFunction {
 	return &LeadFunction{
 		BaseFunction: f.BaseFunction,
 		values:       make([]interface{}, 0),
+		offset:       f.offset,
+		defaultValue: f.defaultValue,
+		hasDefault:   f.hasDefault,
 	}
 }
 
@@ -347,18 +385,28 @@ func (f *LeadFunction) Add(value interface{}) {
 
 func (f *LeadFunction) Result() interface{} {
 	// Lead函数的结果需要在所有数据添加完成后计算
+	// 如果没有足够的数据，返回默认值
+	if len(f.values) == 0 && f.hasDefault {
+		return f.defaultValue
+	}
 	// 这里简化实现，返回nil
 	return nil
 }
 
 func (f *LeadFunction) Reset() {
 	f.values = make([]interface{}, 0)
+	f.offset = 1
+	f.defaultValue = nil
+	f.hasDefault = false
 }
 
 func (f *LeadFunction) Clone() AggregatorFunction {
 	clone := &LeadFunction{
 		BaseFunction: f.BaseFunction,
 		values:       make([]interface{}, len(f.values)),
+		offset:       f.offset,
+		defaultValue: f.defaultValue,
+		hasDefault:   f.hasDefault,
 	}
 	copy(clone.values, f.values)
 	return clone
@@ -380,14 +428,35 @@ func NewNthValueFunction() *NthValueFunction {
 }
 
 func (f *NthValueFunction) Validate(args []interface{}) error {
-	return f.ValidateArgCount(args)
+	if err := f.ValidateArgCount(args); err != nil {
+		return err
+	}
+	
+	// 验证N值
+	n := 1
+	if nVal, ok := args[1].(int); ok {
+		n = nVal
+	} else if nVal, ok := args[1].(int64); ok {
+		n = int(nVal)
+	} else {
+		return fmt.Errorf("nth_value n must be an integer")
+	}
+	
+	if n <= 0 {
+		return fmt.Errorf("nth_value n must be positive, got %d", n)
+	}
+	
+	// 设置n值
+	f.n = n
+	
+	return nil
 }
 
 func (f *NthValueFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}
-	
+
 	// 获取N值
 	n := 1
 	if nVal, ok := args[1].(int); ok {
@@ -397,16 +466,16 @@ func (f *NthValueFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 	} else {
 		return nil, fmt.Errorf("nth_value n must be an integer")
 	}
-	
+
 	if n <= 0 {
 		return nil, fmt.Errorf("nth_value n must be positive, got %d", n)
 	}
-	
+
 	// 返回第N个值（1-based索引）
 	if len(f.values) >= n {
 		return f.values[n-1], nil
 	}
-	
+
 	return nil, nil
 }
 

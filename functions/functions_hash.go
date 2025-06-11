@@ -28,7 +28,7 @@ func (f *Md5Function) Execute(ctx *FunctionContext, args []interface{}) (interfa
 	if !ok {
 		return nil, fmt.Errorf("md5 requires string input")
 	}
-	
+
 	hash := md5.Sum([]byte(str))
 	return fmt.Sprintf("%x", hash), nil
 }
@@ -53,7 +53,7 @@ func (f *Sha1Function) Execute(ctx *FunctionContext, args []interface{}) (interf
 	if !ok {
 		return nil, fmt.Errorf("sha1 requires string input")
 	}
-	
+
 	hash := sha1.Sum([]byte(str))
 	return fmt.Sprintf("%x", hash), nil
 }
@@ -78,7 +78,7 @@ func (f *Sha256Function) Execute(ctx *FunctionContext, args []interface{}) (inte
 	if !ok {
 		return nil, fmt.Errorf("sha256 requires string input")
 	}
-	
+
 	hash := sha256.Sum256([]byte(str))
 	return fmt.Sprintf("%x", hash), nil
 }
@@ -103,7 +103,7 @@ func (f *Sha512Function) Execute(ctx *FunctionContext, args []interface{}) (inte
 	if !ok {
 		return nil, fmt.Errorf("sha512 requires string input")
 	}
-	
+
 	hash := sha512.Sum512([]byte(str))
 	return fmt.Sprintf("%x", hash), nil
 }

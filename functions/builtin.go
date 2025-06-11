@@ -65,8 +65,8 @@ func registerBuiltinFunctions() {
 	_ = Register(NewToSecondsFunction())
 	_ = Register(NewChrFunction())
 	_ = Register(NewTruncFunction())
-	_ = Register(NewCompressFunction())
-	_ = Register(NewDecompressFunction())
+	_ = Register(NewUrlEncodeFunction())
+	_ = Register(NewUrlDecodeFunction())
 
 	// Time-Date functions
 	_ = Register(NewNowFunction())
@@ -79,8 +79,8 @@ func registerBuiltinFunctions() {
 	_ = Register(NewMinFunction())
 	_ = Register(NewMaxFunction())
 	_ = Register(NewCountFunction())
-	_ = Register(NewStdDevFunction())
-	_ = Register(NewMedianFunction())
+	_ = Register(NewStdDevAggregatorFunction())
+	_ = Register(NewMedianAggregatorFunction())
 	_ = Register(NewPercentileFunction())
 	_ = Register(NewCollectFunction())
 	_ = Register(NewLastValueFunction())
@@ -109,6 +109,7 @@ func registerBuiltinFunctions() {
 	// Expression functions
 	_ = Register(NewExpressionFunction())
 	_ = Register(NewExprFunction())
+	_ = Register(NewExpressionAggregatorFunction())
 
 	// JSON functions
 	_ = Register(NewToJsonFunction())
@@ -144,10 +145,15 @@ func registerBuiltinFunctions() {
 	_ = Register(NewIsObjectFunction())
 
 	// Conditional functions
+	_ = Register(NewIfNullFunction())
 	_ = Register(NewCoalesceFunction())
 	_ = Register(NewNullIfFunction())
 	_ = Register(NewGreatestFunction())
 	_ = Register(NewLeastFunction())
+	_ = Register(NewCaseWhenFunction())
+
+	// Multi-row functions
+	_ = Register(NewUnnestFunction())
 
 	// User-defined functions (placeholder for future extension)
 	// Example: _=Register(NewMyUserDefinedFunction())

@@ -61,7 +61,7 @@ func (f *IsNumericFunction) Execute(ctx *FunctionContext, args []interface{}) (i
 	if args[0] == nil {
 		return false, nil
 	}
-	
+
 	v := reflect.ValueOf(args[0])
 	switch v.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
@@ -92,7 +92,7 @@ func (f *IsStringFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 	if args[0] == nil {
 		return false, nil
 	}
-	
+
 	_, ok := args[0].(string)
 	return ok, nil
 }
@@ -116,7 +116,7 @@ func (f *IsBoolFunction) Execute(ctx *FunctionContext, args []interface{}) (inte
 	if args[0] == nil {
 		return false, nil
 	}
-	
+
 	_, ok := args[0].(bool)
 	return ok, nil
 }
@@ -140,7 +140,7 @@ func (f *IsArrayFunction) Execute(ctx *FunctionContext, args []interface{}) (int
 	if args[0] == nil {
 		return false, nil
 	}
-	
+
 	v := reflect.ValueOf(args[0])
 	return v.Kind() == reflect.Slice || v.Kind() == reflect.Array, nil
 }
@@ -164,7 +164,7 @@ func (f *IsObjectFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 	if args[0] == nil {
 		return false, nil
 	}
-	
+
 	v := reflect.ValueOf(args[0])
 	return v.Kind() == reflect.Map || v.Kind() == reflect.Struct, nil
 }

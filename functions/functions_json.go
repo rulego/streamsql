@@ -50,7 +50,7 @@ func (f *FromJsonFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 	if !ok {
 		return nil, fmt.Errorf("from_json requires string input")
 	}
-	
+
 	var result interface{}
 	err := json.Unmarshal([]byte(jsonStr), &result)
 	if err != nil {
@@ -79,18 +79,18 @@ func (f *JsonExtractFunction) Execute(ctx *FunctionContext, args []interface{}) 
 	if !ok {
 		return nil, fmt.Errorf("json_extract requires string input")
 	}
-	
+
 	path, ok := args[1].(string)
 	if !ok {
 		return nil, fmt.Errorf("json_extract path must be string")
 	}
-	
+
 	var data interface{}
 	err := json.Unmarshal([]byte(jsonStr), &data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %v", err)
 	}
-	
+
 	// 简单的路径提取，支持 $.field 格式
 	if strings.HasPrefix(path, "$.") {
 		field := path[2:]
@@ -98,7 +98,7 @@ func (f *JsonExtractFunction) Execute(ctx *FunctionContext, args []interface{}) 
 			return dataMap[field], nil
 		}
 	}
-	
+
 	return nil, fmt.Errorf("invalid JSON path or data structure")
 }
 
@@ -122,7 +122,7 @@ func (f *JsonValidFunction) Execute(ctx *FunctionContext, args []interface{}) (i
 	if !ok {
 		return false, nil
 	}
-	
+
 	var temp interface{}
 	err := json.Unmarshal([]byte(jsonStr), &temp)
 	return err == nil, nil
@@ -148,13 +148,13 @@ func (f *JsonTypeFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 	if !ok {
 		return "unknown", nil
 	}
-	
+
 	var data interface{}
 	err := json.Unmarshal([]byte(jsonStr), &data)
 	if err != nil {
 		return "invalid", nil
 	}
-	
+
 	switch data.(type) {
 	case nil:
 		return "null", nil
@@ -193,13 +193,13 @@ func (f *JsonLengthFunction) Execute(ctx *FunctionContext, args []interface{}) (
 	if !ok {
 		return nil, fmt.Errorf("json_length requires string input")
 	}
-	
+
 	var data interface{}
 	err := json.Unmarshal([]byte(jsonStr), &data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %v", err)
 	}
-	
+
 	switch v := data.(type) {
 	case []interface{}:
 		return len(v), nil
