@@ -40,7 +40,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"testing"
+	"sync"
 	"time"
 
 	"math/rand"
@@ -48,21 +48,42 @@ import (
 )
 
 func main() {
+	// 1. 创建StreamSQL实例 - 这是流式SQL处理引擎的入口
 	ssql := streamsql.New()
-	// 定义SQL语句。含义：每隔5秒按deviceId分组输出设备的温度平均值和湿度最小值。
+	
+	// 2. 定义流式SQL查询语句
+	// 核心概念解析：
+	// - TumblingWindow('5s'): 滚动窗口，每5秒创建一个新窗口，窗口之间不重叠
+	// - GROUP BY deviceId: 按设备ID分组，每个设备独立计算
+	// - avg(temperature): 聚合函数，计算窗口内温度的平均值
+	// - min(humidity): 聚合函数，计算窗口内湿度的最小值
+	// - window_start()/window_end(): 窗口函数，获取当前窗口的开始和结束时间
 	rsql := "SELECT deviceId,avg(temperature) as avg_temp,min(humidity) as min_humidity ," +
 		"window_start() as start,window_end() as end FROM  stream  where deviceId!='device3' group by deviceId,TumblingWindow('5s')"
-	// 根据SQL语句，创建流式分析任务。
+	
+	// 3. 解析并执行SQL语句，创建流式分析任务
+	// 这一步会：
+	// - 解析SQL语句，构建执行计划
+	// - 创建窗口管理器（每5秒触发一次计算）
+	// - 设置数据过滤条件（排除device3）
+	// - 配置聚合计算逻辑
 	err := ssql.Execute(rsql)
 	if err != nil {
 		panic(err)
 	}
+	
 	var wg sync.WaitGroup
 	wg.Add(1)
 	// 设置30秒测试超时时间
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	// 添加测试数据
+	
+	// 4. 数据生产者 - 模拟实时数据流输入
+	// 在实际应用中，这可能是：
+	// - IoT设备传感器数据
+	// - 用户行为事件
+	// - 系统监控指标
+	// - 消息队列数据等
 	go func() {
 		defer wg.Done()
 		ticker := time.NewTicker(1 * time.Second)
@@ -70,14 +91,23 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				// 生成随机测试数据，每秒生成10条数据
+				// 每秒生成10条随机数据，模拟高频数据流
+				// 数据特点：
+				// - 只有device1和device2（device3被SQL过滤掉）
+				// - 温度范围：20-30度
+				// - 湿度范围：50-70%
 				for i := 0; i < 10; i++ {
 					randomData := map[string]interface{}{
-						"deviceId":    fmt.Sprintf("device%d", rand.Intn(2)+1),
-						"temperature": 20.0 + rand.Float64()*10, // 20-30度之间
-						"humidity":    50.0 + rand.Float64()*20, // 50-70%湿度
+						"deviceId":    fmt.Sprintf("device%d", rand.Intn(2)+1), // 随机生成device1或device2
+						"temperature": 20.0 + rand.Float64()*10,                // 20-30度之间的随机温度
+						"humidity":    50.0 + rand.Float64()*20,                // 50-70%之间的随机湿度
 					}
-					// 将数据添加到流中
+					// 将数据推送到流处理引擎
+					// 引擎会自动：
+					// - 应用WHERE过滤条件
+					// - 按deviceId分组
+					// - 将数据分配到对应的时间窗口
+					// - 更新聚合计算状态
 					ssql.stream.AddData(randomData)
 				}
 
@@ -87,22 +117,41 @@ func main() {
 		}
 	}()
 
+	// 5. 结果处理管道 - 接收窗口计算结果
 	resultChan := make(chan interface{})
-	// 添加计算结果回调
+	
+	// 6. 注册结果回调函数
+	// 当窗口触发时（每5秒），会调用这个回调函数
+	// 传递聚合计算的结果
 	ssql.stream.AddSink(func(result interface{}) {
 		resultChan <- result
 	})
-	// 记录收到的结果数量
+	
+	// 7. 结果消费者 - 处理计算结果
+	// 在实际应用中，这里可能是：
+	// - 发送告警通知
+	// - 存储到数据库
+	// - 推送到仪表板
+	// - 触发下游业务逻辑
 	resultCount := 0
 	go func() {
 		for result := range resultChan {
-			//每隔5秒打印一次结果
-			fmt.Printf("打印结果: [%s] %v\n", time.Now().Format("15:04:05.000"), result)
+			// 每当5秒窗口结束时，会收到该窗口的聚合结果
+			// 结果包含：
+			// - deviceId: 设备ID
+			// - avg_temp: 该设备在窗口内的平均温度
+			// - min_humidity: 该设备在窗口内的最小湿度
+			// - start/end: 窗口的时间范围
+			fmt.Printf("窗口计算结果: [%s] %v\n", time.Now().Format("15:04:05.000"), result)
 			resultCount++
 		}
 	}()
-    //测试结束
+	
+	// 8. 等待测试完成
+	// 整个流程展示了StreamSQL的核心工作原理：
+	// 数据输入 -> 过滤 -> 分组 -> 窗口聚合 -> 结果输出
 	wg.Wait()
+	fmt.Printf("\n测试完成，共收到 %d 个窗口结果\n", resultCount)
 }
 ```
 

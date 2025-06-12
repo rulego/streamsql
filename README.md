@@ -37,7 +37,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"testing"
 	"time"
 
 	"math/rand"
@@ -45,62 +44,98 @@ import (
 	"github.com/rulego/streamsql"
 )
 
+// StreamSQL Usage Example
+// This example demonstrates the complete workflow of StreamSQL: from instance creation to data processing and result handling
 func main() {
+	// Step 1: Create StreamSQL Instance
+	// StreamSQL is the core component of the stream SQL processing engine, managing the entire stream processing lifecycle
 	ssql := streamsql.New()
-	// Define the SQL statement. Every 5 seconds, group by deviceId and output the average temperature and minimum humidity of the device.
+	
+	// Step 2: Define Stream SQL Query Statement
+	// This SQL statement showcases StreamSQL's core capabilities:
+	// - SELECT: Choose output fields and aggregation functions
+	// - FROM stream: Specify the data source as stream data
+	// - WHERE: Filter condition, excluding device3 data
+	// - GROUP BY: Group by deviceId, combined with tumbling window for aggregation
+	// - TumblingWindow('5s'): 5-second tumbling window, triggers computation every 5 seconds
+	// - avg(), min(): Aggregation functions for calculating average and minimum values
+	// - window_start(), window_end(): Window functions to get window start and end times
 	rsql := "SELECT deviceId,avg(temperature) as avg_temp,min(humidity) as min_humidity ," +
 		"window_start() as start,window_end() as end FROM  stream  where deviceId!='device3' group by deviceId,TumblingWindow('5s')"
-	// Create a stream processing task based on the SQL statement.
+	
+	// Step 3: Execute SQL Statement and Start Stream Analysis Task
+	// The Execute method parses SQL, builds execution plan, initializes window manager and aggregators
 	err := ssql.Execute(rsql)
 	if err != nil {
 		panic(err)
 	}
+	
+	// Step 4: Setup Test Environment and Concurrency Control
 	var wg sync.WaitGroup
 	wg.Add(1)
-	// Set a 30-second test timeout
+	// Set 30-second test timeout to prevent infinite running
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	// Add test data
+	
+	// Step 5: Start Data Producer Goroutine
+	// Simulate real-time data stream, continuously feeding data into StreamSQL
 	go func() {
 		defer wg.Done()
+		// Create ticker to trigger data generation every second
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				// Generate random test data, generating 10 data points per second
+				// Generate 10 random test data points per second, simulating high-frequency data stream
+				// This data density tests StreamSQL's real-time processing capability
 				for i := 0; i < 10; i++ {
+					// Construct device data containing deviceId, temperature, and humidity
 					randomData := map[string]interface{}{
-						"deviceId":    fmt.Sprintf("device%d", rand.Intn(2)+1),
-						"temperature": 20.0 + rand.Float64()*10, // Temperature between 20-30 degrees
-						"humidity":    50.0 + rand.Float64()*20, // Humidity between 50-70%
+						"deviceId":    fmt.Sprintf("device%d", rand.Intn(2)+1), // Randomly select device1 or device2
+						"temperature": 20.0 + rand.Float64()*10,                // Temperature range: 20-30 degrees
+						"humidity":    50.0 + rand.Float64()*20,                // Humidity range: 50-70%
 					}
-					// Add data to the stream
+					// Add data to stream, triggering StreamSQL's real-time processing
+					// AddData distributes data to corresponding windows and aggregators
 					ssql.stream.AddData(randomData)
 				}
 
 			case <-ctx.Done():
+				// Timeout or cancellation signal, stop data generation
 				return
 			}
 		}
 	}()
 
+	// Step 6: Setup Result Processing Pipeline
 	resultChan := make(chan interface{})
-	// Add a result callback
+	// Add computation result callback function (Sink)
+	// When window triggers computation, results are output through this callback
 	ssql.stream.AddSink(func(result interface{}) {
 		resultChan <- result
 	})
-	// Count the number of results received
+	
+	// Step 7: Start Result Consumer Goroutine
+	// Count received results for effect verification
 	resultCount := 0
 	go func() {
 		for result := range resultChan {
-			// Print results every 5 seconds
-			fmt.Printf("Print result: [%s] %v\n", time.Now().Format("15:04:05.000"), result)
+			// Print results when window computation is triggered (every 5 seconds)
+			// This demonstrates StreamSQL's window-based aggregation results
+			fmt.Printf("Window Result [%s]: %v\n", time.Now().Format("15:04:05.000"), result)
 			resultCount++
 		}
 	}()
-    // End of test
+	
+	// Step 8: Wait for Processing Completion
+	// Wait for data producer goroutine to finish (30-second timeout or manual cancellation)
 	wg.Wait()
+	
+	// Step 9: Display Final Statistics
+	// Show total number of window results received during the test period
+	fmt.Printf("\nTotal window results received: %d\n", resultCount)
+	fmt.Println("StreamSQL processing completed successfully!")
 }
 ```
 
