@@ -108,7 +108,7 @@ func main() {
 
 ## 函数
 
-StreamSQL 支持多种函数类型，包括数学、字符串、转换、聚合、分析、窗口等。[文档](docs/FUNCTIONS_USAGE_GUIDE.md)
+StreamSQL 支持多种函数类型，包括数学、字符串、转换、聚合、分析、窗口等上百个函数。[文档](docs/FUNCTIONS_USAGE_GUIDE.md)
 
 ### 🎨 支持的函数类型
 
