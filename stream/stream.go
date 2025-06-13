@@ -34,6 +34,7 @@ type Stream struct {
 
 	// 新增：线程安全控制
 	dataChanMux      sync.RWMutex // 保护dataChan访问的读写锁
+	sinksMux         sync.RWMutex // 保护sinks访问的读写锁
 	expansionMux     sync.Mutex   // 防止并发扩容的互斥锁
 	retryMux         sync.Mutex   // 控制持久化重试的互斥锁
 	expanding        int32        // 扩容状态标记，使用原子操作
@@ -543,12 +544,20 @@ func (s *Stream) sendResultNonBlocking(results []map[string]interface{}) {
 
 // callSinksAsync 异步调用所有sink函数
 func (s *Stream) callSinksAsync(results []map[string]interface{}) {
+	// 使用读锁安全地访问sinks切片
+	s.sinksMux.RLock()
 	if len(s.sinks) == 0 {
+		s.sinksMux.RUnlock()
 		return
 	}
 
+	// 复制sinks切片以避免在持有锁的情况下执行耗时操作
+	sinksCopy := make([]func(interface{}), len(s.sinks))
+	copy(sinksCopy, s.sinks)
+	s.sinksMux.RUnlock()
+
 	// 为每个sink创建异步任务
-	for _, sink := range s.sinks {
+	for _, sink := range sinksCopy {
 		// 捕获sink变量，避免闭包问题
 		currentSink := sink
 
@@ -935,7 +944,9 @@ func (s *Stream) safeSendToDataChan(data interface{}) bool {
 }
 
 func (s *Stream) AddSink(sink func(interface{})) {
+	s.sinksMux.Lock()
 	s.sinks = append(s.sinks, sink)
+	s.sinksMux.Unlock()
 }
 
 func (s *Stream) GetResultsChan() <-chan interface{} {

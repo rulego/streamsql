@@ -25,6 +25,7 @@ type PersistenceManager struct {
 	pendingData   []interface{} // 待写入数据
 	pendingMutex  sync.Mutex    // 待写入数据互斥锁
 	isRunning     bool          // 是否运行中
+	runningMutex  sync.RWMutex  // 保护isRunning字段的读写锁
 	stopChan      chan struct{} // 停止通道
 
 	// 统计信息 (新增)
@@ -76,7 +77,12 @@ func (pm *PersistenceManager) Start() error {
 	pm.writeMutex.Lock()
 	defer pm.writeMutex.Unlock()
 
-	if pm.isRunning {
+	// 检查是否已经在运行
+	pm.runningMutex.RLock()
+	running := pm.isRunning
+	pm.runningMutex.RUnlock()
+
+	if running {
 		return fmt.Errorf("persistence manager already running")
 	}
 
@@ -85,7 +91,10 @@ func (pm *PersistenceManager) Start() error {
 		return fmt.Errorf("failed to create initial file: %w", err)
 	}
 
+	// 设置运行状态
+	pm.runningMutex.Lock()
 	pm.isRunning = true
+	pm.runningMutex.Unlock()
 
 	// 启动定时刷新
 	pm.startFlushTimer()
@@ -102,11 +111,20 @@ func (pm *PersistenceManager) Stop() error {
 	pm.writeMutex.Lock()
 	defer pm.writeMutex.Unlock()
 
-	if !pm.isRunning {
+	// 检查是否正在运行
+	pm.runningMutex.RLock()
+	running := pm.isRunning
+	pm.runningMutex.RUnlock()
+
+	if !running {
 		return nil
 	}
 
+	// 设置停止状态
+	pm.runningMutex.Lock()
 	pm.isRunning = false
+	pm.runningMutex.Unlock()
+
 	close(pm.stopChan)
 
 	// 停止定时器
@@ -128,7 +146,12 @@ func (pm *PersistenceManager) Stop() error {
 
 // PersistData 持久化单条数据
 func (pm *PersistenceManager) PersistData(data interface{}) error {
-	if !pm.isRunning {
+	// 检查是否正在运行
+	pm.runningMutex.RLock()
+	running := pm.isRunning
+	pm.runningMutex.RUnlock()
+
+	if !running {
 		return fmt.Errorf("persistence manager not running")
 	}
 
@@ -179,8 +202,13 @@ func (pm *PersistenceManager) GetStats() map[string]interface{} {
 	fileIndex := pm.fileIndex
 	pm.writeMutex.Unlock()
 
+	// 安全地读取运行状态
+	pm.runningMutex.RLock()
+	running := pm.isRunning
+	pm.runningMutex.RUnlock()
+
 	return map[string]interface{}{
-		"running":           pm.isRunning,
+		"running":           running,
 		"data_dir":          pm.dataDir,
 		"pending_count":     pendingCount,
 		"current_file_size": currentFileSize,
@@ -288,7 +316,12 @@ func (pm *PersistenceManager) flushPendingData() {
 // startFlushTimer 启动刷新定时器
 func (pm *PersistenceManager) startFlushTimer() {
 	pm.flushTimer = time.AfterFunc(pm.flushInterval, func() {
-		if pm.isRunning {
+		// 安全地检查运行状态
+		pm.runningMutex.RLock()
+		running := pm.isRunning
+		pm.runningMutex.RUnlock()
+
+		if running {
 			pm.flushPendingData()
 			pm.startFlushTimer() // 重新启动定时器
 		}
