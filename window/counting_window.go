@@ -121,8 +121,8 @@ func (cw *CountingWindow) Trigger() {
 
 func (cw *CountingWindow) Reset() {
 	cw.mu.Lock()
+	defer cw.mu.Unlock()
 	cw.count = 0
-	cw.mu.Unlock()
 	cw.dataBuffer = nil
 }
 
@@ -140,7 +140,7 @@ func (cw *CountingWindow) createSlot(data []types.Row) *types.TimeSlot {
 		return nil
 	} else if len(data) < cw.threshold {
 		start := timex.AlignTime(data[0].Timestamp, cw.config.TimeUnit, true)
-		end := timex.AlignTime(data[len(cw.dataBuffer)-1].Timestamp, cw.config.TimeUnit, false)
+		end := timex.AlignTime(data[len(data)-1].Timestamp, cw.config.TimeUnit, false)
 		slot := types.NewTimeSlot(&start, &end)
 		return slot
 	} else {
