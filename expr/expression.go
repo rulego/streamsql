@@ -717,13 +717,19 @@ func tokenize(expr string) ([]string, error) {
 			// 特殊处理负号：如果是负号且前面是运算符、括号或开始位置，则可能是负数
 			if ch == '-' {
 				// 检查是否可能是负数的开始
-				prevTokenIndex := len(tokens) - 1
 				canBeNegativeNumber := i == 0 || // 表达式开始
-					tokens[prevTokenIndex] == "(" || // 左括号后
-					tokens[prevTokenIndex] == "," || // 逗号后（函数参数）
-					isOperator(tokens[prevTokenIndex]) || // 运算符后
-					strings.ToUpper(tokens[prevTokenIndex]) == "THEN" || // THEN后
-					strings.ToUpper(tokens[prevTokenIndex]) == "ELSE" // ELSE后
+					len(tokens) == 0 // tokens为空时也可能是负数开始
+
+				// 只有当tokens不为空时才检查前一个token
+				if len(tokens) > 0 {
+					prevToken := tokens[len(tokens)-1]
+					canBeNegativeNumber = canBeNegativeNumber ||
+						prevToken == "(" || // 左括号后
+						prevToken == "," || // 逗号后（函数参数）
+						isOperator(prevToken) || // 运算符后
+						strings.ToUpper(prevToken) == "THEN" || // THEN后
+						strings.ToUpper(prevToken) == "ELSE" // ELSE后
+				}
 
 				if canBeNegativeNumber && i+1 < len(expr) && isDigit(expr[i+1]) {
 					// 这是一个负数，解析整个数字
