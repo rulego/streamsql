@@ -1,4 +1,8 @@
 # StreamSQL
+[![GoDoc](https://pkg.go.dev/badge/github.com/rulego/streamsql)](https://pkg.go.dev/github.com/rulego/streamsql)
+[![Go Report](https://goreportcard.com/badge/github.com/rulego/streamsql)](https://goreportcard.com/report/github.com/rulego/streamsql)
+[![ci](https://github.com/rulego/streamsql/workflows/test/badge.svg)](https://github.com/rulego/streamsql/actions/workflows/ci.yml)
+[![build](https://github.com/rulego/streamsql/workflows/release/badge.svg)](https://github.com/rulego/streamsql/actions/workflows/release.yml)
 
 English| [简体中文](README_ZH.md)
 

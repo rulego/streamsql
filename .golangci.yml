@@ -1,0 +1,79 @@
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - gofmt
+    - goimports
+    - govet
+    - ineffassign
+    - misspell
+    - gosimple
+    - staticcheck
+    - unused
+    - typecheck
+    - errcheck
+    - gosec
+    - gocritic
+    - gocyclo
+    - gofumpt
+    - godot
+    - goprintffuncname
+    - gomodguard
+    - revive
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  
+  gosec:
+    excludes:
+      - G404 # 随机数生成器可能不是密码学安全的
+  
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - unnamedResult
+      - whyNoLint
+  
+  revive:
+    rules:
+      - name: exported
+        disabled: false
+        arguments:
+          - "checkPrivateReceivers"
+          - "sayRepetitiveInsteadOfStutters"
+
+issues:
+  exclude-rules:
+    # 排除测试文件中的某些检查
+    - path: _test\.go
+      linters:
+        - gosec
+        - errcheck
+        - gocyclo
+    
+    # 排除CASE表达式测试中的复杂度检查
+    - path: streamsql_case_test\.go
+      linters:
+        - gocyclo
+        - funlen
+    
+    # 排除generated文件
+    - path: ".*\\.pb\\.go"
+      linters:
+        - all
+
+  exclude:
+    # 排除一些常见的false positive
+    - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*print.*|os\\.(Un)?Setenv). is not checked"
+    - "should have a package comment"
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true 

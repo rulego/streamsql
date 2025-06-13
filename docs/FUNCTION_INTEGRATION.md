@@ -1,6 +1,6 @@
 # StreamSQL 函数系统整合指南
 
-本文档说明 StreamSQL 如何整合自定义函数系统与 expr-lang/expr 库，以提供更强大和丰富的表达式计算能力。
+本文档说明 StreamSQL 如何整合自定义函数系统，以提供更强大和丰富的表达式计算能力，包括强大的 CASE 条件表达式支持。
 
 ## 🏗️ 架构概述
 
@@ -19,6 +19,11 @@ StreamSQL 现在支持两套表达式引擎：
 
 ### 桥接系统
 `functions/expr_bridge.go` 提供了统一的接口，自动选择最合适的引擎并整合两套函数系统。
+
+### 条件表达式系统
+StreamSQL 内置了强大的 CASE 表达式支持，能够智能选择表达式引擎：
+- **简单条件** → 自定义 expr 引擎（高性能）
+- **复杂嵌套** → expr-lang/expr 引擎（功能完整）
 
 ## 📚 可用函数
 
@@ -140,6 +145,110 @@ StreamSQL 现在支持两套表达式引擎：
 | `toBase64(s)`   | Base64编码 | `toBase64("hello")` → `"aGVsbG8="`   |
 | `fromBase64(s)` | Base64解码 | `fromBase64("aGVsbG8=")` → `"hello"` |
 
+## 🎯 条件表达式
+
+### CASE表达式
+
+StreamSQL 支持强大的 CASE 条件表达式，用于实现复杂的条件逻辑判断。
+
+#### 语法支持
+
+**搜索CASE表达式**：
+```sql
+CASE 
+    WHEN condition1 THEN result1
+    WHEN condition2 THEN result2
+    ...
+    ELSE default_result
+END
+```
+
+**简单CASE表达式**：
+```sql
+CASE expression
+    WHEN value1 THEN result1
+    WHEN value2 THEN result2
+    ...
+    ELSE default_result
+END
+```
+
+#### 功能特性
+
+| 特性 | 支持状态 | 描述 |
+|------|----------|------|
+| **基本条件判断** | ✅ | 支持 WHEN/THEN/ELSE 逻辑 |
+| **多重条件** | ✅ | 支持多个 WHEN 子句 |
+| **逻辑运算符** | ✅ | 支持 AND、OR、NOT 操作 |
+| **比较操作符** | ✅ | 支持 >、<、>=、<=、=、!= 等 |
+| **数学函数** | ✅ | 支持 ABS、ROUND、CEIL 等函数调用 |
+| **算术表达式** | ✅ | 支持 +、-、*、/ 运算 |
+| **字符串操作** | ✅ | 支持字符串字面量和函数 |
+| **聚合集成** | ✅ | 可在 SUM、AVG、COUNT 等聚合函数中使用 |
+| **字段引用** | ✅ | 支持动态字段提取和计算 |
+| **嵌套CASE** | ⚠️ | 部分支持（回退到 expr-lang） |
+
+#### 使用示例
+
+**设备状态分类**：
+```sql
+SELECT deviceId,
+    CASE 
+        WHEN temperature > 30 AND humidity > 70 THEN 'CRITICAL'
+        WHEN temperature > 25 OR humidity > 80 THEN 'WARNING'
+        ELSE 'NORMAL'
+    END as alert_level
+FROM stream
+```
+
+**条件聚合统计**：
+```sql
+SELECT deviceId,
+    COUNT(CASE WHEN temperature > 25 THEN 1 END) as high_temp_count,
+    SUM(CASE WHEN status = 'active' THEN temperature ELSE 0 END) as active_temp_sum,
+    AVG(CASE WHEN humidity > 50 THEN humidity END) as avg_high_humidity
+FROM stream
+GROUP BY deviceId, TumblingWindow('5s')
+```
+
+**数学函数和算术表达式**：
+```sql
+SELECT deviceId,
+    CASE 
+        WHEN ABS(temperature - 25) < 5 THEN 'NORMAL'
+        WHEN temperature * 1.8 + 32 > 100 THEN 'HOT_F'
+        WHEN ROUND(temperature) = 20 THEN 'EXACT_20'
+        ELSE 'OTHER'
+    END as temp_classification
+FROM stream
+```
+
+**状态码映射**：
+```sql
+SELECT deviceId,
+    CASE status
+        WHEN 'active' THEN 1
+        WHEN 'inactive' THEN 0
+        WHEN 'maintenance' THEN -1
+        ELSE -999
+    END as status_code
+FROM stream
+```
+
+#### 表达式引擎选择
+
+CASE表达式的处理遵循以下规则：
+
+1. **简单条件** → 使用自定义 expr 引擎（高性能）
+2. **嵌套CASE或复杂表达式** → 自动回退到 expr-lang/expr（功能完整）
+3. **混合函数调用** → 智能选择最合适的引擎
+
+#### 性能优化
+
+- **条件顺序**：将最常见的条件放在前面
+- **函数调用**：避免在条件中重复调用相同函数
+- **类型一致性**：保持THEN子句返回相同类型以避免转换开销
+
 ## 🔧 使用方法
 
 ### 基本使用
@@ -150,6 +259,12 @@ import "github.com/rulego/streamsql/functions"
 // 直接使用桥接器评估表达式
 result, err := functions.EvaluateWithBridge("abs(-5) + len([1,2,3])", map[string]interface{}{})
 // result: 8 (5 + 3)
+
+// CASE表达式示例
+caseResult, err := functions.EvaluateWithBridge(
+    "CASE WHEN temperature > 30 THEN 'HOT' ELSE 'NORMAL' END", 
+    map[string]interface{}{"temperature": 35.0})
+// caseResult: "HOT"
 ```
 
 ### 在 SQL 查询中使用
@@ -252,6 +367,63 @@ SELECT
     encode(concat(device, "_", current_date()), "base64") as device_key
 FROM temperature_stream 
 WHERE abs(temperature - 20) > 5;
+```
+
+### 智能告警系统
+
+```sql
+SELECT 
+    device_id,
+    timestamp,
+    temperature,
+    humidity,
+    pressure,
+    -- 多级告警判断
+    CASE 
+        WHEN temperature > 40 AND humidity > 80 THEN 'CRITICAL_HEAT_HUMID'
+        WHEN temperature > 35 OR humidity > 90 THEN 'WARNING_HIGH'
+        WHEN temperature < 5 AND pressure < 950 THEN 'CRITICAL_COLD_LOW_PRESSURE'
+        WHEN ABS(temperature - 25) < 2 AND humidity BETWEEN 40 AND 60 THEN 'OPTIMAL'
+        ELSE 'NORMAL'
+    END as alert_level,
+    -- 设备状态映射
+    CASE device_status
+        WHEN 'online' THEN 1
+        WHEN 'offline' THEN 0
+        WHEN 'maintenance' THEN -1
+        ELSE -999
+    END as status_code,
+    -- 条件计算
+    CASE 
+        WHEN temperature > 0 THEN ROUND(temperature * 1.8 + 32, 1)
+        ELSE NULL
+    END as fahrenheit_temp
+FROM sensor_stream
+WHERE device_id IS NOT NULL;
+```
+
+### 条件聚合分析
+
+```sql
+SELECT 
+    device_type,
+    location,
+    -- 条件计数
+    COUNT(CASE WHEN temperature > 30 THEN 1 END) as hot_readings,
+    COUNT(CASE WHEN temperature < 10 THEN 1 END) as cold_readings,
+    COUNT(CASE WHEN humidity > 70 THEN 1 END) as humid_readings,
+    -- 条件求和
+    SUM(CASE WHEN status = 'active' THEN power_consumption ELSE 0 END) as active_power_sum,
+    -- 条件平均值
+    AVG(CASE WHEN temperature BETWEEN 20 AND 30 THEN temperature END) as normal_temp_avg,
+    -- 复杂条件统计
+    COUNT(CASE 
+        WHEN temperature > 25 AND humidity < 60 AND status = 'active' 
+        THEN 1 
+    END) as optimal_active_count
+FROM device_stream
+GROUP BY device_type, location, TumblingWindow('10m')
+HAVING COUNT(*) > 100;
 ```
 
 ### 数据处理

@@ -37,7 +37,7 @@ func TestExpressionEvaluation(t *testing.T) {
 
 		// 复杂表达式测试
 		{"Temperature Conversion", "temperature * 1.8 + 32", map[string]interface{}{"temperature": 25}, 77, false},
-		{"Complex Math", "sqrt(abs(a * b - c / d))", map[string]interface{}{"a": 10, "b": 2, "c": 5, "d": 1}, 4.5, false},
+		{"Complex Math", "sqrt(abs(a * b - c / d))", map[string]interface{}{"a": 10, "b": 2, "c": 5, "d": 1}, 3.872983346207417, false},
 
 		// 错误测试
 		{"Division by Zero", "a / b", map[string]interface{}{"a": 5, "b": 0}, 0, true},

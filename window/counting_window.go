@@ -74,10 +74,37 @@ func (cw *CountingWindow) Start() {
 				cw.dataBuffer = append(cw.dataBuffer, row)
 				cw.count++
 				shouldTrigger := cw.count >= cw.threshold
-				cw.mu.Unlock()
-				// 只有当达到阈值时才触发
 				if shouldTrigger {
-					cw.Trigger()
+					// 在持有锁的情况下立即处理
+					slot := cw.createSlot(cw.dataBuffer[:cw.threshold])
+					for i := range cw.dataBuffer[:cw.threshold] {
+						// 由于Row是值类型，这里需要通过指针来修改Slot字段
+						cw.dataBuffer[i].Slot = slot
+					}
+					data := make([]types.Row, cw.threshold)
+					copy(data, cw.dataBuffer[:cw.threshold])
+
+					if len(cw.dataBuffer) > cw.threshold {
+						remaining := len(cw.dataBuffer) - cw.threshold
+						newBuffer := make([]types.Row, remaining, cw.threshold)
+						copy(newBuffer, cw.dataBuffer[cw.threshold:])
+						cw.dataBuffer = newBuffer
+					} else {
+						cw.dataBuffer = make([]types.Row, 0, cw.threshold)
+					}
+					// 重置计数
+					cw.count = len(cw.dataBuffer)
+					cw.mu.Unlock()
+
+					// 在释放锁后处理回调
+					go func(data []types.Row) {
+						if cw.callback != nil {
+							cw.callback(data)
+						}
+						cw.outputChan <- data
+					}(data)
+				} else {
+					cw.mu.Unlock()
 				}
 
 			case <-cw.ctx.Done():
@@ -88,38 +115,14 @@ func (cw *CountingWindow) Start() {
 }
 
 func (cw *CountingWindow) Trigger() {
-	//cw.triggerChan <- struct{}{}
-	cw.mu.Lock()
-	defer cw.mu.Unlock()
-
-	slot := cw.createSlot(cw.dataBuffer[:cw.threshold])
-	for _, r := range cw.dataBuffer[:cw.threshold] {
-		// 由于Row是值类型，这里需要通过指针来修改Slot字段
-		(&r).Slot = slot
-	}
-	data := cw.dataBuffer[:cw.threshold]
-	if len(cw.dataBuffer) > cw.threshold {
-		remaining := len(cw.dataBuffer) - cw.threshold
-		newBuffer := make([]types.Row, remaining, cw.threshold)
-		copy(newBuffer, cw.dataBuffer[cw.threshold:])
-		cw.dataBuffer = newBuffer
-	} else {
-		cw.dataBuffer = make([]types.Row, 0, cw.threshold)
-	}
-	// 重置计数
-	cw.count = len(cw.dataBuffer)
-	go func(data []types.Row) {
-		if cw.callback != nil {
-			cw.callback(data)
-		}
-		cw.outputChan <- data
-	}(data)
+	// 注意：触发逻辑已合并到Start方法中以避免数据竞争
+	// 这个方法保留是为了满足Window接口要求，但实际触发在Start方法中处理
 }
 
 func (cw *CountingWindow) Reset() {
 	cw.mu.Lock()
+	defer cw.mu.Unlock()
 	cw.count = 0
-	cw.mu.Unlock()
 	cw.dataBuffer = nil
 }
 
@@ -137,7 +140,7 @@ func (cw *CountingWindow) createSlot(data []types.Row) *types.TimeSlot {
 		return nil
 	} else if len(data) < cw.threshold {
 		start := timex.AlignTime(data[0].Timestamp, cw.config.TimeUnit, true)
-		end := timex.AlignTime(data[len(cw.dataBuffer)-1].Timestamp, cw.config.TimeUnit, false)
+		end := timex.AlignTime(data[len(data)-1].Timestamp, cw.config.TimeUnit, false)
 		slot := types.NewTimeSlot(&start, &end)
 		return slot
 	} else {

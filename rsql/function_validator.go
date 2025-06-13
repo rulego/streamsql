@@ -22,10 +22,10 @@ func NewFunctionValidator(errorRecovery *ErrorRecovery) *FunctionValidator {
 // ValidateExpression 验证表达式中的函数
 func (fv *FunctionValidator) ValidateExpression(expression string, position int) {
 	functionCalls := fv.extractFunctionCalls(expression)
-	
+
 	for _, funcCall := range functionCalls {
 		funcName := funcCall.Name
-		
+
 		// 检查函数是否在注册表中
 		if _, exists := functions.Get(funcName); !exists {
 			// 检查是否是内置函数
@@ -51,11 +51,11 @@ type FunctionCall struct {
 // extractFunctionCalls 从表达式中提取函数调用
 func (fv *FunctionValidator) extractFunctionCalls(expression string) []FunctionCall {
 	var functionCalls []FunctionCall
-	
+
 	// 使用正则表达式匹配函数调用模式: identifier(
 	funcPattern := regexp.MustCompile(`([a-zA-Z_][a-zA-Z0-9_]*)\s*\(`)
 	matches := funcPattern.FindAllStringSubmatchIndex(expression, -1)
-	
+
 	for _, match := range matches {
 		// match[0] 是整个匹配的开始位置
 		// match[1] 是整个匹配的结束位置
@@ -63,7 +63,7 @@ func (fv *FunctionValidator) extractFunctionCalls(expression string) []FunctionC
 		// match[3] 是第一个捕获组（函数名）的结束位置
 		funcName := expression[match[2]:match[3]]
 		position := match[2]
-		
+
 		// 过滤掉关键字（如 CASE、IF 等）
 		if !fv.isKeyword(funcName) {
 			functionCalls = append(functionCalls, FunctionCall{
@@ -72,7 +72,7 @@ func (fv *FunctionValidator) extractFunctionCalls(expression string) []FunctionC
 			})
 		}
 	}
-	
+
 	return functionCalls
 }
 
@@ -82,7 +82,7 @@ func (fv *FunctionValidator) isBuiltinFunction(funcName string) bool {
 		"abs", "sqrt", "sin", "cos", "tan", "floor", "ceil", "round",
 		"log", "log10", "exp", "pow", "mod",
 	}
-	
+
 	funcLower := strings.ToLower(funcName)
 	for _, builtin := range builtinFunctions {
 		if funcLower == builtin {
@@ -96,11 +96,13 @@ func (fv *FunctionValidator) isBuiltinFunction(funcName string) bool {
 func (fv *FunctionValidator) isKeyword(word string) bool {
 	keywords := []string{
 		"SELECT", "FROM", "WHERE", "GROUP", "BY", "HAVING", "ORDER",
-		"LIMIT", "DISTINCT", "AS", "AND", "OR", "NOT", "IN", "LIKE",
+		"AS", "DISTINCT", "LIMIT", "WITH", "TIMESTAMP", "TIMEUNIT",
+		"TUMBLINGWINDOW", "SLIDINGWINDOW", "COUNTINGWINDOW", "SESSIONWINDOW",
+		"AND", "OR", "NOT", "IN", "LIKE", "IS", "NULL", "TRUE", "FALSE",
 		"BETWEEN", "IS", "NULL", "TRUE", "FALSE", "CASE", "WHEN",
 		"THEN", "ELSE", "END", "IF", "CAST", "CONVERT",
 	}
-	
+
 	wordUpper := strings.ToUpper(word)
 	for _, keyword := range keywords {
 		if wordUpper == keyword {

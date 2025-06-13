@@ -16,16 +16,25 @@ const (
 	TypeOperator    = "operator"    // 运算符
 	TypeFunction    = "function"    // 函数调用
 	TypeParenthesis = "parenthesis" // 括号
+	TypeCase        = "case"        // CASE表达式
+	TypeString      = "string"      // 字符串常量
 )
 
 // 操作符优先级
 var operatorPrecedence = map[string]int{
-	"+": 1,
-	"-": 1,
-	"*": 2,
-	"/": 2,
-	"%": 2,
-	"^": 3, // 幂运算
+	"OR":  1,
+	"AND": 2,
+	"==":  3, "=": 3, "!=": 3, "<>": 3,
+	">": 4, "<": 4, ">=": 4, "<=": 4,
+	"+": 5, "-": 5,
+	"*": 6, "/": 6, "%": 6,
+	"^": 7, // 幂运算
+}
+
+// CASE表达式的WHEN子句
+type WhenClause struct {
+	Condition *ExprNode // WHEN条件
+	Result    *ExprNode // THEN结果
 }
 
 // 表达式节点
@@ -35,6 +44,11 @@ type ExprNode struct {
 	Left  *ExprNode
 	Right *ExprNode
 	Args  []*ExprNode // 用于函数调用的参数
+
+	// CASE表达式专用字段
+	CaseExpr    *ExprNode    // CASE后面的表达式（简单CASE）
+	WhenClauses []WhenClause // WHEN子句列表
+	ElseExpr    *ExprNode    // ELSE表达式
 }
 
 // Expression 表示一个可计算的表达式
@@ -46,6 +60,11 @@ type Expression struct {
 
 // NewExpression 创建一个新的表达式
 func NewExpression(exprStr string) (*Expression, error) {
+	// 进行基本的语法验证
+	if err := validateBasicSyntax(exprStr); err != nil {
+		return nil, err
+	}
+
 	// 首先尝试使用自定义解析器
 	tokens, err := tokenize(exprStr)
 	if err != nil {
@@ -71,6 +90,118 @@ func NewExpression(exprStr string) (*Expression, error) {
 		Root:        root,
 		useExprLang: false,
 	}, nil
+}
+
+// validateBasicSyntax 进行基本的语法验证
+func validateBasicSyntax(exprStr string) error {
+	// 检查空表达式
+	trimmed := strings.TrimSpace(exprStr)
+	if trimmed == "" {
+		return fmt.Errorf("empty expression")
+	}
+
+	// 检查不匹配的括号
+	parenthesesCount := 0
+	for _, ch := range trimmed {
+		if ch == '(' {
+			parenthesesCount++
+		} else if ch == ')' {
+			parenthesesCount--
+			if parenthesesCount < 0 {
+				return fmt.Errorf("mismatched parentheses")
+			}
+		}
+	}
+	if parenthesesCount != 0 {
+		return fmt.Errorf("mismatched parentheses")
+	}
+
+	// 检查无效字符
+	for i, ch := range trimmed {
+		// 允许的字符：字母、数字、运算符、括号、点、下划线、空格、引号
+		if !isValidChar(ch) {
+			return fmt.Errorf("invalid character '%c' at position %d", ch, i)
+		}
+	}
+
+	// 检查连续运算符
+	if err := checkConsecutiveOperators(trimmed); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// checkConsecutiveOperators 检查连续运算符
+func checkConsecutiveOperators(expr string) error {
+	// 简化的连续运算符检查：查找明显的双运算符模式
+	operators := []string{"+", "-", "*", "/", "%", "^", "==", "!=", ">=", "<=", ">", "<"}
+
+	for i := 0; i < len(expr)-1; i++ {
+		// 跳过空白字符
+		if expr[i] == ' ' || expr[i] == '\t' {
+			continue
+		}
+
+		// 检查当前位置是否是运算符
+		isCurrentOp := false
+		currentOpLen := 0
+		for _, op := range operators {
+			if i+len(op) <= len(expr) && expr[i:i+len(op)] == op {
+				isCurrentOp = true
+				currentOpLen = len(op)
+				break
+			}
+		}
+
+		if isCurrentOp {
+			// 查找下一个非空白字符
+			nextPos := i + currentOpLen
+			for nextPos < len(expr) && (expr[nextPos] == ' ' || expr[nextPos] == '\t') {
+				nextPos++
+			}
+
+			// 检查下一个字符是否也是运算符
+			if nextPos < len(expr) {
+				for _, op := range operators {
+					if nextPos+len(op) <= len(expr) && expr[nextPos:nextPos+len(op)] == op {
+						return fmt.Errorf("consecutive operators found: '%s' followed by '%s'",
+							expr[i:i+currentOpLen], op)
+					}
+				}
+			}
+
+			// 跳过当前运算符
+			i += currentOpLen - 1
+		}
+	}
+
+	return nil
+}
+
+// isValidChar 检查字符是否有效
+func isValidChar(ch rune) bool {
+	// 字母和数字
+	if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') {
+		return true
+	}
+	// 特殊字符
+	switch ch {
+	case ' ', '\t', '\n', '\r': // 空白字符
+		return true
+	case '+', '-', '*', '/', '%', '^': // 算术运算符
+		return true
+	case '(', ')', ',': // 括号和逗号
+		return true
+	case '>', '<', '=', '!': // 比较运算符
+		return true
+	case '\'', '"': // 引号
+		return true
+	case '.', '_': // 点和下划线
+		return true
+	default:
+		return false
+	}
 }
 
 // Evaluate 计算表达式的值
@@ -160,6 +291,8 @@ func isFunctionOrKeyword(token string) bool {
 	keywords := []string{
 		"and", "or", "not", "true", "false", "nil", "null",
 		"if", "else", "then", "in", "contains", "matches",
+		// CASE表达式关键字
+		"case", "when", "then", "else", "end",
 	}
 
 	for _, keyword := range keywords {
@@ -184,6 +317,27 @@ func collectFields(node *ExprNode, fields map[string]bool) {
 		fields[node.Value] = true
 	}
 
+	// 处理CASE表达式的字段收集
+	if node.Type == TypeCase {
+		// 收集CASE表达式本身的字段
+		if node.CaseExpr != nil {
+			collectFields(node.CaseExpr, fields)
+		}
+
+		// 收集所有WHEN子句中的字段
+		for _, whenClause := range node.WhenClauses {
+			collectFields(whenClause.Condition, fields)
+			collectFields(whenClause.Result, fields)
+		}
+
+		// 收集ELSE表达式中的字段
+		if node.ElseExpr != nil {
+			collectFields(node.ElseExpr, fields)
+		}
+
+		return
+	}
+
 	collectFields(node.Left, fields)
 	collectFields(node.Right, fields)
 
@@ -201,6 +355,23 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 	switch node.Type {
 	case TypeNumber:
 		return strconv.ParseFloat(node.Value, 64)
+
+	case TypeString:
+		// 处理字符串类型，去掉引号并尝试转换为数字
+		// 如果无法转换，返回错误（因为这个函数返回float64）
+		value := node.Value
+		if len(value) >= 2 && (value[0] == '\'' || value[0] == '"') {
+			value = value[1 : len(value)-1] // 去掉引号
+		}
+
+		// 尝试转换为数字
+		if f, err := strconv.ParseFloat(value, 64); err == nil {
+			return f, nil
+		}
+
+		// 对于字符串比较，我们需要返回一个哈希值或者错误
+		// 这里简化处理，将字符串转换为其长度（作为临时解决方案）
+		return float64(len(value)), nil
 
 	case TypeField:
 		// 从数据中获取字段值
@@ -311,6 +482,10 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 
 		// 回退到内置函数处理（保持向后兼容）
 		return evaluateBuiltinFunction(node, data)
+
+	case TypeCase:
+		// 处理CASE表达式
+		return evaluateCaseExpression(node, data)
 	}
 
 	return 0, fmt.Errorf("unknown node type: %s", node.Type)
@@ -407,6 +582,215 @@ func evaluateBuiltinFunction(node *ExprNode, data map[string]interface{}) (float
 	}
 }
 
+// evaluateCaseExpression 计算CASE表达式
+func evaluateCaseExpression(node *ExprNode, data map[string]interface{}) (float64, error) {
+	if node.Type != TypeCase {
+		return 0, fmt.Errorf("node is not a CASE expression")
+	}
+
+	// 处理简单CASE表达式 (CASE expr WHEN value1 THEN result1 ...)
+	if node.CaseExpr != nil {
+		// 计算CASE后面的表达式值
+		caseValue, err := evaluateNodeValue(node.CaseExpr, data)
+		if err != nil {
+			return 0, err
+		}
+
+		// 遍历WHEN子句，查找匹配的值
+		for _, whenClause := range node.WhenClauses {
+			conditionValue, err := evaluateNodeValue(whenClause.Condition, data)
+			if err != nil {
+				return 0, err
+			}
+
+			// 比较值是否相等
+			isEqual, err := compareValues(caseValue, conditionValue, "==")
+			if err != nil {
+				return 0, err
+			}
+
+			if isEqual {
+				return evaluateNode(whenClause.Result, data)
+			}
+		}
+	} else {
+		// 处理搜索CASE表达式 (CASE WHEN condition1 THEN result1 ...)
+		for _, whenClause := range node.WhenClauses {
+			// 评估WHEN条件，这里需要特殊处理布尔表达式
+			conditionResult, err := evaluateBooleanCondition(whenClause.Condition, data)
+			if err != nil {
+				return 0, err
+			}
+
+			// 如果条件为真，返回对应的结果
+			if conditionResult {
+				return evaluateNode(whenClause.Result, data)
+			}
+		}
+	}
+
+	// 如果没有匹配的WHEN子句，执行ELSE子句
+	if node.ElseExpr != nil {
+		return evaluateNode(node.ElseExpr, data)
+	}
+
+	// 如果没有ELSE子句，SQL标准是返回NULL，这里返回0
+	return 0, nil
+}
+
+// evaluateBooleanCondition 计算布尔条件表达式
+func evaluateBooleanCondition(node *ExprNode, data map[string]interface{}) (bool, error) {
+	if node == nil {
+		return false, fmt.Errorf("null condition expression")
+	}
+
+	// 处理逻辑运算符
+	if node.Type == TypeOperator && (node.Value == "AND" || node.Value == "OR") {
+		leftBool, err := evaluateBooleanCondition(node.Left, data)
+		if err != nil {
+			return false, err
+		}
+
+		rightBool, err := evaluateBooleanCondition(node.Right, data)
+		if err != nil {
+			return false, err
+		}
+
+		switch node.Value {
+		case "AND":
+			return leftBool && rightBool, nil
+		case "OR":
+			return leftBool || rightBool, nil
+		}
+	}
+
+	// 处理比较运算符
+	if node.Type == TypeOperator {
+		leftValue, err := evaluateNodeValue(node.Left, data)
+		if err != nil {
+			return false, err
+		}
+
+		rightValue, err := evaluateNodeValue(node.Right, data)
+		if err != nil {
+			return false, err
+		}
+
+		return compareValues(leftValue, rightValue, node.Value)
+	}
+
+	// 对于其他表达式，计算其数值并转换为布尔值
+	result, err := evaluateNode(node, data)
+	if err != nil {
+		return false, err
+	}
+
+	// 非零值为真，零值为假
+	return result != 0, nil
+}
+
+// evaluateNodeValue 计算节点值，返回interface{}以支持不同类型
+func evaluateNodeValue(node *ExprNode, data map[string]interface{}) (interface{}, error) {
+	if node == nil {
+		return nil, fmt.Errorf("null expression node")
+	}
+
+	switch node.Type {
+	case TypeNumber:
+		return strconv.ParseFloat(node.Value, 64)
+
+	case TypeString:
+		// 去掉引号
+		value := node.Value
+		if len(value) >= 2 && (value[0] == '\'' || value[0] == '"') {
+			value = value[1 : len(value)-1]
+		}
+		return value, nil
+
+	case TypeField:
+		val, ok := data[node.Value]
+		if !ok {
+			return nil, fmt.Errorf("field %s not found in data", node.Value)
+		}
+		return val, nil
+
+	default:
+		// 对于其他类型，回退到数值计算
+		return evaluateNode(node, data)
+	}
+}
+
+// compareValues 比较两个值
+func compareValues(left, right interface{}, operator string) (bool, error) {
+	// 尝试字符串比较
+	leftStr, leftIsStr := left.(string)
+	rightStr, rightIsStr := right.(string)
+
+	if leftIsStr && rightIsStr {
+		switch operator {
+		case "==", "=":
+			return leftStr == rightStr, nil
+		case "!=", "<>":
+			return leftStr != rightStr, nil
+		case ">":
+			return leftStr > rightStr, nil
+		case ">=":
+			return leftStr >= rightStr, nil
+		case "<":
+			return leftStr < rightStr, nil
+		case "<=":
+			return leftStr <= rightStr, nil
+		default:
+			return false, fmt.Errorf("unsupported string comparison operator: %s", operator)
+		}
+	}
+
+	// 转换为数值进行比较
+	leftNum, err1 := convertToFloat(left)
+	rightNum, err2 := convertToFloat(right)
+
+	if err1 != nil || err2 != nil {
+		return false, fmt.Errorf("cannot compare values: %v and %v", left, right)
+	}
+
+	switch operator {
+	case ">":
+		return leftNum > rightNum, nil
+	case ">=":
+		return leftNum >= rightNum, nil
+	case "<":
+		return leftNum < rightNum, nil
+	case "<=":
+		return leftNum <= rightNum, nil
+	case "==", "=":
+		return math.Abs(leftNum-rightNum) < 1e-9, nil
+	case "!=", "<>":
+		return math.Abs(leftNum-rightNum) >= 1e-9, nil
+	default:
+		return false, fmt.Errorf("unsupported comparison operator: %s", operator)
+	}
+}
+
+// convertToFloat 将值转换为float64
+func convertToFloat(val interface{}) (float64, error) {
+	switch v := val.(type) {
+	case float64:
+		return v, nil
+	case float32:
+		return float64(v), nil
+	case int:
+		return float64(v), nil
+	case int32:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case string:
+		return strconv.ParseFloat(v, 64)
+	default:
+		return 0, fmt.Errorf("cannot convert %T to float64", val)
+	}
+}
+
 // tokenize 将表达式字符串转换为token列表
 func tokenize(expr string) ([]string, error) {
 	expr = strings.TrimSpace(expr)
@@ -443,6 +827,115 @@ func tokenize(expr string) ([]string, error) {
 			continue
 		}
 
+		// 处理运算符和括号
+		if ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%' || ch == '^' ||
+			ch == '(' || ch == ')' || ch == ',' {
+
+			// 特殊处理负号：如果是负号且前面是运算符、括号或开始位置，则可能是负数
+			if ch == '-' {
+				// 检查是否可能是负数的开始
+				canBeNegativeNumber := i == 0 || // 表达式开始
+					len(tokens) == 0 // tokens为空时也可能是负数开始
+
+				// 只有当tokens不为空时才检查前一个token
+				if len(tokens) > 0 {
+					prevToken := tokens[len(tokens)-1]
+					canBeNegativeNumber = canBeNegativeNumber ||
+						prevToken == "(" || // 左括号后
+						prevToken == "," || // 逗号后（函数参数）
+						isOperator(prevToken) || // 运算符后
+						strings.ToUpper(prevToken) == "THEN" || // THEN后
+						strings.ToUpper(prevToken) == "ELSE" // ELSE后
+				}
+
+				if canBeNegativeNumber && i+1 < len(expr) && isDigit(expr[i+1]) {
+					// 这是一个负数，解析整个数字
+					start := i
+					i++ // 跳过负号
+
+					// 解析数字部分
+					for i < len(expr) && (isDigit(expr[i]) || expr[i] == '.') {
+						i++
+					}
+
+					tokens = append(tokens, expr[start:i])
+					continue
+				}
+			}
+
+			tokens = append(tokens, string(ch))
+			i++
+			continue
+		}
+
+		// 处理比较运算符
+		if ch == '>' || ch == '<' || ch == '=' || ch == '!' {
+			start := i
+			i++
+
+			// 处理双字符运算符
+			if i < len(expr) {
+				switch ch {
+				case '>':
+					if expr[i] == '=' {
+						i++
+						tokens = append(tokens, ">=")
+						continue
+					}
+				case '<':
+					if expr[i] == '=' {
+						i++
+						tokens = append(tokens, "<=")
+						continue
+					} else if expr[i] == '>' {
+						i++
+						tokens = append(tokens, "<>")
+						continue
+					}
+				case '=':
+					if expr[i] == '=' {
+						i++
+						tokens = append(tokens, "==")
+						continue
+					}
+				case '!':
+					if expr[i] == '=' {
+						i++
+						tokens = append(tokens, "!=")
+						continue
+					}
+				}
+			}
+
+			// 单字符运算符
+			tokens = append(tokens, expr[start:i])
+			continue
+		}
+
+		// 处理字符串字面量（单引号和双引号）
+		if ch == '\'' || ch == '"' {
+			quote := ch
+			start := i
+			i++ // 跳过开始引号
+
+			// 寻找结束引号
+			for i < len(expr) && expr[i] != quote {
+				if expr[i] == '\\' && i+1 < len(expr) {
+					i += 2 // 跳过转义字符
+				} else {
+					i++
+				}
+			}
+
+			if i >= len(expr) {
+				return nil, fmt.Errorf("unterminated string literal starting at position %d", start)
+			}
+
+			i++ // 跳过结束引号
+			tokens = append(tokens, expr[start:i])
+			continue
+		}
+
 		// 处理标识符（字段名或函数名）
 		if isLetter(ch) {
 			start := i
@@ -452,14 +945,6 @@ func tokenize(expr string) ([]string, error) {
 			}
 
 			tokens = append(tokens, expr[start:i])
-			continue
-		}
-
-		// 处理运算符和括号
-		if ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%' || ch == '^' ||
-			ch == '(' || ch == ')' || ch == ',' {
-			tokens = append(tokens, string(ch))
-			i++
 			continue
 		}
 
@@ -494,8 +979,59 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 			continue
 		}
 
+		// 处理字符串字面量
+		if isStringLiteral(token) {
+			output = append(output, &ExprNode{
+				Type:  TypeString,
+				Value: token,
+			})
+			i++
+			continue
+		}
+
 		// 处理字段名或函数调用
 		if isIdentifier(token) {
+			// 检查是否是逻辑运算符关键字
+			upperToken := strings.ToUpper(token)
+			if upperToken == "AND" || upperToken == "OR" || upperToken == "NOT" {
+				// 处理逻辑运算符
+				for len(operators) > 0 && operators[len(operators)-1] != "(" &&
+					operatorPrecedence[operators[len(operators)-1]] >= operatorPrecedence[upperToken] {
+					op := operators[len(operators)-1]
+					operators = operators[:len(operators)-1]
+
+					if len(output) < 2 {
+						return nil, fmt.Errorf("not enough operands for operator: %s", op)
+					}
+
+					right := output[len(output)-1]
+					left := output[len(output)-2]
+					output = output[:len(output)-2]
+
+					output = append(output, &ExprNode{
+						Type:  TypeOperator,
+						Value: op,
+						Left:  left,
+						Right: right,
+					})
+				}
+
+				operators = append(operators, upperToken)
+				i++
+				continue
+			}
+
+			// 检查是否是CASE表达式
+			if strings.ToUpper(token) == "CASE" {
+				caseNode, newIndex, err := parseCaseExpression(tokens, i)
+				if err != nil {
+					return nil, err
+				}
+				output = append(output, caseNode)
+				i = newIndex
+				continue
+			}
+
 			// 检查下一个token是否是左括号，如果是则为函数调用
 			if i+1 < len(tokens) && tokens[i+1] == "(" {
 				funcName := token
@@ -693,6 +1229,149 @@ func parseFunctionArgs(tokens []string, startIndex int) ([]*ExprNode, int, error
 	return nil, 0, fmt.Errorf("unexpected end of tokens in function arguments")
 }
 
+// parseCaseExpression 解析CASE表达式
+func parseCaseExpression(tokens []string, startIndex int) (*ExprNode, int, error) {
+	if startIndex >= len(tokens) || strings.ToUpper(tokens[startIndex]) != "CASE" {
+		return nil, startIndex, fmt.Errorf("expected CASE keyword")
+	}
+
+	caseNode := &ExprNode{
+		Type:        TypeCase,
+		WhenClauses: make([]WhenClause, 0),
+	}
+
+	i := startIndex + 1 // 跳过CASE关键字
+
+	// 检查是否是简单CASE表达式（CASE expr WHEN value1 THEN result1 ...）
+	// 或搜索CASE表达式（CASE WHEN condition1 THEN result1 ...）
+	if i < len(tokens) && strings.ToUpper(tokens[i]) != "WHEN" {
+		// 这是简单CASE表达式，需要解析CASE后面的表达式
+		caseExprTokens := make([]string, 0)
+
+		// 收集CASE表达式直到遇到WHEN
+		for i < len(tokens) && strings.ToUpper(tokens[i]) != "WHEN" {
+			caseExprTokens = append(caseExprTokens, tokens[i])
+			i++
+		}
+
+		if len(caseExprTokens) == 0 {
+			return nil, i, fmt.Errorf("expected expression after CASE")
+		}
+
+		// 对于简单的情况，直接处理单个token
+		if len(caseExprTokens) == 1 {
+			token := caseExprTokens[0]
+			if isNumber(token) {
+				caseNode.CaseExpr = &ExprNode{Type: TypeNumber, Value: token}
+			} else if isStringLiteral(token) {
+				caseNode.CaseExpr = &ExprNode{Type: TypeString, Value: token}
+			} else if isIdentifier(token) {
+				caseNode.CaseExpr = &ExprNode{Type: TypeField, Value: token}
+			} else {
+				return nil, i, fmt.Errorf("invalid CASE expression token: %s", token)
+			}
+		} else {
+			// 对于复杂表达式，调用parseExpression
+			caseExpr, err := parseExpression(caseExprTokens)
+			if err != nil {
+				return nil, i, fmt.Errorf("failed to parse CASE expression: %w", err)
+			}
+			caseNode.CaseExpr = caseExpr
+		}
+	}
+
+	// 解析WHEN子句
+	for i < len(tokens) && strings.ToUpper(tokens[i]) == "WHEN" {
+		i++ // 跳过WHEN关键字
+
+		// 收集WHEN条件直到遇到THEN
+		conditionTokens := make([]string, 0)
+		for i < len(tokens) && strings.ToUpper(tokens[i]) != "THEN" {
+			conditionTokens = append(conditionTokens, tokens[i])
+			i++
+		}
+
+		if len(conditionTokens) == 0 {
+			return nil, i, fmt.Errorf("expected condition after WHEN")
+		}
+
+		if i >= len(tokens) || strings.ToUpper(tokens[i]) != "THEN" {
+			return nil, i, fmt.Errorf("expected THEN after WHEN condition")
+		}
+
+		i++ // 跳过THEN关键字
+
+		// 收集THEN结果直到遇到WHEN、ELSE或END
+		resultTokens := make([]string, 0)
+		for i < len(tokens) {
+			upper := strings.ToUpper(tokens[i])
+			if upper == "WHEN" || upper == "ELSE" || upper == "END" {
+				break
+			}
+			resultTokens = append(resultTokens, tokens[i])
+			i++
+		}
+
+		if len(resultTokens) == 0 {
+			return nil, i, fmt.Errorf("expected result after THEN")
+		}
+
+		// 解析条件和结果表达式
+		conditionExpr, err := parseExpression(conditionTokens)
+		if err != nil {
+			return nil, i, fmt.Errorf("failed to parse WHEN condition: %w", err)
+		}
+
+		resultExpr, err := parseExpression(resultTokens)
+		if err != nil {
+			return nil, i, fmt.Errorf("failed to parse THEN result: %w", err)
+		}
+
+		// 添加WHEN子句
+		caseNode.WhenClauses = append(caseNode.WhenClauses, WhenClause{
+			Condition: conditionExpr,
+			Result:    resultExpr,
+		})
+	}
+
+	// 检查是否有ELSE子句
+	if i < len(tokens) && strings.ToUpper(tokens[i]) == "ELSE" {
+		i++ // 跳过ELSE关键字
+
+		// 收集ELSE结果直到遇到END
+		elseTokens := make([]string, 0)
+		for i < len(tokens) && strings.ToUpper(tokens[i]) != "END" {
+			elseTokens = append(elseTokens, tokens[i])
+			i++
+		}
+
+		if len(elseTokens) == 0 {
+			return nil, i, fmt.Errorf("expected result after ELSE")
+		}
+
+		// 解析ELSE表达式
+		elseExpr, err := parseExpression(elseTokens)
+		if err != nil {
+			return nil, i, fmt.Errorf("failed to parse ELSE result: %w", err)
+		}
+		caseNode.ElseExpr = elseExpr
+	}
+
+	// 检查END关键字
+	if i >= len(tokens) || strings.ToUpper(tokens[i]) != "END" {
+		return nil, i, fmt.Errorf("expected END to close CASE expression")
+	}
+
+	i++ // 跳过END关键字
+
+	// 验证至少有一个WHEN子句
+	if len(caseNode.WhenClauses) == 0 {
+		return nil, i, fmt.Errorf("CASE expression must have at least one WHEN clause")
+	}
+
+	return caseNode, i, nil
+}
+
 // 辅助函数
 func isDigit(ch byte) bool {
 	return ch >= '0' && ch <= '9'
@@ -726,6 +1405,18 @@ func isIdentifier(s string) bool {
 }
 
 func isOperator(s string) bool {
-	_, ok := operatorPrecedence[s]
-	return ok
+	switch s {
+	case "+", "-", "*", "/", "%", "^":
+		return true
+	case ">", "<", ">=", "<=", "==", "=", "!=", "<>":
+		return true
+	case "AND", "OR", "NOT":
+		return true
+	default:
+		return false
+	}
+}
+
+func isStringLiteral(expr string) bool {
+	return len(expr) > 1 && (expr[0] == '\'' || expr[0] == '"') && expr[len(expr)-1] == expr[0]
 }

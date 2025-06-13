@@ -18,6 +18,7 @@ package streamsql
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/rulego/streamsql/rsql"
 	"github.com/rulego/streamsql/stream"
@@ -33,6 +34,20 @@ import (
 //	ssql.AddData(map[string]interface{}{"temperature": 25.5})
 type Streamsql struct {
 	stream *stream.Stream
+	// 缓冲区配置
+	dataBufSize   int  // 数据通道缓冲区大小
+	resultBufSize int  // 结果通道缓冲区大小
+	sinkPoolSize  int  // Sink工作池大小
+	highPerf      bool // 是否使用高性能配置
+
+	// 数据丢失策略配置
+	overflowStrategy string        // 溢出策略: "expand"(默认), "drop", "block", "persist"
+	blockingTimeout  time.Duration // 阻塞超时时间
+
+	// 持久化配置
+	persistDataDir       string        // 持久化数据目录
+	persistMaxFileSize   int64         // 持久化文件最大大小
+	persistFlushInterval time.Duration // 持久化刷新间隔
 }
 
 // New 创建一个新的StreamSQL实例。
@@ -55,7 +70,22 @@ type Streamsql struct {
 //	    streamsql.WithDiscardLog(),
 //	)
 func New(options ...Option) *Streamsql {
-	s := &Streamsql{}
+	s := &Streamsql{
+		// 设置默认缓冲区配置（优化的标准场景配置）
+		dataBufSize:   20000, // 默认2万数据缓冲，经测试验证的性能最优点
+		resultBufSize: 20000, // 默认2万结果缓冲，平衡性能和内存使用
+		sinkPoolSize:  800,   // 默认800个sink工作池，与缓冲区比例优化
+		highPerf:      false, // 默认不启用超高性能模式
+
+		// 设置默认策略配置（零数据丢失的expand策略）
+		overflowStrategy: "expand", // 默认动态扩容策略，保证零数据丢失
+		blockingTimeout:  0,        // 默认无超时限制
+
+		// 设置默认持久化配置
+		persistDataDir:       "./streamsql_overflow_data", // 默认持久化目录
+		persistMaxFileSize:   10 * 1024 * 1024,            // 默认10MB文件大小
+		persistFlushInterval: 5 * time.Second,             // 默认5秒刷新间隔
+	}
 
 	// 应用所有配置选项
 	for _, option := range options {
@@ -115,8 +145,18 @@ func (s *Streamsql) Execute(sql string) error {
 		return fmt.Errorf("SQL解析失败: %w", err)
 	}
 
-	// 创建流处理器
-	s.stream, err = stream.NewStream(*config)
+	// 根据配置创建流处理器
+	if s.highPerf {
+		// 使用高性能配置
+		s.stream, err = stream.NewHighPerformanceStream(*config)
+	} else {
+		// 使用配置的策略创建流处理器，传递持久化配置
+		s.stream, err = stream.NewStreamWithLossPolicyAndPersistence(*config,
+			s.dataBufSize, s.resultBufSize, s.sinkPoolSize,
+			s.overflowStrategy, s.blockingTimeout,
+			s.persistDataDir, s.persistMaxFileSize, s.persistFlushInterval)
+	}
+
 	if err != nil {
 		return fmt.Errorf("创建流处理器失败: %w", err)
 	}

@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  test:
+    name: Test Before Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-1.21-${{ hashFiles('**/go.sum') }}
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run all tests
+      run: go test -v -race -timeout 30s ./...
+
+    - name: Run CASE expression tests specifically
+      run: |
+        echo "Testing CASE expression functionality..."
+        go test -v -run TestCaseExpression -timeout 20s
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-1.21-${{ hashFiles('**/go.sum') }}
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Build binaries
+      run: |
+        # Build for multiple platforms
+        GOOS=linux GOARCH=amd64 go build -o streamsql-linux-amd64 ./...
+        GOOS=windows GOARCH=amd64 go build -o streamsql-windows-amd64.exe ./...
+        GOOS=darwin GOARCH=amd64 go build -o streamsql-darwin-amd64 ./...
+        GOOS=darwin GOARCH=arm64 go build -o streamsql-darwin-arm64 ./...
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+        echo "## 🚀 StreamSQL $(echo ${{ github.ref }} | sed 's/refs\/tags\///')" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "### ✨ 新增功能" >> $GITHUB_OUTPUT
+        echo "- 完善的CASE表达式支持" >> $GITHUB_OUTPUT
+        echo "- 多条件逻辑表达式 (AND, OR)" >> $GITHUB_OUTPUT
+        echo "- 数学函数集成" >> $GITHUB_OUTPUT
+        echo "- 字段提取和引用功能" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "### 🔧 改进" >> $GITHUB_OUTPUT
+        echo "- 负数解析优化" >> $GITHUB_OUTPUT
+        echo "- 字符串和数值混合比较" >> $GITHUB_OUTPUT
+        echo "- 表达式解析性能提升" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "### 📋 测试覆盖" >> $GITHUB_OUTPUT
+        echo "- ✅ 基础CASE表达式解析" >> $GITHUB_OUTPUT
+        echo "- ✅ 复杂条件组合" >> $GITHUB_OUTPUT
+        echo "- ✅ 函数调用支持" >> $GITHUB_OUTPUT
+        echo "- ✅ 字段提取功能" >> $GITHUB_OUTPUT
+        echo "- ⚠️ 聚合函数中的使用 (部分支持)" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "---" >> $GITHUB_OUTPUT
+        echo "📖 **完整文档**: [README.md](README.md) | [中文文档](README_ZH.md)" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        body: ${{ steps.changelog.outputs.CHANGELOG }}
+        files: |
+          streamsql-linux-amd64
+          streamsql-windows-amd64.exe
+          streamsql-darwin-amd64
+          streamsql-darwin-arm64
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

@@ -49,12 +49,12 @@ func (p *Parser) expectToken(expected TokenType, context string) (Token, error) 
 		)
 		err.Context = context
 		p.errorRecovery.AddError(err)
-		
+
 		// 尝试错误恢复
 		if err.IsRecoverable() && p.errorRecovery.RecoverFromError(ErrorTypeUnexpectedToken) {
 			return p.expectToken(expected, context)
 		}
-		
+
 		return tok, err
 	}
 	return tok, nil
@@ -164,7 +164,7 @@ func (p *Parser) createCombinedError() error {
 	if len(errors) == 1 {
 		return p.createDetailedError(errors[0])
 	}
-	
+
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("Found %d parsing errors:\n", len(errors)))
 	for i, err := range errors {
@@ -234,6 +234,10 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 				break
 			}
 
+			// 如果不是第一个token，添加空格分隔符
+			if expr.Len() > 0 {
+				expr.WriteString(" ")
+			}
 			expr.WriteString(currentToken.Value)
 			currentToken = p.lexer.NextToken()
 		}
@@ -252,7 +256,7 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 			validator := NewFunctionValidator(p.errorRecovery)
 			pos, _, _ := p.lexer.GetPosition()
 			validator.ValidateExpression(field.Expression, pos-len(field.Expression))
-			
+
 			stmt.Fields = append(stmt.Fields, field)
 		}
 
@@ -325,7 +329,7 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 			}
 		}
 	}
-	
+
 	// 验证WHERE条件中的函数
 	whereCondition := strings.Join(conditions, " ")
 	if whereCondition != "" {
@@ -333,7 +337,7 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 		pos, _, _ := p.lexer.GetPosition()
 		validator.ValidateExpression(whereCondition, pos-len(whereCondition))
 	}
-	
+
 	stmt.Condition = whereCondition
 	return nil
 }
@@ -424,7 +428,7 @@ func (p *Parser) parseFrom(stmt *SelectStatement) error {
 func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 	tok := p.lexer.lookupIdent(p.lexer.readPreviousIdentifier())
 	if tok.Type == TokenTumbling || tok.Type == TokenSliding || tok.Type == TokenCounting || tok.Type == TokenSession {
-		p.parseWindowFunction(stmt, tok.Value)
+		_ = p.parseWindowFunction(stmt, tok.Value)
 	}
 	if tok.Type == TokenGROUP {
 		p.lexer.NextToken() // 跳过BY
@@ -450,7 +454,7 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 			continue
 		}
 		if tok.Type == TokenTumbling || tok.Type == TokenSliding || tok.Type == TokenCounting || tok.Type == TokenSession {
-			p.parseWindowFunction(stmt, tok.Value)
+			_ = p.parseWindowFunction(stmt, tok.Value)
 			continue
 		}
 

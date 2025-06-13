@@ -53,7 +53,7 @@ func (a *AnalyticalAggregatorAdapter) Add(value interface{}) {
 
 	// 对于其他分析函数，执行分析函数
 	args := []interface{}{value}
-	a.analFunc.Execute(a.ctx, args)
+	_, _ = a.analFunc.Execute(a.ctx, args)
 }
 
 // Result 获取结果

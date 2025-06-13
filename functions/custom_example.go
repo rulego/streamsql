@@ -241,11 +241,11 @@ func (f *CustomGeometricMeanFunction) Clone() AggregatorFunction {
 // RegisterCustomFunctions 注册自定义函数的示例
 func RegisterCustomFunctions() {
 	// 注册自定义聚合函数
-	Register(NewCustomProductFunction())
-	Register(NewCustomGeometricMeanFunction())
+	_ = Register(NewCustomProductFunction())
+	_ = Register(NewCustomGeometricMeanFunction())
 
 	// 注册自定义分析函数
-	Register(NewCustomMovingAverageFunction(5)) // 5个值的移动平均
+	_ = Register(NewCustomMovingAverageFunction(5)) // 5个值的移动平均
 
 	// 注册适配器
 	RegisterAggregatorAdapter("product")

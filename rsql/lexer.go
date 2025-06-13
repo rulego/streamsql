@@ -44,23 +44,29 @@ const (
 	TokenDISTINCT
 	TokenLIMIT
 	TokenHAVING
+	// CASE表达式相关token
+	TokenCASE
+	TokenWHEN
+	TokenTHEN
+	TokenELSE
+	TokenEND
 )
 
 type Token struct {
-	Type  TokenType
-	Value string
-	Pos   int
-	Line  int
+	Type   TokenType
+	Value  string
+	Pos    int
+	Line   int
 	Column int
 }
 
 type Lexer struct {
-	input   string
-	pos     int
-	readPos int
-	ch      byte
-	line    int
-	column  int
+	input         string
+	pos           int
+	readPos       int
+	ch            byte
+	line          int
+	column        int
 	errorRecovery *ErrorRecovery
 }
 
@@ -198,7 +204,7 @@ func (l *Lexer) readChar() {
 	} else {
 		l.ch = l.input[l.readPos]
 	}
-	
+
 	// 更新位置信息
 	if l.ch == '\n' {
 		l.line++
@@ -206,7 +212,7 @@ func (l *Lexer) readChar() {
 	} else {
 		l.column++
 	}
-	
+
 	l.pos = l.readPos
 	l.readPos++
 }
@@ -319,6 +325,17 @@ func (l *Lexer) lookupIdent(ident string) Token {
 		return Token{Type: TokenLIMIT, Value: ident}
 	case "HAVING":
 		return Token{Type: TokenHAVING, Value: ident}
+	// CASE表达式相关关键字
+	case "CASE":
+		return Token{Type: TokenCASE, Value: ident}
+	case "WHEN":
+		return Token{Type: TokenWHEN, Value: ident}
+	case "THEN":
+		return Token{Type: TokenTHEN, Value: ident}
+	case "ELSE":
+		return Token{Type: TokenELSE, Value: ident}
+	case "END":
+		return Token{Type: TokenEND, Value: ident}
 	default:
 		// 检查是否是常见的拼写错误
 		if l.errorRecovery != nil {
@@ -331,7 +348,7 @@ func (l *Lexer) lookupIdent(ident string) Token {
 // checkForTypos 检查常见的拼写错误
 func (l *Lexer) checkForTypos(original, upper string) {
 	suggestions := make([]string, 0)
-	
+
 	switch upper {
 	case "SELCT", "SELECCT", "SELET":
 		suggestions = append(suggestions, "SELECT")
@@ -346,7 +363,7 @@ func (l *Lexer) checkForTypos(original, upper string) {
 	case "DSITINCT", "DISTINC", "DISTINT":
 		suggestions = append(suggestions, "DISTINCT")
 	}
-	
+
 	if len(suggestions) > 0 {
 		err := &ParseError{
 			Type:        ErrorTypeUnknownKeyword,
@@ -404,7 +421,7 @@ func (l *Lexer) isValidNumber(number string) bool {
 	if number == "" {
 		return false
 	}
-	
+
 	dotCount := 0
 	for _, ch := range number {
 		if ch == '.' {
@@ -416,12 +433,12 @@ func (l *Lexer) isValidNumber(number string) bool {
 			return false // 非数字字符
 		}
 	}
-	
+
 	// 检查是否以小数点开头或结尾
 	if number[0] == '.' || number[len(number)-1] == '.' {
 		return false
 	}
-	
+
 	return true
 }
 
