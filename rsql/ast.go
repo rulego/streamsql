@@ -215,11 +215,20 @@ func buildSelectFields(fields []Field) (aggMap map[string]aggregator.AggregateTy
 
 // 解析聚合函数，并返回表达式信息
 func ParseAggregateTypeWithExpression(exprStr string) (aggType aggregator.AggregateType, name string, expression string, allFields []string) {
+	// 特殊处理 CASE 表达式
+	if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(exprStr)), "CASE") {
+		// CASE 表达式作为特殊的表达式处理
+		if parsedExpr, err := expr.NewExpression(exprStr); err == nil {
+			allFields = parsedExpr.GetFields()
+		}
+		return "expression", "", exprStr, allFields
+	}
+
 	// 检查是否是嵌套函数
 	if hasNestedFunctions(exprStr) {
 		// 嵌套函数情况，提取所有函数
 		funcs := extractAllFunctions(exprStr)
-		
+
 		// 查找聚合函数
 		var aggregationFunc string
 		for _, funcName := range funcs {
@@ -231,7 +240,7 @@ func ParseAggregateTypeWithExpression(exprStr string) (aggType aggregator.Aggreg
 				}
 			}
 		}
-		
+
 		if aggregationFunc != "" {
 			// 有聚合函数的嵌套表达式，整个表达式作为expression处理
 			if parsedExpr, err := expr.NewExpression(exprStr); err == nil {
@@ -246,11 +255,21 @@ func ParseAggregateTypeWithExpression(exprStr string) (aggType aggregator.Aggreg
 			return "expression", "", exprStr, allFields
 		}
 	}
-	
+
 	// 单一函数的原有逻辑
 	// 提取函数名
 	funcName := extractFunctionName(exprStr)
 	if funcName == "" {
+		// 如果不是函数调用，但包含运算符或关键字，可能是表达式
+		if strings.ContainsAny(exprStr, "+-*/<>=!&|") ||
+			strings.Contains(strings.ToUpper(exprStr), "AND") ||
+			strings.Contains(strings.ToUpper(exprStr), "OR") {
+			// 作为表达式处理
+			if parsedExpr, err := expr.NewExpression(exprStr); err == nil {
+				allFields = parsedExpr.GetFields()
+			}
+			return "expression", "", exprStr, allFields
+		}
 		return "", "", "", nil
 	}
 
@@ -276,8 +295,6 @@ func ParseAggregateTypeWithExpression(exprStr string) (aggType aggregator.Aggreg
 	case functions.TypeWindow:
 		// 窗口函数：使用函数名作为聚合类型
 		return aggregator.AggregateType(funcName), name, expression, allFields
-
-
 
 	case functions.TypeString, functions.TypeConversion, functions.TypeCustom, functions.TypeMath:
 		// 字符串函数、转换函数、自定义函数、数学函数：在聚合查询中作为表达式处理
@@ -319,7 +336,7 @@ func extractFunctionName(expr string) string {
 // 提取表达式中的所有函数名
 func extractAllFunctions(expr string) []string {
 	var funcNames []string
-	
+
 	// 简单的函数名匹配
 	i := 0
 	for i < len(expr) {
@@ -328,7 +345,7 @@ func extractAllFunctions(expr string) []string {
 		for i < len(expr) && (expr[i] >= 'a' && expr[i] <= 'z' || expr[i] >= 'A' && expr[i] <= 'Z' || expr[i] == '_') {
 			i++
 		}
-		
+
 		if i < len(expr) && expr[i] == '(' && i > start {
 			// 找到可能的函数名
 			funcName := expr[start:i]
@@ -336,12 +353,12 @@ func extractAllFunctions(expr string) []string {
 				funcNames = append(funcNames, funcName)
 			}
 		}
-		
+
 		if i < len(expr) {
 			i++
 		}
 	}
-	
+
 	return funcNames
 }
 
