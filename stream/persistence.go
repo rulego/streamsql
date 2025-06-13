@@ -12,7 +12,7 @@ import (
 	"github.com/rulego/streamsql/logger"
 )
 
-// PersistenceManager 持久化管理器
+// PersistenceManager 数据持久化管理器
 type PersistenceManager struct {
 	dataDir       string        // 持久化数据目录
 	maxFileSize   int64         // 单个文件最大大小（字节）
@@ -26,9 +26,14 @@ type PersistenceManager struct {
 	pendingMutex  sync.Mutex    // 待写入数据互斥锁
 	isRunning     bool          // 是否运行中
 	stopChan      chan struct{} // 停止通道
+
+	// 统计信息 (新增)
+	totalPersisted int64
+	totalLoaded    int64
+	filesCreated   int64
 }
 
-// NewPersistenceManager 创建持久化管理器
+// NewPersistenceManager 创建默认配置的持久化管理器
 func NewPersistenceManager(dataDir string) *PersistenceManager {
 	pm := &PersistenceManager{
 		dataDir:       dataDir,
@@ -47,7 +52,7 @@ func NewPersistenceManager(dataDir string) *PersistenceManager {
 	return pm
 }
 
-// NewPersistenceManagerWithConfig 创建带自定义配置的持久化管理器
+// NewPersistenceManagerWithConfig 创建自定义配置的持久化管理器
 func NewPersistenceManagerWithConfig(dataDir string, maxFileSize int64, flushInterval time.Duration) *PersistenceManager {
 	pm := &PersistenceManager{
 		dataDir:       dataDir,
@@ -121,7 +126,7 @@ func (pm *PersistenceManager) Stop() error {
 	return nil
 }
 
-// PersistData 持久化数据
+// PersistData 持久化单条数据
 func (pm *PersistenceManager) PersistData(data interface{}) error {
 	if !pm.isRunning {
 		return fmt.Errorf("persistence manager not running")
@@ -129,9 +134,63 @@ func (pm *PersistenceManager) PersistData(data interface{}) error {
 
 	pm.pendingMutex.Lock()
 	pm.pendingData = append(pm.pendingData, data)
+	pm.totalPersisted++
 	pm.pendingMutex.Unlock()
 
 	return nil
+}
+
+// LoadPersistedData 加载并删除持久化数据
+func (pm *PersistenceManager) LoadPersistedData() ([]interface{}, error) {
+	files, err := filepath.Glob(filepath.Join(pm.dataDir, "streamsql_overflow_*.log"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to glob files: %w", err)
+	}
+
+	var allData []interface{}
+
+	for _, filename := range files {
+		data, err := pm.loadDataFromFile(filename)
+		if err != nil {
+			logger.Error("Failed to load file %s: %v", filename, err)
+			continue
+		}
+		allData = append(allData, data...)
+		pm.totalLoaded += int64(len(data))
+
+		// 加载后删除文件
+		if err := os.Remove(filename); err != nil {
+			logger.Error("Failed to delete loaded file %s: %v", filename, err)
+		}
+	}
+
+	logger.Info("Loaded %d data records from persistence files", len(allData))
+	return allData, nil
+}
+
+// GetStats 获取持久化统计信息
+func (pm *PersistenceManager) GetStats() map[string]interface{} {
+	pm.pendingMutex.Lock()
+	pendingCount := len(pm.pendingData)
+	pm.pendingMutex.Unlock()
+
+	pm.writeMutex.Lock()
+	currentFileSize := pm.currentSize
+	fileIndex := pm.fileIndex
+	pm.writeMutex.Unlock()
+
+	return map[string]interface{}{
+		"running":           pm.isRunning,
+		"data_dir":          pm.dataDir,
+		"pending_count":     pendingCount,
+		"current_file_size": currentFileSize,
+		"file_index":        fileIndex,
+		"max_file_size":     pm.maxFileSize,
+		"flush_interval":    pm.flushInterval.String(),
+		"total_persisted":   pm.totalPersisted,
+		"total_loaded":      pm.totalLoaded,
+		"files_created":     pm.filesCreated,
+	}
 }
 
 // createNewFile 创建新的持久化文件
@@ -155,6 +214,7 @@ func (pm *PersistenceManager) createNewFile() error {
 	pm.currentFile = file
 	pm.currentSize = 0
 	pm.fileIndex++
+	pm.filesCreated++
 
 	logger.Info("Created new persistence file: %s", filepath)
 	return nil
@@ -259,33 +319,6 @@ func (pm *PersistenceManager) backgroundProcessor() {
 	}
 }
 
-// LoadPersistedData 加载持久化数据
-func (pm *PersistenceManager) LoadPersistedData() ([]interface{}, error) {
-	files, err := filepath.Glob(filepath.Join(pm.dataDir, "streamsql_overflow_*.log"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to glob files: %w", err)
-	}
-
-	var allData []interface{}
-
-	for _, filename := range files {
-		data, err := pm.loadDataFromFile(filename)
-		if err != nil {
-			logger.Error("Failed to load file %s: %v", filename, err)
-			continue
-		}
-		allData = append(allData, data...)
-
-		// 加载后删除文件
-		if err := os.Remove(filename); err != nil {
-			logger.Error("Failed to delete loaded file %s: %v", filename, err)
-		}
-	}
-
-	logger.Info("Loaded %d data records from persistence files", len(allData))
-	return allData, nil
-}
-
 // loadDataFromFile 从文件加载数据
 func (pm *PersistenceManager) loadDataFromFile(filename string) ([]interface{}, error) {
 	file, err := os.Open(filename)
@@ -317,26 +350,4 @@ func (pm *PersistenceManager) loadDataFromFile(filename string) ([]interface{}, 
 	}
 
 	return data, nil
-}
-
-// GetStats 获取持久化统计信息
-func (pm *PersistenceManager) GetStats() map[string]interface{} {
-	pm.pendingMutex.Lock()
-	pendingCount := len(pm.pendingData)
-	pm.pendingMutex.Unlock()
-
-	pm.writeMutex.Lock()
-	currentFileSize := pm.currentSize
-	fileIndex := pm.fileIndex
-	pm.writeMutex.Unlock()
-
-	return map[string]interface{}{
-		"running":           pm.isRunning,
-		"data_dir":          pm.dataDir,
-		"pending_count":     pendingCount,
-		"current_file_size": currentFileSize,
-		"file_index":        fileIndex,
-		"max_file_size":     pm.maxFileSize,
-		"flush_interval":    pm.flushInterval.String(),
-	}
 }
