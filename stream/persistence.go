@@ -279,7 +279,7 @@ func (pm *PersistenceManager) flushPendingData() {
 
 	// 同步到磁盘
 	if pm.currentFile != nil {
-		pm.currentFile.Sync()
+		_ = pm.currentFile.Sync()
 	}
 
 	logger.Info("Flushed %d pending data records to disk", len(dataToWrite))

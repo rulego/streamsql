@@ -345,8 +345,8 @@ func (s *Stream) process() {
 			for batch := range s.Window.OutputChan() {
 				// 处理窗口批数据
 				for _, item := range batch {
-					s.aggregator.Put("window_start", item.Slot.WindowStart())
-					s.aggregator.Put("window_end", item.Slot.WindowEnd())
+					_ = s.aggregator.Put("window_start", item.Slot.WindowStart())
+					_ = s.aggregator.Put("window_end", item.Slot.WindowEnd())
 					if err := s.aggregator.Add(item.Data); err != nil {
 						logger.Error("aggregate error: %v", err)
 					}

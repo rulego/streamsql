@@ -237,44 +237,41 @@ func ToString(input interface{}) string {
 	return v
 }
 
-// ToStringE converts an interface{} to string with error handling.
-// Returns the converted string value and nil error if successful.
-// Returns empty string and an error if conversion fails.
-func ToStringE(input interface{}) (string, error) {
-	if input == nil {
-		return "", nil
-	}
+// convertNumericToString 将数字类型转换为字符串
+func convertNumericToString(input interface{}) (string, bool) {
 	switch v := input.(type) {
-	case string:
-		return v, nil
-	case bool:
-		return strconv.FormatBool(v), nil
 	case float64:
-		ft := input.(float64)
-		return strconv.FormatFloat(ft, 'f', -1, 64), nil
+		return strconv.FormatFloat(v, 'f', -1, 64), true
 	case float32:
-		ft := input.(float32)
-		return strconv.FormatFloat(float64(ft), 'f', -1, 32), nil
+		return strconv.FormatFloat(float64(v), 'f', -1, 32), true
 	case int:
-		return strconv.Itoa(v), nil
+		return strconv.Itoa(v), true
 	case uint:
-		return strconv.Itoa(int(v)), nil
+		return strconv.Itoa(int(v)), true
 	case int8:
-		return strconv.Itoa(int(v)), nil
+		return strconv.Itoa(int(v)), true
 	case uint8:
-		return strconv.Itoa(int(v)), nil
+		return strconv.Itoa(int(v)), true
 	case int16:
-		return strconv.Itoa(int(v)), nil
+		return strconv.Itoa(int(v)), true
 	case uint16:
-		return strconv.Itoa(int(v)), nil
+		return strconv.Itoa(int(v)), true
 	case int32:
-		return strconv.Itoa(int(v)), nil
+		return strconv.Itoa(int(v)), true
 	case uint32:
-		return strconv.Itoa(int(v)), nil
+		return strconv.Itoa(int(v)), true
 	case int64:
-		return strconv.FormatInt(v, 10), nil
+		return strconv.FormatInt(v, 10), true
 	case uint64:
-		return strconv.FormatUint(v, 10), nil
+		return strconv.FormatUint(v, 10), true
+	default:
+		return "", false
+	}
+}
+
+// convertComplexToString 将复杂类型转换为字符串
+func convertComplexToString(input interface{}) (string, error) {
+	switch v := input.(type) {
 	case []byte:
 		return string(v), nil
 	case fmt.Stringer:
@@ -287,17 +284,41 @@ func ToStringE(input interface{}) (string, error) {
 		for k, value := range v {
 			convertedInput[fmt.Sprintf("%v", k)] = value
 		}
-		if newValue, err := json.Marshal(convertedInput); err == nil {
-			return string(newValue), nil
-		} else {
-			return "", err
-		}
+		return marshalToString(convertedInput)
 	default:
-		if newValue, err := json.Marshal(input); err == nil {
-			return string(newValue), nil
-		} else {
-			return "", err
+		return marshalToString(input)
+	}
+}
+
+// marshalToString 通过JSON序列化转换为字符串
+func marshalToString(input interface{}) (string, error) {
+	if newValue, err := json.Marshal(input); err == nil {
+		return string(newValue), nil
+	} else {
+		return "", err
+	}
+}
+
+// ToStringE converts an interface{} to string with error handling.
+// Returns the converted string value and nil error if successful.
+// Returns empty string and an error if conversion fails.
+func ToStringE(input interface{}) (string, error) {
+	if input == nil {
+		return "", nil
+	}
+
+	switch v := input.(type) {
+	case string:
+		return v, nil
+	case bool:
+		return strconv.FormatBool(v), nil
+	default:
+		// 尝试数字类型转换
+		if str, ok := convertNumericToString(input); ok {
+			return str, nil
 		}
+		// 尝试复杂类型转换
+		return convertComplexToString(input)
 	}
 }
 

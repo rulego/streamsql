@@ -353,8 +353,6 @@ func (f *ChrFunction) Execute(ctx *FunctionContext, args []interface{}) (interfa
 	return string(rune(code)), nil
 }
 
-
-
 // UrlEncodeFunction URL编码函数
 type UrlEncodeFunction struct {
 	*BaseFunction
