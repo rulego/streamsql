@@ -60,6 +60,11 @@ type Expression struct {
 
 // NewExpression 创建一个新的表达式
 func NewExpression(exprStr string) (*Expression, error) {
+	// 进行基本的语法验证
+	if err := validateBasicSyntax(exprStr); err != nil {
+		return nil, err
+	}
+
 	// 首先尝试使用自定义解析器
 	tokens, err := tokenize(exprStr)
 	if err != nil {
@@ -85,6 +90,118 @@ func NewExpression(exprStr string) (*Expression, error) {
 		Root:        root,
 		useExprLang: false,
 	}, nil
+}
+
+// validateBasicSyntax 进行基本的语法验证
+func validateBasicSyntax(exprStr string) error {
+	// 检查空表达式
+	trimmed := strings.TrimSpace(exprStr)
+	if trimmed == "" {
+		return fmt.Errorf("empty expression")
+	}
+
+	// 检查不匹配的括号
+	parenthesesCount := 0
+	for _, ch := range trimmed {
+		if ch == '(' {
+			parenthesesCount++
+		} else if ch == ')' {
+			parenthesesCount--
+			if parenthesesCount < 0 {
+				return fmt.Errorf("mismatched parentheses")
+			}
+		}
+	}
+	if parenthesesCount != 0 {
+		return fmt.Errorf("mismatched parentheses")
+	}
+
+	// 检查无效字符
+	for i, ch := range trimmed {
+		// 允许的字符：字母、数字、运算符、括号、点、下划线、空格、引号
+		if !isValidChar(ch) {
+			return fmt.Errorf("invalid character '%c' at position %d", ch, i)
+		}
+	}
+
+	// 检查连续运算符
+	if err := checkConsecutiveOperators(trimmed); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// checkConsecutiveOperators 检查连续运算符
+func checkConsecutiveOperators(expr string) error {
+	// 简化的连续运算符检查：查找明显的双运算符模式
+	operators := []string{"+", "-", "*", "/", "%", "^", "==", "!=", ">=", "<=", ">", "<"}
+
+	for i := 0; i < len(expr)-1; i++ {
+		// 跳过空白字符
+		if expr[i] == ' ' || expr[i] == '\t' {
+			continue
+		}
+
+		// 检查当前位置是否是运算符
+		isCurrentOp := false
+		currentOpLen := 0
+		for _, op := range operators {
+			if i+len(op) <= len(expr) && expr[i:i+len(op)] == op {
+				isCurrentOp = true
+				currentOpLen = len(op)
+				break
+			}
+		}
+
+		if isCurrentOp {
+			// 查找下一个非空白字符
+			nextPos := i + currentOpLen
+			for nextPos < len(expr) && (expr[nextPos] == ' ' || expr[nextPos] == '\t') {
+				nextPos++
+			}
+
+			// 检查下一个字符是否也是运算符
+			if nextPos < len(expr) {
+				for _, op := range operators {
+					if nextPos+len(op) <= len(expr) && expr[nextPos:nextPos+len(op)] == op {
+						return fmt.Errorf("consecutive operators found: '%s' followed by '%s'",
+							expr[i:i+currentOpLen], op)
+					}
+				}
+			}
+
+			// 跳过当前运算符
+			i += currentOpLen - 1
+		}
+	}
+
+	return nil
+}
+
+// isValidChar 检查字符是否有效
+func isValidChar(ch rune) bool {
+	// 字母和数字
+	if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') {
+		return true
+	}
+	// 特殊字符
+	switch ch {
+	case ' ', '\t', '\n', '\r': // 空白字符
+		return true
+	case '+', '-', '*', '/', '%', '^': // 算术运算符
+		return true
+	case '(', ')', ',': // 括号和逗号
+		return true
+	case '>', '<', '=', '!': // 比较运算符
+		return true
+	case '\'', '"': // 引号
+		return true
+	case '.', '_': // 点和下划线
+		return true
+	default:
+		return false
+	}
 }
 
 // Evaluate 计算表达式的值
