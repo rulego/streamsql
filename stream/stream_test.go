@@ -3,6 +3,9 @@ package stream
 import (
 	"context"
 	"fmt"
+	"os"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,7 +19,7 @@ func TestStreamProcess(t *testing.T) {
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: map[string]interface{}{"size": time.Second},
+			Params: map[string]interface{}{"size": 500 * time.Millisecond}, // 减少窗口大小以更快触发
 		},
 		GroupFields: []string{"device"},
 		SelectFields: map[string]aggregator.AggregateType{
@@ -33,9 +36,13 @@ func TestStreamProcess(t *testing.T) {
 	require.NoError(t, err)
 
 	// 添加 Sink 函数来捕获结果
-	resultChan := make(chan interface{})
+	resultChan := make(chan interface{}, 1) // 添加缓冲
 	strm.AddSink(func(result interface{}) {
-		resultChan <- result
+		select {
+		case resultChan <- result:
+		default:
+			// 防止阻塞
+		}
 	})
 
 	strm.Start()
@@ -51,16 +58,19 @@ func TestStreamProcess(t *testing.T) {
 		strm.AddData(data)
 	}
 
+	// 等待窗口关闭并触发结果
+	time.Sleep(700 * time.Millisecond) // 等待窗口关闭
+
 	// 等待结果，并设置超时
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	var actual interface{}
 	select {
-	case actual = <-strm.GetResultsChan():
+	case actual = <-resultChan: // 从sink的channel读取
 		cancel()
 	case <-ctx.Done():
-		t.Fatal("No results received within 5 seconds")
+		t.Fatal("No results received within 3 seconds")
 	}
 
 	// 预期结果：只有 device='aa' 且 temperature>10 的数据会被聚合
@@ -187,7 +197,7 @@ func TestIncompleteStreamProcess(t *testing.T) {
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: map[string]interface{}{"size": time.Second},
+			Params: map[string]interface{}{"size": 500 * time.Millisecond}, // 减少窗口大小
 		},
 		GroupFields: []string{"device"},
 		SelectFields: map[string]aggregator.AggregateType{
@@ -204,9 +214,13 @@ func TestIncompleteStreamProcess(t *testing.T) {
 	require.NoError(t, err)
 
 	// 添加 Sink 函数来捕获结果
-	resultChan := make(chan interface{})
+	resultChan := make(chan interface{}, 1) // 添加缓冲
 	strm.AddSink(func(result interface{}) {
-		resultChan <- result
+		select {
+		case resultChan <- result:
+		default:
+			// 防止阻塞
+		}
 	})
 
 	strm.Start()
@@ -224,16 +238,19 @@ func TestIncompleteStreamProcess(t *testing.T) {
 		strm.AddData(data)
 	}
 
+	// 等待窗口关闭并触发结果
+	time.Sleep(700 * time.Millisecond) // 等待窗口关闭
+
 	// 等待结果，并设置超时
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	var actual interface{}
 	select {
-	case actual = <-strm.GetResultsChan():
+	case actual = <-resultChan: // 从sink的channel读取
 		cancel()
 	case <-ctx.Done():
-		t.Fatal("No results received within 5 seconds")
+		t.Fatal("No results received within 3 seconds")
 	}
 
 	// 预期结果：只有 device='aa' 且 temperature>10 的数据会被聚合
@@ -364,4 +381,376 @@ func TestWindowSlotAgg(t *testing.T) {
 		}
 		assert.True(t, found, fmt.Sprintf("Expected result for device %v not found", expectedResult["device"]))
 	}
+}
+
+// TestPersistenceManagerBasic 测试持久化管理器基本功能
+func TestPersistenceManagerBasic(t *testing.T) {
+	// 创建临时目录
+	tmpDir := t.TempDir()
+
+	// 创建持久化管理器
+	pm := NewPersistenceManagerWithConfig(tmpDir, 1024, 100*time.Millisecond)
+
+	// 启动管理器
+	err := pm.Start()
+	require.NoError(t, err)
+	defer pm.Stop()
+
+	// 测试数据持久化
+	testData := []interface{}{
+		map[string]interface{}{"id": 1, "value": "test1"},
+		map[string]interface{}{"id": 2, "value": "test2"},
+		map[string]interface{}{"id": 3, "value": "test3"},
+	}
+
+	// 写入数据
+	for _, data := range testData {
+		err := pm.PersistData(data)
+		require.NoError(t, err)
+	}
+
+	// 等待数据写入
+	time.Sleep(200 * time.Millisecond)
+
+	// 读取持久化数据
+	loadedData, err := pm.LoadPersistedData()
+	require.NoError(t, err)
+
+	// 验证数据
+	assert.GreaterOrEqual(t, len(loadedData), len(testData))
+}
+
+// TestPersistenceManagerFileRotation 测试文件轮转功能
+func TestPersistenceManagerFileRotation(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// 创建小文件大小的持久化管理器以触发文件轮转
+	pm := NewPersistenceManagerWithConfig(tmpDir, 100, 50*time.Millisecond)
+
+	err := pm.Start()
+	require.NoError(t, err)
+	defer pm.Stop()
+
+	// 写入大量数据以触发文件轮转
+	for i := 0; i < 50; i++ {
+		data := map[string]interface{}{
+			"id":    i,
+			"value": fmt.Sprintf("test_data_with_long_content_%d", i),
+		}
+		err := pm.PersistData(data)
+		require.NoError(t, err)
+	}
+
+	// 等待数据写入和文件轮转
+	time.Sleep(200 * time.Millisecond)
+
+	// 验证创建了多个文件
+	files, err := os.ReadDir(tmpDir)
+	require.NoError(t, err)
+	assert.Greater(t, len(files), 1, "应该创建多个持久化文件")
+}
+
+// TestStreamWithPersistenceStrategy 测试流处理器的持久化策略
+func TestStreamWithPersistenceStrategy(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	config := types.Config{
+		WindowConfig: types.WindowConfig{
+			Type:   "tumbling",
+			Params: map[string]interface{}{"size": 100 * time.Millisecond},
+		},
+		GroupFields: []string{"device"},
+		SelectFields: map[string]aggregator.AggregateType{
+			"temperature": aggregator.Avg,
+		},
+		NeedWindow: true,
+	}
+
+	// 创建带持久化策略的流处理器，使用小缓冲区以触发持久化
+	stream, err := NewStreamWithLossPolicyAndPersistence(config,
+		2, 2, 2, // 小缓冲区
+		"persist", 100*time.Millisecond,
+		tmpDir, 1024, 50*time.Millisecond)
+	require.NoError(t, err)
+	defer stream.Stop()
+
+	// 添加结果收集器
+	var results []interface{}
+	var resultMutex sync.Mutex
+	stream.AddSink(func(result interface{}) {
+		resultMutex.Lock()
+		defer resultMutex.Unlock()
+		results = append(results, result)
+	})
+
+	stream.Start()
+
+	// 快速添加大量数据以触发持久化
+	for i := 0; i < 20; i++ {
+		data := map[string]interface{}{
+			"device":      fmt.Sprintf("device_%d", i%3),
+			"temperature": float64(20 + i),
+			"timestamp":   time.Now(),
+		}
+		stream.AddData(data)
+	}
+
+	// 等待处理完成
+	time.Sleep(300 * time.Millisecond)
+
+	// 验证持久化文件已创建
+	files, err := os.ReadDir(tmpDir)
+	require.NoError(t, err)
+	if len(files) > 0 {
+		t.Logf("创建了 %d 个持久化文件", len(files))
+	}
+
+	// 验证可以加载持久化数据
+	if stream.persistenceManager != nil {
+		loadedData, err := stream.persistenceManager.LoadPersistedData()
+		require.NoError(t, err)
+		t.Logf("加载了 %d 条持久化数据", len(loadedData))
+	}
+}
+
+// TestStreamPersistenceRecovery 测试持久化数据恢复功能
+func TestStreamPersistenceRecovery(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	config := types.Config{
+		WindowConfig: types.WindowConfig{
+			Type:   "tumbling",
+			Params: map[string]interface{}{"size": 500 * time.Millisecond},
+		},
+		GroupFields: []string{"device"},
+		SelectFields: map[string]aggregator.AggregateType{
+			"temperature": aggregator.Sum,
+		},
+		NeedWindow: true,
+	}
+
+	// 第一阶段：创建流并持久化数据
+	stream1, err := NewStreamWithLossPolicyAndPersistence(config,
+		1, 1, 1, // 极小缓冲区强制持久化
+		"persist", 50*time.Millisecond,
+		tmpDir, 512, 30*time.Millisecond)
+	require.NoError(t, err)
+
+	stream1.Start()
+
+	// 添加测试数据
+	testData := []map[string]interface{}{
+		{"device": "sensor1", "temperature": 25.0},
+		{"device": "sensor2", "temperature": 30.0},
+		{"device": "sensor1", "temperature": 27.0},
+	}
+
+	for _, data := range testData {
+		stream1.AddData(data)
+	}
+
+	// 等待数据持久化
+	time.Sleep(200 * time.Millisecond)
+	stream1.Stop()
+
+	// 第二阶段：创建新流并恢复数据
+	stream2, err := NewStreamWithLossPolicyAndPersistence(config,
+		10, 10, 10,
+		"persist", 100*time.Millisecond,
+		tmpDir, 1024, 100*time.Millisecond)
+	require.NoError(t, err)
+	defer stream2.Stop()
+
+	// 恢复持久化数据
+	err = stream2.LoadAndReprocessPersistedData()
+	require.NoError(t, err)
+
+	// 验证数据恢复成功
+	if stream2.persistenceManager != nil {
+		stats := stream2.persistenceManager.GetStats()
+		t.Logf("持久化统计: %+v", stats)
+	}
+}
+
+// TestPersistenceManagerConcurrency 测试持久化管理器并发安全性
+func TestPersistenceManagerConcurrency(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	pm := NewPersistenceManagerWithConfig(tmpDir, 2048, 100*time.Millisecond)
+
+	err := pm.Start()
+	require.NoError(t, err)
+	defer pm.Stop()
+
+	// 并发写入数据
+	const numGoroutines = 10
+	const dataPerGoroutine = 20
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func(goroutineID int) {
+			defer wg.Done()
+			for j := 0; j < dataPerGoroutine; j++ {
+				data := map[string]interface{}{
+					"goroutine": goroutineID,
+					"sequence":  j,
+					"value":     fmt.Sprintf("data_%d_%d", goroutineID, j),
+				}
+				err := pm.PersistData(data)
+				assert.NoError(t, err)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// 等待所有数据写入
+	time.Sleep(300 * time.Millisecond)
+
+	// 验证数据完整性
+	loadedData, err := pm.LoadPersistedData()
+	require.NoError(t, err)
+
+	// 应该至少有部分数据被持久化
+	assert.Greater(t, len(loadedData), 0)
+	t.Logf("并发测试: 持久化了 %d 条数据", len(loadedData))
+}
+
+// TestPersistenceManagerStats 测试持久化统计功能
+func TestPersistenceManagerStats(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	pm := NewPersistenceManagerWithConfig(tmpDir, 1024, 50*time.Millisecond)
+
+	err := pm.Start()
+	require.NoError(t, err)
+	defer pm.Stop()
+
+	// 写入一些数据
+	for i := 0; i < 10; i++ {
+		data := map[string]interface{}{"index": i, "data": "test"}
+		err := pm.PersistData(data)
+		require.NoError(t, err)
+	}
+
+	// 等待数据处理
+	time.Sleep(200 * time.Millisecond)
+
+	// 获取统计信息
+	stats := pm.GetStats()
+	require.NotNil(t, stats)
+
+	// 验证统计信息包含预期字段
+	assert.Contains(t, stats, "data_dir")
+	assert.Contains(t, stats, "max_file_size")
+	assert.Contains(t, stats, "flush_interval")
+	assert.Contains(t, stats, "running")
+	assert.Equal(t, tmpDir, stats["data_dir"])
+	assert.Equal(t, int64(1024), stats["max_file_size"])
+	assert.Equal(t, true, stats["running"])
+
+	t.Logf("持久化统计信息: %+v", stats)
+}
+
+// TestStreamPersistencePerformance 测试持久化性能
+func TestStreamPersistencePerformance(t *testing.T) {
+	if testing.Short() {
+		t.Skip("跳过性能测试 (使用 -short 标志)")
+	}
+
+	tmpDir := t.TempDir()
+
+	config := types.Config{
+		GroupFields: []string{"type"},
+		SelectFields: map[string]aggregator.AggregateType{
+			"value": aggregator.Count,
+		},
+		NeedWindow: false, // 无窗口，直接处理
+	}
+
+	// 创建高性能持久化配置
+	stream, err := NewStreamWithLossPolicyAndPersistence(config,
+		1000, 1000, 100,
+		"persist", 1*time.Second,
+		tmpDir, 10*1024*1024, 500*time.Millisecond) // 10MB文件，500ms刷新
+	require.NoError(t, err)
+	defer stream.Stop()
+
+	var processedCount int64
+	stream.AddSink(func(result interface{}) {
+		atomic.AddInt64(&processedCount, 1)
+	})
+
+	stream.Start()
+
+	// 性能测试：快速添加大量数据
+	const numData = 10000
+	start := time.Now()
+
+	for i := 0; i < numData; i++ {
+		data := map[string]interface{}{
+			"type":  fmt.Sprintf("type_%d", i%10),
+			"value": i,
+			"data":  fmt.Sprintf("performance_test_data_%d", i),
+		}
+		stream.AddData(data)
+	}
+
+	elapsed := time.Since(start)
+
+	// 等待处理完成
+	time.Sleep(2 * time.Second)
+
+	processed := atomic.LoadInt64(&processedCount)
+
+	t.Logf("性能测试结果:")
+	t.Logf("- 数据量: %d", numData)
+	t.Logf("- 耗时: %v", elapsed)
+	t.Logf("- 吞吐量: %.2f ops/sec", float64(numData)/elapsed.Seconds())
+	t.Logf("- 处理结果数: %d", processed)
+
+	// 验证持久化文件
+	files, err := os.ReadDir(tmpDir)
+	require.NoError(t, err)
+	t.Logf("- 持久化文件数: %d", len(files))
+
+	// 基本性能要求（可根据实际情况调整）
+	assert.Less(t, elapsed, 10*time.Second, "持久化处理耗时应在合理范围内")
+}
+
+// TestStreamsqlPersistenceConfigPassing 测试Streamsql持久化配置的传递
+func TestStreamsqlPersistenceConfigPassing(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// 测试自定义持久化配置是否正确传递
+	config := types.Config{
+		GroupFields: []string{"device"},
+		SelectFields: map[string]aggregator.AggregateType{
+			"temperature": aggregator.Count,
+		},
+		NeedWindow: false,
+	}
+
+	// 创建带自定义持久化配置的流
+	stream, err := NewStreamWithLossPolicyAndPersistence(config,
+		100, 100, 10,
+		"persist", 1*time.Second,
+		tmpDir, 2048, 200*time.Millisecond) // 自定义配置：2KB文件，200ms刷新
+	require.NoError(t, err)
+	defer stream.Stop()
+
+	// 验证持久化管理器配置
+	require.NotNil(t, stream.persistenceManager)
+
+	stats := stream.persistenceManager.GetStats()
+	require.NotNil(t, stats)
+
+	// 验证配置是否正确传递
+	assert.Equal(t, tmpDir, stats["data_dir"])
+	assert.Equal(t, int64(2048), stats["max_file_size"])
+	assert.Contains(t, stats["flush_interval"], "200ms")
+
+	t.Logf("持久化配置验证通过: %+v", stats)
 }

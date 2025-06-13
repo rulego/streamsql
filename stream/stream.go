@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rulego/streamsql/condition"
@@ -20,18 +21,34 @@ import (
 )
 
 type Stream struct {
-	dataChan    chan interface{}
-	filter      condition.Condition
-	Window      window.Window
-	aggregator  aggregator.Aggregator
-	config      types.Config
-	sinks       []func(interface{})
-	resultChan  chan interface{} // 结果通道
-	seenResults *sync.Map
-	done        chan struct{} // 用于关闭处理协程
+	dataChan       chan interface{}
+	filter         condition.Condition
+	Window         window.Window
+	aggregator     aggregator.Aggregator
+	config         types.Config
+	sinks          []func(interface{})
+	resultChan     chan interface{} // 结果通道
+	seenResults    *sync.Map
+	done           chan struct{} // 用于关闭处理协程
+	sinkWorkerPool chan func()   // Sink工作池，避免阻塞
+	// 性能监控指标
+	inputCount   int64 // 输入数据计数
+	outputCount  int64 // 输出结果计数
+	droppedCount int64 // 丢弃数据计数
+
+	// 数据丢失策略配置
+	allowDataDrop      bool                // 是否允许数据丢失
+	blockingTimeout    time.Duration       // 阻塞超时时间
+	overflowStrategy   string              // 溢出策略: "drop", "block", "expand", "persist"
+	persistenceManager *PersistenceManager // 持久化管理器
 }
 
 func NewStream(config types.Config) (*Stream, error) {
+	return NewStreamWithBuffers(config, 10000, 10000, 500)
+}
+
+// NewStreamWithBuffers 创建带自定义缓冲区大小的Stream
+func NewStreamWithBuffers(config types.Config, dataBufSize, resultBufSize, sinkPoolSize int) (*Stream, error) {
 	var win window.Window
 	var err error
 
@@ -43,14 +60,187 @@ func NewStream(config types.Config) (*Stream, error) {
 		}
 	}
 
-	return &Stream{
-		dataChan:    make(chan interface{}, 1000),
-		config:      config,
-		Window:      win,
-		resultChan:  make(chan interface{}, 10),
-		seenResults: &sync.Map{},
-		done:        make(chan struct{}),
-	}, nil
+	// 创建带自定义缓冲区的Stream
+	stream := &Stream{
+		dataChan:         make(chan interface{}, dataBufSize), // 可配置输入缓冲
+		config:           config,
+		Window:           win,
+		resultChan:       make(chan interface{}, resultBufSize), // 可配置结果缓冲
+		seenResults:      &sync.Map{},
+		done:             make(chan struct{}),
+		sinkWorkerPool:   make(chan func(), sinkPoolSize), // 可配置Sink工作池
+		allowDataDrop:    false,                           // 默认不允许数据丢失
+		blockingTimeout:  0,                               // 默认无超时
+		overflowStrategy: "expand",                        // 默认动态扩容策略
+	}
+
+	// 启动Sink工作池，异步处理sink调用
+	go stream.startSinkWorkerPool()
+
+	// 启动自动结果消费者，防止通道阻塞
+	go stream.startResultConsumer()
+
+	return stream, nil
+}
+
+// NewHighPerformanceStream 创建高性能配置的Stream，适用于极高负载场景
+func NewHighPerformanceStream(config types.Config) (*Stream, error) {
+	// 超大缓冲区配置：50K输入，50K结果，1K sink池
+	return NewStreamWithBuffers(config, 50000, 50000, 1000)
+}
+
+// NewStreamWithoutDataLoss 创建零数据丢失的流处理器
+func NewStreamWithoutDataLoss(config types.Config, strategy string) (*Stream, error) {
+	return NewStreamWithLossPolicy(config, 20000, 20000, 800, strategy, 30*time.Second)
+}
+
+// NewStreamWithLossPolicy 创建带数据丢失策略的流处理器
+func NewStreamWithLossPolicy(config types.Config, dataBufSize, resultBufSize, sinkPoolSize int,
+	overflowStrategy string, timeout time.Duration) (*Stream, error) {
+
+	// 验证策略
+	validStrategies := map[string]bool{
+		"drop":    true, // 丢弃数据（默认）
+		"block":   true, // 阻塞等待
+		"expand":  true, // 动态扩容
+		"persist": true, // 持久化到磁盘
+	}
+
+	if !validStrategies[overflowStrategy] {
+		return nil, fmt.Errorf("invalid overflow strategy: %s, valid options: drop, block, expand, persist", overflowStrategy)
+	}
+
+	// 创建基础窗口（如果需要）
+	var win window.Window
+	var err error
+	if config.NeedWindow {
+		win, err = window.CreateWindow(config.WindowConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	stream := &Stream{
+		dataChan:         make(chan interface{}, dataBufSize),
+		config:           config,
+		Window:           win,
+		resultChan:       make(chan interface{}, resultBufSize),
+		seenResults:      &sync.Map{},
+		done:             make(chan struct{}),
+		sinkWorkerPool:   make(chan func(), sinkPoolSize),
+		allowDataDrop:    overflowStrategy == "drop",
+		blockingTimeout:  timeout,
+		overflowStrategy: overflowStrategy,
+	}
+
+	// 如果是持久化策略，初始化持久化管理器
+	if overflowStrategy == "persist" {
+		dataDir := "./streamsql_overflow_data"
+		stream.persistenceManager = NewPersistenceManager(dataDir)
+		if err := stream.persistenceManager.Start(); err != nil {
+			return nil, fmt.Errorf("failed to start persistence manager: %w", err)
+		}
+	}
+
+	// 启动工作协程
+	go stream.startSinkWorkerPool()
+	go stream.startResultConsumer()
+
+	return stream, nil
+}
+
+// NewStreamWithLossPolicyAndPersistence 创建带数据丢失策略和持久化配置的流处理器
+func NewStreamWithLossPolicyAndPersistence(config types.Config, dataBufSize, resultBufSize, sinkPoolSize int,
+	overflowStrategy string, timeout time.Duration, persistDataDir string, persistMaxFileSize int64, persistFlushInterval time.Duration) (*Stream, error) {
+
+	// 验证策略
+	validStrategies := map[string]bool{
+		"drop":    true, // 丢弃数据（默认）
+		"block":   true, // 阻塞等待
+		"expand":  true, // 动态扩容
+		"persist": true, // 持久化到磁盘
+	}
+
+	if !validStrategies[overflowStrategy] {
+		return nil, fmt.Errorf("invalid overflow strategy: %s, valid options: drop, block, expand, persist", overflowStrategy)
+	}
+
+	// 创建基础窗口（如果需要）
+	var win window.Window
+	var err error
+	if config.NeedWindow {
+		win, err = window.CreateWindow(config.WindowConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	stream := &Stream{
+		dataChan:         make(chan interface{}, dataBufSize),
+		config:           config,
+		Window:           win,
+		resultChan:       make(chan interface{}, resultBufSize),
+		seenResults:      &sync.Map{},
+		done:             make(chan struct{}),
+		sinkWorkerPool:   make(chan func(), sinkPoolSize),
+		allowDataDrop:    overflowStrategy == "drop",
+		blockingTimeout:  timeout,
+		overflowStrategy: overflowStrategy,
+	}
+
+	// 如果是持久化策略，使用自定义配置初始化持久化管理器
+	if overflowStrategy == "persist" {
+		stream.persistenceManager = NewPersistenceManagerWithConfig(persistDataDir, persistMaxFileSize, persistFlushInterval)
+		if err := stream.persistenceManager.Start(); err != nil {
+			return nil, fmt.Errorf("failed to start persistence manager: %w", err)
+		}
+	}
+
+	// 启动工作协程
+	go stream.startSinkWorkerPool()
+	go stream.startResultConsumer()
+
+	return stream, nil
+}
+
+// startSinkWorkerPool 启动Sink工作池，避免阻塞主流程
+func (s *Stream) startSinkWorkerPool() {
+	// 创建更多worker并发处理sink任务，支持高并发
+	const numWorkers = 8 // 增加到8个worker
+	for i := 0; i < numWorkers; i++ {
+		go func(workerID int) {
+			for {
+				select {
+				case task := <-s.sinkWorkerPool:
+					// 执行sink任务
+					func() {
+						defer func() {
+							// 增强错误恢复，防止单个worker崩溃
+							if r := recover(); r != nil {
+								logger.Error("Sink worker %d panic recovered: %v", workerID, r)
+							}
+						}()
+						task()
+					}()
+				case <-s.done:
+					return
+				}
+			}
+		}(i)
+	}
+}
+
+// startResultConsumer 启动自动结果消费者，防止resultChan阻塞
+func (s *Stream) startResultConsumer() {
+	for {
+		select {
+		case <-s.resultChan:
+			// 自动消费结果，防止通道阻塞
+			// 这是一个保底机制，确保即使没有外部消费者，系统也不会阻塞
+		case <-s.done:
+			return
+		}
+	}
 }
 
 func (s *Stream) RegisterFilter(conditionStr string) error {
@@ -194,12 +384,13 @@ func (s *Stream) process() {
 						finalResults = finalResults[:s.config.Limit]
 					}
 
-					// 发送结果到结果通道和 Sink 函数
+					// 优化: 发送结果到结果通道和 Sink 函数
 					if len(finalResults) > 0 {
-						s.resultChan <- finalResults
-						for _, sink := range s.sinks {
-							sink(finalResults)
-						}
+						// 非阻塞发送到结果通道
+						s.sendResultNonBlocking(finalResults)
+
+						// 异步调用所有sinks
+						s.callSinksAsync(finalResults)
 					}
 					s.aggregator.Reset()
 				}
@@ -238,13 +429,16 @@ func (s *Stream) process() {
 	}
 }
 
-// processDirectData 直接处理非窗口数据
+// processDirectData 直接处理非窗口数据 (优化版本)
 func (s *Stream) processDirectData(data interface{}) {
+	// 增加输入计数
+	atomic.AddInt64(&s.inputCount, 1)
 
 	// 简化：直接将数据作为map处理
 	dataMap, ok := data.(map[string]interface{})
 	if !ok {
-		logger.Error("不支持的数据类型: %T", data)
+		logger.Error("Unsupported data type: %T", data)
+		atomic.AddInt64(&s.droppedCount, 1)
 		return
 	}
 
@@ -268,7 +462,7 @@ func (s *Stream) processDirectData(data interface{}) {
 				if funcResult, err := s.executeFunction(fieldName, dataMap); err == nil {
 					result[outputName] = funcResult
 				} else {
-					logger.Error("函数执行错误 %s: %v", fieldName, err)
+					logger.Error("Function execution error %s: %v", fieldName, err)
 					result[outputName] = nil
 				}
 			} else {
@@ -288,10 +482,78 @@ func (s *Stream) processDirectData(data interface{}) {
 	// 将结果包装为数组
 	results := []map[string]interface{}{result}
 
-	// 发送结果
-	s.resultChan <- results
+	// 优化: 非阻塞发送结果到resultChan
+	s.sendResultNonBlocking(results)
+
+	// 优化: 异步调用所有sinks，避免阻塞
+	s.callSinksAsync(results)
+}
+
+// sendResultNonBlocking 非阻塞方式发送结果到resultChan (智能背压控制)
+func (s *Stream) sendResultNonBlocking(results []map[string]interface{}) {
+	select {
+	case s.resultChan <- results:
+		// 成功发送到结果通道
+		atomic.AddInt64(&s.outputCount, 1)
+	default:
+		// 结果通道已满，使用智能背压控制策略
+		chanLen := len(s.resultChan)
+		chanCap := cap(s.resultChan)
+
+		// 如果通道使用率超过90%，进入背压模式
+		if float64(chanLen)/float64(chanCap) > 0.9 {
+			// 尝试清理一些旧数据，为新数据腾出空间
+			select {
+			case <-s.resultChan:
+				// 清理一个旧结果，然后尝试添加新结果
+				select {
+				case s.resultChan <- results:
+					atomic.AddInt64(&s.outputCount, 1)
+				default:
+					logger.Warn("Result channel is full, dropping result data")
+					atomic.AddInt64(&s.droppedCount, 1)
+				}
+			default:
+				logger.Warn("Result channel is full, dropping result data")
+				atomic.AddInt64(&s.droppedCount, 1)
+			}
+		} else {
+			logger.Warn("Result channel is full, dropping result data")
+			atomic.AddInt64(&s.droppedCount, 1)
+		}
+	}
+}
+
+// callSinksAsync 异步调用所有sink函数
+func (s *Stream) callSinksAsync(results []map[string]interface{}) {
+	if len(s.sinks) == 0 {
+		return
+	}
+
+	// 为每个sink创建异步任务
 	for _, sink := range s.sinks {
-		sink(results)
+		// 捕获sink变量，避免闭包问题
+		currentSink := sink
+
+		// 提交任务到工作池
+		task := func() {
+			defer func() {
+				// 恢复panic，防止单个sink错误影响整个系统
+				if r := recover(); r != nil {
+					logger.Error("Sink execution exception: %v", r)
+				}
+			}()
+			currentSink(results)
+		}
+
+		// 非阻塞提交任务
+		select {
+		case s.sinkWorkerPool <- task:
+			// 成功提交任务
+		default:
+			// 工作池已满，直接在当前goroutine执行（降级处理）
+			go task()
+		}
 	}
 }
 
@@ -456,7 +718,181 @@ func (s *Stream) smartSplitArgs(argsStr string) ([]string, error) {
 }
 
 func (s *Stream) AddData(data interface{}) {
-	s.dataChan <- data
+	atomic.AddInt64(&s.inputCount, 1)
+
+	// 根据溢出策略处理数据
+	switch s.overflowStrategy {
+	case "block":
+		// 阻塞模式：保证数据不丢失
+		s.addDataBlocking(data)
+	case "expand":
+		// 动态扩容模式：自动扩大缓冲区
+		s.addDataWithExpansion(data)
+	case "persist":
+		// 持久化模式：溢出数据写入磁盘
+		s.addDataWithPersistence(data)
+	default:
+		// 默认drop模式：原有逻辑
+		s.addDataWithDrop(data)
+	}
+}
+
+// addDataBlocking 阻塞模式添加数据，保证零数据丢失
+func (s *Stream) addDataBlocking(data interface{}) {
+	if s.blockingTimeout <= 0 {
+		// 无超时限制，永久阻塞直到成功
+		s.dataChan <- data
+		return
+	}
+
+	// 带超时的阻塞
+	timer := time.NewTimer(s.blockingTimeout)
+	defer timer.Stop()
+
+	select {
+	case s.dataChan <- data:
+		// 成功添加数据
+		return
+	case <-timer.C:
+		// 超时但不丢弃数据，记录错误但继续阻塞
+		logger.Error("Data addition timeout, but continue waiting to avoid data loss")
+		// 继续无限期阻塞
+		s.dataChan <- data
+	}
+}
+
+// addDataWithExpansion 动态扩容模式
+func (s *Stream) addDataWithExpansion(data interface{}) {
+	select {
+	case s.dataChan <- data:
+		// 成功添加数据
+		return
+	default:
+		// 通道满了，动态扩容
+		s.expandDataChannel()
+		// 扩容后重试
+		select {
+		case s.dataChan <- data:
+			logger.Info("Successfully added data after data channel expansion")
+			return
+		default:
+			// 如果扩容后仍然满，则阻塞等待
+			s.dataChan <- data
+		}
+	}
+}
+
+// addDataWithPersistence 持久化模式（完整实现）
+func (s *Stream) addDataWithPersistence(data interface{}) {
+	select {
+	case s.dataChan <- data:
+		// 成功添加数据
+		return
+	default:
+		// 通道满了，持久化到磁盘
+		if s.persistenceManager != nil {
+			if err := s.persistenceManager.PersistData(data); err != nil {
+				logger.Error("Failed to persist data: %v", err)
+				atomic.AddInt64(&s.droppedCount, 1)
+			} else {
+				logger.Debug("Data has been persisted to disk")
+			}
+		} else {
+			logger.Error("Persistence manager not initialized, data will be lost")
+			atomic.AddInt64(&s.droppedCount, 1)
+		}
+
+		// 启动异步重试
+		go s.persistAndRetryData(data)
+	}
+}
+
+// addDataWithDrop 原有的丢弃模式
+func (s *Stream) addDataWithDrop(data interface{}) {
+	// 优化: 智能非阻塞添加，分层背压控制
+	select {
+	case s.dataChan <- data:
+		// 成功添加数据
+		return
+	default:
+		// 数据通道已满，使用分层背压策略
+		chanLen := len(s.dataChan)
+		chanCap := cap(s.dataChan)
+		usage := float64(chanLen) / float64(chanCap)
+
+		// 根据通道使用率和缓冲区大小调整策略
+		var waitTime time.Duration
+		var maxRetries int
+
+		switch {
+		case chanCap >= 100000: // 超大缓冲区（基准测试模式）
+			switch {
+			case usage > 0.99:
+				waitTime = 1 * time.Millisecond // 更长等待
+				maxRetries = 3
+			case usage > 0.95:
+				waitTime = 500 * time.Microsecond
+				maxRetries = 2
+			case usage > 0.90:
+				waitTime = 100 * time.Microsecond
+				maxRetries = 1
+			default:
+				// 立即丢弃
+				logger.Warn("Data channel is full, dropping input data")
+				atomic.AddInt64(&s.droppedCount, 1)
+				return
+			}
+
+		case chanCap >= 50000: // 高性能模式
+			switch {
+			case usage > 0.99:
+				waitTime = 500 * time.Microsecond
+				maxRetries = 2
+			case usage > 0.95:
+				waitTime = 200 * time.Microsecond
+				maxRetries = 1
+			case usage > 0.90:
+				waitTime = 50 * time.Microsecond
+				maxRetries = 1
+			default:
+				logger.Warn("Data channel is full, dropping input data")
+				atomic.AddInt64(&s.droppedCount, 1)
+				return
+			}
+
+		default: // 默认模式
+			switch {
+			case usage > 0.99:
+				waitTime = 100 * time.Microsecond
+				maxRetries = 1
+			case usage > 0.95:
+				waitTime = 50 * time.Microsecond
+				maxRetries = 1
+			default:
+				logger.Warn("Data channel is full, dropping input data")
+				atomic.AddInt64(&s.droppedCount, 1)
+				return
+			}
+		}
+
+		// 多次重试添加数据
+		for retry := 0; retry < maxRetries; retry++ {
+			timer := time.NewTimer(waitTime)
+			select {
+			case s.dataChan <- data:
+				// 重试成功
+				timer.Stop()
+				return
+			case <-timer.C:
+				// 超时，继续下一次重试或者丢弃
+				if retry == maxRetries-1 {
+					// 最后一次重试失败，记录丢弃
+					logger.Warn("Data channel is full, dropping input data")
+					atomic.AddInt64(&s.droppedCount, 1)
+				}
+			}
+		}
+	}
 }
 
 func (s *Stream) AddSink(sink func(interface{})) {
@@ -474,4 +910,190 @@ func NewStreamProcessor() (*Stream, error) {
 // Stop 停止流处理
 func (s *Stream) Stop() {
 	close(s.done)
+
+	// 停止持久化管理器
+	if s.persistenceManager != nil {
+		if err := s.persistenceManager.Stop(); err != nil {
+			logger.Error("Failed to stop persistence manager: %v", err)
+		}
+	}
+}
+
+// GetStats 获取流处理统计信息
+func (s *Stream) GetStats() map[string]int64 {
+	return map[string]int64{
+		"input_count":     atomic.LoadInt64(&s.inputCount),
+		"output_count":    atomic.LoadInt64(&s.outputCount),
+		"dropped_count":   atomic.LoadInt64(&s.droppedCount),
+		"data_chan_len":   int64(len(s.dataChan)),
+		"data_chan_cap":   int64(cap(s.dataChan)),
+		"result_chan_len": int64(len(s.resultChan)),
+		"result_chan_cap": int64(cap(s.resultChan)),
+		"sink_pool_len":   int64(len(s.sinkWorkerPool)),
+		"sink_pool_cap":   int64(cap(s.sinkWorkerPool)),
+	}
+}
+
+// GetDetailedStats 获取详细的性能统计信息
+func (s *Stream) GetDetailedStats() map[string]interface{} {
+	stats := s.GetStats()
+
+	// 计算使用率
+	dataUsage := float64(stats["data_chan_len"]) / float64(stats["data_chan_cap"]) * 100
+	resultUsage := float64(stats["result_chan_len"]) / float64(stats["result_chan_cap"]) * 100
+	sinkUsage := float64(stats["sink_pool_len"]) / float64(stats["sink_pool_cap"]) * 100
+
+	// 计算效率指标
+	var processRate float64 = 100.0
+	var dropRate float64 = 0.0
+
+	if stats["input_count"] > 0 {
+		processRate = float64(stats["output_count"]) / float64(stats["input_count"]) * 100
+		dropRate = float64(stats["dropped_count"]) / float64(stats["input_count"]) * 100
+	}
+
+	return map[string]interface{}{
+		"basic_stats":       stats,
+		"data_chan_usage":   dataUsage,
+		"result_chan_usage": resultUsage,
+		"sink_pool_usage":   sinkUsage,
+		"process_rate":      processRate,
+		"drop_rate":         dropRate,
+		"performance_level": s.assessPerformanceLevel(dataUsage, dropRate),
+	}
+}
+
+// assessPerformanceLevel 评估当前性能水平
+func (s *Stream) assessPerformanceLevel(dataUsage, dropRate float64) string {
+	switch {
+	case dropRate > 50:
+		return "CRITICAL" // 严重性能问题
+	case dropRate > 20:
+		return "WARNING" // 性能警告
+	case dataUsage > 90:
+		return "HIGH_LOAD" // 高负载
+	case dataUsage > 70:
+		return "MODERATE_LOAD" // 中等负载
+	default:
+		return "OPTIMAL" // 最佳状态
+	}
+}
+
+// ResetStats 重置统计信息
+func (s *Stream) ResetStats() {
+	atomic.StoreInt64(&s.inputCount, 0)
+	atomic.StoreInt64(&s.outputCount, 0)
+	atomic.StoreInt64(&s.droppedCount, 0)
+}
+
+// expandDataChannel 动态扩容数据通道
+func (s *Stream) expandDataChannel() {
+	oldCap := cap(s.dataChan)
+	newCap := int(float64(oldCap) * 1.5) // 扩容50%
+	if newCap < oldCap+1000 {
+		newCap = oldCap + 1000 // 至少增加1000
+	}
+
+	logger.Info("Dynamic expansion of data channel: %d -> %d", oldCap, newCap)
+
+	// 创建新的更大的通道
+	newChan := make(chan interface{}, newCap)
+
+	// 安全地迁移数据：将旧通道中的数据快速迁移到新通道
+	// 注意：这里不能关闭旧通道，因为process协程可能还在读取
+	oldChan := s.dataChan
+
+	// 原子性地更新通道引用
+	s.dataChan = newChan
+
+	// 启动协程异步迁移旧数据
+	go func() {
+		for {
+			select {
+			case data := <-oldChan:
+				newChan <- data
+			default:
+				// 旧通道为空，迁移完成
+				return
+			}
+		}
+	}()
+}
+
+// persistAndRetryData 持久化数据并重试
+func (s *Stream) persistAndRetryData(data interface{}) {
+	// 简化实现：等待一段时间后重试
+	retryInterval := 100 * time.Millisecond
+	maxRetries := 50 // 最大重试50次，总共5秒
+
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(retryInterval)
+
+		select {
+		case s.dataChan <- data:
+			logger.Info("Persistence data retry successful: attempt %d", i+1)
+			return
+		default:
+			// 继续重试
+			if i == maxRetries-1 {
+				logger.Error("Persistence data retry failed, maximum retry attempts reached")
+				atomic.AddInt64(&s.droppedCount, 1)
+			}
+		}
+	}
+}
+
+// LoadAndReprocessPersistedData 加载并重新处理持久化数据
+func (s *Stream) LoadAndReprocessPersistedData() error {
+	if s.persistenceManager == nil {
+		return fmt.Errorf("persistence manager not initialized")
+	}
+
+	// 加载持久化数据
+	persistedData, err := s.persistenceManager.LoadPersistedData()
+	if err != nil {
+		return fmt.Errorf("failed to load persisted data: %w", err)
+	}
+
+	if len(persistedData) == 0 {
+		logger.Info("No persistent data to recover")
+		return nil
+	}
+
+	logger.Info("Start reprocessing %d persistent data records", len(persistedData))
+
+	// 重新处理每条数据
+	successCount := 0
+	for i, data := range persistedData {
+		select {
+		case s.dataChan <- data:
+			successCount++
+		default:
+			// 如果通道还是满的，等待一小段时间再试
+			time.Sleep(10 * time.Millisecond)
+			select {
+			case s.dataChan <- data:
+				successCount++
+			default:
+				logger.Warn("Failed to recover data record %d, channel still full", i+1)
+			}
+		}
+	}
+
+	logger.Info("Persistent data recovery completed: successful %d/%d records", successCount, len(persistedData))
+	return nil
+}
+
+// GetPersistenceStats 获取持久化统计信息
+func (s *Stream) GetPersistenceStats() map[string]interface{} {
+	if s.persistenceManager == nil {
+		return map[string]interface{}{
+			"enabled": false,
+			"message": "persistence not enabled",
+		}
+	}
+
+	stats := s.persistenceManager.GetStats()
+	stats["enabled"] = true
+	return stats
 }
