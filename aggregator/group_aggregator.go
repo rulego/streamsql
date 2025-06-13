@@ -42,18 +42,32 @@ type ExpressionEvaluator struct {
 func NewGroupAggregator(groupFields []string, fieldMap map[string]AggregateType, fieldAlias map[string]string) *GroupAggregator {
 	aggregators := make(map[string]AggregatorFunction)
 
-	// fieldMap的key是别名（输出字段名），value是聚合类型
-	// fieldAlias的key是别名（输出字段名），value是输入字段名
-	for alias, aggType := range fieldMap {
-		aggregators[alias] = CreateBuiltinAggregator(aggType)
+	// 重新组织 fieldMap 和 fieldAlias
+	// 测试中：fieldMap: {"temperature": Sum}, fieldAlias: {"temperature": "temperature_sum"}
+	// 这意味着：输入字段"temperature"，聚合类型Sum，输出别名"temperature_sum"
+
+	// 创建新的映射：输出字段名 -> 聚合类型
+	newFieldMap := make(map[string]AggregateType)
+	// 创建新的别名映射：输出字段名 -> 输入字段名
+	newFieldAlias := make(map[string]string)
+
+	for inputField, aggType := range fieldMap {
+		outputField := inputField // 默认输出字段名等于输入字段名
+		if alias, exists := fieldAlias[inputField]; exists {
+			outputField = alias // 如果有别名，使用别名作为输出字段名
+		}
+
+		newFieldMap[outputField] = aggType
+		newFieldAlias[outputField] = inputField
+		aggregators[outputField] = CreateBuiltinAggregator(aggType)
 	}
 
 	return &GroupAggregator{
-		fieldMap:    fieldMap, // 别名 -> 聚合类型
+		fieldMap:    newFieldMap, // 输出字段名 -> 聚合类型
 		groupFields: groupFields,
 		aggregators: aggregators,
 		groups:      make(map[string]map[string]AggregatorFunction),
-		fieldAlias:  fieldAlias, // 别名 -> 输入字段名
+		fieldAlias:  newFieldAlias, // 输出字段名 -> 输入字段名
 		expressions: make(map[string]*ExpressionEvaluator),
 	}
 }
