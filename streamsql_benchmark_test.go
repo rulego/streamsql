@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -264,13 +265,15 @@ func BenchmarkPureInputPerformance(b *testing.B) {
 	}
 
 	b.ResetTimer()
+	start := time.Now()
 
 	// 测量纯输入吞吐量
 	for i := 0; i < b.N; i++ {
 		ssql.AddData(data)
 	}
 
-	duration := b.Elapsed()
+	b.StopTimer()
+	duration := time.Since(start)
 	throughput := float64(b.N) / duration.Seconds()
 	b.ReportMetric(throughput, "pure_input_ops/sec")
 }
@@ -1391,15 +1394,15 @@ func BenchmarkOptimizedPerformance(b *testing.B) {
 		}
 
 		b.ResetTimer()
+		start := time.Now()
 
 		for i := 0; i < b.N; i++ {
 			ssql.AddData(data)
 		}
 
-		duration := b.Elapsed()
-		throughput := float64(b.N) / duration.Seconds()
-
 		b.StopTimer()
+		duration := time.Since(start)
+		throughput := float64(b.N) / duration.Seconds()
 
 		// 获取统计
 		detailedStats := ssql.Stream().GetDetailedStats()
@@ -1754,6 +1757,7 @@ func TestHighPerformanceCostAnalysis(t *testing.T) {
 	workload := 10000
 
 	var results []map[string]interface{}
+	var resultsMutex sync.Mutex
 
 	for _, config := range configs {
 		t.Run(config.name, func(t *testing.T) {
@@ -1827,7 +1831,9 @@ func TestHighPerformanceCostAnalysis(t *testing.T) {
 				"performance_level":  detailedStats["performance_level"],
 			}
 
+			resultsMutex.Lock()
 			results = append(results, result)
+			resultsMutex.Unlock()
 
 			// 详细报告
 			t.Logf("=== %s 详细分析 ===", config.name)
@@ -1940,6 +1946,7 @@ func TestLightweightVsDefaultPerformanceAnalysis(t *testing.T) {
 	t.Log("=== 轻量配置 vs 默认配置深度对比分析 ===")
 
 	var results []map[string]interface{}
+	var resultsMutex sync.Mutex
 
 	for _, config := range configs {
 		t.Run(config.name, func(t *testing.T) {
@@ -2031,7 +2038,9 @@ func TestLightweightVsDefaultPerformanceAnalysis(t *testing.T) {
 				"mem_efficiency":    memEfficiency,
 				"input_duration_ms": float64(inputDuration.Nanoseconds()) / 1e6,
 			}
+			resultsMutex.Lock()
 			results = append(results, result)
+			resultsMutex.Unlock()
 
 			// 详细报告
 			t.Logf("=== %s 分析报告 ===", config.name)
@@ -2460,16 +2469,16 @@ func BenchmarkPurePerformance(b *testing.B) {
 	}
 
 	b.ResetTimer()
+	start := time.Now()
 
 	// 纯输入性能测试
 	for i := 0; i < b.N; i++ {
 		ssql.AddData(data)
 	}
 
-	duration := b.Elapsed()
-	throughput := float64(b.N) / duration.Seconds()
-
 	b.StopTimer()
+	duration := time.Since(start)
+	throughput := float64(b.N) / duration.Seconds()
 	cancel()
 
 	b.ReportMetric(throughput, "pure_ops/sec")

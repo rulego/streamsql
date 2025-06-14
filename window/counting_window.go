@@ -77,12 +77,12 @@ func (cw *CountingWindow) Start() {
 				if shouldTrigger {
 					// 在持有锁的情况下立即处理
 					slot := cw.createSlot(cw.dataBuffer[:cw.threshold])
-					for i := range cw.dataBuffer[:cw.threshold] {
-						// 由于Row是值类型，这里需要通过指针来修改Slot字段
-						cw.dataBuffer[i].Slot = slot
-					}
 					data := make([]types.Row, cw.threshold)
 					copy(data, cw.dataBuffer[:cw.threshold])
+					// 设置Slot字段到复制的数据中，避免修改原始dataBuffer
+					for i := range data {
+						data[i].Slot = slot
+					}
 
 					if len(cw.dataBuffer) > cw.threshold {
 						remaining := len(cw.dataBuffer) - cw.threshold

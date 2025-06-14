@@ -27,6 +27,7 @@ CASE表达式测试状况说明:
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -225,7 +226,10 @@ func TestCaseExpressionInSQL(t *testing.T) {
 
 	// 添加数据并获取结果
 	var results []map[string]interface{}
+	var resultsMutex sync.Mutex
 	streamSQL.stream.AddSink(func(result interface{}) {
+		resultsMutex.Lock()
+		defer resultsMutex.Unlock()
 		if resultSlice, ok := result.([]map[string]interface{}); ok {
 			results = append(results, resultSlice...)
 		} else if resultMap, ok := result.(map[string]interface{}); ok {
@@ -241,7 +245,10 @@ func TestCaseExpressionInSQL(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// 验证结果
-	assert.GreaterOrEqual(t, len(results), 3, "应该有至少3条结果（排除temperature <= 15的记录）")
+	resultsMutex.Lock()
+	resultCount := len(results)
+	resultsMutex.Unlock()
+	assert.GreaterOrEqual(t, resultCount, 3, "应该有至少3条结果（排除temperature <= 15的记录）")
 }
 
 // TestCaseExpressionInAggregation 测试CASE表达式在聚合查询中的使用
@@ -273,7 +280,10 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 
 	// 添加数据并获取结果
 	var results []map[string]interface{}
+	var resultsMutex sync.Mutex
 	streamSQL.stream.AddSink(func(result interface{}) {
+		resultsMutex.Lock()
+		defer resultsMutex.Unlock()
 		if resultSlice, ok := result.([]map[string]interface{}); ok {
 			results = append(results, resultSlice...)
 		}
@@ -293,21 +303,28 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// 验证至少有结果返回
-	assert.Greater(t, len(results), 0, "应该有聚合结果返回")
+	resultsMutex.Lock()
+	resultCount := len(results)
+	var firstResult map[string]interface{}
+	if resultCount > 0 {
+		firstResult = results[0]
+	}
+	resultsMutex.Unlock()
+	
+	assert.Greater(t, resultCount, 0, "应该有聚合结果返回")
 
 	// 验证结果结构
-	if len(results) > 0 {
-		result := results[0]
-		t.Logf("聚合结果: %+v", result)
-		assert.Contains(t, result, "deviceId", "结果应该包含deviceId")
-		assert.Contains(t, result, "total_count", "结果应该包含total_count")
-		assert.Contains(t, result, "hot_count", "结果应该包含hot_count")
-		assert.Contains(t, result, "avg_active_temp", "结果应该包含avg_active_temp")
+	if resultCount > 0 {
+		t.Logf("聚合结果: %+v", firstResult)
+		assert.Contains(t, firstResult, "deviceId", "结果应该包含deviceId")
+		assert.Contains(t, firstResult, "total_count", "结果应该包含total_count")
+		assert.Contains(t, firstResult, "hot_count", "结果应该包含hot_count")
+		assert.Contains(t, firstResult, "avg_active_temp", "结果应该包含avg_active_temp")
 
 		// 验证hot_count的逻辑：temperature > 30的记录数
-		if deviceId := result["deviceId"]; deviceId == "device1" {
+		if deviceId := firstResult["deviceId"]; deviceId == "device1" {
 			// device1有两条温度>30的记录（35.0, 32.0）
-			hotCount := result["hot_count"]
+			hotCount := firstResult["hot_count"]
 			t.Logf("device1的hot_count: %v (类型: %T)", hotCount, hotCount)
 
 			// 检查CASE表达式是否在聚合中正常工作
@@ -405,9 +422,12 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 
 			// 添加数据并获取结果
 			var results []map[string]interface{}
+			var resultsMutex sync.Mutex
 			streamSQL.stream.AddSink(func(result interface{}) {
 				if resultSlice, ok := result.([]map[string]interface{}); ok {
+					resultsMutex.Lock()
 					results = append(results, resultSlice...)
+					resultsMutex.Unlock()
 				}
 			})
 
@@ -425,11 +445,18 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 			time.Sleep(100 * time.Millisecond)
 
 			// 验证至少有结果返回
-			if len(results) > 0 {
-				t.Logf("Test case '%s' results: %+v", tc.name, results[0])
+			resultsMutex.Lock()
+			hasResults := len(results) > 0
+			var firstResult map[string]interface{}
+			if hasResults {
+				firstResult = results[0]
+			}
+			resultsMutex.Unlock()
+			if hasResults {
+				t.Logf("Test case '%s' results: %+v", tc.name, firstResult)
 
 				// 检查CASE表达式在聚合中的实际支持情况
-				result := results[0]
+				result := firstResult
 				for key, value := range result {
 					if key != "deviceId" && (value == 0 || value == 0.0) {
 						t.Logf("注意: %s 返回0，CASE表达式在聚合中可能暂不完全支持", key)
@@ -853,9 +880,12 @@ func TestCaseExpressionAggregated(t *testing.T) {
 
 			// 添加数据并获取结果
 			var results []map[string]interface{}
+			var resultsMutex sync.Mutex
 			strm.AddSink(func(result interface{}) {
 				if resultSlice, ok := result.([]map[string]interface{}); ok {
+					resultsMutex.Lock()
 					results = append(results, resultSlice...)
+					resultsMutex.Unlock()
 				}
 			})
 
@@ -875,11 +905,18 @@ func TestCaseExpressionAggregated(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 
 			// 验证至少有结果返回
-			if len(results) > 0 {
-				assert.NotNil(t, results[0])
+			resultsMutex.Lock()
+			hasResults := len(results) > 0
+			var firstResult map[string]interface{}
+			if hasResults {
+				firstResult = results[0]
+			}
+			resultsMutex.Unlock()
+			if hasResults {
+				assert.NotNil(t, firstResult)
 
 				// 验证结果结构
-				result := results[0]
+				result := firstResult
 				assert.Contains(t, result, "deviceId", "Result should contain deviceId")
 
 				// 检查CASE表达式在聚合中的支持情况

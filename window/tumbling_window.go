@@ -115,6 +115,7 @@ func (tw *TumblingWindow) Start() {
 			select {
 			// 当定时器到期时，触发窗口。
 			case <-tw.timer.C:
+				// 在调用Trigger前不需要额外加锁，因为Trigger方法内部已经有锁保护
 				tw.Trigger()
 			// 当上下文被取消时，停止定时器并退出循环。
 			case <-tw.ctx.Done():
