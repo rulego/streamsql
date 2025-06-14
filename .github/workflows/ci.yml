@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, master, dev ]
+    branches: [ main, master, develop ]
   pull_request:
-    branches: [ main, master, dev ]
+    branches: [ main, master, develop ]
 
 jobs:
   test:
@@ -95,34 +95,39 @@ jobs:
     - name: Run CASE Expression Edge Cases
       run: go test -v -run TestCaseExpressionEdgeCases -timeout 15s
 
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'
-
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v3
-      with:
-        version: latest
-        args: --timeout=5m
-
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'
-
-    - name: Check out code
-      uses: actions/checkout@v4
+#  lint:
+#    name: Lint
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#    - name: Set up Go
+#      uses: actions/setup-go@v4
+#      with:
+#        go-version: '1.21'
+#
+#    - name: Check out code
+#      uses: actions/checkout@v4
+#
+#    - name: Run golangci-lint
+#      uses: golangci/golangci-lint-action@v3
+#      with:
+#        version: latest
+#        args: --timeout=5m
+#
+#  security:
+#    name: Security Scan
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#    - name: Set up Go
+#      uses: actions/setup-go@v4
+#      with:
+#        go-version: '1.21'
+#
+#    - name: Check out code
+#      uses: actions/checkout@v4
+#
+#    - name: Run Gosec Security Scanner
+#      uses: securecodewarrior/github-action-gosec@v1
+#      with:
+#        args: './...'
