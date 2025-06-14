@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -1756,6 +1757,7 @@ func TestHighPerformanceCostAnalysis(t *testing.T) {
 	workload := 10000
 
 	var results []map[string]interface{}
+	var resultsMutex sync.Mutex
 
 	for _, config := range configs {
 		t.Run(config.name, func(t *testing.T) {
@@ -1829,7 +1831,9 @@ func TestHighPerformanceCostAnalysis(t *testing.T) {
 				"performance_level":  detailedStats["performance_level"],
 			}
 
+			resultsMutex.Lock()
 			results = append(results, result)
+			resultsMutex.Unlock()
 
 			// 详细报告
 			t.Logf("=== %s 详细分析 ===", config.name)
@@ -1942,6 +1946,7 @@ func TestLightweightVsDefaultPerformanceAnalysis(t *testing.T) {
 	t.Log("=== 轻量配置 vs 默认配置深度对比分析 ===")
 
 	var results []map[string]interface{}
+	var resultsMutex sync.Mutex
 
 	for _, config := range configs {
 		t.Run(config.name, func(t *testing.T) {
@@ -2033,7 +2038,9 @@ func TestLightweightVsDefaultPerformanceAnalysis(t *testing.T) {
 				"mem_efficiency":    memEfficiency,
 				"input_duration_ms": float64(inputDuration.Nanoseconds()) / 1e6,
 			}
+			resultsMutex.Lock()
 			results = append(results, result)
+			resultsMutex.Unlock()
 
 			// 详细报告
 			t.Logf("=== %s 分析报告 ===", config.name)

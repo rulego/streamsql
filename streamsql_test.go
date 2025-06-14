@@ -594,6 +594,7 @@ func TestSessionWindow(t *testing.T) {
 
 	// 收集结果
 	var results []interface{}
+	var resultsMutex sync.Mutex
 
 	// 等待接收结果
 	timeout := time.After(5 * time.Second)
@@ -602,9 +603,12 @@ func TestSessionWindow(t *testing.T) {
 	for !done {
 		select {
 		case result := <-resultChan:
+			resultsMutex.Lock()
 			results = append(results, result)
+			resultCount := len(results)
+			resultsMutex.Unlock()
 			// 我们期望至少 3 个会话结果
-			if len(results) >= 3 {
+			if resultCount >= 3 {
 				done = true
 			}
 		case <-timeout:
@@ -614,13 +618,19 @@ func TestSessionWindow(t *testing.T) {
 	}
 
 	// 验证结果
-	assert.GreaterOrEqual(t, len(results), 2, "应该至少收到两个会话的结果")
+	resultsMutex.Lock()
+	resultCount := len(results)
+	resultsCopy := make([]interface{}, len(results))
+	copy(resultsCopy, results)
+	resultsMutex.Unlock()
+	
+	assert.GreaterOrEqual(t, resultCount, 2, "应该至少收到两个会话的结果")
 
 	// 检查结果中是否包含两个设备的会话
 	hasDevice1 := false
 	hasDevice2 := false
 
-	for _, result := range results {
+	for _, result := range resultsCopy {
 		resultSlice, ok := result.([]map[string]interface{})
 		assert.True(t, ok, "结果应该是[]map[string]interface{}类型")
 
@@ -2070,22 +2080,39 @@ func TestExprFunctions(t *testing.T) {
 
 	// 等待结果
 	var results []interface{}
+	var resultsMutex sync.Mutex
 	timeout := time.After(2 * time.Second)
 	done := false
 
-	for !done && len(results) < 2 {
+	for !done {
+		resultsMutex.Lock()
+		resultCount := len(results)
+		resultsMutex.Unlock()
+		
+		if resultCount >= 2 {
+			break
+		}
+		
 		select {
 		case result := <-resultChan:
+			resultsMutex.Lock()
 			results = append(results, result)
+			resultsMutex.Unlock()
 		case <-timeout:
 			done = true
 		}
 	}
 
 	// 验证结果
-	assert.Greater(t, len(results), 0, "应该收到至少一条结果")
+	resultsMutex.Lock()
+	finalResultCount := len(results)
+	resultsCopy := make([]interface{}, len(results))
+	copy(resultsCopy, results)
+	resultsMutex.Unlock()
+	
+	assert.Greater(t, finalResultCount, 0, "应该收到至少一条结果")
 
-	for _, result := range results {
+	for _, result := range resultsCopy {
 		resultSlice, ok := result.([]map[string]interface{})
 		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
 
@@ -2215,23 +2242,40 @@ func TestNestedExprFunctions(t *testing.T) {
 
 	// 等待结果
 	var results []interface{}
+	var resultsMutex sync.Mutex
 	timeout := time.After(2 * time.Second)
 	done := false
 
-	for !done && len(results) < 3 {
+	for !done {
+		resultsMutex.Lock()
+		resultCount := len(results)
+		resultsMutex.Unlock()
+		
+		if resultCount >= 3 {
+			break
+		}
+		
 		select {
 		case result := <-resultChan:
+			resultsMutex.Lock()
 			results = append(results, result)
+			resultsMutex.Unlock()
 		case <-timeout:
 			done = true
 		}
 	}
 
 	// 验证结果
-	assert.Greater(t, len(results), 0, "应该收到至少一条结果")
+	resultsMutex.Lock()
+	finalResultCount := len(results)
+	resultsCopy := make([]interface{}, len(results))
+	copy(resultsCopy, results)
+	resultsMutex.Unlock()
+	
+	assert.Greater(t, finalResultCount, 0, "应该收到至少一条结果")
 
 	deviceResults := make(map[string]float64)
-	for _, result := range results {
+	for _, result := range resultsCopy {
 		resultSlice, ok := result.([]map[string]interface{})
 		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
 
@@ -2288,22 +2332,39 @@ func TestExprFunctionsWithStreamSQLFunctions(t *testing.T) {
 
 	// 等待结果
 	var results []interface{}
+	var resultsMutex sync.Mutex
 	timeout := time.After(2 * time.Second)
 	done := false
 
-	for !done && len(results) < 2 {
+	for !done {
+		resultsMutex.Lock()
+		resultCount := len(results)
+		resultsMutex.Unlock()
+		
+		if resultCount >= 2 {
+			break
+		}
+		
 		select {
 		case result := <-resultChan:
+			resultsMutex.Lock()
 			results = append(results, result)
+			resultsMutex.Unlock()
 		case <-timeout:
 			done = true
 		}
 	}
 
 	// 验证结果
-	assert.Greater(t, len(results), 0, "应该收到至少一条结果")
+	resultsMutex.Lock()
+	finalResultCount := len(results)
+	resultsCopy := make([]interface{}, len(results))
+	copy(resultsCopy, results)
+	resultsMutex.Unlock()
+	
+	assert.Greater(t, finalResultCount, 0, "应该收到至少一条结果")
 
-	for _, result := range results {
+	for _, result := range resultsCopy {
 		resultSlice, ok := result.([]map[string]interface{})
 		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
 
