@@ -264,13 +264,15 @@ func BenchmarkPureInputPerformance(b *testing.B) {
 	}
 
 	b.ResetTimer()
+	start := time.Now()
 
 	// 测量纯输入吞吐量
 	for i := 0; i < b.N; i++ {
 		ssql.AddData(data)
 	}
 
-	duration := b.Elapsed()
+	b.StopTimer()
+	duration := time.Since(start)
 	throughput := float64(b.N) / duration.Seconds()
 	b.ReportMetric(throughput, "pure_input_ops/sec")
 }
@@ -1391,15 +1393,15 @@ func BenchmarkOptimizedPerformance(b *testing.B) {
 		}
 
 		b.ResetTimer()
+		start := time.Now()
 
 		for i := 0; i < b.N; i++ {
 			ssql.AddData(data)
 		}
 
-		duration := b.Elapsed()
-		throughput := float64(b.N) / duration.Seconds()
-
 		b.StopTimer()
+		duration := time.Since(start)
+		throughput := float64(b.N) / duration.Seconds()
 
 		// 获取统计
 		detailedStats := ssql.Stream().GetDetailedStats()
@@ -2460,16 +2462,16 @@ func BenchmarkPurePerformance(b *testing.B) {
 	}
 
 	b.ResetTimer()
+	start := time.Now()
 
 	// 纯输入性能测试
 	for i := 0; i < b.N; i++ {
 		ssql.AddData(data)
 	}
 
-	duration := b.Elapsed()
-	throughput := float64(b.N) / duration.Seconds()
-
 	b.StopTimer()
+	duration := time.Since(start)
+	throughput := float64(b.N) / duration.Seconds()
 	cancel()
 
 	b.ReportMetric(throughput, "pure_ops/sec")

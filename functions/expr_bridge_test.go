@@ -117,9 +117,9 @@ func TestGetAllAvailableFunctions(t *testing.T) {
 	// 验证函数数量合理
 	streamSQLFuncs := info["streamsql"].(map[string]interface{})
 	t.Logf("StreamSQL functions count: %d", len(streamSQLFuncs))
-	for name := range streamSQLFuncs {
-		t.Logf("StreamSQL function: %s", name)
-	}
+	// for name := range streamSQLFuncs {
+	// 	t.Logf("StreamSQL function: %s", name)
+	// }
 	assert.GreaterOrEqual(t, len(streamSQLFuncs), 1) // 至少应该有一个函数
 
 	exprLangFuncs := info["expr-lang"].(map[string]interface{})
