@@ -149,6 +149,21 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 	return stmt, nil
 }
 
+// isKeyword 检查给定的字符串是否是SQL关键字
+func isKeyword(word string) bool {
+	keywords := map[string]bool{
+		"SELECT": true, "FROM": true, "WHERE": true, "GROUP": true, "BY": true,
+		"ORDER": true, "HAVING": true, "LIMIT": true, "WITH": true, "AS": true,
+		"CASE": true, "WHEN": true, "THEN": true, "ELSE": true, "END": true,
+		"AND": true, "OR": true, "NOT": true, "IN": true, "IS": true, "NULL": true,
+		"DISTINCT": true, "COUNT": true, "SUM": true, "AVG": true, "MIN": true, "MAX": true,
+		"INNER": true, "LEFT": true, "RIGHT": true, "FULL": true, "OUTER": true, "JOIN": true,
+		"ON": true, "UNION": true, "ALL": true, "EXCEPT": true, "INTERSECT": true,
+		"EXISTS": true, "BETWEEN": true, "LIKE": true, "ASC": true, "DESC": true,
+	}
+	return keywords[word]
+}
+
 // createDetailedError 创建详细的错误信息
 func (p *Parser) createDetailedError(err error) error {
 	if parseErr, ok := err.(*ParseError); ok {
@@ -235,8 +250,55 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 			}
 
 			// 如果不是第一个token，添加空格分隔符
+			// 但要注意特殊情况：某些token之间不应该加空格
 			if expr.Len() > 0 {
-				expr.WriteString(" ")
+				shouldAddSpace := true
+
+				// 获取前一个token的信息
+				exprStr := expr.String()
+				lastChar := exprStr[len(exprStr)-1:]
+
+				// 以下情况不添加空格：
+				// 1. 函数名和左括号之间
+				// 2. 标识符和数字之间（如 x1, y1）
+				// 3. 数字和标识符之间
+				// 4. 左括号之后
+				// 5. 右括号之前
+				if currentToken.Type == TokenLParen && lastChar != " " && lastChar != "(" {
+					// 函数名和左括号之间不加空格
+					shouldAddSpace = false
+				} else if lastChar == "(" || currentToken.Type == TokenRParen {
+					// 左括号之后或右括号之前不加空格
+					shouldAddSpace = false
+				} else if len(exprStr) > 0 && currentToken.Type == TokenNumber {
+					// 检查前一个字符是否是字母（标识符的一部分），且前面没有空格
+					// 这主要处理 x1, y1 这类标识符，但排除 THEN 1, ELSE 0 这类情况
+					if ((lastChar[0] >= 'a' && lastChar[0] <= 'z') || (lastChar[0] >= 'A' && lastChar[0] <= 'Z') || lastChar[0] == '_') &&
+						!strings.HasSuffix(exprStr, " ") {
+						// 进一步检查：如果前面是SQL关键字，则应该加空格
+						words := strings.Fields(exprStr)
+						if len(words) > 0 {
+							lastWord := strings.ToUpper(words[len(words)-1])
+							// 如果是关键字，应该加空格
+							if isKeyword(lastWord) {
+								shouldAddSpace = true
+							} else {
+								shouldAddSpace = false
+							}
+						} else {
+							shouldAddSpace = false
+						}
+					}
+				} else if len(exprStr) > 0 && currentToken.Type == TokenIdent {
+					// 检查前一个字符是否是数字，且前面没有空格
+					if (lastChar[0] >= '0' && lastChar[0] <= '9') && !strings.HasSuffix(exprStr, " ") {
+						shouldAddSpace = false
+					}
+				}
+
+				if shouldAddSpace {
+					expr.WriteString(" ")
+				}
 			}
 			expr.WriteString(currentToken.Value)
 			currentToken = p.lexer.NextToken()

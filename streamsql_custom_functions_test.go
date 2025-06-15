@@ -3,11 +3,12 @@ package streamsql
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/rulego/streamsql/utils/cast"
 	"math"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/rulego/streamsql/utils/cast"
 
 	"github.com/rulego/streamsql/aggregator"
 	"github.com/rulego/streamsql/expr"
@@ -43,9 +44,7 @@ func TestCustomMathFunctions(t *testing.T) {
 		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
 			x1 := cast.ToFloat64(args[0])
 			y1 := cast.ToFloat64(args[1])
-
 			x2 := cast.ToFloat64(args[2])
-
 			y2 := cast.ToFloat64(args[3])
 
 			distance := math.Sqrt(math.Pow(x2-x1, 2) + math.Pow(y2-y1, 2))

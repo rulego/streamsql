@@ -191,21 +191,24 @@ func buildSelectFields(fields []Field) (aggMap map[string]aggregator.AggregateTy
 	for _, f := range fields {
 		if alias := f.Alias; alias != "" {
 			t, n, expression, allFields := ParseAggregateTypeWithExpression(f.Expression)
-			if n != "" {
-				selectFields[n] = t
-				fieldMap[n] = alias
+			if t != "" {
+				// 使用别名作为聚合器的key，而不是字段名
+				selectFields[alias] = t
+				if n != "" {
+					fieldMap[n] = alias
+				} else {
+					// 当没有特定字段名时，使用表达式或别名
+					fieldMap[alias] = alias
+				}
 
 				// 如果存在表达式，保存表达式信息
 				if expression != "" {
-					fieldExpressions[n] = types.FieldExpression{
+					fieldExpressions[alias] = types.FieldExpression{
 						Field:      n,
 						Expression: expression,
 						Fields:     allFields,
 					}
 				}
-			} else if t != "" {
-				// 只有在聚合类型非空时才添加
-				selectFields[alias] = t
 			}
 			// 如果聚合类型和字段名都为空，不做处理，避免空聚合器类型
 		}
@@ -617,7 +620,7 @@ func buildSelectFieldsWithExpressions(fields []Field) (
 				// 使用别名作为键，这样每个聚合函数都有唯一的键
 				selectFields[alias] = t
 
-				// 字段映射：别名 -> 输入字段名
+				// 字段映射：输出字段名 -> 输入字段名（直接为聚合器准备正确的映射）
 				if n != "" {
 					fieldMap[alias] = n
 				} else {
