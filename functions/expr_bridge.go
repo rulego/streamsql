@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
@@ -15,6 +16,7 @@ type ExprBridge struct {
 	streamSQLFunctions map[string]Function
 	exprProgram        *vm.Program
 	exprEnv            map[string]interface{}
+	mutex              sync.RWMutex // 添加读写锁保护并发访问
 }
 
 // NewExprBridge 创建新的表达式桥接器
@@ -27,6 +29,9 @@ func NewExprBridge() *ExprBridge {
 
 // RegisterStreamSQLFunctionsToExpr 将StreamSQL函数注册到expr环境中
 func (bridge *ExprBridge) RegisterStreamSQLFunctionsToExpr() []expr.Option {
+	bridge.mutex.Lock()
+	defer bridge.mutex.Unlock()
+
 	options := make([]expr.Option, 0)
 
 	// 将所有StreamSQL函数注册到expr环境
@@ -58,6 +63,9 @@ func (bridge *ExprBridge) RegisterStreamSQLFunctionsToExpr() []expr.Option {
 
 // CreateEnhancedExprEnvironment 创建增强的expr执行环境
 func (bridge *ExprBridge) CreateEnhancedExprEnvironment(data map[string]interface{}) map[string]interface{} {
+	bridge.mutex.RLock()
+	defer bridge.mutex.RUnlock()
+
 	// 合并数据和函数环境
 	env := make(map[string]interface{})
 
@@ -323,6 +331,9 @@ func (bridge *ExprBridge) toFloat64(val interface{}) (float64, error) {
 
 // GetFunctionInfo 获取函数信息，统一两个系统的函数
 func (bridge *ExprBridge) GetFunctionInfo() map[string]interface{} {
+	bridge.mutex.RLock()
+	defer bridge.mutex.RUnlock()
+
 	info := make(map[string]interface{})
 
 	// StreamSQL函数信息
@@ -394,6 +405,9 @@ func (bridge *ExprBridge) GetFunctionInfo() map[string]interface{} {
 
 // ResolveFunction 解析函数调用，优先使用StreamSQL函数
 func (bridge *ExprBridge) ResolveFunction(name string) (interface{}, bool, string) {
+	bridge.mutex.RLock()
+	defer bridge.mutex.RUnlock()
+
 	// 进行大小写不敏感的查找
 	lowerName := strings.ToLower(name)
 
@@ -445,9 +459,23 @@ func (bridge *ExprBridge) IsExprLangFunction(name string) bool {
 
 // 全局桥接器实例
 var globalBridge *ExprBridge
+var globalBridgeMutex sync.RWMutex
 
 // GetExprBridge 获取全局桥接器实例
 func GetExprBridge() *ExprBridge {
+	// 首先使用读锁检查是否已初始化
+	globalBridgeMutex.RLock()
+	if globalBridge != nil {
+		defer globalBridgeMutex.RUnlock()
+		return globalBridge
+	}
+	globalBridgeMutex.RUnlock()
+
+	// 使用写锁进行初始化
+	globalBridgeMutex.Lock()
+	defer globalBridgeMutex.Unlock()
+
+	// 双重检查模式，防止并发初始化
 	if globalBridge == nil {
 		globalBridge = NewExprBridge()
 	}
