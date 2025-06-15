@@ -962,7 +962,9 @@ func TestStreamOptimizationsImproved(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			t.Run(tc.name, func(t *testing.T) {
+			// 创建测试用例的副本，避免闭包问题
+			testCase := tc
+			t.Run(testCase.name, func(t *testing.T) {
 				ssql := New()
 				defer ssql.Stop()
 
@@ -972,10 +974,11 @@ func TestStreamOptimizationsImproved(t *testing.T) {
 					t.Fatalf("SQL执行失败: %v", err)
 				}
 
+				// 为每个测试用例创建独立的计数器
 				var sinkCount int64
 				ssql.Stream().AddSink(func(result interface{}) {
 					atomic.AddInt64(&sinkCount, 1)
-					time.Sleep(tc.sinkDelay)
+					time.Sleep(testCase.sinkDelay)
 				})
 
 				ssql.Stream().ResetStats()
@@ -983,7 +986,7 @@ func TestStreamOptimizationsImproved(t *testing.T) {
 				testData := generateTestData(5)
 				start := time.Now()
 
-				for i := 0; i < tc.inputCount; i++ {
+				for i := 0; i < testCase.inputCount; i++ {
 					ssql.AddData(testData[i%len(testData)])
 				}
 
@@ -993,7 +996,7 @@ func TestStreamOptimizationsImproved(t *testing.T) {
 				stats := ssql.Stream().GetStats()
 				sinks := atomic.LoadInt64(&sinkCount)
 
-				throughput := float64(tc.inputCount) / inputDuration.Seconds()
+				throughput := float64(testCase.inputCount) / inputDuration.Seconds()
 
 				inputTotal := stats["input_count"]
 				outputTotal := stats["output_count"]
@@ -1005,7 +1008,7 @@ func TestStreamOptimizationsImproved(t *testing.T) {
 					dropRate = float64(droppedTotal) / float64(inputTotal) * 100
 				}
 
-				t.Logf("%s结果:", tc.name)
+				t.Logf("%s结果:", testCase.name)
 				t.Logf("  输入速率: %.2f ops/sec", throughput)
 				t.Logf("  处理效率: %.2f%%", processRate)
 				t.Logf("  丢弃率: %.2f%%", dropRate)
@@ -1013,12 +1016,12 @@ func TestStreamOptimizationsImproved(t *testing.T) {
 				t.Logf("  统计: %+v", stats)
 
 				// 验证性能标准
-				if dropRate > tc.maxDropRate {
-					t.Errorf("%s: 丢弃率过高 %.2f%% > %.2f%%", tc.name, dropRate, tc.maxDropRate)
+				if dropRate > testCase.maxDropRate {
+					t.Errorf("%s: 丢弃率过高 %.2f%% > %.2f%%", testCase.name, dropRate, testCase.maxDropRate)
 				}
 
 				if throughput < 1000 {
-					t.Errorf("%s: 吞吐量过低 %.2f ops/sec", tc.name, throughput)
+					t.Errorf("%s: 吞吐量过低 %.2f ops/sec", testCase.name, throughput)
 				}
 			})
 		}
