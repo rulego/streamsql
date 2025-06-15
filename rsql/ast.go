@@ -186,31 +186,29 @@ func extractGroupFields(s *SelectStatement) []string {
 func buildSelectFields(fields []Field) (aggMap map[string]aggregator.AggregateType, fieldMap map[string]string) {
 	selectFields := make(map[string]aggregator.AggregateType)
 	fieldMap = make(map[string]string)
-	fieldExpressions := make(map[string]types.FieldExpression)
 
 	for _, f := range fields {
 		if alias := f.Alias; alias != "" {
-			t, n, expression, allFields := ParseAggregateTypeWithExpression(f.Expression)
+			t, n, _, _ := ParseAggregateTypeWithExpression(f.Expression)
 			if t != "" {
 				// 使用别名作为聚合器的key，而不是字段名
 				selectFields[alias] = t
+
+				// 字段映射：输出字段名(别名) -> 输入字段名（保持与buildSelectFieldsWithExpressions一致）
 				if n != "" {
-					fieldMap[n] = alias
+					fieldMap[alias] = n
 				} else {
-					// 当没有特定字段名时，使用表达式或别名
+					// 如果没有提取到字段名，使用别名本身
 					fieldMap[alias] = alias
 				}
-
-				// 如果存在表达式，保存表达式信息
-				if expression != "" {
-					fieldExpressions[alias] = types.FieldExpression{
-						Field:      n,
-						Expression: expression,
-						Fields:     allFields,
-					}
-				}
 			}
-			// 如果聚合类型和字段名都为空，不做处理，避免空聚合器类型
+		} else {
+			// 没有别名的情况，使用表达式本身作为字段名
+			t, n, _, _ := ParseAggregateTypeWithExpression(f.Expression)
+			if t != "" && n != "" {
+				selectFields[n] = t
+				fieldMap[n] = n
+			}
 		}
 	}
 	return selectFields, fieldMap
