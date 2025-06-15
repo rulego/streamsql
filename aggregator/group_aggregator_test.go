@@ -15,13 +15,17 @@ type testData struct {
 func TestGroupAggregator_MultiFieldSum(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"Device"},
-		map[string]AggregateType{
-			"temperature": Sum,
-			"humidity":    Sum,
-		},
-		map[string]string{
-			"temperature": "temperature_sum",
-			"humidity":    "humidity_sum",
+		[]AggregationField{
+			{
+				InputField:    "temperature",
+				AggregateType: Sum,
+				OutputAlias:   "temperature_sum",
+			},
+			{
+				InputField:    "humidity",
+				AggregateType: Sum,
+				OutputAlias:   "humidity_sum",
+			},
 		},
 	)
 
@@ -48,11 +52,12 @@ func TestGroupAggregator_MultiFieldSum(t *testing.T) {
 func TestGroupAggregator_SingleField(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"Device"},
-		map[string]AggregateType{
-			"temperature": Sum,
-		},
-		map[string]string{
-			"temperature": "temperature_sum",
+		[]AggregationField{
+			{
+				InputField:    "temperature",
+				AggregateType: Sum,
+				OutputAlias:   "temperature_sum",
+			},
 		},
 	)
 
@@ -76,17 +81,27 @@ func TestGroupAggregator_SingleField(t *testing.T) {
 func TestGroupAggregator_MultipleAggregators(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"Device"},
-		map[string]AggregateType{
-			"temperature": Sum,
-			"humidity":    Avg,
-			"presure":     Max,
-			"PM10":        Min,
-		},
-		map[string]string{
-			"temperature": "temperature_sum",
-			"humidity":    "humidity_avg",
-			"presure":     "presure_max",
-			"PM10":        "PM10_min",
+		[]AggregationField{
+			{
+				InputField:    "temperature",
+				AggregateType: Sum,
+				OutputAlias:   "temperature_sum",
+			},
+			{
+				InputField:    "humidity",
+				AggregateType: Avg,
+				OutputAlias:   "humidity_avg",
+			},
+			{
+				InputField:    "presure",
+				AggregateType: Max,
+				OutputAlias:   "presure_max",
+			},
+			{
+				InputField:    "PM10",
+				AggregateType: Min,
+				OutputAlias:   "PM10_min",
+			},
 		},
 	)
 
@@ -107,6 +122,36 @@ func TestGroupAggregator_MultipleAggregators(t *testing.T) {
 			"presure_max":     1012.0,
 			"PM10_min":        28.0,
 		},
+	}
+
+	results, _ := agg.GetResults()
+	assert.ElementsMatch(t, expected, results)
+}
+
+func TestGroupAggregator_NoAlias(t *testing.T) {
+	// 测试没有指定别名的情况，应该使用输入字段名作为输出字段名
+	agg := NewGroupAggregator(
+		[]string{"Device"},
+		[]AggregationField{
+			{
+				InputField:    "temperature",
+				AggregateType: Sum,
+				// OutputAlias 留空，应该使用 InputField
+			},
+		},
+	)
+
+	testData := []map[string]interface{}{
+		{"Device": "dd", "temperature": 10.0},
+		{"Device": "dd", "temperature": 15.0},
+	}
+
+	for _, d := range testData {
+		agg.Add(d)
+	}
+
+	expected := []map[string]interface{}{
+		{"Device": "dd", "temperature": 25.0},
 	}
 
 	results, _ := agg.GetResults()

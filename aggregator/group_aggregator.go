@@ -19,14 +19,20 @@ type Aggregator interface {
 	RegisterExpression(field, expression string, fields []string, evaluator func(data interface{}) (interface{}, error))
 }
 
+// AggregationField 定义单个聚合字段的配置
+type AggregationField struct {
+	InputField    string        // 输入字段名（如 "temperature"）
+	AggregateType AggregateType // 聚合类型（如 Sum, Avg）
+	OutputAlias   string        // 输出别名（如 "temp_sum"）
+}
+
 type GroupAggregator struct {
-	fieldMap    map[string]AggregateType
-	groupFields []string
-	aggregators map[string]AggregatorFunction
-	groups      map[string]map[string]AggregatorFunction
-	mu          sync.RWMutex
-	context     map[string]interface{}
-	fieldAlias  map[string]string
+	aggregationFields []AggregationField
+	groupFields       []string
+	aggregators       map[string]AggregatorFunction
+	groups            map[string]map[string]AggregatorFunction
+	mu                sync.RWMutex
+	context           map[string]interface{}
 	// 表达式计算器
 	expressions map[string]*ExpressionEvaluator
 }
@@ -39,69 +45,25 @@ type ExpressionEvaluator struct {
 	evaluateFunc func(data interface{}) (interface{}, error)
 }
 
-func NewGroupAggregator(groupFields []string, fieldMap map[string]AggregateType, fieldAlias map[string]string) *GroupAggregator {
-
+// NewGroupAggregator 创建新的分组聚合器
+func NewGroupAggregator(groupFields []string, aggregationFields []AggregationField) *GroupAggregator {
 	aggregators := make(map[string]AggregatorFunction)
 
-	// 处理两种可能的调用模式：
-	// 1. SQL解析模式：fieldMap是输出字段名->聚合类型，fieldAlias是输出字段名->输入字段名
-	// 2. 直接测试模式：fieldMap是输入字段名->聚合类型，fieldAlias是输入字段名->输出字段名
-
-	// 创建最终的映射
-	finalFieldMap := make(map[string]AggregateType)
-	finalFieldAlias := make(map[string]string)
-
-	// 简化的检测逻辑：
-	// 在直接测试模式中，fieldAlias 的值通常包含 "_sum", "_avg" 等后缀
-	// 在SQL解析模式中，fieldAlias 的值是实际的数据字段名（如 "temperature"）
-
-	isSQLMode := false
-	if len(fieldAlias) > 0 {
-		// 检查是否有任何 fieldAlias 的值看起来像 SQL 解析模式（不包含聚合后缀）
-		for _, aliasValue := range fieldAlias {
-			// 如果值不包含典型的聚合后缀，可能是SQL模式
-			if !strings.Contains(aliasValue, "_sum") &&
-				!strings.Contains(aliasValue, "_avg") &&
-				!strings.Contains(aliasValue, "_min") &&
-				!strings.Contains(aliasValue, "_max") &&
-				!strings.Contains(aliasValue, "_count") {
-				isSQLMode = true
-				break
-			}
+	// 为每个聚合字段创建聚合器
+	for _, field := range aggregationFields {
+		if field.OutputAlias == "" {
+			// 如果没有指定别名，使用输入字段名
+			field.OutputAlias = field.InputField
 		}
-	}
-
-	if isSQLMode {
-		// SQL解析模式：fieldMap是输出字段名->聚合类型，fieldAlias是输出字段名->输入字段名
-		finalFieldMap = fieldMap
-		finalFieldAlias = fieldAlias
-	} else {
-		// 直接测试模式：fieldMap是输入字段名->聚合类型，fieldAlias是输入字段名->输出字段名
-		for inputField, aggType := range fieldMap {
-			outputField := inputField // 默认输出字段名等于输入字段名
-
-			// fieldAlias提供了：输入字段名 -> 输出别名的映射
-			if alias, exists := fieldAlias[inputField]; exists {
-				outputField = alias
-			}
-
-			finalFieldMap[outputField] = aggType
-			finalFieldAlias[outputField] = inputField
-		}
-	}
-
-	// 创建聚合器
-	for outputField := range finalFieldMap {
-		aggregators[outputField] = CreateBuiltinAggregator(finalFieldMap[outputField])
+		aggregators[field.OutputAlias] = CreateBuiltinAggregator(field.AggregateType)
 	}
 
 	return &GroupAggregator{
-		fieldMap:    finalFieldMap, // 输出字段名 -> 聚合类型
-		groupFields: groupFields,
-		aggregators: aggregators,
-		groups:      make(map[string]map[string]AggregatorFunction),
-		fieldAlias:  finalFieldAlias, // 输出字段名 -> 输入字段名
-		expressions: make(map[string]*ExpressionEvaluator),
+		aggregationFields: aggregationFields,
+		groupFields:       groupFields,
+		aggregators:       aggregators,
+		groups:            make(map[string]map[string]AggregatorFunction),
+		expressions:       make(map[string]*ExpressionEvaluator),
 	}
 }
 
@@ -224,38 +186,38 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 	}
 
 	// 为每个字段创建聚合器实例
-	for field, agg := range ga.aggregators {
-		if _, exists := ga.groups[key][field]; !exists {
-			ga.groups[key][field] = agg.New()
+	for outputAlias, agg := range ga.aggregators {
+		if _, exists := ga.groups[key][outputAlias]; !exists {
+			ga.groups[key][outputAlias] = agg.New()
 		}
 	}
 
-	for field := range ga.fieldMap {
+	// 处理每个聚合字段
+	for _, aggField := range ga.aggregationFields {
+		outputAlias := aggField.OutputAlias
+		if outputAlias == "" {
+			outputAlias = aggField.InputField
+		}
+
 		// 检查是否有表达式计算器
-		if expr, hasExpr := ga.expressions[field]; hasExpr {
+		if expr, hasExpr := ga.expressions[outputAlias]; hasExpr {
 			result, err := expr.evaluateFunc(data)
 			if err != nil {
 				continue
 			}
 
-			if groupAgg, exists := ga.groups[key][field]; exists {
+			if groupAgg, exists := ga.groups[key][outputAlias]; exists {
 				groupAgg.Add(result)
 			}
 			continue
 		}
 
-		// 获取实际的输入字段名
-		// field现在是输出字段名（可能是别名），需要找到对应的输入字段名
-		inputFieldName := field
-		// 在聚合器内部，fieldAlias的映射方向是：输出字段名 -> 输入字段名
-		if mappedField, exists := ga.fieldAlias[field]; exists {
-			inputFieldName = mappedField
-		}
+		inputField := aggField.InputField
 
 		// 特殊处理count(*)的情况
-		if inputFieldName == "*" {
+		if inputField == "*" {
 			// 对于count(*)，直接添加1，不需要获取具体字段值
-			if groupAgg, exists := ga.groups[key][field]; exists {
+			if groupAgg, exists := ga.groups[key][outputAlias]; exists {
 				groupAgg.Add(1)
 			}
 			continue
@@ -264,16 +226,16 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		// 获取字段值
 		var f reflect.Value
 		if v.Kind() == reflect.Map {
-			keyVal := reflect.ValueOf(inputFieldName)
+			keyVal := reflect.ValueOf(inputField)
 			f = v.MapIndex(keyVal)
 		} else {
-			f = v.FieldByName(inputFieldName)
+			f = v.FieldByName(inputField)
 		}
 
 		if !f.IsValid() {
 			// 尝试从context中获取
 			if ga.context != nil {
-				if groupAgg, exists := ga.groups[key][field]; exists {
+				if groupAgg, exists := ga.groups[key][outputAlias]; exists {
 					if contextAgg, ok := groupAgg.(ContextAggregator); ok {
 						contextKey := contextAgg.GetContextKey()
 						if val, exists := ga.context[contextKey]; exists {
@@ -286,21 +248,21 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		}
 
 		fieldVal := f.Interface()
-		aggType := ga.fieldMap[field]
+		aggType := aggField.AggregateType
 
 		// 动态检查是否需要数值转换
 		if ga.isNumericAggregator(aggType) {
 			// 对于数值聚合函数，尝试转换为数值类型
 			if numVal, err := cast.ToFloat64E(fieldVal); err == nil {
-				if groupAgg, exists := ga.groups[key][field]; exists {
+				if groupAgg, exists := ga.groups[key][outputAlias]; exists {
 					groupAgg.Add(numVal)
 				}
 			} else {
-				return fmt.Errorf("cannot convert field %s value %v to numeric type for aggregator %s", inputFieldName, fieldVal, aggType)
+				return fmt.Errorf("cannot convert field %s value %v to numeric type for aggregator %s", inputField, fieldVal, aggType)
 			}
 		} else {
 			// 对于非数值聚合函数，直接传递原始值
-			if groupAgg, exists := ga.groups[key][field]; exists {
+			if groupAgg, exists := ga.groups[key][outputAlias]; exists {
 				groupAgg.Add(fieldVal)
 			}
 		}

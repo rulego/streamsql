@@ -268,6 +268,30 @@ func (s *Stream) RegisterFilter(conditionStr string) error {
 	return nil
 }
 
+// convertToAggregationFields 将旧格式的配置转换为新的AggregationField格式
+func convertToAggregationFields(selectFields map[string]aggregator.AggregateType, fieldAlias map[string]string) []aggregator.AggregationField {
+	var fields []aggregator.AggregationField
+
+	for outputAlias, aggType := range selectFields {
+		field := aggregator.AggregationField{
+			AggregateType: aggType,
+			OutputAlias:   outputAlias,
+		}
+
+		// 查找对应的输入字段名
+		if inputField, exists := fieldAlias[outputAlias]; exists {
+			field.InputField = inputField
+		} else {
+			// 如果没有别名映射，假设输入字段名等于输出别名
+			field.InputField = outputAlias
+		}
+
+		fields = append(fields, field)
+	}
+
+	return fields
+}
+
 func (s *Stream) Start() {
 	// 启动处理协程
 	go s.process()
@@ -276,7 +300,9 @@ func (s *Stream) Start() {
 func (s *Stream) process() {
 	// 初始化聚合器，用于窗口模式
 	if s.config.NeedWindow {
-		s.aggregator = aggregator.NewGroupAggregator(s.config.GroupFields, s.config.SelectFields, s.config.FieldAlias)
+		// 转换为新的AggregationField格式
+		aggregationFields := convertToAggregationFields(s.config.SelectFields, s.config.FieldAlias)
+		s.aggregator = aggregator.NewGroupAggregator(s.config.GroupFields, aggregationFields)
 
 		// 为表达式字段创建计算器
 		for field, fieldExpr := range s.config.FieldExpressions {
