@@ -212,23 +212,14 @@ func (sw *SlidingWindow) Trigger() {
 	sw.data = newData
 	sw.currentSlot = next
 
-	// 非阻塞发送到输出通道
-	sw.sendResultNonBlocking(resultData)
-}
-
-// sendResultNonBlocking 非阻塞地发送结果到输出通道
-func (sw *SlidingWindow) sendResultNonBlocking(resultData []types.Row) {
+	// 非阻塞发送到输出通道并直接更新统计信息（已在锁内）
 	select {
 	case sw.outputChan <- resultData:
-		// 成功发送
-		sw.mu.Lock()
+		// 成功发送，更新统计信息（已在锁内）
 		sw.sentCount++
-		sw.mu.Unlock()
 	default:
-		// 通道已满，丢弃结果
-		sw.mu.Lock()
+		// 通道已满，丢弃结果并更新统计信息（已在锁内）
 		sw.droppedCount++
-		sw.mu.Unlock()
 	}
 }
 
