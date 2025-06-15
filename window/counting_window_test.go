@@ -51,10 +51,35 @@ func TestCountingWindow(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Error("No results received within timeout")
 	}
-	assert.Len(t, cw.dataBuffer, 1)
+	// 验证窗口状态：添加第4个数据后，第一个窗口已触发，剩余1个数据(值为3)
+	// 继续添加2个数据，应该再次触发
+	cw.Add(4) // 添加第5个数据
+	cw.Add(5) // 添加第6个数据，应该再次触发(3,4,5)
+	
+	// 等待第二次触发
+	select {
+	case res := <-resultsChan:
+		assert.Len(t, res, 3)
+		assert.Equal(t, 3, res[0].Data, "第二批第一个元素应该是3")
+		assert.Equal(t, 4, res[1].Data, "第二批第二个元素应该是4")
+		assert.Equal(t, 5, res[2].Data, "第二批第三个元素应该是5")
+	case <-time.After(2 * time.Second):
+		t.Error("No second results received within timeout")
+	}
+	
 	// Test case 2: Reset
 	cw.Reset()
-	assert.Len(t, cw.dataBuffer, 0)
+	// Reset后添加数据验证重置是否成功
+	cw.Add(100)
+	cw.Add(101)
+	cw.Add(102)
+	select {
+	case res := <-resultsChan:
+		assert.Len(t, res, 3)
+		assert.Equal(t, 100, res[0].Data, "重置后第一个元素应该是100")
+	case <-time.After(2 * time.Second):
+		t.Error("No results after reset received within timeout")
+	}
 }
 
 func TestCountingWindowBadThreshold(t *testing.T) {

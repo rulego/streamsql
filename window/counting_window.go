@@ -35,10 +35,21 @@ func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
 		return nil, fmt.Errorf("threshold must be a positive integer")
 	}
 
+	// 使用统一的性能配置获取窗口输出缓冲区大小
+	bufferSize := 100 // 默认值，计数窗口通常缓冲较小
+	if perfConfig, exists := config.Params["performanceConfig"]; exists {
+		if pc, ok := perfConfig.(types.PerformanceConfig); ok {
+			bufferSize = pc.BufferConfig.WindowOutputSize / 10 // 计数窗口使用1/10的缓冲区
+			if bufferSize < 10 {
+				bufferSize = 10 // 最小值
+			}
+		}
+	}
+
 	cw := &CountingWindow{
 		threshold:   threshold,
 		dataBuffer:  make([]types.Row, 0, threshold),
-		outputChan:  make(chan []types.Row, 10),
+		outputChan:  make(chan []types.Row, bufferSize),
 		ctx:         ctx,
 		cancelFunc:  cancel,
 		triggerChan: make(chan types.Row, 3),
@@ -77,12 +88,12 @@ func (cw *CountingWindow) Start() {
 				if shouldTrigger {
 					// 在持有锁的情况下立即处理
 					slot := cw.createSlot(cw.dataBuffer[:cw.threshold])
-					for i := range cw.dataBuffer[:cw.threshold] {
-						// 由于Row是值类型，这里需要通过指针来修改Slot字段
-						cw.dataBuffer[i].Slot = slot
-					}
 					data := make([]types.Row, cw.threshold)
 					copy(data, cw.dataBuffer[:cw.threshold])
+					// 设置Slot字段到复制的数据中，避免修改原始dataBuffer
+					for i := range data {
+						data[i].Slot = slot
+					}
 
 					if len(cw.dataBuffer) > cw.threshold {
 						remaining := len(cw.dataBuffer) - cw.threshold

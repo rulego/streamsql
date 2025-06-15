@@ -27,7 +27,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== StreamSQL 持久化功能测试 ===\n")
+	fmt.Println("=== StreamSQL 持久化功能测试 ===")
 
 	// 清理之前的测试数据
 	cleanupTestData()
@@ -37,14 +37,14 @@ func main() {
 	testDataOverflowPersistence()
 
 	// 测试2: 模拟程序重启和数据恢复
-	fmt.Println("\n📌 测试2: 程序重启数据恢复")
+	fmt.Println("📌 测试2: 程序重启数据恢复")
 	testDataRecovery()
 
 	// 测试3: 查看持久化文件内容
-	fmt.Println("\n📌 测试3: 持久化文件分析")
+	fmt.Println("📌 测试3: 持久化文件分析")
 	analyzePersistenceFiles()
 
-	fmt.Println("\n✅ 真正持久化功能测试完成！")
+	fmt.Println("✅ 真正持久化功能测试完成！")
 }
 
 func testDataOverflowPersistence() {

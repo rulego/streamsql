@@ -23,7 +23,7 @@ func TestStreamData(t *testing.T) {
 	// 步骤1: 创建 StreamSQL 实例
 	// StreamSQL 是流式 SQL 处理引擎的核心组件，负责管理整个流处理生命周期
 	ssql := New()
-	
+
 	// 步骤2: 定义流式 SQL 查询语句
 	// 这个 SQL 语句展示了 StreamSQL 的核心功能：
 	// - SELECT: 选择要输出的字段和聚合函数
@@ -35,21 +35,21 @@ func TestStreamData(t *testing.T) {
 	// - window_start(), window_end(): 窗口函数，获取窗口的开始和结束时间
 	rsql := "SELECT deviceId,avg(temperature) as avg_temp,min(humidity) as min_humidity ," +
 		"window_start() as start,window_end() as end FROM  stream  where deviceId!='device3' group by deviceId,TumblingWindow('5s')"
-	
+
 	// 步骤3: 执行 SQL 语句，启动流式分析任务
 	// Execute 方法会解析 SQL、构建执行计划、初始化窗口管理器和聚合器
 	err := ssql.Execute(rsql)
 	if err != nil {
 		panic(err)
 	}
-	
+
 	// 步骤4: 设置测试环境和并发控制
 	var wg sync.WaitGroup
 	wg.Add(1)
 	// 设置30秒测试超时时间，防止测试无限运行
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	// 步骤5: 启动数据生产者协程
 	// 模拟实时数据流，持续向 StreamSQL 输入数据
 	go func() {
@@ -88,19 +88,22 @@ func TestStreamData(t *testing.T) {
 	ssql.stream.AddSink(func(result interface{}) {
 		resultChan <- result
 	})
-	
+
 	// 步骤7: 启动结果消费者协程
 	// 记录收到的结果数量，用于验证测试效果
-	resultCount := 0
+	var resultCount int64
+	var countMutex sync.Mutex
 	go func() {
 		for range resultChan {
 			// 每当收到一个窗口的计算结果时，计数器加1
 			// 注释掉的代码可以用于调试，打印每个结果的详细信息
 			//fmt.Printf("打印结果: [%s] %v\n", time.Now().Format("15:04:05.000"), result)
+			countMutex.Lock()
 			resultCount++
+			countMutex.Unlock()
 		}
 	}()
-	
+
 	// 步骤8: 等待测试完成
 	// 等待数据生产者协程结束（30秒超时或手动取消）
 	wg.Wait()
@@ -108,7 +111,10 @@ func TestStreamData(t *testing.T) {
 	// 步骤9: 验证测试结果
 	// 预期在30秒内应该收到5个窗口的计算结果（每5秒一个窗口）
 	// 这验证了 StreamSQL 的窗口触发机制是否正常工作
-	assert.Equal(t, resultCount, 5)
+	countMutex.Lock()
+	finalCount := resultCount
+	countMutex.Unlock()
+	assert.Equal(t, finalCount, int64(5))
 }
 
 func TestStreamsql(t *testing.T) {
@@ -594,6 +600,7 @@ func TestSessionWindow(t *testing.T) {
 
 	// 收集结果
 	var results []interface{}
+	var resultsMutex sync.Mutex
 
 	// 等待接收结果
 	timeout := time.After(5 * time.Second)
@@ -602,9 +609,12 @@ func TestSessionWindow(t *testing.T) {
 	for !done {
 		select {
 		case result := <-resultChan:
+			resultsMutex.Lock()
 			results = append(results, result)
+			resultCount := len(results)
+			resultsMutex.Unlock()
 			// 我们期望至少 3 个会话结果
-			if len(results) >= 3 {
+			if resultCount >= 3 {
 				done = true
 			}
 		case <-timeout:
@@ -614,13 +624,19 @@ func TestSessionWindow(t *testing.T) {
 	}
 
 	// 验证结果
-	assert.GreaterOrEqual(t, len(results), 2, "应该至少收到两个会话的结果")
+	resultsMutex.Lock()
+	resultCount := len(results)
+	resultsCopy := make([]interface{}, len(results))
+	copy(resultsCopy, results)
+	resultsMutex.Unlock()
+
+	assert.GreaterOrEqual(t, resultCount, 2, "应该至少收到两个会话的结果")
 
 	// 检查结果中是否包含两个设备的会话
 	hasDevice1 := false
 	hasDevice2 := false
 
-	for _, result := range results {
+	for _, result := range resultsCopy {
 		resultSlice, ok := result.([]map[string]interface{})
 		assert.True(t, ok, "结果应该是[]map[string]interface{}类型")
 
@@ -2070,22 +2086,39 @@ func TestExprFunctions(t *testing.T) {
 
 	// 等待结果
 	var results []interface{}
+	var resultsMutex sync.Mutex
 	timeout := time.After(2 * time.Second)
 	done := false
 
-	for !done && len(results) < 2 {
+	for !done {
+		resultsMutex.Lock()
+		resultCount := len(results)
+		resultsMutex.Unlock()
+
+		if resultCount >= 2 {
+			break
+		}
+
 		select {
 		case result := <-resultChan:
+			resultsMutex.Lock()
 			results = append(results, result)
+			resultsMutex.Unlock()
 		case <-timeout:
 			done = true
 		}
 	}
 
 	// 验证结果
-	assert.Greater(t, len(results), 0, "应该收到至少一条结果")
+	resultsMutex.Lock()
+	finalResultCount := len(results)
+	resultsCopy := make([]interface{}, len(results))
+	copy(resultsCopy, results)
+	resultsMutex.Unlock()
 
-	for _, result := range results {
+	assert.Greater(t, finalResultCount, 0, "应该收到至少一条结果")
+
+	for _, result := range resultsCopy {
 		resultSlice, ok := result.([]map[string]interface{})
 		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
 
@@ -2215,23 +2248,40 @@ func TestNestedExprFunctions(t *testing.T) {
 
 	// 等待结果
 	var results []interface{}
+	var resultsMutex sync.Mutex
 	timeout := time.After(2 * time.Second)
 	done := false
 
-	for !done && len(results) < 3 {
+	for !done {
+		resultsMutex.Lock()
+		resultCount := len(results)
+		resultsMutex.Unlock()
+
+		if resultCount >= 3 {
+			break
+		}
+
 		select {
 		case result := <-resultChan:
+			resultsMutex.Lock()
 			results = append(results, result)
+			resultsMutex.Unlock()
 		case <-timeout:
 			done = true
 		}
 	}
 
 	// 验证结果
-	assert.Greater(t, len(results), 0, "应该收到至少一条结果")
+	resultsMutex.Lock()
+	finalResultCount := len(results)
+	resultsCopy := make([]interface{}, len(results))
+	copy(resultsCopy, results)
+	resultsMutex.Unlock()
+
+	assert.Greater(t, finalResultCount, 0, "应该收到至少一条结果")
 
 	deviceResults := make(map[string]float64)
-	for _, result := range results {
+	for _, result := range resultsCopy {
 		resultSlice, ok := result.([]map[string]interface{})
 		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
 
@@ -2288,22 +2338,39 @@ func TestExprFunctionsWithStreamSQLFunctions(t *testing.T) {
 
 	// 等待结果
 	var results []interface{}
+	var resultsMutex sync.Mutex
 	timeout := time.After(2 * time.Second)
 	done := false
 
-	for !done && len(results) < 2 {
+	for !done {
+		resultsMutex.Lock()
+		resultCount := len(results)
+		resultsMutex.Unlock()
+
+		if resultCount >= 2 {
+			break
+		}
+
 		select {
 		case result := <-resultChan:
+			resultsMutex.Lock()
 			results = append(results, result)
+			resultsMutex.Unlock()
 		case <-timeout:
 			done = true
 		}
 	}
 
 	// 验证结果
-	assert.Greater(t, len(results), 0, "应该收到至少一条结果")
+	resultsMutex.Lock()
+	finalResultCount := len(results)
+	resultsCopy := make([]interface{}, len(results))
+	copy(resultsCopy, results)
+	resultsMutex.Unlock()
 
-	for _, result := range results {
+	assert.Greater(t, finalResultCount, 0, "应该收到至少一条结果")
+
+	for _, result := range resultsCopy {
 		resultSlice, ok := result.([]map[string]interface{})
 		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
 
