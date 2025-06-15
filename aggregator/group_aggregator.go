@@ -50,12 +50,12 @@ func NewGroupAggregator(groupFields []string, aggregationFields []AggregationFie
 	aggregators := make(map[string]AggregatorFunction)
 
 	// 为每个聚合字段创建聚合器
-	for _, field := range aggregationFields {
-		if field.OutputAlias == "" {
+	for i := range aggregationFields {
+		if aggregationFields[i].OutputAlias == "" {
 			// 如果没有指定别名，使用输入字段名
-			field.OutputAlias = field.InputField
+			aggregationFields[i].OutputAlias = aggregationFields[i].InputField
 		}
-		aggregators[field.OutputAlias] = CreateBuiltinAggregator(field.AggregateType)
+		aggregators[aggregationFields[i].OutputAlias] = CreateBuiltinAggregator(aggregationFields[i].AggregateType)
 	}
 
 	return &GroupAggregator{

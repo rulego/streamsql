@@ -209,18 +209,13 @@ func (tw *TumblingWindow) Trigger() {
 	tw.data = newData
 	tw.currentSlot = next
 
-	// 非阻塞发送到输出通道
-	tw.sendResultNonBlocking(resultData)
-}
-
-// sendResultNonBlocking 非阻塞地发送结果到输出通道
-func (tw *TumblingWindow) sendResultNonBlocking(resultData []types.Row) {
+	// 非阻塞发送到输出通道并更新统计信息
 	select {
 	case tw.outputChan <- resultData:
-		// 成功发送
+		// 成功发送，更新统计信息（已在锁内）
 		tw.sentCount++
 	default:
-		// 通道已满，丢弃结果（可选：记录日志或触发告警）
+		// 通道已满，丢弃结果并更新统计信息（已在锁内）
 		tw.droppedCount++
 		// 可选：在这里添加日志记录
 		// log.Printf("Window output channel full, dropped result with %d rows", len(resultData))
