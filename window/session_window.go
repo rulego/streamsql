@@ -22,7 +22,7 @@ type SessionWindow struct {
 	// timeout 是会话超时时间，如果在此时间内没有新事件，会话将关闭
 	timeout time.Duration
 	// mu 用于保护对窗口数据的并发访问
-	mu sync.Mutex
+	mu sync.RWMutex
 	// sessionMap 存储不同 key 的会话数据
 	sessionMap map[string]*session
 	// outputChan 是一个通道，用于在窗口触发时发送数据
@@ -36,6 +36,9 @@ type SessionWindow struct {
 	// 用于初始化窗口的通道
 	initChan    chan struct{}
 	initialized bool
+	// 保护ticker的锁
+	tickerMu sync.Mutex
+	ticker   *time.Ticker
 }
 
 // session 存储一个会话的数据和状态
@@ -54,11 +57,22 @@ func NewSessionWindow(config types.WindowConfig) (*SessionWindow, error) {
 		return nil, fmt.Errorf("invalid timeout for session window: %v", err)
 	}
 
+	// 使用统一的性能配置获取窗口输出缓冲区大小
+	bufferSize := 100 // 默认值，会话窗口通常缓冲较小
+	if perfConfig, exists := config.Params["performanceConfig"]; exists {
+		if pc, ok := perfConfig.(types.PerformanceConfig); ok {
+			bufferSize = pc.BufferConfig.WindowOutputSize / 10 // 会话窗口使用1/10的缓冲区
+			if bufferSize < 10 {
+				bufferSize = 10 // 最小值
+			}
+		}
+	}
+
 	return &SessionWindow{
 		config:      config,
 		timeout:     timeout,
 		sessionMap:  make(map[string]*session),
-		outputChan:  make(chan []types.Row, 10),
+		outputChan:  make(chan []types.Row, bufferSize),
 		ctx:         ctx,
 		cancelFunc:  cancel,
 		initChan:    make(chan struct{}),
@@ -128,8 +142,18 @@ func (sw *SessionWindow) Start() {
 		defer close(sw.outputChan)
 
 		// 定期检查过期会话
-		ticker := time.NewTicker(sw.timeout / 2)
-		defer ticker.Stop()
+		sw.tickerMu.Lock()
+		sw.ticker = time.NewTicker(sw.timeout / 2)
+		ticker := sw.ticker
+		sw.tickerMu.Unlock()
+
+		defer func() {
+			sw.tickerMu.Lock()
+			if sw.ticker != nil {
+				sw.ticker.Stop()
+			}
+			sw.tickerMu.Unlock()
+		}()
 
 		for {
 			select {
@@ -140,6 +164,19 @@ func (sw *SessionWindow) Start() {
 			}
 		}
 	}()
+}
+
+// Stop 停止会话窗口的操作
+func (sw *SessionWindow) Stop() {
+	// 调用取消函数以停止窗口的操作
+	sw.cancelFunc()
+
+	// 安全地停止ticker
+	sw.tickerMu.Lock()
+	if sw.ticker != nil {
+		sw.ticker.Stop()
+	}
+	sw.tickerMu.Unlock()
 }
 
 // checkExpiredSessions 检查并触发过期会话
@@ -198,20 +235,25 @@ func (sw *SessionWindow) Trigger() {
 			// 将数据发送到输出通道
 			sw.outputChan <- result
 		}
-		// 清空会话（但不删除，以便后续继续使用）
-		s.data = []types.Row{}
 	}
-}
-
-// Stop 停止会话窗口的操作
-func (sw *SessionWindow) Stop() {
-	sw.cancelFunc()
+	// 清空所有会话
+	sw.sessionMap = make(map[string]*session)
 }
 
 // Reset 重置会话窗口的数据
 func (sw *SessionWindow) Reset() {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
+
+	// 停止现有的ticker
+	sw.tickerMu.Lock()
+	if sw.ticker != nil {
+		sw.ticker.Stop()
+		sw.ticker = nil
+	}
+	sw.tickerMu.Unlock()
+
+	// 清空会话数据
 	sw.sessionMap = make(map[string]*session)
 	sw.initialized = false
 	sw.initChan = make(chan struct{})
@@ -224,6 +266,8 @@ func (sw *SessionWindow) OutputChan() <-chan []types.Row {
 
 // SetCallback 设置会话窗口触发时的回调函数
 func (sw *SessionWindow) SetCallback(callback func([]types.Row)) {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
 	sw.callback = callback
 }
 

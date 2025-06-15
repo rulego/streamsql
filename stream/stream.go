@@ -53,174 +53,105 @@ type Stream struct {
 	persistenceManager *PersistenceManager // 持久化管理器
 }
 
+// NewStream 使用统一配置创建Stream
 func NewStream(config types.Config) (*Stream, error) {
-	return NewStreamWithBuffers(config, 10000, 10000, 500)
+	// 如果没有指定性能配置，使用默认配置
+	if (config.PerformanceConfig == types.PerformanceConfig{}) {
+		config.PerformanceConfig = types.DefaultPerformanceConfig()
+	}
+
+	return newStreamWithUnifiedConfig(config)
 }
 
-// NewStreamWithBuffers 创建带自定义缓冲区大小的Stream
-func NewStreamWithBuffers(config types.Config, dataBufSize, resultBufSize, sinkPoolSize int) (*Stream, error) {
+// NewStreamWithHighPerformance 创建高性能Stream
+func NewStreamWithHighPerformance(config types.Config) (*Stream, error) {
+	config.PerformanceConfig = types.HighPerformanceConfig()
+	return newStreamWithUnifiedConfig(config)
+}
+
+// NewStreamWithLowLatency 创建低延迟Stream
+func NewStreamWithLowLatency(config types.Config) (*Stream, error) {
+	config.PerformanceConfig = types.LowLatencyConfig()
+	return newStreamWithUnifiedConfig(config)
+}
+
+// NewStreamWithZeroDataLoss 创建零数据丢失Stream
+func NewStreamWithZeroDataLoss(config types.Config) (*Stream, error) {
+	config.PerformanceConfig = types.ZeroDataLossConfig()
+	return newStreamWithUnifiedConfig(config)
+}
+
+// NewStreamWithCustomPerformance 创建自定义性能配置的Stream
+func NewStreamWithCustomPerformance(config types.Config, perfConfig types.PerformanceConfig) (*Stream, error) {
+	config.PerformanceConfig = perfConfig
+	return newStreamWithUnifiedConfig(config)
+}
+
+// newStreamWithUnifiedConfig 使用统一配置创建Stream的内部实现
+func newStreamWithUnifiedConfig(config types.Config) (*Stream, error) {
 	var win window.Window
 	var err error
 
 	// 只有在需要窗口时才创建窗口
 	if config.NeedWindow {
-		win, err = window.CreateWindow(config.WindowConfig)
+		// 将统一的性能配置传递给窗口
+		windowConfig := config.WindowConfig
+		if windowConfig.Params == nil {
+			windowConfig.Params = make(map[string]interface{})
+		}
+		// 传递完整的性能配置给窗口
+		windowConfig.Params["performanceConfig"] = config.PerformanceConfig
+
+		win, err = window.CreateWindow(windowConfig)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// 创建带自定义缓冲区的Stream
+	// 使用统一配置创建Stream
+	perfConfig := config.PerformanceConfig
 	stream := &Stream{
-		dataChan:         make(chan interface{}, dataBufSize), // 可配置输入缓冲
+		dataChan:         make(chan interface{}, perfConfig.BufferConfig.DataChannelSize),
 		config:           config,
 		Window:           win,
-		resultChan:       make(chan interface{}, resultBufSize), // 可配置结果缓冲
+		resultChan:       make(chan interface{}, perfConfig.BufferConfig.ResultChannelSize),
 		seenResults:      &sync.Map{},
 		done:             make(chan struct{}),
-		sinkWorkerPool:   make(chan func(), sinkPoolSize), // 可配置Sink工作池
-		allowDataDrop:    false,                           // 默认不允许数据丢失
-		blockingTimeout:  0,                               // 默认无超时
-		overflowStrategy: "expand",                        // 默认动态扩容策略
-		maxRetryRoutines: 5,                               // 最大重试协程数限制
-	}
-
-	// 启动Sink工作池，异步处理sink调用
-	go stream.startSinkWorkerPool()
-
-	// 启动自动结果消费者，防止通道阻塞
-	go stream.startResultConsumer()
-
-	return stream, nil
-}
-
-// NewHighPerformanceStream 创建高性能配置的Stream，适用于极高负载场景
-func NewHighPerformanceStream(config types.Config) (*Stream, error) {
-	// 超大缓冲区配置：50K输入，50K结果，1K sink池
-	return NewStreamWithBuffers(config, 50000, 50000, 1000)
-}
-
-// NewStreamWithoutDataLoss 创建零数据丢失的流处理器
-func NewStreamWithoutDataLoss(config types.Config, strategy string) (*Stream, error) {
-	return NewStreamWithLossPolicy(config, 20000, 20000, 800, strategy, 30*time.Second)
-}
-
-// NewStreamWithLossPolicy 创建带数据丢失策略的流处理器
-func NewStreamWithLossPolicy(config types.Config, dataBufSize, resultBufSize, sinkPoolSize int,
-	overflowStrategy string, timeout time.Duration) (*Stream, error) {
-
-	// 验证策略
-	validStrategies := map[string]bool{
-		"drop":    true, // 丢弃数据（默认）
-		"block":   true, // 阻塞等待
-		"expand":  true, // 动态扩容
-		"persist": true, // 持久化到磁盘
-	}
-
-	if !validStrategies[overflowStrategy] {
-		return nil, fmt.Errorf("invalid overflow strategy: %s, valid options: drop, block, expand, persist", overflowStrategy)
-	}
-
-	// 创建基础窗口（如果需要）
-	var win window.Window
-	var err error
-	if config.NeedWindow {
-		win, err = window.CreateWindow(config.WindowConfig)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	stream := &Stream{
-		dataChan:         make(chan interface{}, dataBufSize),
-		config:           config,
-		Window:           win,
-		resultChan:       make(chan interface{}, resultBufSize),
-		seenResults:      &sync.Map{},
-		done:             make(chan struct{}),
-		sinkWorkerPool:   make(chan func(), sinkPoolSize),
-		allowDataDrop:    overflowStrategy == "drop",
-		blockingTimeout:  timeout,
-		overflowStrategy: overflowStrategy,
-		maxRetryRoutines: 5, // 最大重试协程数限制
+		sinkWorkerPool:   make(chan func(), perfConfig.WorkerConfig.SinkPoolSize),
+		allowDataDrop:    perfConfig.OverflowConfig.AllowDataLoss,
+		blockingTimeout:  perfConfig.OverflowConfig.BlockTimeout,
+		overflowStrategy: perfConfig.OverflowConfig.Strategy,
+		maxRetryRoutines: int32(perfConfig.WorkerConfig.MaxRetryRoutines),
 	}
 
 	// 如果是持久化策略，初始化持久化管理器
-	if overflowStrategy == "persist" {
-		dataDir := "./streamsql_overflow_data"
-		stream.persistenceManager = NewPersistenceManager(dataDir)
+	if perfConfig.OverflowConfig.Strategy == "persist" && perfConfig.OverflowConfig.PersistenceConfig != nil {
+		persistConfig := perfConfig.OverflowConfig.PersistenceConfig
+		stream.persistenceManager = NewPersistenceManagerWithConfig(
+			persistConfig.DataDir,
+			persistConfig.MaxFileSize,
+			persistConfig.FlushInterval,
+		)
 		if err := stream.persistenceManager.Start(); err != nil {
 			return nil, fmt.Errorf("failed to start persistence manager: %w", err)
 		}
 	}
 
-	// 启动工作协程
-	go stream.startSinkWorkerPool()
+	// 启动工作协程，使用配置的工作线程数
+	go stream.startSinkWorkerPool(perfConfig.WorkerConfig.SinkWorkerCount)
 	go stream.startResultConsumer()
 
 	return stream, nil
 }
 
-// NewStreamWithLossPolicyAndPersistence 创建带数据丢失策略和持久化配置的流处理器
-func NewStreamWithLossPolicyAndPersistence(config types.Config, dataBufSize, resultBufSize, sinkPoolSize int,
-	overflowStrategy string, timeout time.Duration, persistDataDir string, persistMaxFileSize int64, persistFlushInterval time.Duration) (*Stream, error) {
-
-	// 验证策略
-	validStrategies := map[string]bool{
-		"drop":    true, // 丢弃数据（默认）
-		"block":   true, // 阻塞等待
-		"expand":  true, // 动态扩容
-		"persist": true, // 持久化到磁盘
+// startSinkWorkerPool 启动Sink工作池，支持配置工作线程数
+func (s *Stream) startSinkWorkerPool(workerCount int) {
+	// 使用配置的工作线程数
+	if workerCount <= 0 {
+		workerCount = 8 // 默认值
 	}
 
-	if !validStrategies[overflowStrategy] {
-		return nil, fmt.Errorf("invalid overflow strategy: %s, valid options: drop, block, expand, persist", overflowStrategy)
-	}
-
-	// 创建基础窗口（如果需要）
-	var win window.Window
-	var err error
-	if config.NeedWindow {
-		win, err = window.CreateWindow(config.WindowConfig)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	stream := &Stream{
-		dataChan:         make(chan interface{}, dataBufSize),
-		config:           config,
-		Window:           win,
-		resultChan:       make(chan interface{}, resultBufSize),
-		seenResults:      &sync.Map{},
-		done:             make(chan struct{}),
-		sinkWorkerPool:   make(chan func(), sinkPoolSize),
-		allowDataDrop:    overflowStrategy == "drop",
-		blockingTimeout:  timeout,
-		overflowStrategy: overflowStrategy,
-		maxRetryRoutines: 5, // 最大重试协程数限制
-	}
-
-	// 如果是持久化策略，使用自定义配置初始化持久化管理器
-	if overflowStrategy == "persist" {
-		stream.persistenceManager = NewPersistenceManagerWithConfig(persistDataDir, persistMaxFileSize, persistFlushInterval)
-		if err := stream.persistenceManager.Start(); err != nil {
-			return nil, fmt.Errorf("failed to start persistence manager: %w", err)
-		}
-	}
-
-	// 启动工作协程
-	go stream.startSinkWorkerPool()
-	go stream.startResultConsumer()
-
-	return stream, nil
-}
-
-// startSinkWorkerPool 启动Sink工作池，避免阻塞主流程
-func (s *Stream) startSinkWorkerPool() {
-	// 创建更多worker并发处理sink任务，支持高并发
-	const numWorkers = 8 // 增加到8个worker
-	for i := 0; i < numWorkers; i++ {
+	for i := 0; i < workerCount; i++ {
 		go func(workerID int) {
 			for {
 				select {
@@ -1272,4 +1203,93 @@ func (s *Stream) GetPersistenceStats() map[string]interface{} {
 	stats := s.persistenceManager.GetStats()
 	stats["enabled"] = true
 	return stats
+}
+
+// 向后兼容性函数
+
+// NewStreamWithBuffers 创建带自定义缓冲区大小的Stream (已弃用，使用NewStreamWithCustomPerformance)
+// Deprecated: 使用NewStreamWithCustomPerformance替代
+func NewStreamWithBuffers(config types.Config, dataBufSize, resultBufSize, sinkPoolSize int) (*Stream, error) {
+	perfConfig := types.DefaultPerformanceConfig()
+	perfConfig.BufferConfig.DataChannelSize = dataBufSize
+	perfConfig.BufferConfig.ResultChannelSize = resultBufSize
+	perfConfig.WorkerConfig.SinkPoolSize = sinkPoolSize
+
+	config.PerformanceConfig = perfConfig
+	return newStreamWithUnifiedConfig(config)
+}
+
+// NewHighPerformanceStream 创建高性能配置的Stream (已弃用，使用NewStreamWithHighPerformance)
+// Deprecated: 使用NewStreamWithHighPerformance替代
+func NewHighPerformanceStream(config types.Config) (*Stream, error) {
+	return NewStreamWithHighPerformance(config)
+}
+
+// NewStreamWithoutDataLoss 创建零数据丢失的流处理器 (已弃用，使用NewStreamWithZeroDataLoss)
+// Deprecated: 使用NewStreamWithZeroDataLoss替代
+func NewStreamWithoutDataLoss(config types.Config, strategy string) (*Stream, error) {
+	perfConfig := types.ZeroDataLossConfig()
+
+	// 应用用户指定的策略
+	validStrategies := map[string]bool{
+		"drop":    true,
+		"block":   true,
+		"expand":  true,
+		"persist": true,
+	}
+
+	if validStrategies[strategy] {
+		perfConfig.OverflowConfig.Strategy = strategy
+		if strategy == "drop" {
+			perfConfig.OverflowConfig.AllowDataLoss = true
+		}
+	}
+
+	config.PerformanceConfig = perfConfig
+	return newStreamWithUnifiedConfig(config)
+}
+
+// NewStreamWithLossPolicy 创建带数据丢失策略的流处理器 (已弃用，使用NewStreamWithCustomPerformance)
+// Deprecated: 使用NewStreamWithCustomPerformance替代
+func NewStreamWithLossPolicy(config types.Config, dataBufSize, resultBufSize, sinkPoolSize int,
+	overflowStrategy string, timeout time.Duration) (*Stream, error) {
+
+	perfConfig := types.DefaultPerformanceConfig()
+	perfConfig.BufferConfig.DataChannelSize = dataBufSize
+	perfConfig.BufferConfig.ResultChannelSize = resultBufSize
+	perfConfig.WorkerConfig.SinkPoolSize = sinkPoolSize
+	perfConfig.OverflowConfig.Strategy = overflowStrategy
+	perfConfig.OverflowConfig.BlockTimeout = timeout
+	perfConfig.OverflowConfig.AllowDataLoss = (overflowStrategy == "drop")
+
+	config.PerformanceConfig = perfConfig
+	return newStreamWithUnifiedConfig(config)
+}
+
+// NewStreamWithLossPolicyAndPersistence 创建带数据丢失策略和持久化配置的流处理器 (已弃用，使用NewStreamWithCustomPerformance)
+// Deprecated: 使用NewStreamWithCustomPerformance替代
+func NewStreamWithLossPolicyAndPersistence(config types.Config, dataBufSize, resultBufSize, sinkPoolSize int,
+	overflowStrategy string, timeout time.Duration, persistDataDir string, persistMaxFileSize int64, persistFlushInterval time.Duration) (*Stream, error) {
+
+	perfConfig := types.DefaultPerformanceConfig()
+	perfConfig.BufferConfig.DataChannelSize = dataBufSize
+	perfConfig.BufferConfig.ResultChannelSize = resultBufSize
+	perfConfig.WorkerConfig.SinkPoolSize = sinkPoolSize
+	perfConfig.OverflowConfig.Strategy = overflowStrategy
+	perfConfig.OverflowConfig.BlockTimeout = timeout
+	perfConfig.OverflowConfig.AllowDataLoss = (overflowStrategy == "drop")
+
+	// 设置持久化配置
+	if overflowStrategy == "persist" {
+		perfConfig.OverflowConfig.PersistenceConfig = &types.PersistenceConfig{
+			DataDir:       persistDataDir,
+			MaxFileSize:   persistMaxFileSize,
+			FlushInterval: persistFlushInterval,
+			MaxRetries:    5,
+			RetryInterval: 1 * time.Second,
+		}
+	}
+
+	config.PerformanceConfig = perfConfig
+	return newStreamWithUnifiedConfig(config)
 }
