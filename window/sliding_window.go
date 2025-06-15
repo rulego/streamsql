@@ -122,16 +122,22 @@ func (sw *SlidingWindow) Start() {
 		// 在函数结束时关闭输出通道。
 		defer close(sw.outputChan)
 
-		// 获取timer引用，避免在循环中重复加锁
-		sw.timerMu.Lock()
-		timer := sw.timer
-		sw.timerMu.Unlock()
-
-		if timer == nil {
-			return
-		}
-
 		for {
+			// 在每次循环中安全地获取timer
+			sw.timerMu.Lock()
+			timer := sw.timer
+			sw.timerMu.Unlock()
+
+			if timer == nil {
+				// 如果timer为nil，等待一小段时间后重试
+				select {
+				case <-time.After(10 * time.Millisecond):
+					continue
+				case <-sw.ctx.Done():
+					return
+				}
+			}
+
 			select {
 			// 当定时器到期时，触发窗口
 			case <-timer.C:
@@ -246,6 +252,9 @@ func (sw *SlidingWindow) ResetStats() {
 
 // Reset 重置滑动窗口，清空窗口内的数据
 func (sw *SlidingWindow) Reset() {
+	// 首先取消上下文，停止所有正在运行的goroutine
+	sw.cancelFunc()
+
 	// 加锁以保证数据的并发安全
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
@@ -263,6 +272,9 @@ func (sw *SlidingWindow) Reset() {
 	sw.currentSlot = nil
 	sw.initialized = false
 	sw.initChan = make(chan struct{})
+
+	// 重新创建context，为下次启动做准备
+	sw.ctx, sw.cancelFunc = context.WithCancel(context.Background())
 }
 
 // OutputChan 返回滑动窗口的输出通道

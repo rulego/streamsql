@@ -136,16 +136,22 @@ func (tw *TumblingWindow) Start() {
 		// 在函数结束时关闭输出通道。
 		defer close(tw.outputChan)
 
-		// 获取timer引用，避免在循环中重复加锁
-		tw.timerMu.Lock()
-		timer := tw.timer
-		tw.timerMu.Unlock()
-
-		if timer == nil {
-			return
-		}
-
 		for {
+			// 在每次循环中安全地获取timer
+			tw.timerMu.Lock()
+			timer := tw.timer
+			tw.timerMu.Unlock()
+
+			if timer == nil {
+				// 如果timer为nil，等待一小段时间后重试
+				select {
+				case <-time.After(10 * time.Millisecond):
+					continue
+				case <-tw.ctx.Done():
+					return
+				}
+			}
+
 			select {
 			// 当定时器到期时，触发窗口。
 			case <-timer.C:
@@ -223,6 +229,9 @@ func (tw *TumblingWindow) sendResultNonBlocking(resultData []types.Row) {
 
 // Reset 重置滚动窗口的数据。
 func (tw *TumblingWindow) Reset() {
+	// 首先取消上下文，停止所有正在运行的goroutine
+	tw.cancelFunc()
+
 	// 加锁以确保并发安全。
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
@@ -240,6 +249,9 @@ func (tw *TumblingWindow) Reset() {
 	tw.currentSlot = nil
 	tw.initialized = false
 	tw.initChan = make(chan struct{})
+
+	// 重新创建context，为下次启动做准备
+	tw.ctx, tw.cancelFunc = context.WithCancel(context.Background())
 }
 
 // OutputChan 返回一个只读通道，用于接收窗口触发时的数据。
