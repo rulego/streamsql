@@ -218,10 +218,14 @@ func (tw *TumblingWindow) sendResultNonBlocking(resultData []types.Row) {
 	select {
 	case tw.outputChan <- resultData:
 		// 成功发送
+		tw.mu.Lock()
 		tw.sentCount++
+		tw.mu.Unlock()
 	default:
 		// 通道已满，丢弃结果（可选：记录日志或触发告警）
+		tw.mu.Lock()
 		tw.droppedCount++
+		tw.mu.Unlock()
 		// 可选：在这里添加日志记录
 		// log.Printf("Window output channel full, dropped result with %d rows", len(resultData))
 	}

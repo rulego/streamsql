@@ -221,10 +221,14 @@ func (sw *SlidingWindow) sendResultNonBlocking(resultData []types.Row) {
 	select {
 	case sw.outputChan <- resultData:
 		// 成功发送
+		sw.mu.Lock()
 		sw.sentCount++
+		sw.mu.Unlock()
 	default:
 		// 通道已满，丢弃结果
+		sw.mu.Lock()
 		sw.droppedCount++
+		sw.mu.Unlock()
 	}
 }
 
