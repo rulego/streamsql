@@ -142,14 +142,6 @@ func (pm *PersistenceManager) Stop() error {
 	}
 	pm.writeMutex.Unlock()
 
-	// 刷新剩余数据
-	pm.flushPendingData()
-
-	// 关闭当前文件
-	if pm.currentFile != nil {
-		pm.currentFile.Close()
-	}
-
 	logger.Info("Persistence manager stopped")
 	return nil
 }
@@ -188,7 +180,7 @@ func (pm *PersistenceManager) LoadPersistedData() ([]interface{}, error) {
 			continue
 		}
 		allData = append(allData, data...)
-		
+
 		// 在锁保护下更新统计信息
 		pm.writeMutex.Lock()
 		pm.totalLoaded += int64(len(data))
