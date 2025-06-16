@@ -2,6 +2,7 @@ package functions
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -98,6 +99,16 @@ func (bridge *ExprBridge) CreateEnhancedExprEnvironment(data map[string]interfac
 	env["streamsql_min"] = env["min"]
 	env["streamsql_max"] = env["max"]
 
+	// 添加自定义的LIKE匹配函数
+	env["like_match"] = func(text, pattern string) bool {
+		return bridge.matchesLikePattern(text, pattern)
+	}
+
+	// 添加自定义LIKE函数（startsWith、endsWith、contains是内置操作符，不需要在环境中添加）
+	env["like_match"] = func(text, pattern string) bool {
+		return bridge.matchesLikePattern(text, pattern)
+	}
+
 	return env
 }
 
@@ -111,6 +122,21 @@ func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression str
 	streamSQLOptions := bridge.RegisterStreamSQLFunctionsToExpr()
 	options = append(options, streamSQLOptions...)
 
+	// 添加LIKE相关的自定义函数（只需要like_match，其他是内置操作符）
+	options = append(options,
+		expr.Function("like_match", func(params ...any) (any, error) {
+			if len(params) != 2 {
+				return false, fmt.Errorf("like_match function requires 2 parameters")
+			}
+			text, ok1 := params[0].(string)
+			pattern, ok2 := params[1].(string)
+			if !ok1 || !ok2 {
+				return false, fmt.Errorf("like_match function requires string parameters")
+			}
+			return bridge.matchesLikePattern(text, pattern), nil
+		}),
+	)
+
 	// 启用一些有用的expr功能
 	options = append(options,
 		expr.AllowUndefinedVariables(), // 允许未定义变量
@@ -122,7 +148,15 @@ func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression str
 
 // EvaluateExpression 评估表达式，自动选择最合适的引擎
 func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]interface{}) (interface{}, error) {
-	// 首先检查是否包含字符串拼接模式
+	// 首先检查是否包含LIKE操作符，如果有则进行预处理
+	if bridge.ContainsLikeOperator(expression) {
+		processedExpr, err := bridge.PreprocessLikeExpression(expression)
+		if err == nil {
+			expression = processedExpr
+		}
+	}
+
+	// 检查是否包含字符串拼接模式
 	if bridge.isStringConcatenationExpression(expression, data) {
 		result, err := bridge.evaluateStringConcatenation(expression, data)
 		if err == nil {
@@ -307,6 +341,128 @@ func (bridge *ExprBridge) evaluateSimpleNumericExpression(expression string, dat
 	}
 
 	return nil, fmt.Errorf("unsupported expression: %s", expression)
+}
+
+// ContainsLikeOperator 检查表达式是否包含LIKE操作符
+func (bridge *ExprBridge) ContainsLikeOperator(expression string) bool {
+	// 简单检查是否包含LIKE关键字
+	upperExpr := strings.ToUpper(expression)
+	return strings.Contains(upperExpr, " LIKE ")
+}
+
+// PreprocessLikeExpression 预处理LIKE表达式，转换为expr-lang可理解的函数调用
+func (bridge *ExprBridge) PreprocessLikeExpression(expression string) (string, error) {
+	// 使用正则表达式匹配LIKE模式
+	// 匹配: field LIKE 'pattern' (允许空模式)
+	likePattern := `(\w+(?:\.\w+)*)\s+LIKE\s+'([^']*)'`
+	re, err := regexp.Compile(likePattern)
+	if err != nil {
+		return expression, err
+	}
+
+	// 替换所有LIKE表达式
+	result := re.ReplaceAllStringFunc(expression, func(match string) string {
+		submatches := re.FindStringSubmatch(match)
+		if len(submatches) != 3 {
+			return match // 保持原样
+		}
+
+		field := submatches[1]
+		pattern := submatches[2]
+
+		// 将LIKE模式转换为相应的函数调用
+		return bridge.convertLikeToFunction(field, pattern)
+	})
+
+	return result, nil
+}
+
+// convertLikeToFunction 将LIKE模式转换为expr-lang操作符
+func (bridge *ExprBridge) convertLikeToFunction(field, pattern string) string {
+	// 处理空模式
+	if pattern == "" {
+		return fmt.Sprintf("%s == ''", field)
+	}
+
+	// 分析模式类型
+	if strings.HasPrefix(pattern, "%") && strings.HasSuffix(pattern, "%") && len(pattern) > 1 {
+		// %pattern% -> contains操作符（但不是单独的%）
+		inner := strings.Trim(pattern, "%")
+		if inner == "" {
+			// %% 表示匹配任何字符串
+			return "true"
+		}
+		return fmt.Sprintf("%s contains '%s'", field, inner)
+	} else if strings.HasPrefix(pattern, "%") && len(pattern) > 1 {
+		// %pattern -> endsWith操作符
+		suffix := strings.TrimPrefix(pattern, "%")
+		return fmt.Sprintf("%s endsWith '%s'", field, suffix)
+	} else if strings.HasSuffix(pattern, "%") && len(pattern) > 1 {
+		// pattern% -> startsWith操作符
+		prefix := strings.TrimSuffix(pattern, "%")
+		return fmt.Sprintf("%s startsWith '%s'", field, prefix)
+	} else if pattern == "%" {
+		// 单独的%匹配任何字符串
+		return "true"
+	} else if strings.Contains(pattern, "%") || strings.Contains(pattern, "_") {
+		// 复杂模式（如prefix%suffix）或包含单字符通配符，使用自定义的like_match函数
+		return fmt.Sprintf("like_match(%s, '%s')", field, pattern)
+	} else {
+		// 精确匹配
+		return fmt.Sprintf("%s == '%s'", field, pattern)
+	}
+}
+
+// matchesLikePattern 实现LIKE模式匹配
+// 支持%（匹配任意字符序列）和_（匹配单个字符）
+func (bridge *ExprBridge) matchesLikePattern(text, pattern string) bool {
+	return bridge.likeMatch(text, pattern, 0, 0)
+}
+
+// likeMatch 递归实现LIKE匹配算法
+func (bridge *ExprBridge) likeMatch(text, pattern string, textIndex, patternIndex int) bool {
+	// 如果模式已经匹配完成
+	if patternIndex >= len(pattern) {
+		return textIndex >= len(text) // 文本也应该匹配完成
+	}
+
+	// 如果文本已经结束，但模式还有非%字符，则不匹配
+	if textIndex >= len(text) {
+		// 检查剩余的模式是否都是%
+		for i := patternIndex; i < len(pattern); i++ {
+			if pattern[i] != '%' {
+				return false
+			}
+		}
+		return true
+	}
+
+	// 处理当前模式字符
+	patternChar := pattern[patternIndex]
+
+	if patternChar == '%' {
+		// %可以匹配0个或多个字符
+		// 尝试匹配0个字符（跳过%）
+		if bridge.likeMatch(text, pattern, textIndex, patternIndex+1) {
+			return true
+		}
+		// 尝试匹配1个或多个字符
+		for i := textIndex; i < len(text); i++ {
+			if bridge.likeMatch(text, pattern, i+1, patternIndex+1) {
+				return true
+			}
+		}
+		return false
+	} else if patternChar == '_' {
+		// _匹配恰好一个字符
+		return bridge.likeMatch(text, pattern, textIndex+1, patternIndex+1)
+	} else {
+		// 普通字符必须精确匹配
+		if text[textIndex] == patternChar {
+			return bridge.likeMatch(text, pattern, textIndex+1, patternIndex+1)
+		}
+		return false
+	}
 }
 
 // toFloat64 将值转换为float64

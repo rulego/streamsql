@@ -192,7 +192,17 @@ func (s *Stream) RegisterFilter(conditionStr string) error {
 	if strings.TrimSpace(conditionStr) == "" {
 		return nil
 	}
-	filter, err := condition.NewExprCondition(conditionStr)
+
+	// 预处理LIKE语法，转换为expr-lang可理解的形式
+	processedCondition := conditionStr
+	bridge := functions.GetExprBridge()
+	if bridge.ContainsLikeOperator(conditionStr) {
+		if processed, err := bridge.PreprocessLikeExpression(conditionStr); err == nil {
+			processedCondition = processed
+		}
+	}
+
+	filter, err := condition.NewExprCondition(processedCondition)
 	if err != nil {
 		return fmt.Errorf("compile filter error: %w", err)
 	}
@@ -334,8 +344,17 @@ func (s *Stream) process() {
 
 					// 应用 HAVING 过滤条件
 					if s.config.Having != "" {
+						// 预处理HAVING条件中的LIKE语法，转换为expr-lang可理解的形式
+						processedHaving := s.config.Having
+						bridge := functions.GetExprBridge()
+						if bridge.ContainsLikeOperator(s.config.Having) {
+							if processed, err := bridge.PreprocessLikeExpression(s.config.Having); err == nil {
+								processedHaving = processed
+							}
+						}
+
 						// 创建 HAVING 条件
-						havingFilter, err := condition.NewExprCondition(s.config.Having)
+						havingFilter, err := condition.NewExprCondition(processedHaving)
 						if err != nil {
 							logger.Error("having filter error: %v", err)
 						} else {

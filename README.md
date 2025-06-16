@@ -36,6 +36,99 @@ go get github.com/rulego/streamsql
 
 ## Usage
 
+StreamSQL supports two main processing modes for different business scenarios:
+
+### Non-Aggregation Mode - Real-time Data Transformation and Filtering
+
+Suitable for scenarios requiring **real-time response** and **low latency**, where each data record is processed and output immediately.
+
+**Typical Use Cases:**
+- **Data Cleaning**: Clean and standardize dirty data from IoT devices
+- **Real-time Alerting**: Monitor key metrics and alert immediately when thresholds are exceeded
+- **Data Enrichment**: Add calculated fields and business labels to raw data
+- **Format Conversion**: Convert data to formats required by downstream systems
+- **Data Routing**: Route data to different processing channels based on content
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+	"github.com/rulego/streamsql"
+)
+
+func main() {
+	// Create StreamSQL instance
+	ssql := streamsql.New()
+	defer ssql.Stop()
+
+	// Non-aggregation SQL: Real-time data transformation and filtering
+	// Feature: Each input data is processed immediately, no need to wait for windows
+	rsql := `SELECT deviceId, 
+	                UPPER(deviceType) as device_type,
+	                temperature * 1.8 + 32 as temp_fahrenheit,
+	                CASE WHEN temperature > 30 THEN 'hot'
+	                     WHEN temperature < 15 THEN 'cold'
+	                     ELSE 'normal' END as temp_category,
+	                CONCAT(location, '-', deviceId) as full_identifier,
+	                NOW() as processed_time
+	         FROM stream 
+	         WHERE temperature > 0 AND STARTSWITH(deviceId, 'sensor')`
+
+	err := ssql.Execute(rsql)
+	if err != nil {
+		panic(err)
+	}
+
+	// Handle real-time transformation results
+	ssql.Stream().AddSink(func(result interface{}) {
+		fmt.Printf("Real-time result: %+v\n", result)
+	})
+
+	// Simulate sensor data input
+	sensorData := []map[string]interface{}{
+		{
+			"deviceId":     "sensor001",
+			"deviceType":   "temperature", 
+			"temperature":  25.0,
+			"location":     "warehouse-A",
+		},
+		{
+			"deviceId":     "sensor002",
+			"deviceType":   "humidity",
+			"temperature":  32.5,
+			"location":     "warehouse-B", 
+		},
+		{
+			"deviceId":     "pump001",  // Will be filtered out
+			"deviceType":   "actuator",
+			"temperature":  20.0,
+			"location":     "factory",
+		},
+	}
+
+	// Process data one by one, each will output results immediately
+	for _, data := range sensorData {
+		ssql.Stream().AddData(data)
+		time.Sleep(100 * time.Millisecond) // Simulate real-time data arrival
+	}
+
+	time.Sleep(500 * time.Millisecond) // Wait for processing completion
+}
+```
+
+### Aggregation Mode - Windowed Statistical Analysis
+
+Suitable for scenarios requiring **statistical analysis** and **batch processing**, collecting data over a period of time for aggregated computation.
+
+**Typical Use Cases:**
+- **Monitoring Dashboard**: Display real-time statistical charts of device operational status
+- **Performance Analysis**: Analyze key metrics like QPS, latency, etc.
+- **Anomaly Detection**: Detect data anomalies based on statistical models
+- **Report Generation**: Generate various business reports periodically
+- **Trend Analysis**: Analyze data trends and patterns
+
 ```go
 package main
 
@@ -144,6 +237,152 @@ func main() {
 }
 ```
 
+### 🔍 Pattern Matching Notes
+
+**Note**: StreamSQL currently does not support standard SQL `LIKE` syntax, but provides more powerful alternatives:
+
+- **Prefix matching**: `STARTSWITH(field, 'prefix')` replaces `field LIKE 'prefix%'`
+- **Suffix matching**: `ENDSWITH(field, 'suffix')` replaces `field LIKE '%suffix'`  
+- **Contains matching**: `INDEXOF(field, 'substring') >= 0` replaces `field LIKE '%substring%'`
+- **Regex matching**: `REGEXP_MATCHES(field, '^pattern$')` supports complex pattern matching
+
+**Examples**：
+```sql
+-- Replace: deviceId LIKE 'sensor%'
+WHERE STARTSWITH(deviceId, 'sensor')
+
+-- Replace: message LIKE '%error%'  
+WHERE INDEXOF(message, 'error') >= 0
+
+-- Replace complex pattern: deviceId LIKE 'sensor[0-9]+'
+WHERE REGEXP_MATCHES(deviceId, '^sensor[0-9]+$')
+```
+
+### Non-Aggregation Scenarios
+
+StreamSQL supports real-time data transformation and filtering without aggregation operations. This mode provides immediate processing and output for each input record, making it ideal for data cleaning, enrichment, and real-time filtering.
+
+```go
+// Real-time data transformation and filtering example
+package main
+
+import (
+	"fmt"
+	"time"
+	"github.com/rulego/streamsql"
+)
+
+func main() {
+	ssql := streamsql.New()
+	defer ssql.Stop()
+
+	// Non-aggregation SQL - immediate data transformation
+	rsql := `SELECT deviceId, 
+	                upper(deviceType) as device_type,
+	                temperature * 1.8 + 32 as temp_fahrenheit,
+	                concat(location, '-', deviceId) as full_location,
+	                now() as processed_time
+	         FROM stream 
+	         WHERE temperature > 0 AND deviceId LIKE 'sensor%'`
+
+	err := ssql.Execute(rsql)
+	if err != nil {
+		panic(err)
+	}
+
+	// Handle real-time transformation results
+	ssql.Stream().AddSink(func(result interface{}) {
+		fmt.Printf("Transformed data: %+v\n", result)
+	})
+
+	// Input raw data
+	rawData := []map[string]interface{}{
+		{
+			"deviceId":     "sensor001",
+			"deviceType":   "temperature",
+			"temperature":  25.0,
+			"humidity":     60,
+			"location":     "warehouse-A",
+		},
+		{
+			"deviceId":     "sensor002", 
+			"deviceType":   "humidity",
+			"temperature":  22.5,
+			"humidity":     55,
+			"location":     "warehouse-B",
+		},
+		{
+			"deviceId":     "pump001",     // Will be filtered out
+			"deviceType":   "actuator",
+			"temperature":  30.0,
+			"location":     "factory",
+		},
+	}
+
+	// Each data record is processed immediately
+	for _, data := range rawData {
+		ssql.Stream().AddData(data)
+		time.Sleep(100 * time.Millisecond) // Simulate real-time arrival
+	}
+
+	time.Sleep(500 * time.Millisecond) // Wait for processing
+}
+```
+
+#### Use Cases for Non-Aggregation Scenarios
+
+**1. Real-time Data Cleaning and Validation**
+```sql
+-- Filter invalid records and normalize data formats
+SELECT deviceId, 
+       CAST(temperature AS FLOAT) as temperature,
+       LOWER(status) as status,
+       COALESCE(location, 'unknown') as location
+FROM stream 
+WHERE temperature IS NOT NULL AND deviceId != ''
+```
+
+**2. Data Enrichment and Transformation**
+```sql
+-- Add calculated fields and enrichment
+SELECT *,
+       temperature * 1.8 + 32 as temp_fahrenheit,
+       CASE WHEN temperature > 30 THEN 'hot' 
+            WHEN temperature < 10 THEN 'cold' 
+            ELSE 'normal' END as temp_category,
+       FORMAT(humidity, 2) as formatted_humidity
+FROM stream
+```
+
+**3. Real-time Alerting and Monitoring**
+```sql
+-- Filter critical events for immediate alerting
+SELECT deviceId, temperature, humidity, now() as alert_time
+FROM stream 
+WHERE temperature > 50 OR humidity < 10
+```
+
+**4. Data Format Conversion**
+```sql
+-- Convert data format for downstream systems
+SELECT TO_JSON(MAP(
+    'id', deviceId,
+    'metrics', MAP('temp', temperature, 'hum', humidity),
+    'meta', MAP('location', location, 'type', deviceType)
+)) as json_output
+FROM stream
+```
+
+**5. Real-time Data Routing**
+```sql
+-- Route data based on conditions
+SELECT *, 
+       CASE WHEN deviceType = 'sensor' THEN 'sensor_topic'
+            WHEN deviceType = 'actuator' THEN 'actuator_topic'
+            ELSE 'default_topic' END as routing_key
+FROM stream
+```
+
 ### Nested Field Access
 
 StreamSQL supports querying nested structured data using dot notation (`.`) syntax to access nested fields:
@@ -204,17 +443,21 @@ func main() {
 }
 ```
 
-**Nested Field Access Features:**
-- Support dot notation syntax: `device.info.name`, `sensor.temperature`
-- Can be used in all SQL clauses: SELECT, WHERE, GROUP BY
-- Support aggregate functions: `AVG(sensor.temperature)`, `MAX(device.status.uptime)`
-- Backward compatible: existing flat field access methods remain unchanged
-
 ## Functions
 
 StreamSQL supports a variety of function types, including mathematical, string, conversion, aggregate, analytic, window, and more. [Documentation](docs/FUNCTIONS_USAGE_GUIDE.md)
 
 ## Concepts
+
+### Processing Modes
+
+StreamSQL supports two main processing modes:
+
+#### Aggregation Mode (Windowed Processing)
+Used when the SQL query contains aggregate functions (SUM, AVG, COUNT, etc.) or GROUP BY clauses. Data is collected in windows and aggregated results are output when windows are triggered.
+
+#### Non-Aggregation Mode (Real-time Processing)  
+Used for immediate data transformation and filtering without aggregation operations. Each input record is processed and output immediately, providing ultra-low latency for real-time scenarios like data cleaning, enrichment, and filtering.
 
 ### Windows
 

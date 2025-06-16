@@ -44,6 +44,7 @@ const (
 	TokenDISTINCT
 	TokenLIMIT
 	TokenHAVING
+	TokenLIKE
 	// CASE表达式相关token
 	TokenCASE
 	TokenWHEN
@@ -336,6 +337,8 @@ func (l *Lexer) lookupIdent(ident string) Token {
 		return Token{Type: TokenLIMIT, Value: ident}
 	case "HAVING":
 		return Token{Type: TokenHAVING, Value: ident}
+	case "LIKE":
+		return Token{Type: TokenLIKE, Value: ident}
 	// CASE表达式相关关键字
 	case "CASE":
 		return Token{Type: TokenCASE, Value: ident}

@@ -26,7 +26,7 @@ var operatorPrecedence = map[string]int{
 	"OR":  1,
 	"AND": 2,
 	"==":  3, "=": 3, "!=": 3, "<>": 3,
-	">": 4, "<": 4, ">=": 4, "<=": 4,
+	">": 4, "<": 4, ">=": 4, "<=": 4, "LIKE": 4,
 	"+": 5, "-": 5,
 	"*": 6, "/": 6, "%": 6,
 	"^": 7, // 幂运算
@@ -760,6 +760,8 @@ func compareValues(left, right interface{}, operator string) (bool, error) {
 			return leftStr < rightStr, nil
 		case "<=":
 			return leftStr <= rightStr, nil
+		case "LIKE":
+			return matchesLikePattern(leftStr, rightStr), nil
 		default:
 			return false, fmt.Errorf("unsupported string comparison operator: %s", operator)
 		}
@@ -788,6 +790,58 @@ func compareValues(left, right interface{}, operator string) (bool, error) {
 		return math.Abs(leftNum-rightNum) >= 1e-9, nil
 	default:
 		return false, fmt.Errorf("unsupported comparison operator: %s", operator)
+	}
+}
+
+// matchesLikePattern 实现LIKE模式匹配
+// 支持%（匹配任意字符序列）和_（匹配单个字符）
+func matchesLikePattern(text, pattern string) bool {
+	return likeMatch(text, pattern, 0, 0)
+}
+
+// likeMatch 递归实现LIKE匹配算法
+func likeMatch(text, pattern string, textIndex, patternIndex int) bool {
+	// 如果模式已经匹配完成
+	if patternIndex >= len(pattern) {
+		return textIndex >= len(text) // 文本也应该匹配完成
+	}
+
+	// 如果文本已经结束，但模式还有非%字符，则不匹配
+	if textIndex >= len(text) {
+		// 检查剩余的模式是否都是%
+		for i := patternIndex; i < len(pattern); i++ {
+			if pattern[i] != '%' {
+				return false
+			}
+		}
+		return true
+	}
+
+	switch pattern[patternIndex] {
+	case '%':
+		// %可以匹配0个或多个字符
+		// 尝试匹配0个字符（跳过%）
+		if likeMatch(text, pattern, textIndex, patternIndex+1) {
+			return true
+		}
+		// 尝试匹配1个或多个字符
+		for i := textIndex; i < len(text); i++ {
+			if likeMatch(text, pattern, i+1, patternIndex+1) {
+				return true
+			}
+		}
+		return false
+
+	case '_':
+		// _匹配任意单个字符
+		return likeMatch(text, pattern, textIndex+1, patternIndex+1)
+
+	default:
+		// 普通字符必须精确匹配
+		if text[textIndex] == pattern[patternIndex] {
+			return likeMatch(text, pattern, textIndex+1, patternIndex+1)
+		}
+		return false
 	}
 }
 
@@ -1013,7 +1067,7 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 		if isIdentifier(token) {
 			// 检查是否是逻辑运算符关键字
 			upperToken := strings.ToUpper(token)
-			if upperToken == "AND" || upperToken == "OR" || upperToken == "NOT" {
+			if upperToken == "AND" || upperToken == "OR" || upperToken == "NOT" || upperToken == "LIKE" {
 				// 处理逻辑运算符
 				for len(operators) > 0 && operators[len(operators)-1] != "(" &&
 					operatorPrecedence[operators[len(operators)-1]] >= operatorPrecedence[upperToken] {
@@ -1431,6 +1485,8 @@ func isOperator(s string) bool {
 	case ">", "<", ">=", "<=", "==", "=", "!=", "<>":
 		return true
 	case "AND", "OR", "NOT":
+		return true
+	case "LIKE":
 		return true
 	default:
 		return false

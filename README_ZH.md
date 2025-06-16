@@ -1,8 +1,8 @@
 # StreamSQL
 [![GoDoc](https://pkg.go.dev/badge/github.com/rulego/streamsql)](https://pkg.go.dev/github.com/rulego/streamsql)
 [![Go Report](https://goreportcard.com/badge/github.com/rulego/streamsql)](https://goreportcard.com/report/github.com/rulego/streamsql)
-[![ci](https://github.com/rulego/streamsql/workflows/test/badge.svg)](https://github.com/rulego/streamsql/actions/workflows/ci.yml)
-[![build](https://github.com/rulego/streamsql/workflows/release/badge.svg)](https://github.com/rulego/streamsql/actions/workflows/release.yml)
+[![CI](https://github.com/rulego/streamsql/actions/workflows/ci.yml/badge.svg)](https://github.com/rulego/streamsql/actions/workflows/ci.yml)
+[![RELEASE](https://github.com/rulego/streamsql/actions/workflows/release.yml/badge.svg)](https://github.com/rulego/streamsql/actions/workflows/release.yml)
 
 [English](README.md)| 简体中文
 
@@ -38,6 +38,99 @@ go get github.com/rulego/streamsql
 ```
 
 ## 使用
+
+StreamSQL支持两种主要的处理模式，适用于不同的业务场景：
+
+### 非聚合模式 - 实时数据转换和过滤
+
+适用于需要**实时响应**、**低延迟**的场景，每条数据立即处理并输出结果。
+
+**典型应用场景：**
+- **数据清洗**：清理和标准化IoT设备上报的脏数据
+- **实时告警**：监控关键指标，超阈值立即告警
+- **数据富化**：为原始数据添加计算字段和业务标签
+- **格式转换**：将数据转换为下游系统需要的格式
+- **数据路由**：根据内容将数据路由到不同的处理通道
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+	"github.com/rulego/streamsql"
+)
+
+func main() {
+	// 创建StreamSQL实例
+	ssql := streamsql.New()
+	defer ssql.Stop()
+
+	// 非聚合SQL：实时数据转换和过滤
+	// 特点：每条输入数据立即处理，无需等待窗口
+	rsql := `SELECT deviceId, 
+	                UPPER(deviceType) as device_type,
+	                temperature * 1.8 + 32 as temp_fahrenheit,
+	                CASE WHEN temperature > 30 THEN 'hot'
+	                     WHEN temperature < 15 THEN 'cold'
+	                     ELSE 'normal' END as temp_category,
+	                CONCAT(location, '-', deviceId) as full_identifier,
+	                NOW() as processed_time
+	         FROM stream 
+	         WHERE temperature > 0 AND deviceId LIKE 'sensor%'`
+
+	err := ssql.Execute(rsql)
+	if err != nil {
+		panic(err)
+	}
+
+	// 处理实时转换结果
+	ssql.Stream().AddSink(func(result interface{}) {
+		fmt.Printf("实时处理结果: %+v\n", result)
+	})
+
+	// 模拟传感器数据输入
+	sensorData := []map[string]interface{}{
+		{
+			"deviceId":     "sensor001",
+			"deviceType":   "temperature", 
+			"temperature":  25.0,
+			"location":     "warehouse-A",
+		},
+		{
+			"deviceId":     "sensor002",
+			"deviceType":   "humidity",
+			"temperature":  32.5,
+			"location":     "warehouse-B", 
+		},
+		{
+			"deviceId":     "pump001",  // 会被过滤掉
+			"deviceType":   "actuator",
+			"temperature":  20.0,
+			"location":     "factory",
+		},
+	}
+
+	// 逐条处理数据，每条都会立即输出结果
+	for _, data := range sensorData {
+		ssql.Stream().AddData(data)
+		time.Sleep(100 * time.Millisecond) // 模拟实时数据到达
+	}
+
+	time.Sleep(500 * time.Millisecond) // 等待处理完成
+}
+```
+
+### 聚合模式 - 窗口统计分析
+
+适用于需要**统计分析**、**批量处理**的场景，收集一段时间内的数据进行聚合计算。
+
+**典型应用场景：**
+- **监控大屏**：展示设备运行状态的实时统计图表
+- **性能分析**：分析系统的QPS、延迟等关键指标
+- **异常检测**：基于统计模型检测数据异常
+- **报表生成**：定时生成各种业务报表
+- **趋势分析**：分析数据的变化趋势和规律
 
 ```go
 package main
@@ -160,6 +253,39 @@ func main() {
 }
 ```
 
+### 🔍 模式匹配功能
+
+StreamSQL 支持标准 SQL 的 `LIKE` 语法进行模式匹配：
+
+- **前缀匹配**: `field LIKE 'prefix%'` - 匹配以指定前缀开头的字符串
+- **后缀匹配**: `field LIKE '%suffix'` - 匹配以指定后缀结尾的字符串  
+- **包含匹配**: `field LIKE '%substring%'` - 匹配包含指定子字符串的字符串
+- **单字符通配符**: `field LIKE 'patte_n'` - `_` 匹配任意单个字符
+- **复杂模式**: `field LIKE 'prefix%suffix'` - 组合前缀和后缀匹配
+
+**示例**：
+```sql
+-- 前缀匹配：查找以'sensor'开头的设备ID
+WHERE deviceId LIKE 'sensor%'
+
+-- 后缀匹配：查找以'error'结尾的消息
+WHERE message LIKE '%error'
+
+-- 包含匹配：查找包含'alert'的日志
+WHERE logMessage LIKE '%alert%'
+
+-- 单字符通配符：匹配三位数错误代码如E01, E02等
+WHERE errorCode LIKE 'E_0'
+
+-- 复杂模式：匹配log_开头.log结尾的文件
+WHERE filename LIKE 'log_%.log'
+```
+
+**兼容的字符串函数**：
+- `STARTSWITH(field, 'prefix')` - 等价于 `field LIKE 'prefix%'`
+- `ENDSWITH(field, 'suffix')` - 等价于 `field LIKE '%suffix'`
+- `REGEXP_MATCHES(field, '^pattern$')` - 支持更复杂的正则表达式匹配
+
 ### 嵌套字段访问
 
 StreamSQL 还支持对嵌套结构数据进行查询，可以使用点号（`.`）语法访问嵌套字段：
@@ -219,12 +345,6 @@ func main() {
 	ssql.Stream().AddData(nestedData)
 }
 ```
-
-**嵌套字段访问特性：**
-- 支持点号语法：`device.info.name`、`sensor.temperature`
-- 可用于 SELECT、WHERE、GROUP BY 等所有 SQL 子句
-- 支持聚合函数：`AVG(sensor.temperature)`、`MAX(device.status.uptime)`
-- 向后兼容：现有平坦字段访问方式保持不变
 
 ## 函数
 

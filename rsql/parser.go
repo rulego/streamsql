@@ -382,6 +382,8 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 			conditions = append(conditions, "&&")
 		case TokenOR:
 			conditions = append(conditions, "||")
+		case TokenLIKE:
+			conditions = append(conditions, "LIKE")
 		default:
 			// 处理字符串值的引号
 			if len(conditions) > 0 && conditions[len(conditions)-1] == "'" {
@@ -826,6 +828,8 @@ func (p *Parser) parseHaving(stmt *SelectStatement) error {
 			conditions = append(conditions, "&&")
 		case TokenOR:
 			conditions = append(conditions, "||")
+		case TokenLIKE:
+			conditions = append(conditions, "LIKE")
 		default:
 			// 处理字符串值的引号
 			if len(conditions) > 0 && conditions[len(conditions)-1] == "'" {
