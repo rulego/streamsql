@@ -26,7 +26,7 @@ var operatorPrecedence = map[string]int{
 	"OR":  1,
 	"AND": 2,
 	"==":  3, "=": 3, "!=": 3, "<>": 3,
-	">": 4, "<": 4, ">=": 4, "<=": 4,
+	">": 4, "<": 4, ">=": 4, "<=": 4, "LIKE": 4, "IS": 4,
 	"+": 5, "-": 5,
 	"*": 6, "/": 6, "%": 6,
 	"^": 7, // 幂运算
@@ -200,6 +200,8 @@ func isValidChar(ch rune) bool {
 		return true
 	case '.', '_': // 点和下划线
 		return true
+	case '$': // 美元符号（用于JSON路径等）
+		return true
 	default:
 		return false
 	}
@@ -307,7 +309,7 @@ func isValidFieldIdentifier(s string) bool {
 func isFunctionOrKeyword(token string) bool {
 	// 检查是否是已知函数或关键字
 	keywords := []string{
-		"and", "or", "not", "true", "false", "nil", "null",
+		"and", "or", "not", "true", "false", "nil", "null", "is",
 		"if", "else", "then", "in", "contains", "matches",
 		// CASE表达式关键字
 		"case", "when", "then", "else", "end",
@@ -455,10 +457,11 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 		// 首先检查是否是新的函数注册系统中的函数
 		fn, exists := functions.Get(node.Value)
 		if exists {
-			// 计算所有参数
+			// 计算所有参数，但保持原始类型
 			args := make([]interface{}, len(node.Args))
 			for i, arg := range node.Args {
-				val, err := evaluateNode(arg, data)
+				// 使用evaluateNodeValue获取原始类型的值
+				val, err := evaluateNodeValue(arg, data)
 				if err != nil {
 					return 0, err
 				}
@@ -488,8 +491,20 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 				return float64(r), nil
 			case int64:
 				return float64(r), nil
+			case string:
+				// 对于字符串结果，尝试转换为数字，如果失败则返回字符串长度
+				if f, err := strconv.ParseFloat(r, 64); err == nil {
+					return f, nil
+				}
+				return float64(len(r)), nil
+			case bool:
+				// 布尔值转换：true=1, false=0
+				if r {
+					return 1.0, nil
+				}
+				return 0.0, nil
 			default:
-				return 0, fmt.Errorf("function %s returned non-numeric value", node.Value)
+				return 0, fmt.Errorf("function %s returned unsupported type for numeric conversion: %T", node.Value, result)
 			}
 		}
 
@@ -657,13 +672,24 @@ func evaluateBooleanCondition(node *ExprNode, data map[string]interface{}) (bool
 		return false, fmt.Errorf("null condition expression")
 	}
 
-	// 处理逻辑运算符
+	// 处理逻辑运算符（实现短路求值）
 	if node.Type == TypeOperator && (node.Value == "AND" || node.Value == "OR") {
 		leftBool, err := evaluateBooleanCondition(node.Left, data)
 		if err != nil {
 			return false, err
 		}
 
+		// 短路求值：对于AND，如果左边为false，立即返回false
+		if node.Value == "AND" && !leftBool {
+			return false, nil
+		}
+
+		// 短路求值：对于OR，如果左边为true，立即返回true
+		if node.Value == "OR" && leftBool {
+			return true, nil
+		}
+
+		// 只有在需要时才评估右边的表达式
 		rightBool, err := evaluateBooleanCondition(node.Right, data)
 		if err != nil {
 			return false, err
@@ -675,6 +701,11 @@ func evaluateBooleanCondition(node *ExprNode, data map[string]interface{}) (bool
 		case "OR":
 			return leftBool || rightBool, nil
 		}
+	}
+
+	// 处理IS NULL和IS NOT NULL特殊情况
+	if node.Type == TypeOperator && node.Value == "IS" {
+		return evaluateIsCondition(node, data)
 	}
 
 	// 处理比较运算符
@@ -700,6 +731,42 @@ func evaluateBooleanCondition(node *ExprNode, data map[string]interface{}) (bool
 
 	// 非零值为真，零值为假
 	return result != 0, nil
+}
+
+// evaluateIsCondition 处理IS NULL和IS NOT NULL条件
+func evaluateIsCondition(node *ExprNode, data map[string]interface{}) (bool, error) {
+	if node == nil || node.Left == nil || node.Right == nil {
+		return false, fmt.Errorf("invalid IS condition")
+	}
+
+	// 获取左侧值
+	leftValue, err := evaluateNodeValue(node.Left, data)
+	if err != nil {
+		// 如果字段不存在，认为是null
+		leftValue = nil
+	}
+
+	// 检查右侧是否是NULL或NOT NULL
+	if node.Right.Type == TypeField && strings.ToUpper(node.Right.Value) == "NULL" {
+		// IS NULL
+		return leftValue == nil, nil
+	}
+
+	// 检查是否是IS NOT NULL
+	if node.Right.Type == TypeOperator && node.Right.Value == "NOT" &&
+		node.Right.Right != nil && node.Right.Right.Type == TypeField &&
+		strings.ToUpper(node.Right.Right.Value) == "NULL" {
+		// IS NOT NULL
+		return leftValue != nil, nil
+	}
+
+	// 其他IS比较（如IS TRUE, IS FALSE等，暂不支持）
+	rightValue, err := evaluateNodeValue(node.Right, data)
+	if err != nil {
+		return false, err
+	}
+
+	return compareValues(leftValue, rightValue, "==")
 }
 
 // evaluateNodeValue 计算节点值，返回interface{}以支持不同类型
@@ -760,6 +827,8 @@ func compareValues(left, right interface{}, operator string) (bool, error) {
 			return leftStr < rightStr, nil
 		case "<=":
 			return leftStr <= rightStr, nil
+		case "LIKE":
+			return matchesLikePattern(leftStr, rightStr), nil
 		default:
 			return false, fmt.Errorf("unsupported string comparison operator: %s", operator)
 		}
@@ -788,6 +857,58 @@ func compareValues(left, right interface{}, operator string) (bool, error) {
 		return math.Abs(leftNum-rightNum) >= 1e-9, nil
 	default:
 		return false, fmt.Errorf("unsupported comparison operator: %s", operator)
+	}
+}
+
+// matchesLikePattern 实现LIKE模式匹配
+// 支持%（匹配任意字符序列）和_（匹配单个字符）
+func matchesLikePattern(text, pattern string) bool {
+	return likeMatch(text, pattern, 0, 0)
+}
+
+// likeMatch 递归实现LIKE匹配算法
+func likeMatch(text, pattern string, textIndex, patternIndex int) bool {
+	// 如果模式已经匹配完成
+	if patternIndex >= len(pattern) {
+		return textIndex >= len(text) // 文本也应该匹配完成
+	}
+
+	// 如果文本已经结束，但模式还有非%字符，则不匹配
+	if textIndex >= len(text) {
+		// 检查剩余的模式是否都是%
+		for i := patternIndex; i < len(pattern); i++ {
+			if pattern[i] != '%' {
+				return false
+			}
+		}
+		return true
+	}
+
+	switch pattern[patternIndex] {
+	case '%':
+		// %可以匹配0个或多个字符
+		// 尝试匹配0个字符（跳过%）
+		if likeMatch(text, pattern, textIndex, patternIndex+1) {
+			return true
+		}
+		// 尝试匹配1个或多个字符
+		for i := textIndex; i < len(text); i++ {
+			if likeMatch(text, pattern, i+1, patternIndex+1) {
+				return true
+			}
+		}
+		return false
+
+	case '_':
+		// _匹配任意单个字符
+		return likeMatch(text, pattern, textIndex+1, patternIndex+1)
+
+	default:
+		// 普通字符必须精确匹配
+		if text[textIndex] == pattern[patternIndex] {
+			return likeMatch(text, pattern, textIndex+1, patternIndex+1)
+		}
+		return false
 	}
 }
 
@@ -1013,7 +1134,7 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 		if isIdentifier(token) {
 			// 检查是否是逻辑运算符关键字
 			upperToken := strings.ToUpper(token)
-			if upperToken == "AND" || upperToken == "OR" || upperToken == "NOT" {
+			if upperToken == "AND" || upperToken == "OR" || upperToken == "NOT" || upperToken == "LIKE" {
 				// 处理逻辑运算符
 				for len(operators) > 0 && operators[len(operators)-1] != "(" &&
 					operatorPrecedence[operators[len(operators)-1]] >= operatorPrecedence[upperToken] {
@@ -1039,6 +1160,67 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 				operators = append(operators, upperToken)
 				i++
 				continue
+			}
+
+			// 特殊处理IS运算符，需要检查后续的NOT NULL组合
+			if upperToken == "IS" {
+				// 处理待处理的运算符
+				for len(operators) > 0 && operators[len(operators)-1] != "(" &&
+					operatorPrecedence[operators[len(operators)-1]] >= operatorPrecedence["IS"] {
+					op := operators[len(operators)-1]
+					operators = operators[:len(operators)-1]
+
+					if len(output) < 2 {
+						return nil, fmt.Errorf("not enough operands for operator: %s", op)
+					}
+
+					right := output[len(output)-1]
+					left := output[len(output)-2]
+					output = output[:len(output)-2]
+
+					output = append(output, &ExprNode{
+						Type:  TypeOperator,
+						Value: op,
+						Left:  left,
+						Right: right,
+					})
+				}
+
+				// 检查是否是IS NOT NULL模式
+				if i+2 < len(tokens) &&
+					strings.ToUpper(tokens[i+1]) == "NOT" &&
+					strings.ToUpper(tokens[i+2]) == "NULL" {
+					// 这是IS NOT NULL，创建特殊的右侧节点结构
+					notNullNode := &ExprNode{
+						Type:  TypeOperator,
+						Value: "NOT",
+						Right: &ExprNode{
+							Type:  TypeField,
+							Value: "NULL",
+						},
+					}
+
+					operators = append(operators, "IS")
+					output = append(output, notNullNode)
+					i += 3 // 跳过IS NOT NULL三个token
+					continue
+				} else if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "NULL" {
+					// 这是IS NULL，创建NULL节点
+					nullNode := &ExprNode{
+						Type:  TypeField,
+						Value: "NULL",
+					}
+
+					operators = append(operators, "IS")
+					output = append(output, nullNode)
+					i += 2 // 跳过IS NULL两个token
+					continue
+				} else {
+					// 普通的IS运算符
+					operators = append(operators, "IS")
+					i++
+					continue
+				}
 			}
 
 			// 检查是否是CASE表达式
@@ -1431,6 +1613,8 @@ func isOperator(s string) bool {
 	case ">", "<", ">=", "<=", "==", "=", "!=", "<>":
 		return true
 	case "AND", "OR", "NOT":
+		return true
+	case "LIKE", "IS":
 		return true
 	default:
 		return false
