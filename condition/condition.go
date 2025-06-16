@@ -29,6 +29,18 @@ func NewExprCondition(expression string) (Condition, error) {
 			}
 			return matchesLikePattern(text, pattern), nil
 		}),
+		expr.Function("is_null", func(params ...any) (any, error) {
+			if len(params) != 1 {
+				return false, fmt.Errorf("is_null function requires 1 parameter")
+			}
+			return params[0] == nil, nil
+		}),
+		expr.Function("is_not_null", func(params ...any) (any, error) {
+			if len(params) != 1 {
+				return false, fmt.Errorf("is_not_null function requires 1 parameter")
+			}
+			return params[0] != nil, nil
+		}),
 		expr.AllowUndefinedVariables(),
 		expr.AsBool(),
 	}

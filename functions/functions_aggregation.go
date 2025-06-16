@@ -113,7 +113,7 @@ func (f *AvgFunction) Add(value interface{}) {
 
 func (f *AvgFunction) Result() interface{} {
 	if f.count == 0 {
-		return 0.0
+		return nil // 当没有有效值时返回nil而不是0.0
 	}
 	return f.sum / float64(f.count)
 }

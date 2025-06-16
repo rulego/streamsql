@@ -300,13 +300,12 @@ func ParseAggregateTypeWithExpression(exprStr string) (aggType aggregator.Aggreg
 	case functions.TypeString, functions.TypeConversion, functions.TypeCustom, functions.TypeMath:
 		// 字符串函数、转换函数、自定义函数、数学函数：在聚合查询中作为表达式处理
 		// 使用 "expression" 作为特殊的聚合类型，表示这是一个表达式计算
-		if expression == "" {
-			expression = exprStr
-			if parsedExpr, err := expr.NewExpression(exprStr); err == nil {
-				allFields = parsedExpr.GetFields()
-			}
+		// 对于这些函数，应该保存完整的函数调用作为表达式，而不是只保存参数部分
+		fullExpression := exprStr
+		if parsedExpr, err := expr.NewExpression(fullExpression); err == nil {
+			allFields = parsedExpr.GetFields()
 		}
-		return "expression", name, expression, allFields
+		return "expression", name, fullExpression, allFields
 
 	default:
 		// 其他类型的函数不使用聚合

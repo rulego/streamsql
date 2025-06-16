@@ -139,7 +139,7 @@ func TestCaseExpressionParsing(t *testing.T) {
 			name:     "字符串函数在CASE中",
 			exprStr:  "CASE WHEN LENGTH(device_name) > 5 THEN 1 ELSE 0 END",
 			data:     map[string]interface{}{"device_name": "sensor123"},
-			expected: 0.0, // LENGTH函数类型转换失败，返回默认值0
+			expected: 1.0, // LENGTH函数现在正常工作，"sensor123"长度为9 > 5，返回1
 			wantErr:  false,
 		},
 		{
@@ -310,7 +310,7 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 		firstResult = results[0]
 	}
 	resultsMutex.Unlock()
-	
+
 	assert.Greater(t, resultCount, 0, "应该有聚合结果返回")
 
 	// 验证结果结构

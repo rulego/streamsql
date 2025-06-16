@@ -23,7 +23,7 @@ type ExprBridge struct {
 // NewExprBridge 创建新的表达式桥接器
 func NewExprBridge() *ExprBridge {
 	return &ExprBridge{
-		streamSQLFunctions: ListAll(),
+		streamSQLFunctions: make(map[string]Function), // 初始化为空，动态获取
 		exprEnv:            make(map[string]interface{}),
 	}
 }
@@ -35,26 +35,29 @@ func (bridge *ExprBridge) RegisterStreamSQLFunctionsToExpr() []expr.Option {
 
 	options := make([]expr.Option, 0)
 
+	// 动态获取所有当前注册的函数
+	allFunctions := ListAll()
+
 	// 将所有StreamSQL函数注册到expr环境
-	for name, fn := range bridge.streamSQLFunctions {
-		// 为了避免闭包问题，创建局部变量
-		funcName := name
+	for name, fn := range allFunctions {
+		// 为了避免闭包问题，使用立即执行函数
 		function := fn
 
-		// 将StreamSQL函数包装为expr兼容的函数
-		wrappedFunc := func(params ...interface{}) (interface{}, error) {
-			ctx := &FunctionContext{
-				Data: bridge.exprEnv,
+		wrappedFunc := func(function Function) func(params ...interface{}) (interface{}, error) {
+			return func(params ...interface{}) (interface{}, error) {
+				ctx := &FunctionContext{
+					Data: bridge.exprEnv,
+				}
+				return function.Execute(ctx, params)
 			}
-			return function.Execute(ctx, params)
-		}
+		}(function)
 
 		// 添加函数到expr环境
-		bridge.exprEnv[funcName] = wrappedFunc
+		bridge.exprEnv[name] = wrappedFunc
 
 		// 注册函数类型信息
 		options = append(options, expr.Function(
-			funcName,
+			name,
 			wrappedFunc,
 		))
 	}
@@ -75,22 +78,27 @@ func (bridge *ExprBridge) CreateEnhancedExprEnvironment(data map[string]interfac
 		env[k] = v
 	}
 
+	// 动态获取所有当前注册的函数
+	allFunctions := ListAll()
+
 	// 添加所有StreamSQL函数
-	for name, fn := range bridge.streamSQLFunctions {
-		funcName := name
+	for name, fn := range allFunctions {
+		// 确保闭包捕获正确的函数实例
 		function := fn
 
-		wrappedFunc := func(params ...interface{}) (interface{}, error) {
-			ctx := &FunctionContext{
-				Data: data, // 使用当前数据上下文
+		wrappedFunc := func(function Function) func(params ...interface{}) (interface{}, error) {
+			return func(params ...interface{}) (interface{}, error) {
+				ctx := &FunctionContext{
+					Data: data, // 使用当前数据上下文
+				}
+				return function.Execute(ctx, params)
 			}
-			return function.Execute(ctx, params)
-		}
+		}(function)
 
 		// 注册小写版本
-		env[funcName] = wrappedFunc
+		env[name] = wrappedFunc
 		// 注册大写版本
-		env[strings.ToUpper(funcName)] = wrappedFunc
+		env[strings.ToUpper(name)] = wrappedFunc
 	}
 
 	// 添加一些便捷的数学函数别名，避免与内置冲突
@@ -100,11 +108,6 @@ func (bridge *ExprBridge) CreateEnhancedExprEnvironment(data map[string]interfac
 	env["streamsql_max"] = env["max"]
 
 	// 添加自定义的LIKE匹配函数
-	env["like_match"] = func(text, pattern string) bool {
-		return bridge.matchesLikePattern(text, pattern)
-	}
-
-	// 添加自定义LIKE函数（startsWith、endsWith、contains是内置操作符，不需要在环境中添加）
 	env["like_match"] = func(text, pattern string) bool {
 		return bridge.matchesLikePattern(text, pattern)
 	}
@@ -156,6 +159,14 @@ func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]
 		}
 	}
 
+	// 检查是否包含IS NULL或IS NOT NULL操作符，如果有则进行预处理
+	if bridge.ContainsIsNullOperator(expression) {
+		processedExpr, err := bridge.PreprocessIsNullExpression(expression)
+		if err == nil {
+			expression = processedExpr
+		}
+	}
+
 	// 检查是否包含字符串拼接模式
 	if bridge.isStringConcatenationExpression(expression, data) {
 		result, err := bridge.evaluateStringConcatenation(expression, data)
@@ -179,6 +190,10 @@ func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]
 	env := bridge.CreateEnhancedExprEnvironment(data)
 	result, err := expr.Eval(expression, env)
 	if err != nil {
+		// 检查是否是函数调用，如果是则不要回退到数值表达式处理
+		if bridge.isFunctionCall(expression) {
+			return nil, fmt.Errorf("failed to evaluate function call '%s': %v", expression, err)
+		}
 		// 如果expr失败，回退到自定义expr系统（仅限数值计算）
 		return bridge.fallbackToCustomExpr(expression, data)
 	}
@@ -350,6 +365,45 @@ func (bridge *ExprBridge) ContainsLikeOperator(expression string) bool {
 	return strings.Contains(upperExpr, " LIKE ")
 }
 
+// ContainsIsNullOperator 检查表达式是否包含IS NULL或IS NOT NULL操作符
+func (bridge *ExprBridge) ContainsIsNullOperator(expression string) bool {
+	upperExpr := strings.ToUpper(expression)
+	return strings.Contains(upperExpr, " IS NULL") || strings.Contains(upperExpr, " IS NOT NULL")
+}
+
+// isFunctionCall 检查表达式是否是函数调用
+func (bridge *ExprBridge) isFunctionCall(expression string) bool {
+	// 如果是CASE表达式，则不是函数调用
+	trimmed := strings.TrimSpace(expression)
+	upperTrimmed := strings.ToUpper(trimmed)
+	if strings.HasPrefix(upperTrimmed, "CASE ") || strings.HasPrefix(upperTrimmed, "CASE\t") || strings.HasPrefix(upperTrimmed, "CASE\n") {
+		return false
+	}
+
+	// 检查是否符合简单函数调用模式: function_name(args)
+	// 函数调用应该以标识符开始，后跟括号
+	if !strings.Contains(expression, "(") || !strings.Contains(expression, ")") {
+		return false
+	}
+
+	// 检查是否以标识符开始（函数名）
+	for i, r := range trimmed {
+		if i == 0 {
+			if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_') {
+				return false
+			}
+		} else if r == '(' {
+			// 找到了开括号，说明这可能是函数调用
+			return true
+		} else if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
+			// 遇到了非标识符字符且不是开括号，说明不是简单函数调用
+			return false
+		}
+	}
+
+	return false
+}
+
 // PreprocessLikeExpression 预处理LIKE表达式，转换为expr-lang可理解的函数调用
 func (bridge *ExprBridge) PreprocessLikeExpression(expression string) (string, error) {
 	// 使用正则表达式匹配LIKE模式
@@ -373,6 +427,51 @@ func (bridge *ExprBridge) PreprocessLikeExpression(expression string) (string, e
 		// 将LIKE模式转换为相应的函数调用
 		return bridge.convertLikeToFunction(field, pattern)
 	})
+
+	return result, nil
+}
+
+// PreprocessIsNullExpression 预处理IS NULL和IS NOT NULL表达式，转换为expr-lang可理解的表达式
+func (bridge *ExprBridge) PreprocessIsNullExpression(expression string) (string, error) {
+	// 匹配复杂表达式的 IS NOT NULL 模式 (如函数调用)
+	complexNotNullPattern := `([A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\))\s+IS\s+NOT\s+NULL`
+	reComplexNotNull, err := regexp.Compile(complexNotNullPattern)
+	if err != nil {
+		return expression, err
+	}
+
+	// 先处理复杂表达式的IS NOT NULL
+	result := reComplexNotNull.ReplaceAllString(expression, "is_not_null($1)")
+
+	// 匹配复杂表达式的 IS NULL 模式
+	complexNullPattern := `([A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\))\s+IS\s+NULL`
+	reComplexNull, err := regexp.Compile(complexNullPattern)
+	if err != nil {
+		return result, err
+	}
+
+	// 处理复杂表达式的IS NULL
+	result = reComplexNull.ReplaceAllString(result, "is_null($1)")
+
+	// 匹配简单字段的 IS NOT NULL 模式 (必须在复杂表达式之后处理)
+	isNotNullPattern := `(\w+(?:\.\w+)*)\s+IS\s+NOT\s+NULL`
+	reNotNull, err := regexp.Compile(isNotNullPattern)
+	if err != nil {
+		return result, err
+	}
+
+	// 替换简单字段的IS NOT NULL
+	result = reNotNull.ReplaceAllString(result, "$1 != nil")
+
+	// 匹配简单字段的 IS NULL 模式
+	isNullPattern := `(\w+(?:\.\w+)*)\s+IS\s+NULL`
+	reNull, err := regexp.Compile(isNullPattern)
+	if err != nil {
+		return result, err
+	}
+
+	// 再替换简单字段的IS NULL
+	result = reNull.ReplaceAllString(result, "$1 == nil")
 
 	return result, nil
 }
@@ -492,9 +591,10 @@ func (bridge *ExprBridge) GetFunctionInfo() map[string]interface{} {
 
 	info := make(map[string]interface{})
 
-	// StreamSQL函数信息
+	// StreamSQL函数信息 - 动态获取所有当前注册的函数
 	streamSQLFuncs := make(map[string]interface{})
-	for name, fn := range bridge.streamSQLFunctions {
+	allFunctions := ListAll() // 动态获取所有注册的函数
+	for name, fn := range allFunctions {
 		streamSQLFuncs[name] = map[string]interface{}{
 			"name":        fn.GetName(),
 			"type":        fn.GetType(),
@@ -567,8 +667,9 @@ func (bridge *ExprBridge) ResolveFunction(name string) (interface{}, bool, strin
 	// 进行大小写不敏感的查找
 	lowerName := strings.ToLower(name)
 
-	// 首先检查StreamSQL函数（优先级更高）
-	if fn, exists := bridge.streamSQLFunctions[lowerName]; exists {
+	// 首先检查StreamSQL函数（优先级更高） - 动态获取
+	allFunctions := ListAll()
+	if fn, exists := allFunctions[lowerName]; exists {
 		return fn, true, "streamsql"
 	}
 
