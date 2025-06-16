@@ -50,6 +50,9 @@ const (
 	TokenTHEN
 	TokenELSE
 	TokenEND
+	// 数组索引相关token
+	TokenLBracket
+	TokenRBracket
 )
 
 type Token struct {
@@ -110,6 +113,12 @@ func (l *Lexer) NextToken() Token {
 	case ')':
 		l.readChar()
 		return Token{Type: TokenRParen, Value: ")", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
+	case '[':
+		l.readChar()
+		return Token{Type: TokenLBracket, Value: "[", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
+	case ']':
+		l.readChar()
+		return Token{Type: TokenRBracket, Value: "]", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
 	case '+':
 		l.readChar()
 		return Token{Type: TokenPlus, Value: "+", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
@@ -226,6 +235,8 @@ func (l *Lexer) peekChar() byte {
 
 func (l *Lexer) readIdentifier() string {
 	position := l.pos
+	// 只处理基本标识符和点号（用于嵌套字段访问）
+	// 数组索引（方括号）应该由解析器处理，而不是词法分析器
 	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '.' {
 		l.readChar()
 	}

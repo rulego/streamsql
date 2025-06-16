@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/rulego/streamsql/functions"
-	"github.com/rulego/streamsql/utils"
 	"github.com/rulego/streamsql/utils/cast"
+	"github.com/rulego/streamsql/utils/fieldpath"
 )
 
 type Aggregator interface {
@@ -161,8 +161,8 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		var found bool
 
 		// 检查是否是嵌套字段
-		if utils.IsNestedField(field) {
-			fieldVal, found = utils.GetNestedField(data, field)
+		if fieldpath.IsNestedField(field) {
+			fieldVal, found = fieldpath.GetNestedField(data, field)
 		} else {
 			// 原有的字段访问逻辑
 			var f reflect.Value
@@ -240,8 +240,8 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		var fieldVal interface{}
 		var found bool
 
-		if utils.IsNestedField(inputField) {
-			fieldVal, found = utils.GetNestedField(data, inputField)
+		if fieldpath.IsNestedField(inputField) {
+			fieldVal, found = fieldpath.GetNestedField(data, inputField)
 		} else {
 			// 原有的字段访问逻辑
 			var f reflect.Value
