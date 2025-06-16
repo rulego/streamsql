@@ -50,6 +50,9 @@ const (
 	TokenTHEN
 	TokenELSE
 	TokenEND
+	// 数组索引相关token
+	TokenLBracket
+	TokenRBracket
 )
 
 type Token struct {
@@ -110,6 +113,12 @@ func (l *Lexer) NextToken() Token {
 	case ')':
 		l.readChar()
 		return Token{Type: TokenRParen, Value: ")", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
+	case '[':
+		l.readChar()
+		return Token{Type: TokenLBracket, Value: "[", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
+	case ']':
+		l.readChar()
+		return Token{Type: TokenRBracket, Value: "]", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
 	case '+':
 		l.readChar()
 		return Token{Type: TokenPlus, Value: "+", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
@@ -226,8 +235,20 @@ func (l *Lexer) peekChar() byte {
 
 func (l *Lexer) readIdentifier() string {
 	position := l.pos
-	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '.' {
-		l.readChar()
+	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '.' || l.ch == '[' || l.ch == ']' || l.ch == '\'' || l.ch == '"' {
+		// 如果遇到方括号，需要特殊处理以确保括号内容被正确包含
+		if l.ch == '[' {
+			l.readChar() // 跳过 '['
+			// 继续读取直到找到匹配的 ']'
+			for l.ch != ']' && l.ch != 0 {
+				l.readChar()
+			}
+			if l.ch == ']' {
+				l.readChar() // 跳过 ']'
+			}
+		} else {
+			l.readChar()
+		}
 	}
 	return l.input[position:l.pos]
 }

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/rulego/streamsql/functions"
-	"github.com/rulego/streamsql/utils"
+	"github.com/rulego/streamsql/utils/fieldpath"
 )
 
 // 表达式类型
@@ -392,33 +392,28 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 		return float64(len(value)), nil
 
 	case TypeField:
-		// 从数据中获取字段值
-		val, ok := data[node.Value]
-		if !ok {
-			return 0, fmt.Errorf("field %s not found in data", node.Value)
-		}
-
-		// 尝试转换为 float64
-		switch v := val.(type) {
-		case float64:
-			return v, nil
-		case float32:
-			return float64(v), nil
-		case int:
-			return float64(v), nil
-		case int32:
-			return float64(v), nil
-		case int64:
-			return float64(v), nil
-		default:
-			// 尝试字符串转换
-			if strVal, ok := val.(string); ok {
-				if f, err := strconv.ParseFloat(strVal, 64); err == nil {
-					return f, nil
+		// 支持嵌套字段访问
+		if fieldpath.IsNestedField(node.Value) {
+			if val, found := fieldpath.GetNestedField(data, node.Value); found {
+				// 尝试转换为float64
+				if floatVal, err := convertToFloat(val); err == nil {
+					return floatVal, nil
 				}
+				// 如果不能转换为数字，返回错误
+				return 0, fmt.Errorf("field '%s' value cannot be converted to number: %v", node.Value, val)
 			}
-			return 0, fmt.Errorf("cannot convert field %s value to number", node.Value)
+		} else {
+			// 原有的简单字段访问
+			if val, found := data[node.Value]; found {
+				// 尝试转换为float64
+				if floatVal, err := convertToFloat(val); err == nil {
+					return floatVal, nil
+				}
+				// 如果不能转换为数字，返回错误
+				return 0, fmt.Errorf("field '%s' value cannot be converted to number: %v", node.Value, val)
+			}
 		}
+		return 0, fmt.Errorf("field '%s' not found", node.Value)
 
 	case TypeOperator:
 		// 计算左右子表达式的值
@@ -727,16 +722,17 @@ func evaluateNodeValue(node *ExprNode, data map[string]interface{}) (interface{}
 
 	case TypeField:
 		// 支持嵌套字段访问
-		if utils.IsNestedField(node.Value) {
-			if val, found := utils.GetNestedField(data, node.Value); found {
+		if fieldpath.IsNestedField(node.Value) {
+			if val, found := fieldpath.GetNestedField(data, node.Value); found {
 				return val, nil
 			}
 		} else {
-			if val, ok := data[node.Value]; ok {
+			// 原有的简单字段访问
+			if val, found := data[node.Value]; found {
 				return val, nil
 			}
 		}
-		return nil, fmt.Errorf("field %s not found in data", node.Value)
+		return nil, fmt.Errorf("field '%s' not found", node.Value)
 
 	default:
 		// 对于其他类型，回退到数值计算

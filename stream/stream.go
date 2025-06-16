@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/rulego/streamsql/condition"
+	"github.com/rulego/streamsql/utils/fieldpath"
 
 	"github.com/rulego/streamsql/aggregator"
 	"github.com/rulego/streamsql/expr"
 	"github.com/rulego/streamsql/functions"
 	"github.com/rulego/streamsql/logger"
 	"github.com/rulego/streamsql/types"
-	"github.com/rulego/streamsql/utils"
 	"github.com/rulego/streamsql/window"
 )
 
@@ -446,8 +446,8 @@ func (s *Stream) processDirectData(data interface{}) {
 				var value interface{}
 				var exists bool
 
-				if utils.IsNestedField(fieldName) {
-					value, exists = utils.GetNestedField(data, fieldName)
+				if fieldpath.IsNestedField(fieldName) {
+					value, exists = fieldpath.GetNestedField(data, fieldName)
 				} else {
 					value, exists = dataMap[fieldName]
 				}
