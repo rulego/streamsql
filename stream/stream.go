@@ -573,6 +573,18 @@ func (s *Stream) processDirectData(data interface{}) {
 	// 如果指定了字段，只保留这些字段
 	if len(s.config.SimpleFields) > 0 {
 		for _, fieldSpec := range s.config.SimpleFields {
+			// 处理SELECT *的特殊情况
+			if fieldSpec == "*" {
+				// SELECT *：返回所有字段，但跳过已经通过表达式字段处理的字段
+				for k, v := range dataMap {
+					// 如果该字段已经通过表达式字段处理，则跳过，保持表达式计算结果
+					if _, isExpression := s.config.FieldExpressions[k]; !isExpression {
+						result[k] = v
+					}
+				}
+				continue
+			}
+
 			// 处理别名
 			parts := strings.Split(fieldSpec, ":")
 			fieldName := parts[0]

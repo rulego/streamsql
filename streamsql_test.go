@@ -350,7 +350,7 @@ func TestStreamsqlLimit(t *testing.T) {
 		streamsql := New()
 		defer streamsql.Stop()
 
-		var rsql = "SELECT device, temperature FROM stream LIMIT 2"
+		var rsql = "SELECT * FROM stream LIMIT 2"
 		err := streamsql.Execute(rsql)
 		assert.Nil(t, err)
 		strm := streamsql.stream
@@ -2590,4 +2590,287 @@ func TestExprFunctionsWithStreamSQLFunctions(t *testing.T) {
 			assert.Equal(t, expected, processedName, "混合函数调用应该正确处理")
 		}
 	}
+}
+
+// TestSelectAllFeature 专门测试SELECT *功能
+func TestSelectAllFeature(t *testing.T) {
+	// 测试场景1：基本SELECT *查询
+	t.Run("基本SELECT *查询", func(t *testing.T) {
+		streamsql := New()
+		defer streamsql.Stop()
+
+		var rsql = "SELECT * FROM stream"
+		err := streamsql.Execute(rsql)
+		assert.Nil(t, err)
+		strm := streamsql.stream
+
+		// 创建结果接收通道
+		resultChan := make(chan interface{}, 10)
+
+		// 添加结果接收器
+		strm.AddSink(func(result interface{}) {
+			resultChan <- result
+		})
+
+		// 添加测试数据
+		testData := map[string]interface{}{
+			"device":      "sensor001",
+			"temperature": 25.5,
+			"humidity":    60,
+			"location":    "room1",
+			"status":      "active",
+		}
+
+		// 发送数据
+		strm.AddData(testData)
+
+		// 等待结果
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		select {
+		case result := <-resultChan:
+			// 验证结果
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+			require.Len(t, resultSlice, 1, "应该只有一条结果")
+
+			item := resultSlice[0]
+			// 验证所有原始字段都存在
+			assert.Equal(t, "sensor001", item["device"], "device字段应该正确")
+			assert.Equal(t, 25.5, item["temperature"], "temperature字段应该正确")
+			assert.Equal(t, 60, item["humidity"], "humidity字段应该正确")
+			assert.Equal(t, "room1", item["location"], "location字段应该正确")
+			assert.Equal(t, "active", item["status"], "status字段应该正确")
+
+			// 验证字段数量
+			assert.Len(t, item, 5, "应该包含所有5个字段")
+
+			cancel()
+		case <-ctx.Done():
+			t.Fatal("测试超时，未收到结果")
+		}
+	})
+
+	// 测试场景2：SELECT * + WHERE条件
+	t.Run("SELECT * + WHERE条件", func(t *testing.T) {
+		streamsql := New()
+		defer streamsql.Stop()
+
+		var rsql = "SELECT * FROM stream WHERE temperature > 20"
+		err := streamsql.Execute(rsql)
+		assert.Nil(t, err)
+		strm := streamsql.stream
+
+		// 创建结果接收通道
+		resultChan := make(chan interface{}, 10)
+
+		// 添加结果接收器
+		strm.AddSink(func(result interface{}) {
+			resultChan <- result
+		})
+
+		// 添加测试数据
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": 25.0, "humidity": 60}, // 应该被包含
+			{"device": "sensor2", "temperature": 15.0, "humidity": 70}, // 应该被过滤掉
+			{"device": "sensor3", "temperature": 30.0, "humidity": 50}, // 应该被包含
+		}
+
+		var results []interface{}
+		var resultsMutex sync.Mutex
+
+		// 发送数据
+		for _, data := range testData {
+			strm.AddData(data)
+
+			// 立即检查结果
+			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			select {
+			case result := <-resultChan:
+				resultsMutex.Lock()
+				results = append(results, result)
+				resultsMutex.Unlock()
+				cancel()
+			case <-ctx.Done():
+				cancel()
+				// 对于不满足条件的数据，超时是正常的
+			}
+		}
+
+		// 验证结果
+		resultsMutex.Lock()
+		finalResultCount := len(results)
+		resultsCopy := make([]interface{}, len(results))
+		copy(resultsCopy, results)
+		resultsMutex.Unlock()
+
+		assert.Equal(t, 2, finalResultCount, "应该有2条记录满足条件")
+
+		// 验证结果内容
+		deviceFound := make(map[string]bool)
+		for _, result := range resultsCopy {
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+			require.Len(t, resultSlice, 1, "每个结果应该只有一条记录")
+
+			item := resultSlice[0]
+			device, _ := item["device"].(string)
+			temp, _ := item["temperature"].(float64)
+
+			// 验证温度条件
+			assert.Greater(t, temp, 20.0, "温度应该大于20")
+
+			// 记录找到的设备
+			deviceFound[device] = true
+
+			// 验证所有字段都存在
+			assert.Contains(t, item, "device", "应该包含device字段")
+			assert.Contains(t, item, "temperature", "应该包含temperature字段")
+			assert.Contains(t, item, "humidity", "应该包含humidity字段")
+		}
+
+		// 验证正确的设备被包含
+		assert.True(t, deviceFound["sensor1"], "sensor1应该被包含")
+		assert.True(t, deviceFound["sensor3"], "sensor3应该被包含")
+		assert.False(t, deviceFound["sensor2"], "sensor2不应该被包含")
+	})
+
+	// 测试场景3：SELECT * + LIMIT
+	t.Run("SELECT * + LIMIT", func(t *testing.T) {
+		streamsql := New()
+		defer streamsql.Stop()
+
+		var rsql = "SELECT * FROM stream LIMIT 2"
+		err := streamsql.Execute(rsql)
+		assert.Nil(t, err)
+		strm := streamsql.stream
+
+		// 创建结果接收通道
+		resultChan := make(chan interface{}, 10)
+
+		// 添加结果接收器
+		strm.AddSink(func(result interface{}) {
+			resultChan <- result
+		})
+
+		// 添加测试数据
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": 25.0},
+			{"device": "sensor2", "temperature": 26.0},
+			{"device": "sensor3", "temperature": 27.0},
+			{"device": "sensor4", "temperature": 28.0},
+		}
+
+		var results []interface{}
+		var resultsMutex sync.Mutex
+
+		// 发送数据
+		for _, data := range testData {
+			strm.AddData(data)
+
+			// 立即检查结果
+			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			select {
+			case result := <-resultChan:
+				resultsMutex.Lock()
+				results = append(results, result)
+				resultsMutex.Unlock()
+				cancel()
+			case <-ctx.Done():
+				cancel()
+			}
+		}
+
+		// 验证结果
+		resultsMutex.Lock()
+		finalResultCount := len(results)
+		resultsCopy := make([]interface{}, len(results))
+		copy(resultsCopy, results)
+		resultsMutex.Unlock()
+
+		assert.GreaterOrEqual(t, finalResultCount, 2, "应该至少有2条结果")
+
+		// 验证结果内容
+		for _, result := range resultsCopy {
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+
+			// 验证LIMIT限制：每个batch最多2条记录
+			assert.LessOrEqual(t, len(resultSlice), 2, "每个batch最多2条记录")
+			assert.Greater(t, len(resultSlice), 0, "应该有结果")
+
+			// 验证字段
+			for _, item := range resultSlice {
+				assert.Contains(t, item, "device", "结果应包含device字段")
+				assert.Contains(t, item, "temperature", "结果应包含temperature字段")
+			}
+		}
+	})
+
+	// 测试场景4：SELECT * with嵌套字段
+	t.Run("SELECT * with嵌套字段", func(t *testing.T) {
+		streamsql := New()
+		defer streamsql.Stop()
+
+		var rsql = "SELECT * FROM stream"
+		err := streamsql.Execute(rsql)
+		assert.Nil(t, err)
+		strm := streamsql.stream
+
+		// 创建结果接收通道
+		resultChan := make(chan interface{}, 10)
+
+		// 添加结果接收器
+		strm.AddSink(func(result interface{}) {
+			resultChan <- result
+		})
+
+		// 添加带嵌套字段的测试数据
+		testData := map[string]interface{}{
+			"device": "sensor001",
+			"metrics": map[string]interface{}{
+				"temperature": 25.5,
+				"humidity":    60,
+			},
+			"location": map[string]interface{}{
+				"building": "A",
+				"room":     "101",
+			},
+		}
+
+		// 发送数据
+		strm.AddData(testData)
+
+		// 等待结果
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		select {
+		case result := <-resultChan:
+			// 验证结果
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+			require.Len(t, resultSlice, 1, "应该只有一条结果")
+
+			item := resultSlice[0]
+			// 验证顶级字段
+			assert.Equal(t, "sensor001", item["device"], "device字段应该正确")
+
+			// 验证嵌套字段结构被保留
+			metrics, ok := item["metrics"].(map[string]interface{})
+			assert.True(t, ok, "metrics应该是map类型")
+			assert.Equal(t, 25.5, metrics["temperature"], "嵌套temperature字段应该正确")
+			assert.Equal(t, 60, metrics["humidity"], "嵌套humidity字段应该正确")
+
+			location, ok := item["location"].(map[string]interface{})
+			assert.True(t, ok, "location应该是map类型")
+			assert.Equal(t, "A", location["building"], "嵌套building字段应该正确")
+			assert.Equal(t, "101", location["room"], "嵌套room字段应该正确")
+
+			cancel()
+		case <-ctx.Done():
+			t.Fatal("测试超时，未收到结果")
+		}
+	})
 }

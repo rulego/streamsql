@@ -17,6 +17,7 @@ import (
 type SelectStatement struct {
 	Fields    []Field
 	Distinct  bool
+	SelectAll bool // 新增：标识是否是SELECT *查询
 	Source    string
 	Condition string
 	Window    WindowDefinition
@@ -92,13 +93,18 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 
 	// 如果没有聚合函数，收集简单字段
 	if !hasAggregation {
-		for _, field := range s.Fields {
-			fieldName := field.Expression
-			if field.Alias != "" {
-				// 如果有别名，用别名作为字段名
-				simpleFields = append(simpleFields, fieldName+":"+field.Alias)
-			} else {
-				simpleFields = append(simpleFields, fieldName)
+		// 如果是SELECT *查询，设置特殊标记
+		if s.SelectAll {
+			simpleFields = append(simpleFields, "*")
+		} else {
+			for _, field := range s.Fields {
+				fieldName := field.Expression
+				if field.Alias != "" {
+					// 如果有别名，用别名作为字段名
+					simpleFields = append(simpleFields, fieldName+":"+field.Alias)
+				} else {
+					simpleFields = append(simpleFields, fieldName)
+				}
 			}
 		}
 		logger.Debug("收集简单字段: %v", simpleFields)
