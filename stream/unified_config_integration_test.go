@@ -157,7 +157,7 @@ func TestStreamUnifiedConfigPerformanceImpact(t *testing.T) {
 				}
 			}
 		done:
-			t.Logf("%s 产生结果数量: %d", name, resultCount)
+			//t.Logf("%s 产生结果数量: %d", name, resultCount)
 		})
 	}
 }
@@ -185,7 +185,7 @@ func TestStreamUnifiedConfigErrorHandling(t *testing.T) {
 		t.Error("期望创建失败，但实际成功了")
 		return
 	}
-	t.Logf("正确捕获到错误: %v", err)
+	//t.Logf("正确捕获到错误: %v", err)
 
 	// 测试无效的窗口参数（缺少必要参数）
 	invalidSizeConfig := types.Config{
@@ -207,7 +207,7 @@ func TestStreamUnifiedConfigErrorHandling(t *testing.T) {
 		t.Error("期望因为缺少size参数而创建失败，但实际成功了")
 		return
 	}
-	t.Logf("正确捕获到size参数错误: %v", err)
+	//t.Logf("正确捕获到size参数错误: %v", err)
 }
 
 // TestStreamUnifiedConfigCompatibility 测试统一配置的兼容性
@@ -256,6 +256,6 @@ func TestStreamUnifiedConfigCompatibility(t *testing.T) {
 		t.Errorf("默认配置期望数据通道大小 %d，实际得到 %d", expectedDefaultSize, cap(s2.dataChan))
 	}
 
-	t.Logf("新配置数据通道大小: %d", cap(s1.dataChan))
-	t.Logf("默认配置数据通道大小: %d", cap(s2.dataChan))
+	//t.Logf("新配置数据通道大小: %d", cap(s1.dataChan))
+	//t.Logf("默认配置数据通道大小: %d", cap(s2.dataChan))
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/rulego/streamsql/functions"
+	"github.com/rulego/streamsql/utils"
 )
 
 // 表达式类型
@@ -267,13 +268,13 @@ func extractFieldsFromExprLang(expression string) []string {
 	// 暂时使用正则表达式或简单的字符串解析
 	fields := make(map[string]bool)
 
-	// 简单的字段提取：查找标识符模式
+	// 简单的字段提取：查找标识符模式，支持点号分隔的嵌套字段
 	tokens := strings.FieldsFunc(expression, func(c rune) bool {
-		return !(c >= 'a' && c <= 'z') && !(c >= 'A' && c <= 'Z') && !(c >= '0' && c <= '9') && c != '_'
+		return !(c >= 'a' && c <= 'z') && !(c >= 'A' && c <= 'Z') && !(c >= '0' && c <= '9') && c != '_' && c != '.'
 	})
 
 	for _, token := range tokens {
-		if isIdentifier(token) && !isNumber(token) && !isFunctionOrKeyword(token) {
+		if isValidFieldIdentifier(token) && !isNumber(token) && !isFunctionOrKeyword(token) {
 			fields[token] = true
 		}
 	}
@@ -283,6 +284,23 @@ func extractFieldsFromExprLang(expression string) []string {
 		result = append(result, field)
 	}
 	return result
+}
+
+// isValidFieldIdentifier 检查是否是有效的字段标识符（支持点号分隔的嵌套字段）
+func isValidFieldIdentifier(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+
+	// 分割点号分隔的字段
+	parts := strings.Split(s, ".")
+	for _, part := range parts {
+		if !isIdentifier(part) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // isFunctionOrKeyword 检查是否是函数名或关键字
@@ -708,11 +726,17 @@ func evaluateNodeValue(node *ExprNode, data map[string]interface{}) (interface{}
 		return value, nil
 
 	case TypeField:
-		val, ok := data[node.Value]
-		if !ok {
-			return nil, fmt.Errorf("field %s not found in data", node.Value)
+		// 支持嵌套字段访问
+		if utils.IsNestedField(node.Value) {
+			if val, found := utils.GetNestedField(data, node.Value); found {
+				return val, nil
+			}
+		} else {
+			if val, ok := data[node.Value]; ok {
+				return val, nil
+			}
 		}
-		return val, nil
+		return nil, fmt.Errorf("field %s not found in data", node.Value)
 
 	default:
 		// 对于其他类型，回退到数值计算

@@ -489,16 +489,28 @@ func (p *Parser) parseFrom(stmt *SelectStatement) error {
 
 func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 	tok := p.lexer.lookupIdent(p.lexer.readPreviousIdentifier())
+	hasWindowFunction := false
 	if tok.Type == TokenTumbling || tok.Type == TokenSliding || tok.Type == TokenCounting || tok.Type == TokenSession {
+		hasWindowFunction = true
 		_ = p.parseWindowFunction(stmt, tok.Value)
 	}
+
+	hasGroupBy := false
 	if tok.Type == TokenGROUP {
+		hasGroupBy = true
 		p.lexer.NextToken() // 跳过BY
+	}
+
+	// 如果没有GROUP BY子句且没有窗口函数，直接返回
+	if !hasGroupBy && !hasWindowFunction {
+		return nil
 	}
 
 	// 设置最大次数限制，防止无限循环
 	maxIterations := 100
 	iterations := 0
+
+	var limitToken *Token // 保存LIMIT token以便后续处理
 
 	for {
 		iterations++
@@ -510,6 +522,10 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 		tok := p.lexer.NextToken()
 		if tok.Type == TokenWITH || tok.Type == TokenOrder || tok.Type == TokenEOF ||
 			tok.Type == TokenHAVING || tok.Type == TokenLIMIT {
+			// 如果是LIMIT token，保存它以便parseLimit处理
+			if tok.Type == TokenLIMIT {
+				limitToken = &tok
+			}
 			break
 		}
 		if tok.Type == TokenComma {
@@ -520,7 +536,15 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 			continue
 		}
 
-		stmt.GroupBy = append(stmt.GroupBy, tok.Value)
+		// 只有在有GROUP BY时才添加到GroupBy中
+		if hasGroupBy {
+			stmt.GroupBy = append(stmt.GroupBy, tok.Value)
+		}
+	}
+
+	// 如果遇到了LIMIT token，直接在这里处理
+	if limitToken != nil {
+		return p.handleLimitToken(stmt, *limitToken)
 	}
 	return nil
 }
@@ -607,42 +631,54 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 	return nil
 }
 
-// parseLimit 解析LIMIT子句
-func (p *Parser) parseLimit(stmt *SelectStatement) error {
-	// 查看当前token
-	if p.lexer.lookupIdent(p.lexer.readPreviousIdentifier()).Type == TokenLIMIT {
-		// 获取下一个token，应该是一个数字
-		tok := p.lexer.NextToken()
-		if tok.Type == TokenNumber {
-			// 将数字字符串转换为整数
-			limit, err := strconv.Atoi(tok.Value)
-			if err != nil {
-				parseErr := CreateSyntaxError(
-					"LIMIT value must be a valid integer",
-					tok.Pos,
-					tok.Value,
-					[]string{"positive_integer"},
-				)
-				parseErr.Context = "LIMIT clause"
-				parseErr.Suggestions = []string{
-					"Use a positive integer, e.g., LIMIT 10",
-					"Ensure the number format is correct",
-				}
-				p.errorRecovery.AddError(parseErr)
-				return parseErr
+// handleLimitToken 处理在parseGroupBy中遇到的LIMIT token
+func (p *Parser) handleLimitToken(stmt *SelectStatement, limitToken Token) error {
+	// 获取下一个token，应该是一个数字
+	tok := p.lexer.NextToken()
+	if tok.Type == TokenNumber {
+		// 将数字字符串转换为整数
+		limit, err := strconv.Atoi(tok.Value)
+		if err != nil {
+			parseErr := CreateSyntaxError(
+				"LIMIT value must be a valid integer",
+				tok.Pos,
+				tok.Value,
+				[]string{"positive_integer"},
+			)
+			parseErr.Context = "LIMIT clause"
+			parseErr.Suggestions = []string{
+				"Use a positive integer, e.g., LIMIT 10",
+				"Ensure the number format is correct",
 			}
-			if limit < 0 {
-				parseErr := CreateSyntaxError(
-					"LIMIT value must be positive",
-					tok.Pos,
-					tok.Value,
-					[]string{"positive_integer"},
-				)
-				parseErr.Suggestions = []string{"Use a positive integer, e.g., LIMIT 10"}
-				p.errorRecovery.AddError(parseErr)
-				return parseErr
-			}
-			stmt.Limit = limit
+			p.errorRecovery.AddError(parseErr)
+			return parseErr
+		}
+		if limit < 0 {
+			parseErr := CreateSyntaxError(
+				"LIMIT value must be positive",
+				tok.Pos,
+				tok.Value,
+				[]string{"positive_integer"},
+			)
+			parseErr.Suggestions = []string{"Use a positive integer, e.g., LIMIT 10"}
+			p.errorRecovery.AddError(parseErr)
+			return parseErr
+		}
+		stmt.Limit = limit
+	} else if tok.Type == TokenMinus {
+		// 处理负数情况："-5"
+		nextTok := p.lexer.NextToken()
+		if nextTok.Type == TokenNumber {
+			parseErr := CreateSyntaxError(
+				"LIMIT value must be positive",
+				nextTok.Pos,
+				"-"+nextTok.Value,
+				[]string{"positive_integer"},
+			)
+			parseErr.Context = "LIMIT clause"
+			parseErr.Suggestions = []string{"Use a positive integer, e.g., LIMIT 10"}
+			p.errorRecovery.AddError(parseErr)
+			return parseErr
 		} else {
 			parseErr := CreateMissingTokenError("number", tok.Pos)
 			parseErr.Message = "LIMIT must be followed by an integer"
@@ -654,7 +690,99 @@ func (p *Parser) parseLimit(stmt *SelectStatement) error {
 			p.errorRecovery.AddError(parseErr)
 			return parseErr
 		}
+	} else {
+		// 处理非数字情况：如 "abc"
+		parseErr := CreateMissingTokenError("number", tok.Pos)
+		parseErr.Message = "LIMIT must be followed by an integer"
+		parseErr.Context = "LIMIT clause"
+		parseErr.Suggestions = []string{
+			"Add a number after LIMIT, e.g., LIMIT 10",
+			"Ensure LIMIT syntax is correct",
+		}
+		p.errorRecovery.AddError(parseErr)
+		return parseErr
 	}
+	return nil
+}
+
+// parseLimit 解析LIMIT子句
+func (p *Parser) parseLimit(stmt *SelectStatement) error {
+	// 如果LIMIT已经被设置（可能在parseGroupBy中已处理），则跳过
+	if stmt.Limit > 0 {
+		return nil
+	}
+
+	// 直接解析输入字符串中的LIMIT子句
+	input := strings.ToUpper(p.input)
+	limitIndex := strings.LastIndex(input, "LIMIT")
+	if limitIndex == -1 {
+		return nil
+	}
+
+	// 找到LIMIT后面的内容
+	afterLimit := strings.TrimSpace(p.input[limitIndex+5:]) // 跳过"LIMIT"
+	if afterLimit == "" {
+		parseErr := CreateMissingTokenError("number", limitIndex+5)
+		parseErr.Message = "LIMIT must be followed by an integer"
+		parseErr.Context = "LIMIT clause"
+		parseErr.Suggestions = []string{
+			"Add a number after LIMIT, e.g., LIMIT 10",
+			"Ensure LIMIT syntax is correct",
+		}
+		p.errorRecovery.AddError(parseErr)
+		return parseErr
+	}
+
+	// 分割出第一个单词（应该是数字）
+	parts := strings.Fields(afterLimit)
+	if len(parts) == 0 {
+		parseErr := CreateMissingTokenError("number", limitIndex+5)
+		parseErr.Message = "LIMIT must be followed by an integer"
+		parseErr.Context = "LIMIT clause"
+		parseErr.Suggestions = []string{
+			"Add a number after LIMIT, e.g., LIMIT 10",
+			"Ensure LIMIT syntax is correct",
+		}
+		p.errorRecovery.AddError(parseErr)
+		return parseErr
+	}
+
+	limitValue := parts[0]
+
+	// 处理负数情况
+	if strings.HasPrefix(limitValue, "-") {
+		parseErr := CreateMissingTokenError("number", limitIndex+6)
+		parseErr.Message = "LIMIT must be followed by an integer"
+		parseErr.Context = "LIMIT clause"
+		parseErr.Suggestions = []string{"Use a positive integer, e.g., LIMIT 10"}
+		p.errorRecovery.AddError(parseErr)
+		return parseErr
+	}
+
+	// 尝试转换为整数
+	limit, err := strconv.Atoi(limitValue)
+	if err != nil {
+		parseErr := CreateMissingTokenError("number", limitIndex+6)
+		parseErr.Message = "LIMIT must be followed by an integer"
+		parseErr.Context = "LIMIT clause"
+		parseErr.Suggestions = []string{
+			"Add a number after LIMIT, e.g., LIMIT 10",
+			"Ensure LIMIT syntax is correct",
+		}
+		p.errorRecovery.AddError(parseErr)
+		return parseErr
+	}
+
+	if limit < 0 {
+		parseErr := CreateMissingTokenError("number", limitIndex+6)
+		parseErr.Message = "LIMIT must be followed by an integer"
+		parseErr.Context = "LIMIT clause"
+		parseErr.Suggestions = []string{"Use a positive integer, e.g., LIMIT 10"}
+		p.errorRecovery.AddError(parseErr)
+		return parseErr
+	}
+
+	stmt.Limit = limit
 	return nil
 }
 

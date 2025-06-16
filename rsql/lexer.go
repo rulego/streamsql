@@ -225,11 +225,11 @@ func (l *Lexer) peekChar() byte {
 }
 
 func (l *Lexer) readIdentifier() string {
-	pos := l.pos
-	for isLetter(l.ch) {
+	position := l.pos
+	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '.' {
 		l.readChar()
 	}
-	return l.input[pos:l.pos]
+	return l.input[position:l.pos]
 }
 
 func (l *Lexer) readPreviousIdentifier() string {

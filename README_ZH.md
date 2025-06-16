@@ -16,6 +16,7 @@
   - 纯内存操作
   - 无依赖
 - SQL语法处理数据
+  - **嵌套字段访问**：支持点号语法（`device.info.name`）访问嵌套结构数据
 - 数据分析
   - 内置多种窗口类型：滑动窗口、滚动窗口、计数窗口
   - 内置聚合函数：MAX, MIN, AVG, SUM, STDDEV,MEDIAN,PERCENTILE等
@@ -158,6 +159,72 @@ func main() {
 	fmt.Printf("\n测试完成，共收到 %d 个窗口结果\n", resultCount)
 }
 ```
+
+### 嵌套字段访问
+
+StreamSQL 还支持对嵌套结构数据进行查询，可以使用点号（`.`）语法访问嵌套字段：
+
+```go
+// 嵌套字段访问示例
+package main
+
+import (
+	"fmt"
+	"time"
+	"github.com/rulego/streamsql"
+)
+
+func main() {
+	ssql := streamsql.New()
+	defer ssql.Stop()
+
+	// 使用嵌套字段的SQL查询 - 支持点号语法访问嵌套结构
+	rsql := `SELECT device.info.name as device_name, 
+	                device.location,
+	                AVG(sensor.temperature) as avg_temp,
+	                COUNT(*) as sensor_count,
+	                window_start() as start,
+	                window_end() as end
+	         FROM stream 
+	         WHERE device.info.type = 'temperature'
+	         GROUP BY device.location, TumblingWindow('5s')
+	         WITH (TIMESTAMP='timestamp', TIMEUNIT='ss')`
+
+	err := ssql.Execute(rsql)
+	if err != nil {
+		panic(err)
+	}
+
+	// 处理聚合结果
+	ssql.Stream().AddSink(func(result interface{}) {
+		fmt.Printf("聚合结果: %+v\n", result)
+	})
+
+	// 添加嵌套结构数据
+	nestedData := map[string]interface{}{
+		"device": map[string]interface{}{
+			"info": map[string]interface{}{
+				"name": "temperature-sensor-001",
+				"type": "temperature",
+			},
+			"location": "智能温室-A区",
+		},
+		"sensor": map[string]interface{}{
+			"temperature": 25.5,
+			"humidity":    60.2,
+		},
+		"timestamp": time.Now().Unix(),
+	}
+
+	ssql.Stream().AddData(nestedData)
+}
+```
+
+**嵌套字段访问特性：**
+- 支持点号语法：`device.info.name`、`sensor.temperature`
+- 可用于 SELECT、WHERE、GROUP BY 等所有 SQL 子句
+- 支持聚合函数：`AVG(sensor.temperature)`、`MAX(device.status.uptime)`
+- 向后兼容：现有平坦字段访问方式保持不变
 
 ## 函数
 

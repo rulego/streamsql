@@ -16,6 +16,7 @@ Similar to: [Apache Flink](https://flink.apache.org/) and [ekuiper](https://ekui
     - Pure in-memory operations
     - No dependencies
 - Data processing with SQL syntax
+  - **Nested field access**: Support dot notation syntax (`device.info.name`) for accessing nested structured data
 - Data analysis
     - Built-in multiple window types: sliding window, tumbling window, counting window
     - Built-in aggregate functions: MAX, MIN, AVG, SUM, STDDEV, MEDIAN, PERCENTILE, etc.
@@ -142,6 +143,72 @@ func main() {
 	fmt.Println("StreamSQL processing completed successfully!")
 }
 ```
+
+### Nested Field Access
+
+StreamSQL supports querying nested structured data using dot notation (`.`) syntax to access nested fields:
+
+```go
+// Nested field access example
+package main
+
+import (
+	"fmt"
+	"time"
+	"github.com/rulego/streamsql"
+)
+
+func main() {
+	ssql := streamsql.New()
+	defer ssql.Stop()
+
+	// SQL query using nested fields - supports dot notation syntax for accessing nested structures
+	rsql := `SELECT device.info.name as device_name, 
+	                device.location,
+	                AVG(sensor.temperature) as avg_temp,
+	                COUNT(*) as sensor_count,
+	                window_start() as start,
+	                window_end() as end
+	         FROM stream 
+	         WHERE device.info.type = 'temperature'
+	         GROUP BY device.location, TumblingWindow('5s')
+	         WITH (TIMESTAMP='timestamp', TIMEUNIT='ss')`
+
+	err := ssql.Execute(rsql)
+	if err != nil {
+		panic(err)
+	}
+
+	// Handle aggregation results
+	ssql.Stream().AddSink(func(result interface{}) {
+		fmt.Printf("Aggregation result: %+v\n", result)
+	})
+
+	// Add nested structured data
+	nestedData := map[string]interface{}{
+		"device": map[string]interface{}{
+			"info": map[string]interface{}{
+				"name": "temperature-sensor-001",
+				"type": "temperature",
+			},
+			"location": "smart-greenhouse-A",
+		},
+		"sensor": map[string]interface{}{
+			"temperature": 25.5,
+			"humidity":    60.2,
+		},
+		"timestamp": time.Now().Unix(),
+	}
+
+	ssql.Stream().AddData(nestedData)
+}
+```
+
+**Nested Field Access Features:**
+- Support dot notation syntax: `device.info.name`, `sensor.temperature`
+- Can be used in all SQL clauses: SELECT, WHERE, GROUP BY
+- Support aggregate functions: `AVG(sensor.temperature)`, `MAX(device.status.uptime)`
+- Backward compatible: existing flat field access methods remain unchanged
 
 ## Functions
 

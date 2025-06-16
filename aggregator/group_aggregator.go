@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/rulego/streamsql/functions"
+	"github.com/rulego/streamsql/utils"
 	"github.com/rulego/streamsql/utils/cast"
 )
 
@@ -156,28 +157,40 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 
 	key := ""
 	for _, field := range ga.groupFields {
-		var f reflect.Value
+		var fieldVal interface{}
+		var found bool
 
-		if v.Kind() == reflect.Map {
-			keyVal := reflect.ValueOf(field)
-			f = v.MapIndex(keyVal)
+		// 检查是否是嵌套字段
+		if utils.IsNestedField(field) {
+			fieldVal, found = utils.GetNestedField(data, field)
 		} else {
-			f = v.FieldByName(field)
+			// 原有的字段访问逻辑
+			var f reflect.Value
+			if v.Kind() == reflect.Map {
+				keyVal := reflect.ValueOf(field)
+				f = v.MapIndex(keyVal)
+			} else {
+				f = v.FieldByName(field)
+			}
+
+			if f.IsValid() {
+				fieldVal = f.Interface()
+				found = true
+			}
 		}
 
-		if !f.IsValid() {
+		if !found {
 			return fmt.Errorf("field %s not found", field)
 		}
 
-		keyVal := f.Interface()
-		if keyVal == nil {
+		if fieldVal == nil {
 			return fmt.Errorf("field %s has nil value", field)
 		}
 
-		if str, ok := keyVal.(string); ok {
+		if str, ok := fieldVal.(string); ok {
 			key += fmt.Sprintf("%s|", str)
 		} else {
-			key += fmt.Sprintf("%v|", keyVal)
+			key += fmt.Sprintf("%v|", fieldVal)
 		}
 	}
 
@@ -223,16 +236,29 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 			continue
 		}
 
-		// 获取字段值
-		var f reflect.Value
-		if v.Kind() == reflect.Map {
-			keyVal := reflect.ValueOf(inputField)
-			f = v.MapIndex(keyVal)
+		// 获取字段值 - 支持嵌套字段
+		var fieldVal interface{}
+		var found bool
+
+		if utils.IsNestedField(inputField) {
+			fieldVal, found = utils.GetNestedField(data, inputField)
 		} else {
-			f = v.FieldByName(inputField)
+			// 原有的字段访问逻辑
+			var f reflect.Value
+			if v.Kind() == reflect.Map {
+				keyVal := reflect.ValueOf(inputField)
+				f = v.MapIndex(keyVal)
+			} else {
+				f = v.FieldByName(inputField)
+			}
+
+			if f.IsValid() {
+				fieldVal = f.Interface()
+				found = true
+			}
 		}
 
-		if !f.IsValid() {
+		if !found {
 			// 尝试从context中获取
 			if ga.context != nil {
 				if groupAgg, exists := ga.groups[key][outputAlias]; exists {
@@ -247,7 +273,6 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 			continue
 		}
 
-		fieldVal := f.Interface()
 		aggType := aggField.AggregateType
 
 		// 动态检查是否需要数值转换

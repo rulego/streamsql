@@ -17,6 +17,7 @@ import (
 	"github.com/rulego/streamsql/functions"
 	"github.com/rulego/streamsql/logger"
 	"github.com/rulego/streamsql/types"
+	"github.com/rulego/streamsql/utils"
 	"github.com/rulego/streamsql/window"
 )
 
@@ -441,9 +442,20 @@ func (s *Stream) processDirectData(data interface{}) {
 					result[outputName] = nil
 				}
 			} else {
-				// 普通字段
-				if value, exists := dataMap[fieldName]; exists {
+				// 普通字段 - 支持嵌套字段
+				var value interface{}
+				var exists bool
+
+				if utils.IsNestedField(fieldName) {
+					value, exists = utils.GetNestedField(data, fieldName)
+				} else {
+					value, exists = dataMap[fieldName]
+				}
+
+				if exists {
 					result[outputName] = value
+				} else {
+					result[outputName] = nil
 				}
 			}
 		}
