@@ -235,20 +235,10 @@ func (l *Lexer) peekChar() byte {
 
 func (l *Lexer) readIdentifier() string {
 	position := l.pos
-	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '.' || l.ch == '[' || l.ch == ']' || l.ch == '\'' || l.ch == '"' {
-		// 如果遇到方括号，需要特殊处理以确保括号内容被正确包含
-		if l.ch == '[' {
-			l.readChar() // 跳过 '['
-			// 继续读取直到找到匹配的 ']'
-			for l.ch != ']' && l.ch != 0 {
-				l.readChar()
-			}
-			if l.ch == ']' {
-				l.readChar() // 跳过 ']'
-			}
-		} else {
-			l.readChar()
-		}
+	// 只处理基本标识符和点号（用于嵌套字段访问）
+	// 数组索引（方括号）应该由解析器处理，而不是词法分析器
+	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '.' {
+		l.readChar()
 	}
 	return l.input[position:l.pos]
 }
