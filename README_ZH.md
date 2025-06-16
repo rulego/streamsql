@@ -253,39 +253,6 @@ func main() {
 }
 ```
 
-### 🔍 模式匹配功能
-
-StreamSQL 支持标准 SQL 的 `LIKE` 语法进行模式匹配：
-
-- **前缀匹配**: `field LIKE 'prefix%'` - 匹配以指定前缀开头的字符串
-- **后缀匹配**: `field LIKE '%suffix'` - 匹配以指定后缀结尾的字符串  
-- **包含匹配**: `field LIKE '%substring%'` - 匹配包含指定子字符串的字符串
-- **单字符通配符**: `field LIKE 'patte_n'` - `_` 匹配任意单个字符
-- **复杂模式**: `field LIKE 'prefix%suffix'` - 组合前缀和后缀匹配
-
-**示例**：
-```sql
--- 前缀匹配：查找以'sensor'开头的设备ID
-WHERE deviceId LIKE 'sensor%'
-
--- 后缀匹配：查找以'error'结尾的消息
-WHERE message LIKE '%error'
-
--- 包含匹配：查找包含'alert'的日志
-WHERE logMessage LIKE '%alert%'
-
--- 单字符通配符：匹配三位数错误代码如E01, E02等
-WHERE errorCode LIKE 'E_0'
-
--- 复杂模式：匹配log_开头.log结尾的文件
-WHERE filename LIKE 'log_%.log'
-```
-
-**兼容的字符串函数**：
-- `STARTSWITH(field, 'prefix')` - 等价于 `field LIKE 'prefix%'`
-- `ENDSWITH(field, 'suffix')` - 等价于 `field LIKE '%suffix'`
-- `REGEXP_MATCHES(field, '^pattern$')` - 支持更复杂的正则表达式匹配
-
 ### 嵌套字段访问
 
 StreamSQL 还支持对嵌套结构数据进行查询，可以使用点号（`.`）语法访问嵌套字段：
