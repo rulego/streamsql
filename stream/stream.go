@@ -294,15 +294,39 @@ func (s *Stream) process() {
 					hasNestedFields := strings.Contains(currentFieldExpr.Expression, ".")
 
 					if hasNestedFields {
-						// 直接使用自定义表达式引擎处理嵌套字段
+						// 直接使用自定义表达式引擎处理嵌套字段，支持NULL值
 						expression, parseErr := expr.NewExpression(currentFieldExpr.Expression)
 						if parseErr != nil {
 							return nil, fmt.Errorf("expression parse failed: %w", parseErr)
 						}
 
-						numResult, err := expression.Evaluate(dataMap)
+						// 使用支持NULL的计算方法
+						numResult, isNull, err := expression.EvaluateWithNull(dataMap)
 						if err != nil {
 							return nil, fmt.Errorf("expression evaluation failed: %w", err)
+						}
+						if isNull {
+							return nil, nil // 返回nil表示NULL值
+						}
+						return numResult, nil
+					}
+
+					// 检查是否为CASE表达式
+					trimmedExpr := strings.TrimSpace(currentFieldExpr.Expression)
+					upperExpr := strings.ToUpper(trimmedExpr)
+					if strings.HasPrefix(upperExpr, "CASE") {
+						// CASE表达式使用支持NULL的计算方法
+						expression, parseErr := expr.NewExpression(currentFieldExpr.Expression)
+						if parseErr != nil {
+							return nil, fmt.Errorf("CASE expression parse failed: %w", parseErr)
+						}
+
+						numResult, isNull, err := expression.EvaluateWithNull(dataMap)
+						if err != nil {
+							return nil, fmt.Errorf("CASE expression evaluation failed: %w", err)
+						}
+						if isNull {
+							return nil, nil // 返回nil表示NULL值
 						}
 						return numResult, nil
 					}
@@ -331,10 +355,13 @@ func (s *Stream) process() {
 							return nil, fmt.Errorf("expression parse failed: %w", parseErr)
 						}
 
-						// 计算表达式
-						numResult, evalErr := expression.Evaluate(dataMap)
+						// 计算表达式，支持NULL值
+						numResult, isNull, evalErr := expression.EvaluateWithNull(dataMap)
 						if evalErr != nil {
 							return nil, fmt.Errorf("expression evaluation failed: %w", evalErr)
+						}
+						if isNull {
+							return nil, nil // 返回nil表示NULL值
 						}
 						return numResult, nil
 					}
@@ -496,13 +523,11 @@ func (s *Stream) processDirectData(data interface{}) {
 		if bridge.ContainsIsNullOperator(processedExpr) {
 			if processed, err := bridge.PreprocessIsNullExpression(processedExpr); err == nil {
 				processedExpr = processed
-				logger.Debug("Preprocessed IS NULL expression: %s -> %s", fieldExpr.Expression, processedExpr)
 			}
 		}
 		if bridge.ContainsLikeOperator(processedExpr) {
 			if processed, err := bridge.PreprocessLikeExpression(processedExpr); err == nil {
 				processedExpr = processed
-				logger.Debug("Preprocessed LIKE expression: %s -> %s", fieldExpr.Expression, processedExpr)
 			}
 		}
 

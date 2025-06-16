@@ -12,12 +12,14 @@ import (
 // SumFunction 求和函数
 type SumFunction struct {
 	*BaseFunction
-	value float64
+	value     float64
+	hasValues bool // 标记是否有非NULL值
 }
 
 func NewSumFunction() *SumFunction {
 	return &SumFunction{
 		BaseFunction: NewBaseFunction("sum", TypeAggregation, "聚合函数", "计算数值总和", 1, -1),
+		hasValues:    false,
 	}
 }
 
@@ -27,12 +29,20 @@ func (f *SumFunction) Validate(args []interface{}) error {
 
 func (f *SumFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	sum := 0.0
+	hasValues := false
 	for _, arg := range args {
+		if arg == nil {
+			continue // 忽略NULL值
+		}
 		val, err := cast.ToFloat64E(arg)
 		if err != nil {
-			return nil, err
+			continue // 忽略无法转换的值
 		}
 		sum += val
+		hasValues = true
+	}
+	if !hasValues {
+		return nil, nil // 当没有有效值时返回NULL
 	}
 	return sum, nil
 }
@@ -42,27 +52,40 @@ func (f *SumFunction) New() AggregatorFunction {
 	return &SumFunction{
 		BaseFunction: f.BaseFunction,
 		value:        0,
+		hasValues:    false,
 	}
 }
 
 func (f *SumFunction) Add(value interface{}) {
+	// 增强的Add方法：忽略NULL值
+	if value == nil {
+		return // 忽略NULL值
+	}
+
 	if val, err := cast.ToFloat64E(value); err == nil {
 		f.value += val
+		f.hasValues = true
 	}
+	// 如果转换失败，也忽略该值
 }
 
 func (f *SumFunction) Result() interface{} {
+	if !f.hasValues {
+		return nil // 当没有有效值时返回NULL而不是0.0
+	}
 	return f.value
 }
 
 func (f *SumFunction) Reset() {
 	f.value = 0
+	f.hasValues = false
 }
 
 func (f *SumFunction) Clone() AggregatorFunction {
 	return &SumFunction{
 		BaseFunction: f.BaseFunction,
 		value:        f.value,
+		hasValues:    f.hasValues,
 	}
 }
 
@@ -85,14 +108,22 @@ func (f *AvgFunction) Validate(args []interface{}) error {
 
 func (f *AvgFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	sum := 0.0
+	count := 0
 	for _, arg := range args {
+		if arg == nil {
+			continue // 忽略NULL值
+		}
 		val, err := cast.ToFloat64E(arg)
 		if err != nil {
-			return nil, err
+			continue // 忽略无法转换的值
 		}
 		sum += val
+		count++
 	}
-	return sum / float64(len(args)), nil
+	if count == 0 {
+		return nil, nil // 当没有有效值时返回nil
+	}
+	return sum / float64(count), nil
 }
 
 // 实现AggregatorFunction接口
@@ -105,10 +136,16 @@ func (f *AvgFunction) New() AggregatorFunction {
 }
 
 func (f *AvgFunction) Add(value interface{}) {
+	// 增强的Add方法：忽略NULL值
+	if value == nil {
+		return // 忽略NULL值
+	}
+
 	if val, err := cast.ToFloat64E(value); err == nil {
 		f.sum += val
 		f.count++
 	}
+	// 如果转换失败，也忽略该值
 }
 
 func (f *AvgFunction) Result() interface{} {
@@ -172,6 +209,11 @@ func (f *MinFunction) New() AggregatorFunction {
 }
 
 func (f *MinFunction) Add(value interface{}) {
+	// 增强的Add方法：忽略NULL值
+	if value == nil {
+		return // 忽略NULL值
+	}
+
 	if val, err := cast.ToFloat64E(value); err == nil {
 		if f.first || val < f.value {
 			f.value = val
@@ -241,6 +283,11 @@ func (f *MaxFunction) New() AggregatorFunction {
 }
 
 func (f *MaxFunction) Add(value interface{}) {
+	// 增强的Add方法：忽略NULL值
+	if value == nil {
+		return // 忽略NULL值
+	}
+
 	if val, err := cast.ToFloat64E(value); err == nil {
 		if f.first || val > f.value {
 			f.value = val
@@ -286,7 +333,13 @@ func (f *CountFunction) Validate(args []interface{}) error {
 }
 
 func (f *CountFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	return int64(len(args)), nil
+	count := 0
+	for _, arg := range args {
+		if arg != nil {
+			count++
+		}
+	}
+	return int64(count), nil
 }
 
 // 实现AggregatorFunction接口
@@ -298,7 +351,10 @@ func (f *CountFunction) New() AggregatorFunction {
 }
 
 func (f *CountFunction) Add(value interface{}) {
-	f.count++
+	// 增强的Add方法：忽略NULL值
+	if value != nil {
+		f.count++
+	}
 }
 
 func (f *CountFunction) Result() interface{} {
