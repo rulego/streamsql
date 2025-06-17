@@ -754,3 +754,219 @@ func TestStreamsqlPersistenceConfigPassing(t *testing.T) {
 
 	t.Logf("持久化配置验证通过: %+v", stats)
 }
+
+func TestSelectStarWithExpressionFields(t *testing.T) {
+	config := types.Config{
+		NeedWindow:   false,
+		SimpleFields: []string{"*"}, // SELECT *
+		FieldExpressions: map[string]types.FieldExpression{
+			"name": {
+				Expression: "UPPER(name)",
+				Fields:     []string{"name"},
+			},
+			"full_info": {
+				Expression: "CONCAT(name, ' - ', status)",
+				Fields:     []string{"name", "status"},
+			},
+		},
+	}
+
+	stream, err := NewStream(config)
+	if err != nil {
+		t.Fatalf("Failed to create stream: %v", err)
+	}
+	defer stream.Stop()
+
+	// 收集结果 - 使用sync.Mutex防止数据竞争
+	var mu sync.Mutex
+	var results []interface{}
+	stream.AddSink(func(result interface{}) {
+		mu.Lock()
+		defer mu.Unlock()
+		results = append(results, result)
+	})
+
+	stream.Start()
+
+	// 添加测试数据
+	testData := map[string]interface{}{
+		"name":   "john",
+		"status": "active",
+		"age":    25,
+	}
+
+	stream.AddData(testData)
+
+	// 等待处理完成
+	time.Sleep(100 * time.Millisecond)
+
+	// 验证结果 - 使用互斥锁保护读取
+	mu.Lock()
+	resultsLen := len(results)
+	var resultData map[string]interface{}
+	if resultsLen > 0 {
+		resultData = results[0].([]map[string]interface{})[0]
+	}
+	mu.Unlock()
+
+	if resultsLen != 1 {
+		t.Fatalf("Expected 1 result, got %d", resultsLen)
+	}
+
+	// 验证表达式字段的结果没有被覆盖
+	if resultData["name"] != "JOHN" {
+		t.Errorf("Expected name to be 'JOHN' (uppercase), got %v", resultData["name"])
+	}
+
+	if resultData["full_info"] != "john - active" {
+		t.Errorf("Expected full_info to be 'john - active', got %v", resultData["full_info"])
+	}
+
+	// 验证原始字段仍然存在
+	if resultData["status"] != "active" {
+		t.Errorf("Expected status to be 'active', got %v", resultData["status"])
+	}
+
+	if resultData["age"] != 25 {
+		t.Errorf("Expected age to be 25, got %v", resultData["age"])
+	}
+}
+
+func TestSelectStarWithExpressionFieldsOverride(t *testing.T) {
+	// 测试表达式字段名与原始字段名相同的情况
+	config := types.Config{
+		NeedWindow:   false,
+		SimpleFields: []string{"*"}, // SELECT *
+		FieldExpressions: map[string]types.FieldExpression{
+			"name": {
+				Expression: "UPPER(name)",
+				Fields:     []string{"name"},
+			},
+			"age": {
+				Expression: "age * 2",
+				Fields:     []string{"age"},
+			},
+		},
+	}
+
+	stream, err := NewStream(config)
+	if err != nil {
+		t.Fatalf("Failed to create stream: %v", err)
+	}
+	defer stream.Stop()
+
+	// 收集结果 - 使用sync.Mutex防止数据竞争
+	var mu sync.Mutex
+	var results []interface{}
+	stream.AddSink(func(result interface{}) {
+		mu.Lock()
+		defer mu.Unlock()
+		results = append(results, result)
+	})
+
+	stream.Start()
+
+	// 添加测试数据
+	testData := map[string]interface{}{
+		"name":   "alice",
+		"age":    30,
+		"status": "active",
+	}
+
+	stream.AddData(testData)
+
+	// 等待处理完成
+	time.Sleep(100 * time.Millisecond)
+
+	// 验证结果 - 使用互斥锁保护读取
+	mu.Lock()
+	resultsLen := len(results)
+	var resultData map[string]interface{}
+	if resultsLen > 0 {
+		resultData = results[0].([]map[string]interface{})[0]
+	}
+	mu.Unlock()
+
+	if resultsLen != 1 {
+		t.Fatalf("Expected 1 result, got %d", resultsLen)
+	}
+
+	// 验证表达式字段的结果覆盖了原始字段
+	if resultData["name"] != "ALICE" {
+		t.Errorf("Expected name to be 'ALICE' (expression result), got %v", resultData["name"])
+	}
+
+	// 检查age表达式的结果（可能是int或float64类型）
+	ageResult := resultData["age"]
+	if ageResult != 60 && ageResult != 60.0 {
+		t.Errorf("Expected age to be 60 (expression result), got %v (type: %T)", resultData["age"], resultData["age"])
+	}
+
+	// 验证没有表达式的字段保持原值
+	if resultData["status"] != "active" {
+		t.Errorf("Expected status to be 'active', got %v", resultData["status"])
+	}
+}
+
+func TestSelectStarWithoutExpressionFields(t *testing.T) {
+	// 测试没有表达式字段时SELECT *的行为
+	config := types.Config{
+		NeedWindow:   false,
+		SimpleFields: []string{"*"}, // SELECT *
+	}
+
+	stream, err := NewStream(config)
+	if err != nil {
+		t.Fatalf("Failed to create stream: %v", err)
+	}
+	defer stream.Stop()
+
+	// 收集结果 - 使用sync.Mutex防止数据竞争
+	var mu sync.Mutex
+	var results []interface{}
+	stream.AddSink(func(result interface{}) {
+		mu.Lock()
+		defer mu.Unlock()
+		results = append(results, result)
+	})
+
+	stream.Start()
+
+	// 添加测试数据
+	testData := map[string]interface{}{
+		"name":   "bob",
+		"age":    35,
+		"status": "inactive",
+	}
+
+	stream.AddData(testData)
+
+	// 等待处理完成
+	time.Sleep(100 * time.Millisecond)
+
+	// 验证结果 - 使用互斥锁保护读取
+	mu.Lock()
+	resultsLen := len(results)
+	var resultData map[string]interface{}
+	if resultsLen > 0 {
+		resultData = results[0].([]map[string]interface{})[0]
+	}
+	mu.Unlock()
+
+	if resultsLen != 1 {
+		t.Fatalf("Expected 1 result, got %d", resultsLen)
+	}
+
+	// 验证所有原始字段都被保留
+	if resultData["name"] != "bob" {
+		t.Errorf("Expected name to be 'bob', got %v", resultData["name"])
+	}
+
+	if resultData["age"] != 35 {
+		t.Errorf("Expected age to be 35, got %v", resultData["age"])
+	}
+
+	if resultData["status"] != "inactive" {
+		t.Errorf("Expected status to be 'inactive', got %v", resultData["status"])
+	}
+}

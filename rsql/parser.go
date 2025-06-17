@@ -212,6 +212,23 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 		currentToken = p.lexer.NextToken() // 消费 DISTINCT，移动到下一个 token
 	}
 
+	// 检查是否是SELECT *查询
+	if currentToken.Type == TokenIdent && currentToken.Value == "*" {
+		stmt.SelectAll = true
+		// 添加一个特殊的字段标记SELECT *
+		stmt.Fields = append(stmt.Fields, Field{Expression: "*"})
+
+		// 消费*token并检查下一个token
+		currentToken = p.lexer.NextToken()
+
+		// 如果下一个token是FROM或EOF，则完成SELECT *解析
+		if currentToken.Type == TokenFROM || currentToken.Type == TokenEOF {
+			return nil
+		}
+
+		// 如果不是FROM/EOF，继续正常的字段解析流程
+	}
+
 	// 设置最大字段数量限制，防止无限循环
 	maxFields := 100
 	fieldCount := 0
