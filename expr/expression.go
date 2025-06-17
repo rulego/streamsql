@@ -136,7 +136,9 @@ func validateBasicSyntax(exprStr string) error {
 // checkConsecutiveOperators 检查连续运算符
 func checkConsecutiveOperators(expr string) error {
 	// 简化的连续运算符检查：查找明显的双运算符模式
+	// 但要允许比较运算符后跟负数的情况
 	operators := []string{"+", "-", "*", "/", "%", "^", "==", "!=", ">=", "<=", ">", "<"}
+	comparisonOps := []string{"==", "!=", ">=", "<=", ">", "<"}
 
 	for i := 0; i < len(expr)-1; i++ {
 		// 跳过空白字符
@@ -147,10 +149,12 @@ func checkConsecutiveOperators(expr string) error {
 		// 检查当前位置是否是运算符
 		isCurrentOp := false
 		currentOpLen := 0
+		currentOp := ""
 		for _, op := range operators {
 			if i+len(op) <= len(expr) && expr[i:i+len(op)] == op {
 				isCurrentOp = true
 				currentOpLen = len(op)
+				currentOp = op
 				break
 			}
 		}
@@ -164,10 +168,35 @@ func checkConsecutiveOperators(expr string) error {
 
 			// 检查下一个字符是否也是运算符
 			if nextPos < len(expr) {
+				// 特殊处理：如果当前是比较运算符，下一个是负号，且负号后跟数字，则允许
+				isCurrentComparison := false
+				for _, compOp := range comparisonOps {
+					if currentOp == compOp {
+						isCurrentComparison = true
+						break
+					}
+				}
+
+				// 检查是否是负数的情况
+				if isCurrentComparison && nextPos < len(expr) && expr[nextPos] == '-' {
+					// 检查负号后是否跟数字
+					digitPos := nextPos + 1
+					for digitPos < len(expr) && (expr[digitPos] == ' ' || expr[digitPos] == '\t') {
+						digitPos++
+					}
+					if digitPos < len(expr) && expr[digitPos] >= '0' && expr[digitPos] <= '9' {
+						// 这是比较运算符后跟负数，允许通过
+						i = nextPos // 跳过到负号位置
+						continue
+					}
+				}
+
+				// 检查其他连续运算符
 				for _, op := range operators {
 					if nextPos+len(op) <= len(expr) && expr[nextPos:nextPos+len(op)] == op {
+						// 如果不是允许的负数情况，则报错
 						return fmt.Errorf("consecutive operators found: '%s' followed by '%s'",
-							expr[i:i+currentOpLen], op)
+							currentOp, op)
 					}
 				}
 			}
@@ -985,8 +1014,12 @@ func tokenize(expr string) ([]string, error) {
 						prevToken == "(" || // 左括号后
 						prevToken == "," || // 逗号后（函数参数）
 						isOperator(prevToken) || // 运算符后
+						isComparisonOperator(prevToken) || // 比较运算符后
 						strings.ToUpper(prevToken) == "THEN" || // THEN后
-						strings.ToUpper(prevToken) == "ELSE" // ELSE后
+						strings.ToUpper(prevToken) == "ELSE" || // ELSE后
+						strings.ToUpper(prevToken) == "WHEN" || // WHEN后
+						strings.ToUpper(prevToken) == "AND" || // AND后
+						strings.ToUpper(prevToken) == "OR" // OR后
 				}
 
 				if canBeNegativeNumber && i+1 < len(expr) && isDigit(expr[i+1]) {
@@ -1615,6 +1648,16 @@ func isOperator(s string) bool {
 	case "AND", "OR", "NOT":
 		return true
 	case "LIKE", "IS":
+		return true
+	default:
+		return false
+	}
+}
+
+// isComparisonOperator 检查是否是比较运算符
+func isComparisonOperator(s string) bool {
+	switch s {
+	case ">", "<", ">=", "<=", "==", "=", "!=", "<>":
 		return true
 	default:
 		return false

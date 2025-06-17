@@ -449,12 +449,6 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 
 			item := resultSlice[0]
 
-			// 打印调试信息
-			t.Logf("Result item: %+v", item)
-			for key, value := range item {
-				t.Logf("  %s: %v (type: %T)", key, value, value)
-			}
-
 			assert.Equal(t, "sensor1", item["device"])
 			assert.Equal(t, "SENSOR1", item["device_upper"])
 
@@ -472,7 +466,6 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 				} else if val, ok := roundedAvg.(float64); ok {
 					// 验证结果在合理范围内
 					assert.True(t, val >= 25.0 && val <= 25.5, "rounded_avg should be between 25.0 and 25.5, got %v", val)
-					t.Logf("rounded_avg test passed: %v", val)
 				} else {
 					t.Errorf("rounded_avg is not a float64: %v (type: %T)", roundedAvg, roundedAvg)
 				}
@@ -584,7 +577,6 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 		// 执行包含 round(avg(temperature), 2) 的查询
 		query := "SELECT device, round(avg(temperature), 2) as rounded_avg FROM stream GROUP BY device, TumblingWindow('1s')"
-		t.Logf("Executing query: %s", query)
 		err := streamsql.Execute(query)
 		assert.Nil(t, err)
 
@@ -620,11 +612,6 @@ func TestNestedFunctionSupport(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			t.Logf("Result item: %+v", item)
-			for key, value := range item {
-				t.Logf("  %s: %v (type: %T)", key, value, value)
-			}
-
 			assert.Equal(t, "sensor1", item["device"])
 
 			// 验证四舍五入的平均值
