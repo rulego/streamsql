@@ -2874,3 +2874,94 @@ func TestSelectAllFeature(t *testing.T) {
 		}
 	})
 }
+
+// TestCaseNullValueHandlingInAggregation 测试CASE表达式在聚合函数中正确处理NULL值
+func TestCaseNullValueHandlingInAggregation(t *testing.T) {
+	sql := `SELECT deviceType,
+	              SUM(CASE WHEN temperature > 30 THEN temperature ELSE NULL END) as high_temp_sum,
+	              COUNT(CASE WHEN temperature > 30 THEN 1 ELSE NULL END) as high_temp_count,
+	              AVG(CASE WHEN temperature > 30 THEN temperature ELSE NULL END) as high_temp_avg
+	         FROM stream 
+	         GROUP BY deviceType, TumblingWindow('2s')`
+
+	// 创建StreamSQL实例
+	ssql := New()
+	defer ssql.Stop()
+
+	// 执行SQL
+	err := ssql.Execute(sql)
+	require.NoError(t, err)
+
+	// 收集结果
+	var results []map[string]interface{}
+	resultChan := make(chan interface{}, 10)
+
+	ssql.Stream().AddSink(func(result interface{}) {
+		resultChan <- result
+	})
+
+	// 添加测试数据
+	testData := []map[string]interface{}{
+		{"deviceType": "sensor", "temperature": 35.0},  // 满足条件
+		{"deviceType": "sensor", "temperature": 25.0},  // 不满足条件，返回NULL
+		{"deviceType": "sensor", "temperature": 32.0},  // 满足条件
+		{"deviceType": "monitor", "temperature": 28.0}, // 不满足条件，返回NULL
+		{"deviceType": "monitor", "temperature": 33.0}, // 满足条件
+	}
+
+	for _, data := range testData {
+		ssql.Stream().AddData(data)
+	}
+
+	// 等待窗口触发
+	time.Sleep(3 * time.Second)
+
+	// 收集结果
+collecting:
+	for {
+		select {
+		case result := <-resultChan:
+			if resultSlice, ok := result.([]map[string]interface{}); ok {
+				results = append(results, resultSlice...)
+			}
+		case <-time.After(500 * time.Millisecond):
+			break collecting
+		}
+	}
+
+	// 验证结果
+	assert.Len(t, results, 2, "应该有两个设备类型的结果")
+
+	// 验证各个deviceType的结果
+	expectedResults := map[string]map[string]interface{}{
+		"sensor": {
+			"high_temp_sum":   67.0, // 35 + 32
+			"high_temp_count": 2.0,  // COUNT应该忽略NULL
+			"high_temp_avg":   33.5, // (35 + 32) / 2
+		},
+		"monitor": {
+			"high_temp_sum":   33.0, // 只有33
+			"high_temp_count": 1.0,  // COUNT应该忽略NULL
+			"high_temp_avg":   33.0, // 只有33
+		},
+	}
+
+	for _, result := range results {
+		deviceType := result["deviceType"].(string)
+		expected := expectedResults[deviceType]
+
+		assert.NotNil(t, expected, "应该有设备类型 %s 的期望结果", deviceType)
+
+		// 验证SUM聚合（忽略NULL值）
+		assert.Equal(t, expected["high_temp_sum"], result["high_temp_sum"],
+			"设备类型 %s 的SUM聚合结果应该正确", deviceType)
+
+		// 验证COUNT聚合（忽略NULL值）
+		assert.Equal(t, expected["high_temp_count"], result["high_temp_count"],
+			"设备类型 %s 的COUNT聚合结果应该正确", deviceType)
+
+		// 验证AVG聚合（忽略NULL值）
+		assert.Equal(t, expected["high_temp_avg"], result["high_temp_avg"],
+			"设备类型 %s 的AVG聚合结果应该正确", deviceType)
+	}
+}

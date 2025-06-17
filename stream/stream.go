@@ -294,15 +294,39 @@ func (s *Stream) process() {
 					hasNestedFields := strings.Contains(currentFieldExpr.Expression, ".")
 
 					if hasNestedFields {
-						// 直接使用自定义表达式引擎处理嵌套字段
+						// 直接使用自定义表达式引擎处理嵌套字段，支持NULL值
 						expression, parseErr := expr.NewExpression(currentFieldExpr.Expression)
 						if parseErr != nil {
 							return nil, fmt.Errorf("expression parse failed: %w", parseErr)
 						}
 
-						numResult, err := expression.Evaluate(dataMap)
+						// 使用支持NULL的计算方法
+						numResult, isNull, err := expression.EvaluateWithNull(dataMap)
 						if err != nil {
 							return nil, fmt.Errorf("expression evaluation failed: %w", err)
+						}
+						if isNull {
+							return nil, nil // 返回nil表示NULL值
+						}
+						return numResult, nil
+					}
+
+					// 检查是否为CASE表达式
+					trimmedExpr := strings.TrimSpace(currentFieldExpr.Expression)
+					upperExpr := strings.ToUpper(trimmedExpr)
+					if strings.HasPrefix(upperExpr, "CASE") {
+						// CASE表达式使用支持NULL的计算方法
+						expression, parseErr := expr.NewExpression(currentFieldExpr.Expression)
+						if parseErr != nil {
+							return nil, fmt.Errorf("CASE expression parse failed: %w", parseErr)
+						}
+
+						numResult, isNull, err := expression.EvaluateWithNull(dataMap)
+						if err != nil {
+							return nil, fmt.Errorf("CASE expression evaluation failed: %w", err)
+						}
+						if isNull {
+							return nil, nil // 返回nil表示NULL值
 						}
 						return numResult, nil
 					}
@@ -331,10 +355,13 @@ func (s *Stream) process() {
 							return nil, fmt.Errorf("expression parse failed: %w", parseErr)
 						}
 
-						// 计算表达式
-						numResult, evalErr := expression.Evaluate(dataMap)
+						// 计算表达式，支持NULL值
+						numResult, isNull, evalErr := expression.EvaluateWithNull(dataMap)
 						if evalErr != nil {
 							return nil, fmt.Errorf("expression evaluation failed: %w", evalErr)
+						}
+						if isNull {
+							return nil, nil // 返回nil表示NULL值
 						}
 						return numResult, nil
 					}
@@ -382,36 +409,70 @@ func (s *Stream) process() {
 
 					// 应用 HAVING 过滤条件
 					if s.config.Having != "" {
-						// 预处理HAVING条件中的LIKE语法，转换为expr-lang可理解的形式
-						processedHaving := s.config.Having
-						bridge := functions.GetExprBridge()
-						if bridge.ContainsLikeOperator(s.config.Having) {
-							if processed, err := bridge.PreprocessLikeExpression(s.config.Having); err == nil {
-								processedHaving = processed
-							}
-						}
+						// 检查HAVING条件是否包含CASE表达式
+						hasCaseExpression := strings.Contains(strings.ToUpper(s.config.Having), "CASE")
 
-						// 预处理HAVING条件中的IS NULL语法
-						if bridge.ContainsIsNullOperator(processedHaving) {
-							if processed, err := bridge.PreprocessIsNullExpression(processedHaving); err == nil {
-								processedHaving = processed
-							}
-						}
+						var filteredResults []map[string]interface{}
 
-						// 创建 HAVING 条件
-						havingFilter, err := condition.NewExprCondition(processedHaving)
-						if err != nil {
-							logger.Error("having filter error: %v", err)
-						} else {
-							// 应用 HAVING 过滤
-							var filteredResults []map[string]interface{}
-							for _, result := range finalResults {
-								if havingFilter.Evaluate(result) {
-									filteredResults = append(filteredResults, result)
+						if hasCaseExpression {
+							// HAVING条件包含CASE表达式，使用我们的表达式解析器
+							expression, err := expr.NewExpression(s.config.Having)
+							if err != nil {
+								logger.Error("having filter error (CASE expression): %v", err)
+							} else {
+								// 应用 HAVING 过滤，使用CASE表达式计算器
+								for _, result := range finalResults {
+									// 使用EvaluateWithNull方法以支持NULL值处理
+									havingResult, isNull, err := expression.EvaluateWithNull(result)
+									if err != nil {
+										logger.Error("having filter evaluation error: %v", err)
+										continue
+									}
+
+									// 如果结果是NULL，则不满足条件（SQL标准行为）
+									if isNull {
+										continue
+									}
+
+									// 对于数值结果，大于0视为true（满足HAVING条件）
+									if havingResult > 0 {
+										filteredResults = append(filteredResults, result)
+									}
 								}
 							}
-							finalResults = filteredResults
+						} else {
+							// HAVING条件不包含CASE表达式，使用原有的expr-lang处理
+							// 预处理HAVING条件中的LIKE语法，转换为expr-lang可理解的形式
+							processedHaving := s.config.Having
+							bridge := functions.GetExprBridge()
+							if bridge.ContainsLikeOperator(s.config.Having) {
+								if processed, err := bridge.PreprocessLikeExpression(s.config.Having); err == nil {
+									processedHaving = processed
+								}
+							}
+
+							// 预处理HAVING条件中的IS NULL语法
+							if bridge.ContainsIsNullOperator(processedHaving) {
+								if processed, err := bridge.PreprocessIsNullExpression(processedHaving); err == nil {
+									processedHaving = processed
+								}
+							}
+
+							// 创建 HAVING 条件
+							havingFilter, err := condition.NewExprCondition(processedHaving)
+							if err != nil {
+								logger.Error("having filter error: %v", err)
+							} else {
+								// 应用 HAVING 过滤
+								for _, result := range finalResults {
+									if havingFilter.Evaluate(result) {
+										filteredResults = append(filteredResults, result)
+									}
+								}
+							}
 						}
+
+						finalResults = filteredResults
 					}
 
 					// 应用 LIMIT 限制
@@ -496,13 +557,11 @@ func (s *Stream) processDirectData(data interface{}) {
 		if bridge.ContainsIsNullOperator(processedExpr) {
 			if processed, err := bridge.PreprocessIsNullExpression(processedExpr); err == nil {
 				processedExpr = processed
-				logger.Debug("Preprocessed IS NULL expression: %s -> %s", fieldExpr.Expression, processedExpr)
 			}
 		}
 		if bridge.ContainsLikeOperator(processedExpr) {
 			if processed, err := bridge.PreprocessLikeExpression(processedExpr); err == nil {
 				processedExpr = processed
-				logger.Debug("Preprocessed LIKE expression: %s -> %s", fieldExpr.Expression, processedExpr)
 			}
 		}
 
