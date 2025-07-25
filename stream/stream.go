@@ -295,7 +295,7 @@ func (s *Stream) compileFieldProcessInfo() {
 
 			// 预判断字段特征
 			info.isFunctionCall = strings.Contains(info.fieldName, "(") && strings.Contains(info.fieldName, ")")
-			info.hasNestedField = !info.isFunctionCall && strings.Contains(info.fieldName, ".")
+			info.hasNestedField = !info.isFunctionCall && fieldpath.IsNestedField(info.fieldName)
 		}
 
 		s.compiledFieldInfo[fieldSpec] = info
@@ -700,6 +700,7 @@ func (s *Stream) processDirectData(data interface{}) {
 			info := s.compiledFieldInfo[fieldSpec]
 			if info == nil {
 				// 如果没有预编译信息，回退到原逻辑（安全性保证）
+				s.processSingleFieldFallback(fieldSpec, dataMap, data, result)
 				continue
 			}
 
@@ -759,6 +760,61 @@ func (s *Stream) processDirectData(data interface{}) {
 
 	// 优化: 异步调用所有sinks，避免阻塞
 	s.callSinksAsync(results)
+}
+
+// processSingleFieldFallback 回退处理单个字段（当预编译信息缺失时）
+func (s *Stream) processSingleFieldFallback(fieldSpec string, dataMap map[string]interface{}, data interface{}, result map[string]interface{}) {
+	// 处理SELECT *的特殊情况
+	if fieldSpec == "*" {
+		// SELECT *：返回所有字段，但跳过已经通过表达式字段处理的字段
+		for k, v := range dataMap {
+			// 如果该字段已经通过表达式字段处理，则跳过，保持表达式计算结果
+			if _, isExpression := s.config.FieldExpressions[k]; !isExpression {
+				result[k] = v
+			}
+		}
+		return
+	}
+
+	// 处理别名
+	parts := strings.Split(fieldSpec, ":")
+	fieldName := parts[0]
+	outputName := fieldName
+	if len(parts) > 1 {
+		outputName = parts[1]
+	}
+
+	// 跳过已经通过表达式字段处理的字段
+	if _, isExpression := s.config.FieldExpressions[outputName]; isExpression {
+		return
+	}
+
+	// 检查是否是函数调用
+	if strings.Contains(fieldName, "(") && strings.Contains(fieldName, ")") {
+		// 执行函数调用
+		if funcResult, err := s.executeFunction(fieldName, dataMap); err == nil {
+			result[outputName] = funcResult
+		} else {
+			logger.Error("Function execution error %s: %v", fieldName, err)
+			result[outputName] = nil
+		}
+	} else {
+		// 普通字段 - 支持嵌套字段
+		var value interface{}
+		var exists bool
+
+		if fieldpath.IsNestedField(fieldName) {
+			value, exists = fieldpath.GetNestedField(data, fieldName)
+		} else {
+			value, exists = dataMap[fieldName]
+		}
+
+		if exists {
+			result[outputName] = value
+		} else {
+			result[outputName] = nil
+		}
+	}
 }
 
 // sendResultNonBlocking 非阻塞方式发送结果到resultChan (智能背压控制)
