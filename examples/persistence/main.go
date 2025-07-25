@@ -78,7 +78,7 @@ func testDataOverflowPersistence() {
 			"id":    i,
 			"value": fmt.Sprintf("data_%d", i),
 		}
-		stream.AddData(data)
+		stream.Emit(data)
 	}
 	duration := time.Since(start)
 

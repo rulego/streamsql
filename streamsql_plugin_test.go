@@ -104,7 +104,7 @@ func testStringFunctionsOnly(t *testing.T) {
 		"phone":       "13812345678",
 	}
 
-	streamsql.AddData(testData)
+	streamsql.Emit(testData)
 	time.Sleep(300 * time.Millisecond)
 
 	select {
@@ -149,7 +149,7 @@ func testConversionFunctionsOnly(t *testing.T) {
 		"user_id": "12345",
 	}
 
-	streamsql.AddData(testData)
+	streamsql.Emit(testData)
 	time.Sleep(300 * time.Millisecond)
 
 	select {
@@ -205,7 +205,7 @@ func testMathFunctionsInAggregate(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		streamsql.AddData(data)
+		streamsql.Emit(data)
 	}
 
 	time.Sleep(1 * time.Second)
@@ -269,7 +269,7 @@ func TestRuntimeFunctionManagement(t *testing.T) {
 		resultChan <- result
 	})
 
-	streamsql.AddData(map[string]interface{}{"value": "test"})
+	streamsql.Emit(map[string]interface{}{"value": "test"})
 	time.Sleep(300 * time.Millisecond)
 
 	select {
@@ -390,7 +390,7 @@ func TestCompleteSQLIntegration(t *testing.T) {
 		"amount":      100.0,
 	}
 
-	streamsql.AddData(testData)
+	streamsql.Emit(testData)
 	time.Sleep(300 * time.Millisecond)
 
 	select {

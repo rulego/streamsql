@@ -201,7 +201,7 @@ func demonstrateRealTimeProcessing(s *stream.Stream) {
 		}
 
 		fmt.Printf("  发送数据: %v\n", data)
-		s.AddData(data)
+		s.Emit(data)
 		time.Sleep(100 * time.Millisecond)
 	}
 

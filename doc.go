@@ -63,7 +63,7 @@ StreamSQL 提供了高效的无界数据流处理和分析能力，支持多种�
 		}
 
 		// 添加结果处理回调
-		ssql.Stream().AddSink(func(result interface{}) {
+		ssql.AddSink(func(result interface{}) {
 			fmt.Printf("聚合结果: %v\n", result)
 		})
 
@@ -81,7 +81,7 @@ StreamSQL 提供了高效的无界数据流处理和分析能力，支持多种�
 						"temperature": 20.0 + rand.Float64()*10,
 						"humidity":    50.0 + rand.Float64()*20,
 					}
-					ssql.AddData(data)
+					ssql.Emit(data)
 				}
 			}
 		}()

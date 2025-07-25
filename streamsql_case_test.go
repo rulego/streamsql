@@ -50,7 +50,7 @@ func TestCaseExpressionInSQL(t *testing.T) {
 	})
 
 	for _, data := range testData {
-		streamSQL.stream.AddData(data)
+		streamSQL.Emit(data)
 	}
 
 	// 等待处理
@@ -102,7 +102,7 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 	})
 
 	for _, data := range testData {
-		streamSQL.stream.AddData(data)
+		streamSQL.Emit(data)
 	}
 
 	// 等待窗口触发
@@ -274,7 +274,7 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 			})
 
 			for _, data := range tc.data {
-				streamSQL.stream.AddData(data)
+				streamSQL.Emit(data)
 			}
 
 			// 等待窗口触发
@@ -377,7 +377,7 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 
 			// 添加测试数据
 			for _, data := range tt.testData {
-				strm.AddData(data)
+				strm.Emit(data)
 			}
 
 			// 捕获结果
@@ -482,7 +482,7 @@ func TestCaseExpressionAggregated(t *testing.T) {
 			})
 
 			for _, data := range tt.testData {
-				strm.AddData(data)
+				strm.Emit(data)
 			}
 
 			// 使用带超时的等待机制
@@ -606,13 +606,13 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 			var results []map[string]interface{}
 			resultChan := make(chan interface{}, 10)
 
-			ssql.Stream().AddSink(func(result interface{}) {
+			ssql.AddSink(func(result interface{}) {
 				resultChan <- result
 			})
 
 			// 添加测试数据
 			for _, data := range tc.testData {
-				ssql.Stream().AddData(data)
+				ssql.Stream().Emit(data)
 			}
 
 			// 等待窗口触发
@@ -777,7 +777,7 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 	})
 
 	for _, data := range testData {
-		streamSQL.stream.AddData(data)
+		streamSQL.Emit(data)
 	}
 
 	// 等待窗口触发
@@ -866,7 +866,7 @@ func TestNegativeNumberInSQL(t *testing.T) {
 
 	// 添加测试数据
 	for _, data := range testData {
-		streamSQL.stream.AddData(data)
+		streamSQL.Emit(data)
 	}
 
 	// 等待处理

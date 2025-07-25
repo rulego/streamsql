@@ -85,7 +85,7 @@ func main() {
 	}
 
 	// 处理实时转换结果
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("实时处理结果: %+v\n", result)
 	})
 
@@ -113,7 +113,7 @@ func main() {
 
 	// 逐条处理数据，每条都会立即输出结果
 	for _, data := range sensorData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 		time.Sleep(100 * time.Millisecond) // 模拟实时数据到达
 	}
 
@@ -289,7 +289,7 @@ func main() {
 	}
 
 	// 处理聚合结果
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("聚合结果: %+v\n", result)
 	})
 
@@ -309,7 +309,7 @@ func main() {
 		"timestamp": time.Now().Unix(),
 	}
 
-	ssql.Stream().AddData(nestedData)
+	ssql.Emit(nestedData)
 }
 ```
 

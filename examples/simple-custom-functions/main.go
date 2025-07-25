@@ -122,7 +122,7 @@ func testSimpleQuery(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加结果监听器
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  📊 简单查询结果: %v\n", result)
 	})
 
@@ -143,7 +143,7 @@ func testSimpleQuery(ssql *streamsql.Streamsql) {
 	}
 
 	for _, data := range testData {
-		ssql.AddData(data)
+		ssql.Emit(data)
 		time.Sleep(200 * time.Millisecond) // 稍微延迟
 	}
 
@@ -171,7 +171,7 @@ func testAggregateQuery(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加结果监听器
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  📊 聚合查询结果: %v\n", result)
 	})
 
@@ -198,7 +198,7 @@ func testAggregateQuery(ssql *streamsql.Streamsql) {
 	}
 
 	for _, data := range testData {
-		ssql.AddData(data)
+		ssql.Emit(data)
 	}
 
 	// 等待窗口触发

@@ -32,7 +32,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			"temperature": -25.5,
 			"humidity":    64.0,
 		}
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -77,7 +77,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			"device":   "sensor01",
 			"location": "ROOM_A",
 		}
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -120,7 +120,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			"temperature": 25.7,
 			"humidity":    65.0,
 		}
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -162,7 +162,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			"device":    "test-device",
 			"timestamp": testTime,
 		}
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -204,7 +204,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			"device":   "test-device",
 			"metadata": `{"type": "temperature_sensor", "version": "1.0"}`,
 		}
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -253,7 +253,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -317,7 +317,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -368,7 +368,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -430,7 +430,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -497,7 +497,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 			"device":      "sensor1",
 			"temperature": 25.7,
 		}
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -540,7 +540,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -594,7 +594,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -659,7 +659,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -728,7 +728,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -794,7 +794,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		})
 
 		// 添加测试数据
-		strm.AddData(map[string]interface{}{"device": "sensor1", "temperature": 25.67})
+		strm.Emit(map[string]interface{}{"device": "sensor1", "temperature": 25.67})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -834,7 +834,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		})
 
 		// 添加测试数据
-		strm.AddData(map[string]interface{}{"device": "sensor1"})
+		strm.Emit(map[string]interface{}{"device": "sensor1"})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -874,7 +874,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		})
 
 		// 添加测试数据
-		strm.AddData(map[string]interface{}{"device": "sensor1", "temperature": 16.0})
+		strm.Emit(map[string]interface{}{"device": "sensor1", "temperature": 16.0})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -921,7 +921,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -966,7 +966,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		})
 
 		// 添加测试数据
-		strm.AddData(map[string]interface{}{"device": "sensor1", "created_at": "2023-12-25 15:30:45"})
+		strm.Emit(map[string]interface{}{"device": "sensor1", "created_at": "2023-12-25 15:30:45"})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -1006,7 +1006,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		})
 
 		// 添加测试数据（不包含invalid_field）
-		strm.AddData(map[string]interface{}{"device": "sensor1", "temperature": 25.0})
+		strm.Emit(map[string]interface{}{"device": "sensor1", "temperature": 25.0})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

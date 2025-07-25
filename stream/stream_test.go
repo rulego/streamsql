@@ -55,7 +55,7 @@ func TestStreamProcess(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待窗口关闭并触发结果
@@ -139,7 +139,7 @@ func TestStreamWithoutFilter(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 捕获结果
@@ -235,7 +235,7 @@ func TestIncompleteStreamProcess(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待窗口关闭并触发结果
@@ -323,7 +323,7 @@ func TestWindowSlotAgg(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 捕获结果
@@ -492,7 +492,7 @@ func TestStreamWithPersistenceStrategy(t *testing.T) {
 			"temperature": float64(20 + i),
 			"timestamp":   time.Now(),
 		}
-		stream.AddData(data)
+		stream.Emit(data)
 	}
 
 	// 等待处理完成
@@ -546,7 +546,7 @@ func TestStreamPersistenceRecovery(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		stream1.AddData(data)
+		stream1.Emit(data)
 	}
 
 	// 等待数据持久化
@@ -695,7 +695,7 @@ func TestStreamPersistencePerformance(t *testing.T) {
 			"value": i,
 			"data":  fmt.Sprintf("performance_test_data_%d", i),
 		}
-		stream.AddData(data)
+		stream.Emit(data)
 	}
 
 	elapsed := time.Since(start)
@@ -795,7 +795,7 @@ func TestSelectStarWithExpressionFields(t *testing.T) {
 		"age":    25,
 	}
 
-	stream.AddData(testData)
+	stream.Emit(testData)
 
 	// 等待处理完成
 	time.Sleep(100 * time.Millisecond)
@@ -873,7 +873,7 @@ func TestSelectStarWithExpressionFieldsOverride(t *testing.T) {
 		"status": "active",
 	}
 
-	stream.AddData(testData)
+	stream.Emit(testData)
 
 	// 等待处理完成
 	time.Sleep(100 * time.Millisecond)
@@ -939,7 +939,7 @@ func TestSelectStarWithoutExpressionFields(t *testing.T) {
 		"status": "inactive",
 	}
 
-	stream.AddData(testData)
+	stream.Emit(testData)
 
 	// 等待处理完成
 	time.Sleep(100 * time.Millisecond)
