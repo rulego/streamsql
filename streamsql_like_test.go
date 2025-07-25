@@ -42,7 +42,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 
 		// 添加数据
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待并收集结果
@@ -98,7 +98,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待结果
@@ -153,7 +153,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待结果
@@ -208,7 +208,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待结果
@@ -253,7 +253,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待结果
@@ -309,7 +309,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待聚合
@@ -370,7 +370,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待聚合
@@ -432,7 +432,7 @@ func TestLikeFunctionEquivalence(t *testing.T) {
 
 		// 添加数据
 		for _, data := range testData {
-			streamsql.stream.AddData(data)
+			streamsql.stream.Emit(data)
 		}
 
 		// 收集结果
@@ -527,7 +527,7 @@ func TestLikePatternMatching(t *testing.T) {
 
 			// 添加测试数据
 			testData := map[string]interface{}{"value": test.text}
-			streamsql.stream.AddData(testData)
+			streamsql.stream.Emit(testData)
 
 			// 等待结果
 			timeout := time.After(1 * time.Second)

@@ -31,7 +31,7 @@ import (
 //
 //	ssql := streamsql.New()
 //	err := ssql.Execute("SELECT AVG(temperature) FROM stream GROUP BY TumblingWindow('5s')")
-//	ssql.AddData(map[string]interface{}{"temperature": 25.5})
+//	ssql.Emit(map[string]interface{}{"temperature": 25.5})
 type Streamsql struct {
 	stream *stream.Stream
 
@@ -158,7 +158,7 @@ func (s *Streamsql) Execute(sql string) error {
 	return nil
 }
 
-// AddData 向流中添加一条数据记录。
+// Emit 向流中添加一条数据记录。
 // 数据会根据已配置的SQL查询进行处理和聚合。
 //
 // 支持的数据格式:
@@ -171,7 +171,7 @@ func (s *Streamsql) Execute(sql string) error {
 // 示例:
 //
 //	// 添加设备数据
-//	ssql.AddData(map[string]interface{}{
+//	ssql.Emit(map[string]interface{}{
 //	    "deviceId": "sensor001",
 //	    "temperature": 25.5,
 //	    "humidity": 60.0,
@@ -179,14 +179,14 @@ func (s *Streamsql) Execute(sql string) error {
 //	})
 //
 //	// 添加用户行为数据
-//	ssql.AddData(map[string]interface{}{
+//	ssql.Emit(map[string]interface{}{
 //	    "userId": "user123",
 //	    "action": "click",
 //	    "page": "/home",
 //	})
-func (s *Streamsql) AddData(data interface{}) {
+func (s *Streamsql) Emit(data interface{}) {
 	if s.stream != nil {
-		s.stream.AddData(data)
+		s.stream.Emit(data)
 	}
 }
 
@@ -247,4 +247,77 @@ func (s *Streamsql) Stop() {
 	if s.stream != nil {
 		s.stream.Stop()
 	}
+}
+
+// AddSink 直接添加结果处理回调函数。
+// 这是对 Stream().AddSink() 的便捷封装，使API调用更简洁。
+//
+// 参数:
+//   - sink: 结果处理函数，接收处理结果作为参数
+//
+// 示例:
+//
+//	// 直接添加结果处理
+//	ssql.AddSink(func(result interface{}) {
+//	    fmt.Printf("处理结果: %v\n", result)
+//	})
+//
+//	// 添加多个处理器
+//	ssql.AddSink(func(result interface{}) {
+//	    // 保存到数据库
+//	    saveToDatabase(result)
+//	})
+//	ssql.AddSink(func(result interface{}) {
+//	    // 发送到消息队列
+//	    sendToQueue(result)
+//	})
+func (s *Streamsql) AddSink(sink func(interface{})) {
+	if s.stream != nil {
+		s.stream.AddSink(sink)
+	}
+}
+
+// Print 打印结果到控制台。
+// 这是一个便捷方法，自动添加一个打印结果的sink函数。
+//
+// 示例:
+//
+//	// 简单打印结果
+//	ssql.Print()
+//
+//	// 等价于:
+//	ssql.AddSink(func(result interface{}) {
+//	    fmt.Printf("Ressult: %v\n", result)
+//	})
+func (s *Streamsql) Print() {
+	s.AddSink(func(result interface{}) {
+		fmt.Printf("Ressult: %v\n", result)
+	})
+}
+
+// ToChannel 返回结果通道，用于异步获取处理结果。
+// 通过此通道可以以非阻塞方式获取流处理结果。
+//
+// 返回值:
+//   - <-chan interface{}: 只读的结果通道，如果未执行SQL则返回nil
+//
+// 示例:
+//
+//	// 获取结果通道
+//	resultChan := ssql.ToChannel()
+//	if resultChan != nil {
+//	    go func() {
+//	        for result := range resultChan {
+//	            fmt.Printf("异步结果: %v\n", result)
+//	        }
+//	    }()
+//	}
+//
+// 注意:
+//   - 必须有消费者持续从通道读取数据，否则可能导致流处理阻塞
+func (s *Streamsql) ToChannel() <-chan interface{} {
+	if s.stream != nil {
+		return s.stream.GetResultsChan()
+	}
+	return nil
 }

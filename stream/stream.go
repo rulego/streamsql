@@ -1053,7 +1053,7 @@ func (s *Stream) smartSplitArgs(argsStr string) ([]string, error) {
 	return args, nil
 }
 
-func (s *Stream) AddData(data interface{}) {
+func (s *Stream) Emit(data interface{}) {
 	atomic.AddInt64(&s.inputCount, 1)
 	// 性能优化：直接调用预编译的函数指针，避免switch判断
 	s.addDataFunc(data)

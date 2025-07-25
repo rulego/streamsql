@@ -625,12 +625,12 @@ func testMathFunctions(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加结果监听器
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  📊 数学函数结果: %v\n", result)
 	})
 
 	for _, data := range testData {
-		ssql.AddData(data)
+		ssql.Emit(data)
 	}
 
 	time.Sleep(1 * time.Second)
@@ -672,12 +672,12 @@ func testStringFunctions(ssql *streamsql.Streamsql) {
 		},
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  📊 字符串函数结果: %v\n", result)
 	})
 
 	for _, data := range testData {
-		ssql.AddData(data)
+		ssql.Emit(data)
 	}
 
 	time.Sleep(500 * time.Millisecond)
@@ -715,12 +715,12 @@ func testConversionFunctions(ssql *streamsql.Streamsql) {
 		},
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  📊 转换函数结果: %v\n", result)
 	})
 
 	for _, data := range testData {
-		ssql.AddData(data)
+		ssql.Emit(data)
 	}
 
 	time.Sleep(500 * time.Millisecond)
@@ -753,12 +753,12 @@ func testAggregateFunctions(ssql *streamsql.Streamsql) {
 		map[string]interface{}{"device": "sensor1", "value": 128.0, "category": "A"},
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  📊 聚合函数结果: %v\n", result)
 	})
 
 	for _, data := range testData {
-		ssql.AddData(data)
+		ssql.Emit(data)
 	}
 
 	time.Sleep(1 * time.Second)

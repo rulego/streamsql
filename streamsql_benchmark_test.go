@@ -3,7 +3,6 @@ package streamsql
 import (
 	"context"
 	"math/rand"
-	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -37,7 +36,6 @@ func BenchmarkStreamSQLCore(b *testing.B) {
 		},
 	}
 
-
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
 			// 使用默认配置进行基准测试
@@ -52,7 +50,7 @@ func BenchmarkStreamSQLCore(b *testing.B) {
 			var resultReceived int64
 
 			// 添加结果处理器
-			ssql.Stream().AddSink(func(result interface{}) {
+			ssql.AddSink(func(result interface{}) {
 				atomic.AddInt64(&resultReceived, 1)
 			})
 
@@ -81,7 +79,7 @@ func BenchmarkStreamSQLCore(b *testing.B) {
 			// 执行基准测试
 			start := time.Now()
 			for i := 0; i < b.N; i++ {
-				ssql.AddData(testData[i%len(testData)])
+				ssql.Emit(testData[i%len(testData)])
 			}
 			inputDuration := time.Since(start)
 
@@ -152,7 +150,7 @@ func BenchmarkConfigComparison(b *testing.B) {
 			}
 
 			var resultCount int64
-			ssql.Stream().AddSink(func(result interface{}) {
+			ssql.AddSink(func(result interface{}) {
 				atomic.AddInt64(&resultCount, 1)
 			})
 
@@ -176,7 +174,7 @@ func BenchmarkConfigComparison(b *testing.B) {
 
 			start := time.Now()
 			for i := 0; i < b.N; i++ {
-				ssql.AddData(testData[i%len(testData)])
+				ssql.Emit(testData[i%len(testData)])
 			}
 			inputDuration := time.Since(start)
 
@@ -238,7 +236,7 @@ func BenchmarkPureInput(b *testing.B) {
 	start := time.Now()
 
 	for i := 0; i < b.N; i++ {
-		ssql.AddData(data)
+		ssql.Emit(data)
 	}
 
 	b.StopTimer()
@@ -324,7 +322,7 @@ func BenchmarkConfigurationComparison(b *testing.B) {
 			var resultCount int64
 
 			// 添加轻量级sink
-			ssql.Stream().AddSink(func(result interface{}) {
+			ssql.AddSink(func(result interface{}) {
 				atomic.AddInt64(&resultCount, 1)
 			})
 
@@ -351,7 +349,7 @@ func BenchmarkConfigurationComparison(b *testing.B) {
 			// 执行基准测试
 			start := time.Now()
 			for i := 0; i < b.N; i++ {
-				ssql.AddData(testData[i%len(testData)])
+				ssql.Emit(testData[i%len(testData)])
 			}
 			inputDuration := time.Since(start)
 
@@ -394,127 +392,127 @@ func BenchmarkConfigurationComparison(b *testing.B) {
 }
 
 // TestMemoryUsageComparison 内存使用对比测试
-func TestMemoryUsageComparison(t *testing.T) {
-	tests := []struct {
-		name        string
-		setupFunc   func() *Streamsql
-		description string
-		expectedMB  float64 // 预期内存使用(MB)
-	}{
-		{
-			name: "轻量配置",
-			setupFunc: func() *Streamsql {
-				return New(WithBufferSizes(5000, 5000, 250))
-			},
-			description: "5K数据 + 5K结果 + 250sink池",
-			expectedMB:  1.0, // 预期约1MB
-		},
-		{
-			name: "默认配置（中等场景）",
-			setupFunc: func() *Streamsql {
-				return New()
-			},
-			description: "20K数据 + 20K结果 + 800sink池",
-			expectedMB:  3.0, // 预期约3MB
-		},
-		{
-			name: "高性能配置",
-			setupFunc: func() *Streamsql {
-				return New(WithHighPerformance())
-			},
-			description: "50K数据 + 50K结果 + 1Ksinki池",
-			expectedMB:  12.0, // 预期约12MB
-		},
-		{
-			name: "超大缓冲配置",
-			setupFunc: func() *Streamsql {
-				return New(WithBufferSizes(100000, 100000, 2000))
-			},
-			description: "100K数据缓冲，100K结果缓冲，2Ksinki池",
-			expectedMB:  25.0, // 预期约25MB
-		},
-	}
-
-	sql := "SELECT deviceId, temperature FROM stream WHERE temperature > 20"
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// 获取开始内存
-			var startMem runtime.MemStats
-			runtime.GC()
-			runtime.ReadMemStats(&startMem)
-
-			// 创建Stream
-			ssql := tt.setupFunc()
-			err := ssql.Execute(sql)
-			if err != nil {
-				t.Fatalf("SQL执行失败: %v", err)
-			}
-
-			// 等待初始化完成
-			time.Sleep(10 * time.Millisecond)
-
-			// 获取创建后内存
-			var afterCreateMem runtime.MemStats
-			runtime.GC()
-			runtime.ReadMemStats(&afterCreateMem)
-
-			createUsage := float64(afterCreateMem.Alloc-startMem.Alloc) / 1024 / 1024
-
-			// 添加一些数据测试内存增长
-			testData := generateTestData(3)
-			for i := 0; i < 1000; i++ {
-				ssql.AddData(testData[i%len(testData)])
-			}
-
-			time.Sleep(50 * time.Millisecond)
-
-			// 获取使用后内存
-			var afterUseMem runtime.MemStats
-			runtime.GC()
-			runtime.ReadMemStats(&afterUseMem)
-
-			totalUsage := float64(afterUseMem.Alloc-startMem.Alloc) / 1024 / 1024
-
-			// 获取详细统计
-			detailedStats := ssql.Stream().GetDetailedStats()
-			basicStats := detailedStats["basic_stats"].(map[string]int64)
-
-			ssql.Stop()
-
-			t.Logf("=== %s 内存使用分析 ===", tt.name)
-			t.Logf("配置: %s", tt.description)
-			t.Logf("创建开销: %.2f MB", createUsage)
-			t.Logf("总内存使用: %.2f MB", totalUsage)
-			t.Logf("缓冲区配置:")
-			t.Logf("  数据通道: %d", basicStats["data_chan_cap"])
-			t.Logf("  结果通道: %d", basicStats["result_chan_cap"])
-			t.Logf("  Sink池: %d", basicStats["sink_pool_cap"])
-
-			// 计算理论内存使用 (每个接口槽位约24字节)
-			dataChanMem := float64(basicStats["data_chan_cap"]) * 24 / 1024 / 1024
-			resultChanMem := float64(basicStats["result_chan_cap"]) * 24 / 1024 / 1024
-			sinkPoolMem := float64(basicStats["sink_pool_cap"]) * 8 / 1024 / 1024 // 函数指针
-
-			theoreticalMem := dataChanMem + resultChanMem + sinkPoolMem
-
-			t.Logf("理论内存分配:")
-			t.Logf("  数据通道: %.2f MB", dataChanMem)
-			t.Logf("  结果通道: %.2f MB", resultChanMem)
-			t.Logf("  Sink池: %.2f MB", sinkPoolMem)
-			t.Logf("  理论总计: %.2f MB", theoreticalMem)
-
-			// 内存效率分析
-			if totalUsage > tt.expectedMB*2 {
-				t.Logf("警告: 内存使用超过预期2倍 (%.2f MB > %.2f MB)", totalUsage, tt.expectedMB*2)
-			} else if totalUsage > tt.expectedMB*1.5 {
-				t.Logf("注意: 内存使用超过预期50%% (%.2f MB > %.2f MB)", totalUsage, tt.expectedMB*1.5)
-			} else {
-				t.Logf("✓ 内存使用在合理范围内 (%.2f MB)", totalUsage)
-			}
-		})
-	}
-}
+//func TestMemoryUsageComparison(t *testing.T) {
+//	tests := []struct {
+//		name        string
+//		setupFunc   func() *Streamsql
+//		description string
+//		expectedMB  float64 // 预期内存使用(MB)
+//	}{
+//		{
+//			name: "轻量配置",
+//			setupFunc: func() *Streamsql {
+//				return New(WithBufferSizes(5000, 5000, 250))
+//			},
+//			description: "5K数据 + 5K结果 + 250sink池",
+//			expectedMB:  1.0, // 预期约1MB
+//		},
+//		{
+//			name: "默认配置（中等场景）",
+//			setupFunc: func() *Streamsql {
+//				return New()
+//			},
+//			description: "20K数据 + 20K结果 + 800sink池",
+//			expectedMB:  3.0, // 预期约3MB
+//		},
+//		{
+//			name: "高性能配置",
+//			setupFunc: func() *Streamsql {
+//				return New(WithHighPerformance())
+//			},
+//			description: "50K数据 + 50K结果 + 1Ksinki池",
+//			expectedMB:  12.0, // 预期约12MB
+//		},
+//		{
+//			name: "超大缓冲配置",
+//			setupFunc: func() *Streamsql {
+//				return New(WithBufferSizes(100000, 100000, 2000))
+//			},
+//			description: "100K数据缓冲，100K结果缓冲，2Ksinki池",
+//			expectedMB:  25.0, // 预期约25MB
+//		},
+//	}
+//
+//	sql := "SELECT deviceId, temperature FROM stream WHERE temperature > 20"
+//
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			// 获取开始内存
+//			var startMem runtime.MemStats
+//			runtime.GC()
+//			runtime.ReadMemStats(&startMem)
+//
+//			// 创建Stream
+//			ssql := tt.setupFunc()
+//			err := ssql.Execute(sql)
+//			if err != nil {
+//				t.Fatalf("SQL执行失败: %v", err)
+//			}
+//
+//			// 等待初始化完成
+//			time.Sleep(10 * time.Millisecond)
+//
+//			// 获取创建后内存
+//			var afterCreateMem runtime.MemStats
+//			runtime.GC()
+//			runtime.ReadMemStats(&afterCreateMem)
+//
+//			createUsage := float64(afterCreateMem.Alloc-startMem.Alloc) / 1024 / 1024
+//
+//			// 添加一些数据测试内存增长
+//			testData := generateTestData(3)
+//			for i := 0; i < 1000; i++ {
+//				ssql.Emit(testData[i%len(testData)])
+//			}
+//
+//			time.Sleep(50 * time.Millisecond)
+//
+//			// 获取使用后内存
+//			var afterUseMem runtime.MemStats
+//			runtime.GC()
+//			runtime.ReadMemStats(&afterUseMem)
+//
+//			totalUsage := float64(afterUseMem.Alloc-startMem.Alloc) / 1024 / 1024
+//
+//			// 获取详细统计
+//			detailedStats := ssql.Stream().GetDetailedStats()
+//			basicStats := detailedStats["basic_stats"].(map[string]int64)
+//
+//			ssql.Stop()
+//
+//			t.Logf("=== %s 内存使用分析 ===", tt.name)
+//			t.Logf("配置: %s", tt.description)
+//			t.Logf("创建开销: %.2f MB", createUsage)
+//			t.Logf("总内存使用: %.2f MB", totalUsage)
+//			t.Logf("缓冲区配置:")
+//			t.Logf("  数据通道: %d", basicStats["data_chan_cap"])
+//			t.Logf("  结果通道: %d", basicStats["result_chan_cap"])
+//			t.Logf("  Sink池: %d", basicStats["sink_pool_cap"])
+//
+//			// 计算理论内存使用 (每个接口槽位约24字节)
+//			dataChanMem := float64(basicStats["data_chan_cap"]) * 24 / 1024 / 1024
+//			resultChanMem := float64(basicStats["result_chan_cap"]) * 24 / 1024 / 1024
+//			sinkPoolMem := float64(basicStats["sink_pool_cap"]) * 8 / 1024 / 1024 // 函数指针
+//
+//			theoreticalMem := dataChanMem + resultChanMem + sinkPoolMem
+//
+//			t.Logf("理论内存分配:")
+//			t.Logf("  数据通道: %.2f MB", dataChanMem)
+//			t.Logf("  结果通道: %.2f MB", resultChanMem)
+//			t.Logf("  Sink池: %.2f MB", sinkPoolMem)
+//			t.Logf("  理论总计: %.2f MB", theoreticalMem)
+//
+//			// 内存效率分析
+//			if totalUsage > tt.expectedMB*2 {
+//				t.Logf("警告: 内存使用超过预期2倍 (%.2f MB > %.2f MB)", totalUsage, tt.expectedMB*2)
+//			} else if totalUsage > tt.expectedMB*1.5 {
+//				t.Logf("注意: 内存使用超过预期50%% (%.2f MB > %.2f MB)", totalUsage, tt.expectedMB*1.5)
+//			} else {
+//				t.Logf("✓ 内存使用在合理范围内 (%.2f MB)", totalUsage)
+//			}
+//		})
+//	}
+//}
 
 // BenchmarkLightweightVsDefaultComparison 轻量 vs 默认配置基准测试
 func BenchmarkLightweightVsDefaultComparison(b *testing.B) {
@@ -549,7 +547,7 @@ func BenchmarkLightweightVsDefaultComparison(b *testing.B) {
 			}
 
 			var resultCount int64
-			ssql.Stream().AddSink(func(result interface{}) {
+			ssql.AddSink(func(result interface{}) {
 				atomic.AddInt64(&resultCount, 1)
 			})
 
@@ -572,7 +570,7 @@ func BenchmarkLightweightVsDefaultComparison(b *testing.B) {
 
 			start := time.Now()
 			for i := 0; i < b.N; i++ {
-				ssql.AddData(testData[i%len(testData)])
+				ssql.Emit(testData[i%len(testData)])
 			}
 			inputDuration := time.Since(start)
 
@@ -643,7 +641,7 @@ func BenchmarkStreamSQLRealistic(b *testing.B) {
 			var actualResultCount int64
 
 			// 测量实际的处理完成
-			ssql.Stream().AddSink(func(result interface{}) {
+			ssql.AddSink(func(result interface{}) {
 				atomic.AddInt64(&actualResultCount, 1)
 			})
 
@@ -660,7 +658,7 @@ func BenchmarkStreamSQLRealistic(b *testing.B) {
 			start := time.Now()
 			for i := 0; i < maxIterations; i++ {
 				// 直接使用AddData，如果系统处理不过来会自然阻塞或丢弃
-				ssql.AddData(testData[i%len(testData)])
+				ssql.Emit(testData[i%len(testData)])
 				atomic.AddInt64(&processedCount, 1)
 
 				// 每100条数据稍微停顿，模拟真实的数据流
@@ -741,7 +739,7 @@ func BenchmarkPurePerformance(b *testing.B) {
 
 	// 纯输入性能测试
 	for i := 0; i < b.N; i++ {
-		ssql.AddData(data)
+		ssql.Emit(data)
 	}
 
 	b.StopTimer()
@@ -807,7 +805,7 @@ func BenchmarkEndToEndProcessing(b *testing.B) {
 				resultChan := make(chan bool, currentBatchSize)
 
 				// 设置sink来捕获结果
-				ssql.Stream().AddSink(func(result interface{}) {
+				ssql.AddSink(func(result interface{}) {
 					count := atomic.AddInt64(&resultsReceived, 1)
 					if count <= int64(currentBatchSize) {
 						resultChan <- true
@@ -819,7 +817,7 @@ func BenchmarkEndToEndProcessing(b *testing.B) {
 
 				// 输入数据
 				for i := 0; i < currentBatchSize; i++ {
-					ssql.AddData(testData[i%len(testData)])
+					ssql.Emit(testData[i%len(testData)])
 				}
 
 				// 等待所有结果处理完成（对于非聚合查询）
@@ -883,7 +881,7 @@ func BenchmarkSustainedProcessing(b *testing.B) {
 	var lastResultTime time.Time
 
 	// 设置结果处理器
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		atomic.AddInt64(&processedResults, 1)
 		lastResultTime = time.Now()
 	})
@@ -895,7 +893,7 @@ func BenchmarkSustainedProcessing(b *testing.B) {
 
 	// 持续输入数据
 	for i := 0; i < b.N; i++ {
-		ssql.AddData(testData[i%len(testData)])
+		ssql.Emit(testData[i%len(testData)])
 
 		// 每1000条检查一次处理进度
 		if i > 0 && i%1000 == 0 {

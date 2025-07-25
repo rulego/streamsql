@@ -127,7 +127,7 @@ func testBasicFiltering() {
 	}
 
 	// 添加结果处理函数
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  📊 高温告警: %v\n", result)
 	})
 
@@ -140,7 +140,7 @@ func testBasicFiltering() {
 	}
 
 	for _, data := range testData {
-		ssql.AddData(data)
+		ssql.Emit(data)
 		time.Sleep(100 * time.Millisecond)
 	}
 
@@ -172,7 +172,7 @@ func testAggregation() {
 	}
 
 	// 处理聚合结果
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  📊 聚合结果: %v\n", result)
 	})
 
@@ -185,7 +185,7 @@ func testAggregation() {
 				"temperature": 20.0 + rand.Float64()*15, // 20-35度随机温度
 				"timestamp":   time.Now(),
 			}
-			ssql.AddData(data)
+			ssql.Emit(data)
 		}
 		time.Sleep(300 * time.Millisecond)
 	}
@@ -221,7 +221,7 @@ func testSlidingWindow() {
 		return
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  📊 滑动窗口分析: %v\n", result)
 	})
 
@@ -232,7 +232,7 @@ func testSlidingWindow() {
 			"temperature": 20.0 + rand.Float64()*10,
 			"timestamp":   time.Now(),
 		}
-		ssql.AddData(data)
+		ssql.Emit(data)
 		time.Sleep(800 * time.Millisecond)
 	}
 
@@ -262,7 +262,7 @@ func testNestedFields() {
 		return
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  📊 嵌套字段结果: %v\n", result)
 	})
 
@@ -305,7 +305,7 @@ func testNestedFields() {
 	}
 
 	for _, data := range complexData {
-		ssql.AddData(data)
+		ssql.Emit(data)
 		time.Sleep(200 * time.Millisecond)
 	}
 
@@ -336,7 +336,7 @@ func testCustomFunctions() {
 		return
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  📊 自定义函数结果: %v\n", result)
 	})
 
@@ -363,7 +363,7 @@ func testCustomFunctions() {
 	}
 
 	for _, data := range testData {
-		ssql.AddData(data)
+		ssql.Emit(data)
 		time.Sleep(200 * time.Millisecond)
 	}
 
@@ -396,7 +396,7 @@ func testComplexQuery() {
 		return
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  📊 复杂查询结果: %v\n", result)
 	})
 
@@ -412,11 +412,11 @@ func testComplexQuery() {
 			},
 			"sensor": map[string]interface{}{
 				"temperature": 25.0 + rand.Float64()*10.0, // 25-35度
-				"humidity":    50.0 + rand.Float64()*30.0,  // 50-80%
+				"humidity":    50.0 + rand.Float64()*30.0, // 50-80%
 			},
 			"timestamp": time.Now(),
 		}
-		ssql.AddData(data)
+		ssql.Emit(data)
 		time.Sleep(300 * time.Millisecond)
 	}
 

@@ -70,8 +70,8 @@ func TestStreamData(t *testing.T) {
 						"humidity":    50.0 + rand.Float64()*20,                // 湿度范围: 50-70%
 					}
 					// 将数据添加到流中，触发 StreamSQL 的实时处理
-					// AddData 会将数据分发到相应的窗口和聚合器中
-					ssql.stream.AddData(randomData)
+					// Emit 会将数据分发到相应的窗口和聚合器中
+					ssql.Emit(randomData)
 				}
 
 			case <-ctx.Done():
@@ -131,7 +131,7 @@ func TestStreamsql(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 	// 捕获结果
 	resultChan := make(chan interface{})
@@ -201,7 +201,7 @@ func TestStreamsqlWithoutGroupBy(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 	// 捕获结果
 	resultChan := make(chan interface{})
@@ -272,7 +272,7 @@ func TestStreamsqlDistinct(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -374,7 +374,7 @@ func TestStreamsqlLimit(t *testing.T) {
 		// 实时验证：添加一条数据，立即验证一条结果
 		for i, data := range testData {
 			// 添加数据
-			strm.AddData(data)
+			strm.Emit(data)
 
 			// 立即等待并验证结果
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -438,7 +438,7 @@ func TestStreamsqlLimit(t *testing.T) {
 
 		// 添加数据
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待聚合
@@ -513,7 +513,7 @@ func TestStreamsqlLimit(t *testing.T) {
 
 		// 添加数据
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口触发
@@ -586,7 +586,7 @@ func TestStreamsqlLimit(t *testing.T) {
 
 		// 添加数据
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待聚合
@@ -657,7 +657,7 @@ func TestSimpleQuery(t *testing.T) {
 	// 发送数据
 	//fmt.Println("添加数据...")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待结果
@@ -713,7 +713,7 @@ func TestHavingClause(t *testing.T) {
 
 	// 添加数据
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待窗口初始化
@@ -796,7 +796,7 @@ func TestSessionWindow(t *testing.T) {
 		if item.wait > 0 {
 			time.Sleep(item.wait)
 		}
-		strm.AddData(item.data)
+		strm.Emit(item.data)
 	}
 
 	// 等待会话超时，使最后一个会话触发
@@ -889,7 +889,7 @@ func TestExpressionInAggregation(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -974,7 +974,7 @@ func TestAdvancedFunctionsInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1073,7 +1073,7 @@ func TestCustomFunctionInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1158,7 +1158,7 @@ func TestNewAggregateFunctionsInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1268,7 +1268,7 @@ func TestStatisticalAggregateFunctionsInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1370,7 +1370,7 @@ func TestDeduplicateAggregateInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1480,7 +1480,7 @@ func TestExprAggregationFunctions(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1637,7 +1637,7 @@ func TestAnalyticalFunctionsInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1734,7 +1734,7 @@ func TestLagFunctionInSQL(t *testing.T) {
 	//fmt.Println("添加测试数据：", testData)
 	for _, data := range testData {
 		//fmt.Printf("添加第%d个数据: temperature=%.1f\n", i+1, data.(map[string]interface{})["temperature"])
-		strm.AddData(data)
+		strm.Emit(data)
 		time.Sleep(100 * time.Millisecond) // 稍微延迟确保顺序
 	}
 
@@ -1832,7 +1832,7 @@ func TestHadChangedFunctionInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1912,7 +1912,7 @@ func TestLatestFunctionInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -2004,7 +2004,7 @@ func TestChangedColFunctionInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -2085,7 +2085,7 @@ func TestAnalyticalFunctionsIncrementalComputation(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -2184,7 +2184,7 @@ func TestIncrementalComputationBasic(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -2288,7 +2288,7 @@ func TestExprFunctions(t *testing.T) {
 
 	// 添加数据
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待结果
@@ -2374,7 +2374,7 @@ func TestExprFunctionsInAggregation(t *testing.T) {
 
 	// 添加数据
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待窗口初始化
@@ -2450,7 +2450,7 @@ func TestNestedExprFunctions(t *testing.T) {
 
 	// 添加数据
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待结果
@@ -2540,7 +2540,7 @@ func TestExprFunctionsWithStreamSQLFunctions(t *testing.T) {
 
 	// 添加数据
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待结果
@@ -2622,7 +2622,7 @@ func TestSelectAllFeature(t *testing.T) {
 		}
 
 		// 发送数据
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -2682,7 +2682,7 @@ func TestSelectAllFeature(t *testing.T) {
 
 		// 发送数据
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 
 			// 立即检查结果
 			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -2767,7 +2767,7 @@ func TestSelectAllFeature(t *testing.T) {
 
 		// 发送数据
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 
 			// 立即检查结果
 			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -2840,7 +2840,7 @@ func TestSelectAllFeature(t *testing.T) {
 		}
 
 		// 发送数据
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -2896,7 +2896,7 @@ func TestCaseNullValueHandlingInAggregation(t *testing.T) {
 	var results []map[string]interface{}
 	resultChan := make(chan interface{}, 10)
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		resultChan <- result
 	})
 
@@ -2910,7 +2910,7 @@ func TestCaseNullValueHandlingInAggregation(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 	}
 
 	// 等待窗口触发
