@@ -21,6 +21,68 @@ import (
 	"github.com/rulego/streamsql/window"
 )
 
+// 窗口相关常量
+const (
+	WindowStartField = "window_start"
+	WindowEndField   = "window_end"
+)
+
+// 溢出策略常量
+const (
+	StrategyDrop    = "drop"
+	StrategyBlock   = "block"
+	StrategyExpand  = "expand"
+	StrategyPersist = "persist"
+)
+
+// 统计信息字段常量
+const (
+	StatsInputCount    = "input_count"
+	StatsOutputCount   = "output_count"
+	StatsDroppedCount  = "dropped_count"
+	StatsDataChanLen   = "data_chan_len"
+	StatsDataChanCap   = "data_chan_cap"
+	StatsResultChanLen = "result_chan_len"
+	StatsResultChanCap = "result_chan_cap"
+	StatsSinkPoolLen   = "sink_pool_len"
+	StatsSinkPoolCap   = "sink_pool_cap"
+	StatsActiveRetries = "active_retries"
+	StatsExpanding     = "expanding"
+)
+
+// 详细统计信息字段常量
+const (
+	StatsBasicStats       = "basic_stats"
+	StatsDataChanUsage    = "data_chan_usage"
+	StatsResultChanUsage  = "result_chan_usage"
+	StatsSinkPoolUsage    = "sink_pool_usage"
+	StatsProcessRate      = "process_rate"
+	StatsDropRate         = "drop_rate"
+	StatsPerformanceLevel = "performance_level"
+)
+
+// 性能级别常量
+const (
+	PerformanceLevelCritical     = "CRITICAL"
+	PerformanceLevelWarning      = "WARNING"
+	PerformanceLevelHighLoad     = "HIGH_LOAD"
+	PerformanceLevelModerateLoad = "MODERATE_LOAD"
+	PerformanceLevelOptimal      = "OPTIMAL"
+)
+
+// 持久化相关常量
+const (
+	PersistenceEnabled       = "enabled"
+	PersistenceMessage       = "message"
+	PersistenceNotEnabledMsg = "persistence not enabled"
+	PerformanceConfigKey     = "performanceConfig"
+)
+
+// SQL关键字常量
+const (
+	SQLKeywordCase = "CASE"
+)
+
 // fieldProcessInfo 字段处理信息，用于缓存预编译的字段处理逻辑
 type fieldProcessInfo struct {
 	fieldName      string // 原始字段名
@@ -117,7 +179,7 @@ func newStreamWithUnifiedConfig(config types.Config) (*Stream, error) {
 			windowConfig.Params = make(map[string]interface{})
 		}
 		// 传递完整的性能配置给窗口
-		windowConfig.Params["performanceConfig"] = config.PerformanceConfig
+		windowConfig.Params[PerformanceConfigKey] = config.PerformanceConfig
 
 		win, err = window.CreateWindow(windowConfig)
 		if err != nil {
@@ -142,7 +204,7 @@ func newStreamWithUnifiedConfig(config types.Config) (*Stream, error) {
 	}
 
 	// 如果是持久化策略，初始化持久化管理器
-	if perfConfig.OverflowConfig.Strategy == "persist" && perfConfig.OverflowConfig.PersistenceConfig != nil {
+	if perfConfig.OverflowConfig.Strategy == StrategyPersist && perfConfig.OverflowConfig.PersistenceConfig != nil {
 		persistConfig := perfConfig.OverflowConfig.PersistenceConfig
 		stream.persistenceManager = NewPersistenceManagerWithConfig(
 			persistConfig.DataDir,
@@ -156,11 +218,11 @@ func newStreamWithUnifiedConfig(config types.Config) (*Stream, error) {
 
 	// 性能优化：根据溢出策略预设AddData函数指针，避免运行时switch判断
 	switch perfConfig.OverflowConfig.Strategy {
-	case "block":
+	case StrategyBlock:
 		stream.addDataFunc = stream.addDataBlocking
-	case "expand":
+	case StrategyExpand:
 		stream.addDataFunc = stream.addDataWithExpansion
-	case "persist":
+	case StrategyPersist:
 		stream.addDataFunc = stream.addDataWithPersistence
 	default:
 		stream.addDataFunc = stream.addDataWithDrop
@@ -375,7 +437,7 @@ func (s *Stream) process() {
 					// 检查是否为CASE表达式
 					trimmedExpr := strings.TrimSpace(currentFieldExpr.Expression)
 					upperExpr := strings.ToUpper(trimmedExpr)
-					if strings.HasPrefix(upperExpr, "CASE") {
+					if strings.HasPrefix(upperExpr, SQLKeywordCase) {
 						// CASE表达式使用支持NULL的计算方法
 						expression, parseErr := expr.NewExpression(currentFieldExpr.Expression)
 						if parseErr != nil {
@@ -437,11 +499,21 @@ func (s *Stream) process() {
 
 		// 处理窗口模式
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Error("Window processing goroutine panic recovered: %v", r)
+				}
+			}()
+
 			for batch := range s.Window.OutputChan() {
 				// 处理窗口批数据
 				for _, item := range batch {
-					_ = s.aggregator.Put("window_start", item.Slot.WindowStart())
-					_ = s.aggregator.Put("window_end", item.Slot.WindowEnd())
+					if err := s.aggregator.Put(WindowStartField, item.Slot.WindowStart()); err != nil {
+						logger.Error("failed to put window start: %v", err)
+					}
+					if err := s.aggregator.Put(WindowEndField, item.Slot.WindowEnd()); err != nil {
+						logger.Error("failed to put window end: %v", err)
+					}
 					if err := s.aggregator.Add(item.Data); err != nil {
 						logger.Error("aggregate error: %v", err)
 					}
@@ -471,7 +543,7 @@ func (s *Stream) process() {
 					// 应用 HAVING 过滤条件
 					if s.config.Having != "" {
 						// 检查HAVING条件是否包含CASE表达式
-						hasCaseExpression := strings.Contains(strings.ToUpper(s.config.Having), "CASE")
+						hasCaseExpression := strings.Contains(strings.ToUpper(s.config.Having), SQLKeywordCase)
 
 						var filteredResults []map[string]interface{}
 
@@ -1274,17 +1346,17 @@ func (s *Stream) GetStats() map[string]int64 {
 	s.dataChanMux.RUnlock()
 
 	return map[string]int64{
-		"input_count":     atomic.LoadInt64(&s.inputCount),
-		"output_count":    atomic.LoadInt64(&s.outputCount),
-		"dropped_count":   atomic.LoadInt64(&s.droppedCount),
-		"data_chan_len":   dataChanLen,
-		"data_chan_cap":   dataChanCap,
-		"result_chan_len": int64(len(s.resultChan)),
-		"result_chan_cap": int64(cap(s.resultChan)),
-		"sink_pool_len":   int64(len(s.sinkWorkerPool)),
-		"sink_pool_cap":   int64(cap(s.sinkWorkerPool)),
-		"active_retries":  int64(atomic.LoadInt32(&s.activeRetries)),
-		"expanding":       int64(atomic.LoadInt32(&s.expanding)),
+		StatsInputCount:    atomic.LoadInt64(&s.inputCount),
+		StatsOutputCount:   atomic.LoadInt64(&s.outputCount),
+		StatsDroppedCount:  atomic.LoadInt64(&s.droppedCount),
+		StatsDataChanLen:   dataChanLen,
+		StatsDataChanCap:   dataChanCap,
+		StatsResultChanLen: int64(len(s.resultChan)),
+		StatsResultChanCap: int64(cap(s.resultChan)),
+		StatsSinkPoolLen:   int64(len(s.sinkWorkerPool)),
+		StatsSinkPoolCap:   int64(cap(s.sinkWorkerPool)),
+		StatsActiveRetries: int64(atomic.LoadInt32(&s.activeRetries)),
+		StatsExpanding:     int64(atomic.LoadInt32(&s.expanding)),
 	}
 }
 
@@ -1293,27 +1365,27 @@ func (s *Stream) GetDetailedStats() map[string]interface{} {
 	stats := s.GetStats()
 
 	// 计算使用率
-	dataUsage := float64(stats["data_chan_len"]) / float64(stats["data_chan_cap"]) * 100
-	resultUsage := float64(stats["result_chan_len"]) / float64(stats["result_chan_cap"]) * 100
-	sinkUsage := float64(stats["sink_pool_len"]) / float64(stats["sink_pool_cap"]) * 100
+	dataUsage := float64(stats[StatsDataChanLen]) / float64(stats[StatsDataChanCap]) * 100
+	resultUsage := float64(stats[StatsResultChanLen]) / float64(stats[StatsResultChanCap]) * 100
+	sinkUsage := float64(stats[StatsSinkPoolLen]) / float64(stats[StatsSinkPoolCap]) * 100
 
 	// 计算效率指标
 	var processRate float64 = 100.0
 	var dropRate float64 = 0.0
 
-	if stats["input_count"] > 0 {
-		processRate = float64(stats["output_count"]) / float64(stats["input_count"]) * 100
-		dropRate = float64(stats["dropped_count"]) / float64(stats["input_count"]) * 100
+	if stats[StatsInputCount] > 0 {
+		processRate = float64(stats[StatsOutputCount]) / float64(stats[StatsInputCount]) * 100
+		dropRate = float64(stats[StatsDroppedCount]) / float64(stats[StatsInputCount]) * 100
 	}
 
 	return map[string]interface{}{
-		"basic_stats":       stats,
-		"data_chan_usage":   dataUsage,
-		"result_chan_usage": resultUsage,
-		"sink_pool_usage":   sinkUsage,
-		"process_rate":      processRate,
-		"drop_rate":         dropRate,
-		"performance_level": s.assessPerformanceLevel(dataUsage, dropRate),
+		StatsBasicStats:       stats,
+		StatsDataChanUsage:    dataUsage,
+		StatsResultChanUsage:  resultUsage,
+		StatsSinkPoolUsage:    sinkUsage,
+		StatsProcessRate:      processRate,
+		StatsDropRate:         dropRate,
+		StatsPerformanceLevel: s.assessPerformanceLevel(dataUsage, dropRate),
 	}
 }
 
@@ -1321,15 +1393,15 @@ func (s *Stream) GetDetailedStats() map[string]interface{} {
 func (s *Stream) assessPerformanceLevel(dataUsage, dropRate float64) string {
 	switch {
 	case dropRate > 50:
-		return "CRITICAL" // 严重性能问题
+		return PerformanceLevelCritical // 严重性能问题
 	case dropRate > 20:
-		return "WARNING" // 性能警告
+		return PerformanceLevelWarning // 性能警告
 	case dataUsage > 90:
-		return "HIGH_LOAD" // 高负载
+		return PerformanceLevelHighLoad // 高负载
 	case dataUsage > 70:
-		return "MODERATE_LOAD" // 中等负载
+		return PerformanceLevelModerateLoad // 中等负载
 	default:
-		return "OPTIMAL" // 最佳状态
+		return PerformanceLevelOptimal // 最佳状态
 	}
 }
 
@@ -1534,14 +1606,222 @@ func (s *Stream) LoadAndReprocessPersistedData() error {
 func (s *Stream) GetPersistenceStats() map[string]interface{} {
 	if s.persistenceManager == nil {
 		return map[string]interface{}{
-			"enabled": false,
-			"message": "persistence not enabled",
+			PersistenceEnabled: false,
+			PersistenceMessage: PersistenceNotEnabledMsg,
 		}
 	}
 
 	stats := s.persistenceManager.GetStats()
-	stats["enabled"] = true
+	stats[PersistenceEnabled] = true
 	return stats
+}
+
+// IsAggregationQuery 检查当前流是否为聚合查询
+func (s *Stream) IsAggregationQuery() bool {
+	return s.config.NeedWindow
+}
+
+// ProcessSync 同步处理单条数据，立即返回结果
+// 仅适用于非聚合查询，聚合查询会返回错误
+func (s *Stream) ProcessSync(data interface{}) (interface{}, error) {
+	// 检查是否为聚合查询
+	if s.config.NeedWindow {
+		return nil, fmt.Errorf("聚合查询不支持同步处理")
+	}
+
+	// 应用过滤条件
+	if s.filter != nil && !s.filter.Evaluate(data) {
+		return nil, nil // 不匹配过滤条件，返回nil
+	}
+
+	// 直接处理数据并返回结果
+	return s.processDirectDataSync(data)
+}
+
+// processDirectDataSync 同步版本的直接数据处理
+func (s *Stream) processDirectDataSync(data interface{}) (interface{}, error) {
+	// 增加输入计数
+	atomic.AddInt64(&s.inputCount, 1)
+
+	// 简化：直接将数据作为map处理
+	dataMap, ok := data.(map[string]interface{})
+	if !ok {
+		atomic.AddInt64(&s.droppedCount, 1)
+		return nil, fmt.Errorf("不支持的数据类型: %T", data)
+	}
+
+	// 创建结果map，预分配合适容量
+	estimatedSize := len(s.config.FieldExpressions) + len(s.config.SimpleFields)
+	if estimatedSize < 8 {
+		estimatedSize = 8 // 最小容量
+	}
+	result := make(map[string]interface{}, estimatedSize)
+
+	// 处理表达式字段
+	for fieldName, fieldExpr := range s.config.FieldExpressions {
+		// 使用桥接器计算表达式，支持IS NULL等语法
+		bridge := functions.GetExprBridge()
+
+		// 预处理表达式中的IS NULL和LIKE语法
+		processedExpr := fieldExpr.Expression
+		if bridge.ContainsIsNullOperator(processedExpr) {
+			if processed, err := bridge.PreprocessIsNullExpression(processedExpr); err == nil {
+				processedExpr = processed
+			}
+		}
+		if bridge.ContainsLikeOperator(processedExpr) {
+			if processed, err := bridge.PreprocessLikeExpression(processedExpr); err == nil {
+				processedExpr = processed
+			}
+		}
+
+		// 检查表达式是否是函数调用（包含括号）
+		isFunctionCall := strings.Contains(fieldExpr.Expression, "(") && strings.Contains(fieldExpr.Expression, ")")
+
+		// 检查表达式是否包含嵌套字段（但排除函数调用中的点号）
+		hasNestedFields := false
+		if !isFunctionCall && strings.Contains(fieldExpr.Expression, ".") {
+			hasNestedFields = true
+		}
+
+		// 检查是否为CASE表达式
+		trimmedExpr := strings.TrimSpace(fieldExpr.Expression)
+		upperExpr := strings.ToUpper(trimmedExpr)
+		isCaseExpression := strings.HasPrefix(upperExpr, SQLKeywordCase)
+
+		var evalResult interface{}
+
+		if isFunctionCall {
+			// 对于函数调用，优先使用桥接器处理，这样可以保持原始类型
+			exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
+			if err != nil {
+				logger.Error("Function call evaluation failed for field %s: %v", fieldName, err)
+				result[fieldName] = nil
+				continue
+			}
+			evalResult = exprResult
+		} else if hasNestedFields || isCaseExpression {
+			// 检测到嵌套字段（非函数调用）或CASE表达式，使用自定义表达式引擎
+			expression, parseErr := expr.NewExpression(fieldExpr.Expression)
+			if parseErr != nil {
+				logger.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
+				result[fieldName] = nil
+				continue
+			}
+
+			// 使用支持NULL的计算方法
+			numResult, isNull, err := expression.EvaluateWithNull(dataMap)
+			if err != nil {
+				logger.Error("Expression evaluation failed for field %s: %v", fieldName, err)
+				result[fieldName] = nil
+				continue
+			}
+			if isNull {
+				evalResult = nil // NULL值
+			} else {
+				evalResult = numResult
+			}
+		} else {
+			// 尝试使用桥接器处理其他表达式
+			exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
+			if err != nil {
+				// 如果桥接器失败，回退到原来的表达式引擎（使用原始表达式，不是预处理的）
+				expression, parseErr := expr.NewExpression(fieldExpr.Expression)
+				if parseErr != nil {
+					logger.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
+					result[fieldName] = nil
+					continue
+				}
+
+				// 计算表达式，支持NULL值
+				numResult, isNull, evalErr := expression.EvaluateWithNull(dataMap)
+				if evalErr != nil {
+					logger.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
+					result[fieldName] = nil
+					continue
+				}
+				if isNull {
+					evalResult = nil // NULL值
+				} else {
+					evalResult = numResult
+				}
+			} else {
+				evalResult = exprResult
+			}
+		}
+
+		result[fieldName] = evalResult
+	}
+
+	// 处理SimpleFields（复用现有逻辑）
+	if len(s.config.SimpleFields) > 0 {
+		for _, fieldSpec := range s.config.SimpleFields {
+			info := s.compiledFieldInfo[fieldSpec]
+			if info == nil {
+				// 如果没有预编译信息，回退到原逻辑（安全性保证）
+				s.processSingleFieldFallback(fieldSpec, dataMap, data, result)
+				continue
+			}
+
+			if info.isSelectAll {
+				// SELECT *：批量复制所有字段，跳过表达式字段
+				for k, v := range dataMap {
+					if _, isExpression := s.config.FieldExpressions[k]; !isExpression {
+						result[k] = v
+					}
+				}
+				continue
+			}
+
+			// 跳过已经通过表达式字段处理的字段
+			if _, isExpression := s.config.FieldExpressions[info.outputName]; isExpression {
+				continue
+			}
+
+			if info.isFunctionCall {
+				// 执行函数调用
+				if funcResult, err := s.executeFunction(info.fieldName, dataMap); err == nil {
+					result[info.outputName] = funcResult
+				} else {
+					logger.Error("Function execution error %s: %v", info.fieldName, err)
+					result[info.outputName] = nil
+				}
+			} else {
+				// 普通字段处理
+				var value interface{}
+				var exists bool
+
+				if info.hasNestedField {
+					value, exists = fieldpath.GetNestedField(data, info.fieldName)
+				} else {
+					value, exists = dataMap[info.fieldName]
+				}
+
+				if exists {
+					result[info.outputName] = value
+				} else {
+					result[info.outputName] = nil
+				}
+			}
+		}
+	} else if len(s.config.FieldExpressions) == 0 {
+		// 如果没有指定字段且没有表达式字段，保留所有字段
+		for k, v := range dataMap {
+			result[k] = v
+		}
+	}
+
+	// 增加输出计数
+	atomic.AddInt64(&s.outputCount, 1)
+
+	// 包装结果为数组格式，保持与异步模式的一致性
+	results := []map[string]interface{}{result}
+
+	// 触发 AddSink 回调，保持同步和异步模式的一致性
+	// 这样用户可以同时获得同步结果和异步回调
+	s.callSinksAsync(results)
+
+	return result, nil
 }
 
 // 向后兼容性函数
@@ -1571,15 +1851,15 @@ func NewStreamWithoutDataLoss(config types.Config, strategy string) (*Stream, er
 
 	// 应用用户指定的策略
 	validStrategies := map[string]bool{
-		"drop":    true,
-		"block":   true,
-		"expand":  true,
-		"persist": true,
+		StrategyDrop:    true,
+		StrategyBlock:   true,
+		StrategyExpand:  true,
+		StrategyPersist: true,
 	}
 
 	if validStrategies[strategy] {
 		perfConfig.OverflowConfig.Strategy = strategy
-		if strategy == "drop" {
+		if strategy == StrategyDrop {
 			perfConfig.OverflowConfig.AllowDataLoss = true
 		}
 	}
@@ -1599,7 +1879,7 @@ func NewStreamWithLossPolicy(config types.Config, dataBufSize, resultBufSize, si
 	perfConfig.WorkerConfig.SinkPoolSize = sinkPoolSize
 	perfConfig.OverflowConfig.Strategy = overflowStrategy
 	perfConfig.OverflowConfig.BlockTimeout = timeout
-	perfConfig.OverflowConfig.AllowDataLoss = (overflowStrategy == "drop")
+	perfConfig.OverflowConfig.AllowDataLoss = (overflowStrategy == StrategyDrop)
 
 	config.PerformanceConfig = perfConfig
 	return newStreamWithUnifiedConfig(config)
@@ -1616,10 +1896,10 @@ func NewStreamWithLossPolicyAndPersistence(config types.Config, dataBufSize, res
 	perfConfig.WorkerConfig.SinkPoolSize = sinkPoolSize
 	perfConfig.OverflowConfig.Strategy = overflowStrategy
 	perfConfig.OverflowConfig.BlockTimeout = timeout
-	perfConfig.OverflowConfig.AllowDataLoss = (overflowStrategy == "drop")
+	perfConfig.OverflowConfig.AllowDataLoss = (overflowStrategy == StrategyDrop)
 
 	// 设置持久化配置
-	if overflowStrategy == "persist" {
+	if overflowStrategy == StrategyPersist {
 		perfConfig.OverflowConfig.PersistenceConfig = &types.PersistenceConfig{
 			DataDir:       persistDataDir,
 			MaxFileSize:   persistMaxFileSize,
