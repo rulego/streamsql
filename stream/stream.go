@@ -1678,6 +1678,17 @@ func (s *Stream) processDirectDataSync(data interface{}) (interface{}, error) {
 		// 检查表达式是否是函数调用（包含括号）
 		isFunctionCall := strings.Contains(fieldExpr.Expression, "(") && strings.Contains(fieldExpr.Expression, ")")
 
+		// 检查表达式是否包含嵌套字段（但排除函数调用中的点号）
+		hasNestedFields := false
+		if !isFunctionCall && strings.Contains(fieldExpr.Expression, ".") {
+			hasNestedFields = true
+		}
+
+		// 检查是否为CASE表达式
+		trimmedExpr := strings.TrimSpace(fieldExpr.Expression)
+		upperExpr := strings.ToUpper(trimmedExpr)
+		isCaseExpression := strings.HasPrefix(upperExpr, SQLKeywordCase)
+
 		var evalResult interface{}
 
 		if isFunctionCall {
@@ -1689,15 +1700,54 @@ func (s *Stream) processDirectDataSync(data interface{}) (interface{}, error) {
 				continue
 			}
 			evalResult = exprResult
-		} else {
-			// 直接使用桥接器处理表达式
-			exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
+		} else if hasNestedFields || isCaseExpression {
+			// 检测到嵌套字段（非函数调用）或CASE表达式，使用自定义表达式引擎
+			expression, parseErr := expr.NewExpression(fieldExpr.Expression)
+			if parseErr != nil {
+				logger.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
+				result[fieldName] = nil
+				continue
+			}
+
+			// 使用支持NULL的计算方法
+			numResult, isNull, err := expression.EvaluateWithNull(dataMap)
 			if err != nil {
 				logger.Error("Expression evaluation failed for field %s: %v", fieldName, err)
 				result[fieldName] = nil
 				continue
 			}
-			evalResult = exprResult
+			if isNull {
+				evalResult = nil // NULL值
+			} else {
+				evalResult = numResult
+			}
+		} else {
+			// 尝试使用桥接器处理其他表达式
+			exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
+			if err != nil {
+				// 如果桥接器失败，回退到原来的表达式引擎（使用原始表达式，不是预处理的）
+				expression, parseErr := expr.NewExpression(fieldExpr.Expression)
+				if parseErr != nil {
+					logger.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
+					result[fieldName] = nil
+					continue
+				}
+
+				// 计算表达式，支持NULL值
+				numResult, isNull, evalErr := expression.EvaluateWithNull(dataMap)
+				if evalErr != nil {
+					logger.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
+					result[fieldName] = nil
+					continue
+				}
+				if isNull {
+					evalResult = nil // NULL值
+				} else {
+					evalResult = numResult
+				}
+			} else {
+				evalResult = exprResult
+			}
 		}
 
 		result[fieldName] = evalResult

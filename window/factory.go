@@ -2,9 +2,10 @@ package window
 
 import (
 	"fmt"
-	"github.com/rulego/streamsql/utils/cast"
 	"reflect"
 	"time"
+
+	"github.com/rulego/streamsql/utils/cast"
 
 	"github.com/rulego/streamsql/types"
 )
