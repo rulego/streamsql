@@ -152,24 +152,57 @@ StreamSQL 提供灵活的日志配置选项：
 	// 禁用日志（生产环境）
 	ssql := streamsql.New(streamsql.WithDiscardLog())
 
-# 性能配置
-
-对于生产环境，建议进行以下配置：
-
-	ssql := streamsql.New(
-		streamsql.WithDiscardLog(),          // 禁用日志提升性能
-		// 其他配置选项...
-	)
-
 # 与RuleGo集成
 
-StreamSQL可以与RuleGo规则引擎无缝集成，利用RuleGo丰富的组件生态：
+StreamSQL提供了与RuleGo规则引擎的深度集成，通过两个专用组件实现流式数据处理：
 
-	// TODO: 提供RuleGo集成示例
+• streamTransform (x/streamTransform) - 流转换器，处理非聚合SQL查询
+• streamAggregator (x/streamAggregator) - 流聚合器，处理聚合SQL查询
 
-更多详细信息和高级用法，请参阅：
-• 自定义函数开发指南: docs/CUSTOM_FUNCTIONS_GUIDE.md
-• 快速入门指南: docs/FUNCTION_QUICK_START.md
-• 完整示例: examples/
+基本集成示例：
+
+	package main
+
+	import (
+		"github.com/rulego/rulego"
+		"github.com/rulego/rulego/api/types"
+		// 注册StreamSQL组件
+		_ "github.com/rulego/rulego-components/external/streamsql"
+	)
+
+	func main() {
+		// 规则链配置
+		ruleChainJson := `{
+			"ruleChain": {"id": "rule01"},
+			"metadata": {
+				"nodes": [{
+					"id": "transform1",
+					"type": "x/streamTransform",
+					"configuration": {
+						"sql": "SELECT deviceId, temperature * 1.8 + 32 as temp_f FROM stream WHERE temperature > 20"
+					}
+				}, {
+					"id": "aggregator1",
+					"type": "x/streamAggregator",
+					"configuration": {
+						"sql": "SELECT deviceId, AVG(temperature) as avg_temp FROM stream GROUP BY deviceId, TumblingWindow('5s')"
+					}
+				}],
+				"connections": [{
+					"fromId": "transform1",
+					"toId": "aggregator1",
+					"type": "Success"
+				}]
+			}
+		}`
+
+		// 创建规则引擎
+		ruleEngine, _ := rulego.New("rule01", []byte(ruleChainJson))
+
+		// 发送数据
+		data := `{"deviceId":"sensor01","temperature":25.5}`
+		msg := types.NewMsg(0, "TELEMETRY", types.JSON, types.NewMetadata(), data)
+		ruleEngine.OnMsg(msg)
+	}
 */
 package streamsql
