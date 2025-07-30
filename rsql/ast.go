@@ -121,6 +121,9 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 	// 构建字段映射和表达式信息
 	aggs, fields, expressions := buildSelectFieldsWithExpressions(s.Fields)
 
+	// 提取字段顺序信息
+	fieldOrder := extractFieldOrder(s.Fields)
+
 	// 构建Stream配置
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
@@ -139,6 +142,7 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		SimpleFields:     simpleFields,
 		Having:           s.Having,
 		FieldExpressions: expressions,
+		FieldOrder:       fieldOrder,
 	}
 
 	return &config, s.Condition, nil
@@ -183,10 +187,33 @@ func isAggregationFunction(expr string) bool {
 	if strings.Contains(expr, "(") && strings.Contains(expr, ")") {
 		return true
 	}
-
 	return false
 }
 
+// extractFieldOrder 从Fields切片中提取字段的原始顺序
+// 返回按SELECT语句中出现顺序排列的字段名列表
+func extractFieldOrder(fields []Field) []string {
+	var fieldOrder []string
+	
+	for _, field := range fields {
+		// 如果有别名，使用别名作为字段名
+		if field.Alias != "" {
+			fieldOrder = append(fieldOrder, field.Alias)
+		} else {
+			// 没有别名时，尝试解析表达式获取字段名
+			_, fieldName, _, _ := ParseAggregateTypeWithExpression(field.Expression)
+			if fieldName != "" {
+				// 如果解析出字段名（如字符串字面量），使用解析出的名称
+				fieldOrder = append(fieldOrder, fieldName)
+			} else {
+				// 否则使用原始表达式作为字段名
+				fieldOrder = append(fieldOrder, field.Expression)
+			}
+		}
+	}
+	
+	return fieldOrder
+}
 func extractGroupFields(s *SelectStatement) []string {
 	var fields []string
 	for _, f := range s.GroupBy {
