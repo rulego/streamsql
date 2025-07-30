@@ -423,28 +423,34 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 		return float64(len(value)), nil
 
 	case TypeField:
+		// 处理反引号标识符，去除反引号
+		fieldName := node.Value
+		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
+			fieldName = fieldName[1 : len(fieldName)-1] // 去掉反引号
+		}
+		
 		// 支持嵌套字段访问
-		if fieldpath.IsNestedField(node.Value) {
-			if val, found := fieldpath.GetNestedField(data, node.Value); found {
+		if fieldpath.IsNestedField(fieldName) {
+			if val, found := fieldpath.GetNestedField(data, fieldName); found {
 				// 尝试转换为float64
 				if floatVal, err := convertToFloat(val); err == nil {
 					return floatVal, nil
 				}
 				// 如果不能转换为数字，返回错误
-				return 0, fmt.Errorf("field '%s' value cannot be converted to number: %v", node.Value, val)
+				return 0, fmt.Errorf("field '%s' value cannot be converted to number: %v", fieldName, val)
 			}
 		} else {
 			// 原有的简单字段访问
-			if val, found := data[node.Value]; found {
+			if val, found := data[fieldName]; found {
 				// 尝试转换为float64
 				if floatVal, err := convertToFloat(val); err == nil {
 					return floatVal, nil
 				}
 				// 如果不能转换为数字，返回错误
-				return 0, fmt.Errorf("field '%s' value cannot be converted to number: %v", node.Value, val)
+				return 0, fmt.Errorf("field '%s' value cannot be converted to number: %v", fieldName, val)
 			}
 		}
-		return 0, fmt.Errorf("field '%s' not found", node.Value)
+		return 0, fmt.Errorf("field '%s' not found", fieldName)
 
 	case TypeOperator:
 		// 计算左右子表达式的值
@@ -817,18 +823,24 @@ func evaluateNodeValue(node *ExprNode, data map[string]interface{}) (interface{}
 		return value, nil
 
 	case TypeField:
+		// 处理反引号标识符，去除反引号
+		fieldName := node.Value
+		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
+			fieldName = fieldName[1 : len(fieldName)-1] // 去掉反引号
+		}
+		
 		// 支持嵌套字段访问
-		if fieldpath.IsNestedField(node.Value) {
-			if val, found := fieldpath.GetNestedField(data, node.Value); found {
+		if fieldpath.IsNestedField(fieldName) {
+			if val, found := fieldpath.GetNestedField(data, fieldName); found {
 				return val, nil
 			}
 		} else {
 			// 原有的简单字段访问
-			if val, found := data[node.Value]; found {
+			if val, found := data[fieldName]; found {
 				return val, nil
 			}
 		}
-		return nil, fmt.Errorf("field '%s' not found", node.Value)
+		return nil, fmt.Errorf("field '%s' not found", fieldName)
 
 	default:
 		// 对于其他类型，回退到数值计算
@@ -1106,6 +1118,25 @@ func tokenize(expr string) ([]string, error) {
 			}
 
 			i++ // 跳过结束引号
+			tokens = append(tokens, expr[start:i])
+			continue
+		}
+
+		// 处理反引号标识符
+		if ch == '`' {
+			start := i
+			i++ // 跳过开始反引号
+
+			// 寻找结束反引号
+			for i < len(expr) && expr[i] != '`' {
+				i++
+			}
+
+			if i >= len(expr) {
+				return nil, fmt.Errorf("unterminated quoted identifier starting at position %d", start)
+			}
+
+			i++ // 跳过结束反引号
 			tokens = append(tokens, expr[start:i])
 			continue
 		}
@@ -1913,14 +1944,20 @@ func evaluateNodeValueWithNull(node *ExprNode, data map[string]interface{}) (int
 		return value, false, nil
 
 	case TypeField:
+		// 处理反引号标识符，去除反引号
+		fieldName := node.Value
+		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
+			fieldName = fieldName[1 : len(fieldName)-1] // 去掉反引号
+		}
+		
 		// 支持嵌套字段访问
-		if fieldpath.IsNestedField(node.Value) {
-			if val, found := fieldpath.GetNestedField(data, node.Value); found {
+		if fieldpath.IsNestedField(fieldName) {
+			if val, found := fieldpath.GetNestedField(data, fieldName); found {
 				return val, val == nil, nil
 			}
 		} else {
 			// 原有的简单字段访问
-			if val, found := data[node.Value]; found {
+			if val, found := data[fieldName]; found {
 				return val, val == nil, nil
 			}
 		}

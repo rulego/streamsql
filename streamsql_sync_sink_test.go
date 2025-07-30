@@ -32,8 +32,8 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 		ssql := New()
 		defer ssql.Stop()
 
-		// 执行非聚合查询
-		sql := "SELECT temperature, humidity, temperature * 1.8 + 32 as temp_fahrenheit FROM stream WHERE temperature > 20"
+		// 执行非聚合查询 - 测试反引号字段与字符串常量的混合用法
+		sql := "SELECT `temperature`, humidity, `temperature` * 1.8 + 32 as temp_fahrenheit, 'normal' as status, 'sensor_data' as data_type FROM stream WHERE temperature > 20"
 		err := ssql.Execute(sql)
 		require.NoError(t, err)
 
@@ -101,6 +101,21 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 				if syncResult, ok := result.(map[string]interface{}); ok {
 					syncTemperatures = append(syncTemperatures, syncResult["temperature"].(float64))
 					syncHumidities = append(syncHumidities, syncResult["humidity"].(float64))
+
+					// 验证字符串常量字段
+					assert.Equal(t, "normal", syncResult["status"], "status字段应该是常量'normal'")
+					assert.Equal(t, "sensor_data", syncResult["data_type"], "data_type字段应该是常量'sensor_data'")
+
+					// 验证反引号字段的数学运算
+					expectedFahrenheit := syncResult["temperature"].(float64)*1.8 + 32
+					assert.InDelta(t, expectedFahrenheit, syncResult["temp_fahrenheit"].(float64), 0.01, "华氏温度转换应该正确")
+
+					// 验证结果包含所有预期字段
+					assert.Contains(t, syncResult, "temperature", "应该包含temperature字段")
+					assert.Contains(t, syncResult, "humidity", "应该包含humidity字段")
+					assert.Contains(t, syncResult, "temp_fahrenheit", "应该包含temp_fahrenheit字段")
+					assert.Contains(t, syncResult, "status", "应该包含status字段")
+					assert.Contains(t, syncResult, "data_type", "应该包含data_type字段")
 				}
 			}
 
@@ -211,6 +226,39 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 
 		// 验证AddSink没有被触发
 		assert.Equal(t, int32(0), atomic.LoadInt32(&sinkCallCount), "过滤掉的数据不应触发AddSink")
+	})
+
+	// 新增测试：字符串常量与反引号字段的复杂混合用法
+	t.Run("字符串常量与反引号字段混合用法", func(t *testing.T) {
+		ssql := New()
+		defer ssql.Stop()
+
+		// 测试包含多种字符串常量的SQL查询
+		sql := "SELECT `temperature` as temp, 'celsius' as unit, 'high' as level, `humidity`, 'percent' as humidity_unit FROM stream WHERE temperature > 20"
+		err := ssql.Execute(sql)
+		require.NoError(t, err)
+
+		// 测试数据
+		testData := map[string]interface{}{
+			"temperature": 25.5,
+			"humidity":    65.0,
+		}
+
+		// 同步处理
+		result, err := ssql.EmitSync(testData)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		if syncResult, ok := result.(map[string]interface{}); ok {
+			// 验证反引号字段
+			assert.Equal(t, 25.5, syncResult["temp"], "温度字段应该正确")
+			assert.Equal(t, 65.0, syncResult["humidity"], "湿度字段应该正确")
+
+			// 验证字符串常量字段
+			assert.Equal(t, "celsius", syncResult["unit"], "单位应该是celsius")
+			assert.Equal(t, "high", syncResult["level"], "级别应该是high")
+			assert.Equal(t, "percent", syncResult["humidity_unit"], "湿度单位应该是percent")
+		}
 	})
 }
 

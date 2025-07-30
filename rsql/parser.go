@@ -81,6 +81,8 @@ func (p *Parser) getTokenTypeName(tokenType TokenType) string {
 		return ")"
 	case TokenIdent:
 		return "identifier"
+	case TokenQuotedIdent:
+		return "quoted identifier"
 	case TokenNumber:
 		return "number"
 	case TokenString:
@@ -306,12 +308,12 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 							shouldAddSpace = false
 						}
 					}
-				} else if len(exprStr) > 0 && currentToken.Type == TokenIdent {
-					// 检查前一个字符是否是数字，且前面没有空格
-					if (lastChar[0] >= '0' && lastChar[0] <= '9') && !strings.HasSuffix(exprStr, " ") {
-						shouldAddSpace = false
-					}
+				} else if len(exprStr) > 0 && (currentToken.Type == TokenIdent || currentToken.Type == TokenQuotedIdent) {
+				// 检查前一个字符是否是数字，且前面没有空格
+				if (lastChar[0] >= '0' && lastChar[0] <= '9') && !strings.HasSuffix(exprStr, " ") {
+					shouldAddSpace = false
 				}
+			}
 
 				if shouldAddSpace {
 					expr.WriteString(" ")
@@ -385,7 +387,7 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 			break
 		}
 		switch tok.Type {
-		case TokenIdent, TokenNumber:
+		case TokenIdent, TokenNumber, TokenQuotedIdent:
 			conditions = append(conditions, tok.Value)
 		case TokenString:
 			conditions = append(conditions, tok.Value)

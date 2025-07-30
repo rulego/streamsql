@@ -12,6 +12,7 @@ const (
 	TokenIdent
 	TokenNumber
 	TokenString
+	TokenQuotedIdent // 反引号标识符
 	TokenComma
 	TokenLParen
 	TokenRParen
@@ -176,6 +177,8 @@ func (l *Lexer) NextToken() Token {
 		return l.readStringToken(tokenPos, tokenLine, tokenColumn)
 	case '"':
 		return l.readStringToken(tokenPos, tokenLine, tokenColumn)
+	case '`':
+		return l.readQuotedIdentToken(tokenPos, tokenLine, tokenColumn)
 	}
 
 	if isLetter(l.ch) {
@@ -437,6 +440,42 @@ func (l *Lexer) readStringToken(pos, line, column int) Token {
 
 	value := l.input[startPos:l.pos]
 	return Token{Type: TokenString, Value: value, Pos: pos, Line: line, Column: column}
+}
+
+// readQuotedIdentToken 读取反引号标识符token并处理错误
+func (l *Lexer) readQuotedIdentToken(pos, line, column int) Token {
+	startPos := l.pos
+	l.readChar() // 跳过开头反引号
+
+	for l.ch != '`' && l.ch != 0 {
+		l.readChar()
+	}
+
+	if l.ch == 0 {
+		// 未闭合的反引号标识符
+		if l.errorRecovery != nil {
+			err := &ParseError{
+				Type:        ErrorTypeUnterminatedString,
+				Message:     "Unterminated quoted identifier",
+				Position:    startPos,
+				Line:        line,
+				Column:      column,
+				Token:       "`",
+				Suggestions: []string{"Add closing backtick '`'"},
+				Recoverable: true,
+			}
+			l.errorRecovery.AddError(err)
+		}
+		value := l.input[startPos:l.pos]
+		return Token{Type: TokenQuotedIdent, Value: value, Pos: pos, Line: line, Column: column}
+	}
+
+	if l.ch == '`' {
+		l.readChar() // 跳过结尾反引号
+	}
+
+	value := l.input[startPos:l.pos]
+	return Token{Type: TokenQuotedIdent, Value: value, Pos: pos, Line: line, Column: column}
 }
 
 // isValidNumber 验证数字格式

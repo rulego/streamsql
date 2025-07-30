@@ -103,7 +103,15 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 					// 如果有别名，用别名作为字段名
 					simpleFields = append(simpleFields, fieldName+":"+field.Alias)
 				} else {
-					simpleFields = append(simpleFields, fieldName)
+					// 对于没有别名的字段，检查是否为字符串字面量
+					_, n, _, _ := ParseAggregateTypeWithExpression(fieldName)
+					if n != "" {
+						// 如果是字符串字面量，使用解析出的字段名（去掉引号）
+						simpleFields = append(simpleFields, n)
+					} else {
+						// 否则使用原始表达式
+						simpleFields = append(simpleFields, fieldName)
+					}
 				}
 			}
 		}
@@ -267,6 +275,15 @@ func ParseAggregateTypeWithExpression(exprStr string) (aggType aggregator.Aggreg
 	// 提取函数名
 	funcName := extractFunctionName(exprStr)
 	if funcName == "" {
+		// 检查是否是字符串字面量
+		trimmed := strings.TrimSpace(exprStr)
+		if (strings.HasPrefix(trimmed, "'") && strings.HasSuffix(trimmed, "'")) ||
+			(strings.HasPrefix(trimmed, "\"") && strings.HasSuffix(trimmed, "\"")) {
+			// 字符串字面量：使用去掉引号的内容作为字段名
+			fieldName := trimmed[1 : len(trimmed)-1]
+			return "expression", fieldName, exprStr, nil
+		}
+		
 		// 如果不是函数调用，但包含运算符或关键字，可能是表达式
 		if strings.ContainsAny(exprStr, "+-*/<>=!&|") ||
 			strings.Contains(strings.ToUpper(exprStr), "AND") ||
@@ -644,6 +661,7 @@ func buildSelectFieldsWithExpressions(fields []Field) (
 			// 没有别名的情况，使用表达式本身作为字段名
 			t, n, expression, allFields := ParseAggregateTypeWithExpression(f.Expression)
 			if t != "" && n != "" {
+				// 对于字符串字面量，使用解析出的字段名（去掉引号）作为键
 				selectFields[n] = t
 				fieldMap[n] = n
 
