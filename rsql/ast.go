@@ -17,6 +17,7 @@ import (
 type SelectStatement struct {
 	Fields    []Field
 	Distinct  bool
+	SelectAll bool // 新增：标识是否是SELECT *查询
 	Source    string
 	Condition string
 	Window    WindowDefinition
@@ -92,13 +93,26 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 
 	// 如果没有聚合函数，收集简单字段
 	if !hasAggregation {
-		for _, field := range s.Fields {
-			fieldName := field.Expression
-			if field.Alias != "" {
-				// 如果有别名，用别名作为字段名
-				simpleFields = append(simpleFields, fieldName+":"+field.Alias)
-			} else {
-				simpleFields = append(simpleFields, fieldName)
+		// 如果是SELECT *查询，设置特殊标记
+		if s.SelectAll {
+			simpleFields = append(simpleFields, "*")
+		} else {
+			for _, field := range s.Fields {
+				fieldName := field.Expression
+				if field.Alias != "" {
+					// 如果有别名，用别名作为字段名
+					simpleFields = append(simpleFields, fieldName+":"+field.Alias)
+				} else {
+					// 对于没有别名的字段，检查是否为字符串字面量
+					_, n, _, _ := ParseAggregateTypeWithExpression(fieldName)
+					if n != "" {
+						// 如果是字符串字面量，使用解析出的字段名（去掉引号）
+						simpleFields = append(simpleFields, n)
+					} else {
+						// 否则使用原始表达式
+						simpleFields = append(simpleFields, fieldName)
+					}
+				}
 			}
 		}
 		logger.Debug("收集简单字段: %v", simpleFields)
@@ -106,6 +120,9 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 
 	// 构建字段映射和表达式信息
 	aggs, fields, expressions := buildSelectFieldsWithExpressions(s.Fields)
+
+	// 提取字段顺序信息
+	fieldOrder := extractFieldOrder(s.Fields)
 
 	// 构建Stream配置
 	config := types.Config{
@@ -125,6 +142,7 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		SimpleFields:     simpleFields,
 		Having:           s.Having,
 		FieldExpressions: expressions,
+		FieldOrder:       fieldOrder,
 	}
 
 	return &config, s.Condition, nil
@@ -169,10 +187,33 @@ func isAggregationFunction(expr string) bool {
 	if strings.Contains(expr, "(") && strings.Contains(expr, ")") {
 		return true
 	}
-
 	return false
 }
 
+// extractFieldOrder 从Fields切片中提取字段的原始顺序
+// 返回按SELECT语句中出现顺序排列的字段名列表
+func extractFieldOrder(fields []Field) []string {
+	var fieldOrder []string
+	
+	for _, field := range fields {
+		// 如果有别名，使用别名作为字段名
+		if field.Alias != "" {
+			fieldOrder = append(fieldOrder, field.Alias)
+		} else {
+			// 没有别名时，尝试解析表达式获取字段名
+			_, fieldName, _, _ := ParseAggregateTypeWithExpression(field.Expression)
+			if fieldName != "" {
+				// 如果解析出字段名（如字符串字面量），使用解析出的名称
+				fieldOrder = append(fieldOrder, fieldName)
+			} else {
+				// 否则使用原始表达式作为字段名
+				fieldOrder = append(fieldOrder, field.Expression)
+			}
+		}
+	}
+	
+	return fieldOrder
+}
 func extractGroupFields(s *SelectStatement) []string {
 	var fields []string
 	for _, f := range s.GroupBy {
@@ -261,6 +302,15 @@ func ParseAggregateTypeWithExpression(exprStr string) (aggType aggregator.Aggreg
 	// 提取函数名
 	funcName := extractFunctionName(exprStr)
 	if funcName == "" {
+		// 检查是否是字符串字面量
+		trimmed := strings.TrimSpace(exprStr)
+		if (strings.HasPrefix(trimmed, "'") && strings.HasSuffix(trimmed, "'")) ||
+			(strings.HasPrefix(trimmed, "\"") && strings.HasSuffix(trimmed, "\"")) {
+			// 字符串字面量：使用去掉引号的内容作为字段名
+			fieldName := trimmed[1 : len(trimmed)-1]
+			return "expression", fieldName, exprStr, nil
+		}
+		
 		// 如果不是函数调用，但包含运算符或关键字，可能是表达式
 		if strings.ContainsAny(exprStr, "+-*/<>=!&|") ||
 			strings.Contains(strings.ToUpper(exprStr), "AND") ||
@@ -638,6 +688,7 @@ func buildSelectFieldsWithExpressions(fields []Field) (
 			// 没有别名的情况，使用表达式本身作为字段名
 			t, n, expression, allFields := ParseAggregateTypeWithExpression(f.Expression)
 			if t != "" && n != "" {
+				// 对于字符串字面量，使用解析出的字段名（去掉引号）作为键
 				selectFields[n] = t
 				fieldMap[n] = n
 

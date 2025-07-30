@@ -124,7 +124,7 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 
 			// 添加测试数据
 			for _, data := range tc.testData {
-				ssql.Stream().AddData(data)
+				ssql.Stream().Emit(data)
 			}
 
 			// 在另一个goroutine中收集结果
@@ -222,7 +222,7 @@ func TestIsNullInAggregation(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Stream().Emit(data)
 	}
 
 	// 等待窗口触发
@@ -288,7 +288,7 @@ func TestIsNullInHaving(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Stream().Emit(data)
 	}
 
 	// 等待窗口触发
@@ -353,7 +353,7 @@ func TestIsNullInHavingWithIsNotNull(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Stream().Emit(data)
 	}
 
 	// 等待窗口触发
@@ -419,7 +419,7 @@ func TestIsNullWithOtherOperators(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Stream().Emit(data)
 	}
 
 	// 使用超时方式安全收集结果
@@ -578,7 +578,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 
 			// 添加测试数据
 			for _, data := range tc.testData {
-				ssql.Stream().AddData(data)
+				ssql.Stream().Emit(data)
 			}
 
 			// 使用超时方式安全收集结果
@@ -841,7 +841,7 @@ func TestNullComparisons(t *testing.T) {
 
 			// 添加测试数据
 			for _, data := range tc.testData {
-				ssql.Stream().AddData(data)
+				ssql.Stream().Emit(data)
 			}
 
 			// 使用超时方式安全收集结果
@@ -934,7 +934,7 @@ func TestNullComparisonInAggregation(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Stream().Emit(data)
 	}
 
 	// 等待窗口触发
@@ -999,7 +999,7 @@ func TestMixedNullComparisons(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Stream().Emit(data)
 	}
 
 	// 使用超时方式安全收集结果

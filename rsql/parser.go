@@ -81,6 +81,8 @@ func (p *Parser) getTokenTypeName(tokenType TokenType) string {
 		return ")"
 	case TokenIdent:
 		return "identifier"
+	case TokenQuotedIdent:
+		return "quoted identifier"
 	case TokenNumber:
 		return "number"
 	case TokenString:
@@ -212,6 +214,23 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 		currentToken = p.lexer.NextToken() // 消费 DISTINCT，移动到下一个 token
 	}
 
+	// 检查是否是SELECT *查询
+	if currentToken.Type == TokenIdent && currentToken.Value == "*" {
+		stmt.SelectAll = true
+		// 添加一个特殊的字段标记SELECT *
+		stmt.Fields = append(stmt.Fields, Field{Expression: "*"})
+
+		// 消费*token并检查下一个token
+		currentToken = p.lexer.NextToken()
+
+		// 如果下一个token是FROM或EOF，则完成SELECT *解析
+		if currentToken.Type == TokenFROM || currentToken.Type == TokenEOF {
+			return nil
+		}
+
+		// 如果不是FROM/EOF，继续正常的字段解析流程
+	}
+
 	// 设置最大字段数量限制，防止无限循环
 	maxFields := 100
 	fieldCount := 0
@@ -289,12 +308,12 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 							shouldAddSpace = false
 						}
 					}
-				} else if len(exprStr) > 0 && currentToken.Type == TokenIdent {
-					// 检查前一个字符是否是数字，且前面没有空格
-					if (lastChar[0] >= '0' && lastChar[0] <= '9') && !strings.HasSuffix(exprStr, " ") {
-						shouldAddSpace = false
-					}
+				} else if len(exprStr) > 0 && (currentToken.Type == TokenIdent || currentToken.Type == TokenQuotedIdent) {
+				// 检查前一个字符是否是数字，且前面没有空格
+				if (lastChar[0] >= '0' && lastChar[0] <= '9') && !strings.HasSuffix(exprStr, " ") {
+					shouldAddSpace = false
 				}
+			}
 
 				if shouldAddSpace {
 					expr.WriteString(" ")
@@ -368,7 +387,7 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 			break
 		}
 		switch tok.Type {
-		case TokenIdent, TokenNumber:
+		case TokenIdent, TokenNumber, TokenQuotedIdent:
 			conditions = append(conditions, tok.Value)
 		case TokenString:
 			conditions = append(conditions, tok.Value)

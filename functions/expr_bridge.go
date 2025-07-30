@@ -151,7 +151,15 @@ func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression str
 
 // EvaluateExpression 评估表达式，自动选择最合适的引擎
 func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]interface{}) (interface{}, error) {
-	// 首先检查是否包含LIKE操作符，如果有则进行预处理
+	// 首先预处理反引号标识符
+	if bridge.ContainsBacktickIdentifiers(expression) {
+		processedExpr, err := bridge.PreprocessBacktickIdentifiers(expression)
+		if err == nil {
+			expression = processedExpr
+		}
+	}
+
+	// 检查是否包含LIKE操作符，如果有则进行预处理
 	if bridge.ContainsLikeOperator(expression) {
 		processedExpr, err := bridge.PreprocessLikeExpression(expression)
 		if err == nil {
@@ -407,8 +415,9 @@ func (bridge *ExprBridge) isFunctionCall(expression string) bool {
 // PreprocessLikeExpression 预处理LIKE表达式，转换为expr-lang可理解的函数调用
 func (bridge *ExprBridge) PreprocessLikeExpression(expression string) (string, error) {
 	// 使用正则表达式匹配LIKE模式
-	// 匹配: field LIKE 'pattern' (允许空模式)
-	likePattern := `(\w+(?:\.\w+)*)\s+LIKE\s+'([^']*)'`
+	// 匹配: field LIKE 'pattern' 或 `field` LIKE 'pattern' (允许空模式)
+	// 支持反引号标识符和普通标识符
+	likePattern := `((?:` + "`" + `[^` + "`" + `]+` + "`" + `|\w+)(?:\.(?:` + "`" + `[^` + "`" + `]+` + "`" + `|\w+))*)\s+LIKE\s+'([^']*)'`
 	re, err := regexp.Compile(likePattern)
 	if err != nil {
 		return expression, err
@@ -423,6 +432,11 @@ func (bridge *ExprBridge) PreprocessLikeExpression(expression string) (string, e
 
 		field := submatches[1]
 		pattern := submatches[2]
+
+		// 处理反引号标识符，去除反引号
+		if len(field) >= 2 && field[0] == '`' && field[len(field)-1] == '`' {
+			field = field[1 : len(field)-1] // 去掉反引号
+		}
 
 		// 将LIKE模式转换为相应的函数调用
 		return bridge.convertLikeToFunction(field, pattern)
@@ -473,6 +487,26 @@ func (bridge *ExprBridge) PreprocessIsNullExpression(expression string) (string,
 	// 再替换简单字段的IS NULL
 	result = reNull.ReplaceAllString(result, "$1 == nil")
 
+	return result, nil
+}
+
+// ContainsBacktickIdentifiers 检查表达式是否包含反引号标识符
+func (bridge *ExprBridge) ContainsBacktickIdentifiers(expression string) bool {
+	return strings.Contains(expression, "`")
+}
+
+// PreprocessBacktickIdentifiers 预处理反引号标识符，去除反引号
+func (bridge *ExprBridge) PreprocessBacktickIdentifiers(expression string) (string, error) {
+	// 使用正则表达式匹配反引号标识符
+	// 匹配: `identifier` 或 `nested.field`
+	backtickPattern := "`([^`]+)`"
+	re, err := regexp.Compile(backtickPattern)
+	if err != nil {
+		return expression, err
+	}
+
+	// 替换所有反引号标识符，去除反引号
+	result := re.ReplaceAllString(expression, "$1")
 	return result, nil
 }
 

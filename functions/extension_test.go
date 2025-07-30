@@ -27,8 +27,8 @@ func TestAggregatorFunctionInterface(t *testing.T) {
 	// 测试重置
 	aggInstance.Reset()
 	result = aggInstance.Result()
-	if result != 0.0 {
-		t.Errorf("Expected 0.0 after reset, got %v", result)
+	if result != nil {
+		t.Errorf("Expected nil after reset (SQL standard: SUM with no rows returns NULL), got %v", result)
 	}
 
 	// 测试克隆

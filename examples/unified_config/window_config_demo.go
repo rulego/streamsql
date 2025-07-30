@@ -57,7 +57,7 @@ func testWindowWithConfig(configName string, ssql *streamsql.Streamsql) {
 				"temperature": 20.0 + float64(i),
 				"timestamp":   time.Now(),
 			}
-			ssql.AddData(data)
+			ssql.Emit(data)
 		}
 
 		// 等待处理完成

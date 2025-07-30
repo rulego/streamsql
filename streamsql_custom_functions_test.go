@@ -72,7 +72,7 @@ func TestCustomMathFunctions(t *testing.T) {
 
 	// 创建结果接收通道
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result interface{}) {
+	streamsql.AddSink(func(result interface{}) {
 		resultChan <- result
 	})
 
@@ -86,7 +86,7 @@ func TestCustomMathFunctions(t *testing.T) {
 		"y2":     4.0, // 距离应该是5
 	}
 
-	streamsql.AddData(testData)
+	streamsql.Emit(testData)
 
 	// 等待窗口触发
 	time.Sleep(1 * time.Second)
@@ -179,7 +179,7 @@ func TestCustomStringFunctions(t *testing.T) {
 
 	// 创建结果接收通道
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result interface{}) {
+	streamsql.AddSink(func(result interface{}) {
 		resultChan <- result
 	})
 
@@ -189,7 +189,7 @@ func TestCustomStringFunctions(t *testing.T) {
 		"metadata": `{"version":"1.0","type":"temperature"}`,
 	}
 
-	streamsql.AddData(testData)
+	streamsql.Emit(testData)
 	time.Sleep(200 * time.Millisecond)
 
 	// 验证结果
@@ -318,7 +318,7 @@ func TestCustomAggregateFunctions(t *testing.T) {
 
 	// 创建结果接收通道
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result interface{}) {
+	streamsql.AddSink(func(result interface{}) {
 		resultChan <- result
 	})
 
@@ -331,7 +331,7 @@ func TestCustomAggregateFunctions(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		streamsql.AddData(data)
+		streamsql.Emit(data)
 	}
 
 	time.Sleep(1 * time.Second)
@@ -557,7 +557,7 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 
 	// 创建结果接收通道
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result interface{}) {
+	streamsql.AddSink(func(result interface{}) {
 		resultChan <- result
 	})
 
@@ -568,7 +568,7 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		streamsql.AddData(data)
+		streamsql.Emit(data)
 	}
 
 	time.Sleep(1 * time.Second)

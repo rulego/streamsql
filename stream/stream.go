@@ -21,6 +21,90 @@ import (
 	"github.com/rulego/streamsql/window"
 )
 
+// 窗口相关常量
+const (
+	WindowStartField = "window_start"
+	WindowEndField   = "window_end"
+)
+
+// 溢出策略常量
+const (
+	StrategyDrop    = "drop"
+	StrategyBlock   = "block"
+	StrategyExpand  = "expand"
+	StrategyPersist = "persist"
+)
+
+// 统计信息字段常量
+const (
+	StatsInputCount    = "input_count"
+	StatsOutputCount   = "output_count"
+	StatsDroppedCount  = "dropped_count"
+	StatsDataChanLen   = "data_chan_len"
+	StatsDataChanCap   = "data_chan_cap"
+	StatsResultChanLen = "result_chan_len"
+	StatsResultChanCap = "result_chan_cap"
+	StatsSinkPoolLen   = "sink_pool_len"
+	StatsSinkPoolCap   = "sink_pool_cap"
+	StatsActiveRetries = "active_retries"
+	StatsExpanding     = "expanding"
+)
+
+// 详细统计信息字段常量
+const (
+	StatsBasicStats       = "basic_stats"
+	StatsDataChanUsage    = "data_chan_usage"
+	StatsResultChanUsage  = "result_chan_usage"
+	StatsSinkPoolUsage    = "sink_pool_usage"
+	StatsProcessRate      = "process_rate"
+	StatsDropRate         = "drop_rate"
+	StatsPerformanceLevel = "performance_level"
+)
+
+// 性能级别常量
+const (
+	PerformanceLevelCritical     = "CRITICAL"
+	PerformanceLevelWarning      = "WARNING"
+	PerformanceLevelHighLoad     = "HIGH_LOAD"
+	PerformanceLevelModerateLoad = "MODERATE_LOAD"
+	PerformanceLevelOptimal      = "OPTIMAL"
+)
+
+// 持久化相关常量
+const (
+	PersistenceEnabled       = "enabled"
+	PersistenceMessage       = "message"
+	PersistenceNotEnabledMsg = "persistence not enabled"
+	PerformanceConfigKey     = "performanceConfig"
+)
+
+// SQL关键字常量
+const (
+	SQLKeywordCase = "CASE"
+)
+
+// fieldProcessInfo 字段处理信息，用于缓存预编译的字段处理逻辑
+type fieldProcessInfo struct {
+	fieldName       string // 原始字段名
+	outputName      string // 输出字段名
+	isFunctionCall  bool   // 是否为函数调用
+	hasNestedField  bool   // 是否包含嵌套字段
+	isSelectAll     bool   // 是否为SELECT *
+	isStringLiteral bool   // 是否为字符串字面量
+	stringValue     string // 预处理的字符串字面量值（去除引号）
+	alias           string // 字段别名，用于快速访问
+}
+
+// expressionProcessInfo 表达式处理信息，用于缓存预编译的表达式处理逻辑
+type expressionProcessInfo struct {
+	originalExpr            string           // 原始表达式
+	processedExpr           string           // 预处理后的表达式
+	isFunctionCall          bool             // 是否为函数调用
+	hasNestedFields         bool             // 是否包含嵌套字段
+	compiledExpr            *expr.Expression // 预编译的表达式对象
+	needsBacktickPreprocess bool             // 是否需要反引号预处理
+}
+
 type Stream struct {
 	dataChan       chan interface{}
 	filter         condition.Condition
@@ -52,6 +136,14 @@ type Stream struct {
 	blockingTimeout    time.Duration       // 阻塞超时时间
 	overflowStrategy   string              // 溢出策略: "drop", "block", "expand", "persist"
 	persistenceManager *PersistenceManager // 持久化管理器
+
+	// 预编译的AddData函数指针，避免每次switch判断
+	addDataFunc func(interface{}) // 根据策略预设的函数指针
+
+	// 预编译字段处理信息，避免重复解析
+	compiledFieldInfo map[string]*fieldProcessInfo      // 字段处理信息缓存
+	compiledExprInfo  map[string]*expressionProcessInfo // 表达式处理信息缓存
+
 }
 
 // NewStream 使用统一配置创建Stream
@@ -101,7 +193,7 @@ func newStreamWithUnifiedConfig(config types.Config) (*Stream, error) {
 			windowConfig.Params = make(map[string]interface{})
 		}
 		// 传递完整的性能配置给窗口
-		windowConfig.Params["performanceConfig"] = config.PerformanceConfig
+		windowConfig.Params[PerformanceConfigKey] = config.PerformanceConfig
 
 		win, err = window.CreateWindow(windowConfig)
 		if err != nil {
@@ -126,7 +218,7 @@ func newStreamWithUnifiedConfig(config types.Config) (*Stream, error) {
 	}
 
 	// 如果是持久化策略，初始化持久化管理器
-	if perfConfig.OverflowConfig.Strategy == "persist" && perfConfig.OverflowConfig.PersistenceConfig != nil {
+	if perfConfig.OverflowConfig.Strategy == StrategyPersist && perfConfig.OverflowConfig.PersistenceConfig != nil {
 		persistConfig := perfConfig.OverflowConfig.PersistenceConfig
 		stream.persistenceManager = NewPersistenceManagerWithConfig(
 			persistConfig.DataDir,
@@ -137,6 +229,21 @@ func newStreamWithUnifiedConfig(config types.Config) (*Stream, error) {
 			return nil, fmt.Errorf("failed to start persistence manager: %w", err)
 		}
 	}
+
+	// 根据溢出策略预设AddData函数指针，避免运行时switch判断
+	switch perfConfig.OverflowConfig.Strategy {
+	case StrategyBlock:
+		stream.addDataFunc = stream.addDataBlocking
+	case StrategyExpand:
+		stream.addDataFunc = stream.addDataWithExpansion
+	case StrategyPersist:
+		stream.addDataFunc = stream.addDataWithPersistence
+	default:
+		stream.addDataFunc = stream.addDataWithDrop
+	}
+
+	// 预编译字段处理信息
+	stream.compileFieldProcessInfo()
 
 	// 启动工作协程，使用配置的工作线程数
 	go stream.startSinkWorkerPool(perfConfig.WorkerConfig.SinkWorkerCount)
@@ -188,16 +295,25 @@ func (s *Stream) startResultConsumer() {
 	}
 }
 
+// RegisterFilter 注册过滤条件，支持反引号标识符、LIKE语法和IS NULL语法
 func (s *Stream) RegisterFilter(conditionStr string) error {
 	if strings.TrimSpace(conditionStr) == "" {
 		return nil
 	}
 
-	// 预处理LIKE语法，转换为expr-lang可理解的形式
 	processedCondition := conditionStr
 	bridge := functions.GetExprBridge()
-	if bridge.ContainsLikeOperator(conditionStr) {
-		if processed, err := bridge.PreprocessLikeExpression(conditionStr); err == nil {
+
+	// 首先预处理反引号标识符，去除反引号
+	if bridge.ContainsBacktickIdentifiers(conditionStr) {
+		if processed, err := bridge.PreprocessBacktickIdentifiers(conditionStr); err == nil {
+			processedCondition = processed
+		}
+	}
+
+	// 预处理LIKE语法，转换为expr-lang可理解的形式
+	if bridge.ContainsLikeOperator(processedCondition) {
+		if processed, err := bridge.PreprocessLikeExpression(processedCondition); err == nil {
 			processedCondition = processed
 		}
 	}
@@ -239,6 +355,106 @@ func convertToAggregationFields(selectFields map[string]aggregator.AggregateType
 	}
 
 	return fields
+}
+
+// compileFieldProcessInfo 预编译字段处理信息，避免运行时重复解析
+func (s *Stream) compileFieldProcessInfo() {
+	s.compiledFieldInfo = make(map[string]*fieldProcessInfo)
+	s.compiledExprInfo = make(map[string]*expressionProcessInfo)
+
+	// 编译SimpleFields信息
+	for _, fieldSpec := range s.config.SimpleFields {
+		info := &fieldProcessInfo{}
+
+		if fieldSpec == "*" {
+			info.isSelectAll = true
+			info.fieldName = "*"
+			info.outputName = "*"
+		} else {
+			// 解析别名
+			parts := strings.Split(fieldSpec, ":")
+			info.fieldName = parts[0]
+			// 去除字段名中的反引号
+			if len(info.fieldName) >= 2 && info.fieldName[0] == '`' && info.fieldName[len(info.fieldName)-1] == '`' {
+				info.fieldName = info.fieldName[1 : len(info.fieldName)-1]
+			}
+			info.outputName = info.fieldName
+			if len(parts) > 1 {
+				info.outputName = parts[1]
+				// 去除输出名中的反引号
+				if len(info.outputName) >= 2 && info.outputName[0] == '`' && info.outputName[len(info.outputName)-1] == '`' {
+					info.outputName = info.outputName[1 : len(info.outputName)-1]
+				}
+			}
+
+			// 预判断字段特征
+			info.isFunctionCall = strings.Contains(info.fieldName, "(") && strings.Contains(info.fieldName, ")")
+			info.hasNestedField = !info.isFunctionCall && fieldpath.IsNestedField(info.fieldName)
+
+			// 检查是否为字符串字面量并预处理值
+			info.isStringLiteral = (len(info.fieldName) >= 2 &&
+				((info.fieldName[0] == '\'' && info.fieldName[len(info.fieldName)-1] == '\'') ||
+					(info.fieldName[0] == '"' && info.fieldName[len(info.fieldName)-1] == '"')))
+
+			// 预处理字符串字面量值，去除引号
+			if info.isStringLiteral && len(info.fieldName) >= 2 {
+				info.stringValue = info.fieldName[1 : len(info.fieldName)-1]
+			}
+
+			// 设置别名用于快速访问
+			info.alias = info.outputName
+		}
+
+		s.compiledFieldInfo[fieldSpec] = info
+	}
+
+	// 预编译表达式字段信息
+	s.compileExpressionInfo()
+}
+
+// compileExpressionInfo 预编译表达式处理信息
+func (s *Stream) compileExpressionInfo() {
+	bridge := functions.GetExprBridge()
+
+	for fieldName, fieldExpr := range s.config.FieldExpressions {
+		exprInfo := &expressionProcessInfo{
+			originalExpr: fieldExpr.Expression,
+		}
+
+		// 预处理表达式
+		processedExpr := fieldExpr.Expression
+		if bridge.ContainsIsNullOperator(processedExpr) {
+			if processed, err := bridge.PreprocessIsNullExpression(processedExpr); err == nil {
+				processedExpr = processed
+			}
+		}
+		if bridge.ContainsLikeOperator(processedExpr) {
+			if processed, err := bridge.PreprocessLikeExpression(processedExpr); err == nil {
+				processedExpr = processed
+			}
+		}
+		exprInfo.processedExpr = processedExpr
+
+		// 预判断表达式特征
+		exprInfo.isFunctionCall = strings.Contains(fieldExpr.Expression, "(") && strings.Contains(fieldExpr.Expression, ")")
+		exprInfo.hasNestedFields = !exprInfo.isFunctionCall && strings.Contains(fieldExpr.Expression, ".")
+		exprInfo.needsBacktickPreprocess = bridge.ContainsBacktickIdentifiers(fieldExpr.Expression)
+
+		// 预编译表达式对象（仅对非函数调用的表达式）
+		if !exprInfo.isFunctionCall {
+			exprToCompile := fieldExpr.Expression
+			if exprInfo.needsBacktickPreprocess {
+				if processed, err := bridge.PreprocessBacktickIdentifiers(exprToCompile); err == nil {
+					exprToCompile = processed
+				}
+			}
+			if compiledExpr, err := expr.NewExpression(exprToCompile); err == nil {
+				exprInfo.compiledExpr = compiledExpr
+			}
+		}
+
+		s.compiledExprInfo[fieldName] = exprInfo
+	}
 }
 
 func (s *Stream) Start() {
@@ -294,15 +510,55 @@ func (s *Stream) process() {
 					hasNestedFields := strings.Contains(currentFieldExpr.Expression, ".")
 
 					if hasNestedFields {
-						// 直接使用自定义表达式引擎处理嵌套字段
-						expression, parseErr := expr.NewExpression(currentFieldExpr.Expression)
+						// 直接使用自定义表达式引擎处理嵌套字段，支持NULL值
+						// 预处理反引号标识符
+						exprToUse := currentFieldExpr.Expression
+						bridge := functions.GetExprBridge()
+						if bridge.ContainsBacktickIdentifiers(exprToUse) {
+							if processed, err := bridge.PreprocessBacktickIdentifiers(exprToUse); err == nil {
+								exprToUse = processed
+							}
+						}
+						expression, parseErr := expr.NewExpression(exprToUse)
 						if parseErr != nil {
 							return nil, fmt.Errorf("expression parse failed: %w", parseErr)
 						}
 
-						numResult, err := expression.Evaluate(dataMap)
+						// 使用支持NULL的计算方法
+						numResult, isNull, err := expression.EvaluateWithNull(dataMap)
 						if err != nil {
 							return nil, fmt.Errorf("expression evaluation failed: %w", err)
+						}
+						if isNull {
+							return nil, nil // 返回nil表示NULL值
+						}
+						return numResult, nil
+					}
+
+					// 检查是否为CASE表达式
+					trimmedExpr := strings.TrimSpace(currentFieldExpr.Expression)
+					upperExpr := strings.ToUpper(trimmedExpr)
+					if strings.HasPrefix(upperExpr, SQLKeywordCase) {
+						// CASE表达式使用支持NULL的计算方法
+						// 预处理反引号标识符
+						exprToUse := currentFieldExpr.Expression
+						bridge := functions.GetExprBridge()
+						if bridge.ContainsBacktickIdentifiers(exprToUse) {
+							if processed, err := bridge.PreprocessBacktickIdentifiers(exprToUse); err == nil {
+								exprToUse = processed
+							}
+						}
+						expression, parseErr := expr.NewExpression(exprToUse)
+						if parseErr != nil {
+							return nil, fmt.Errorf("CASE expression parse failed: %w", parseErr)
+						}
+
+						numResult, isNull, err := expression.EvaluateWithNull(dataMap)
+						if err != nil {
+							return nil, fmt.Errorf("CASE expression evaluation failed: %w", err)
+						}
+						if isNull {
+							return nil, nil // 返回nil表示NULL值
 						}
 						return numResult, nil
 					}
@@ -326,15 +582,25 @@ func (s *Stream) process() {
 					result, err := bridge.EvaluateExpression(processedExpr, dataMap)
 					if err != nil {
 						// 如果桥接器失败，回退到原来的表达式引擎（使用原始表达式，不是预处理的）
-						expression, parseErr := expr.NewExpression(currentFieldExpr.Expression)
+						// 预处理反引号标识符
+						exprToUse := currentFieldExpr.Expression
+						if bridge.ContainsBacktickIdentifiers(exprToUse) {
+							if processed, err := bridge.PreprocessBacktickIdentifiers(exprToUse); err == nil {
+								exprToUse = processed
+							}
+						}
+						expression, parseErr := expr.NewExpression(exprToUse)
 						if parseErr != nil {
 							return nil, fmt.Errorf("expression parse failed: %w", parseErr)
 						}
 
-						// 计算表达式
-						numResult, evalErr := expression.Evaluate(dataMap)
+						// 计算表达式，支持NULL值
+						numResult, isNull, evalErr := expression.EvaluateWithNull(dataMap)
 						if evalErr != nil {
 							return nil, fmt.Errorf("expression evaluation failed: %w", evalErr)
+						}
+						if isNull {
+							return nil, nil // 返回nil表示NULL值
 						}
 						return numResult, nil
 					}
@@ -349,11 +615,21 @@ func (s *Stream) process() {
 
 		// 处理窗口模式
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Error("Window processing goroutine panic recovered: %v", r)
+				}
+			}()
+
 			for batch := range s.Window.OutputChan() {
 				// 处理窗口批数据
 				for _, item := range batch {
-					_ = s.aggregator.Put("window_start", item.Slot.WindowStart())
-					_ = s.aggregator.Put("window_end", item.Slot.WindowEnd())
+					if err := s.aggregator.Put(WindowStartField, item.Slot.WindowStart()); err != nil {
+						logger.Error("failed to put window start: %v", err)
+					}
+					if err := s.aggregator.Put(WindowEndField, item.Slot.WindowEnd()); err != nil {
+						logger.Error("failed to put window end: %v", err)
+					}
 					if err := s.aggregator.Add(item.Data); err != nil {
 						logger.Error("aggregate error: %v", err)
 					}
@@ -382,36 +658,78 @@ func (s *Stream) process() {
 
 					// 应用 HAVING 过滤条件
 					if s.config.Having != "" {
-						// 预处理HAVING条件中的LIKE语法，转换为expr-lang可理解的形式
-						processedHaving := s.config.Having
-						bridge := functions.GetExprBridge()
-						if bridge.ContainsLikeOperator(s.config.Having) {
-							if processed, err := bridge.PreprocessLikeExpression(s.config.Having); err == nil {
-								processedHaving = processed
-							}
-						}
+						// 检查HAVING条件是否包含CASE表达式
+						hasCaseExpression := strings.Contains(strings.ToUpper(s.config.Having), SQLKeywordCase)
 
-						// 预处理HAVING条件中的IS NULL语法
-						if bridge.ContainsIsNullOperator(processedHaving) {
-							if processed, err := bridge.PreprocessIsNullExpression(processedHaving); err == nil {
-								processedHaving = processed
-							}
-						}
+						var filteredResults []map[string]interface{}
 
-						// 创建 HAVING 条件
-						havingFilter, err := condition.NewExprCondition(processedHaving)
-						if err != nil {
-							logger.Error("having filter error: %v", err)
-						} else {
-							// 应用 HAVING 过滤
-							var filteredResults []map[string]interface{}
-							for _, result := range finalResults {
-								if havingFilter.Evaluate(result) {
-									filteredResults = append(filteredResults, result)
+						if hasCaseExpression {
+							// HAVING条件包含CASE表达式，使用我们的表达式解析器
+							// 预处理反引号标识符
+							exprToUse := s.config.Having
+							bridge := functions.GetExprBridge()
+							if bridge.ContainsBacktickIdentifiers(exprToUse) {
+								if processed, err := bridge.PreprocessBacktickIdentifiers(exprToUse); err == nil {
+									exprToUse = processed
 								}
 							}
-							finalResults = filteredResults
+							expression, err := expr.NewExpression(exprToUse)
+							if err != nil {
+								logger.Error("having filter error (CASE expression): %v", err)
+							} else {
+								// 应用 HAVING 过滤，使用CASE表达式计算器
+								for _, result := range finalResults {
+									// 使用EvaluateWithNull方法以支持NULL值处理
+									havingResult, isNull, err := expression.EvaluateWithNull(result)
+									if err != nil {
+										logger.Error("having filter evaluation error: %v", err)
+										continue
+									}
+
+									// 如果结果是NULL，则不满足条件（SQL标准行为）
+									if isNull {
+										continue
+									}
+
+									// 对于数值结果，大于0视为true（满足HAVING条件）
+									if havingResult > 0 {
+										filteredResults = append(filteredResults, result)
+									}
+								}
+							}
+						} else {
+							// HAVING条件不包含CASE表达式，使用原有的expr-lang处理
+							// 预处理HAVING条件中的LIKE语法，转换为expr-lang可理解的形式
+							processedHaving := s.config.Having
+							bridge := functions.GetExprBridge()
+							if bridge.ContainsLikeOperator(s.config.Having) {
+								if processed, err := bridge.PreprocessLikeExpression(s.config.Having); err == nil {
+									processedHaving = processed
+								}
+							}
+
+							// 预处理HAVING条件中的IS NULL语法
+							if bridge.ContainsIsNullOperator(processedHaving) {
+								if processed, err := bridge.PreprocessIsNullExpression(processedHaving); err == nil {
+									processedHaving = processed
+								}
+							}
+
+							// 创建 HAVING 条件
+							havingFilter, err := condition.NewExprCondition(processedHaving)
+							if err != nil {
+								logger.Error("having filter error: %v", err)
+							} else {
+								// 应用 HAVING 过滤
+								for _, result := range finalResults {
+									if havingFilter.Evaluate(result) {
+										filteredResults = append(filteredResults, result)
+									}
+								}
+							}
 						}
+
+						finalResults = filteredResults
 					}
 
 					// 应用 LIMIT 限制
@@ -419,7 +737,7 @@ func (s *Stream) process() {
 						finalResults = finalResults[:s.config.Limit]
 					}
 
-					// 优化: 发送结果到结果通道和 Sink 函数
+					// 发送结果到结果通道和 Sink 函数
 					if len(finalResults) > 0 {
 						// 非阻塞发送到结果通道
 						s.sendResultNonBlocking(finalResults)
@@ -469,12 +787,111 @@ func (s *Stream) process() {
 	}
 }
 
-// processDirectData 直接处理非窗口数据 (优化版本)
+// processExpressionFieldFallback 表达式字段处理的回退逻辑
+func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[string]interface{}, result map[string]interface{}) {
+	fieldExpr, exists := s.config.FieldExpressions[fieldName]
+	if !exists {
+		result[fieldName] = nil
+		return
+	}
+
+	// 使用桥接器计算表达式，支持IS NULL等语法
+	bridge := functions.GetExprBridge()
+
+	// 预处理表达式中的IS NULL和LIKE语法
+	processedExpr := fieldExpr.Expression
+	if bridge.ContainsIsNullOperator(processedExpr) {
+		if processed, err := bridge.PreprocessIsNullExpression(processedExpr); err == nil {
+			processedExpr = processed
+		}
+	}
+	if bridge.ContainsLikeOperator(processedExpr) {
+		if processed, err := bridge.PreprocessLikeExpression(processedExpr); err == nil {
+			processedExpr = processed
+		}
+	}
+
+	// 检查表达式是否是函数调用（包含括号）
+	isFunctionCall := strings.Contains(fieldExpr.Expression, "(") && strings.Contains(fieldExpr.Expression, ")")
+
+	// 检查表达式是否包含嵌套字段（但排除函数调用中的点号）
+	hasNestedFields := false
+	if !isFunctionCall && strings.Contains(fieldExpr.Expression, ".") {
+		hasNestedFields = true
+	}
+
+	var evalResult interface{}
+
+	if isFunctionCall {
+		// 对于函数调用，优先使用桥接器处理
+		exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
+		if err != nil {
+			logger.Error("Function call evaluation failed for field %s: %v", fieldName, err)
+			result[fieldName] = nil
+			return
+		}
+		evalResult = exprResult
+	} else if hasNestedFields {
+		// 检测到嵌套字段（非函数调用），使用自定义表达式引擎
+		exprToUse := fieldExpr.Expression
+		if bridge.ContainsBacktickIdentifiers(exprToUse) {
+			if processed, err := bridge.PreprocessBacktickIdentifiers(exprToUse); err == nil {
+				exprToUse = processed
+			}
+		}
+		expression, parseErr := expr.NewExpression(exprToUse)
+		if parseErr != nil {
+			logger.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
+			result[fieldName] = nil
+			return
+		}
+
+		numResult, err := expression.Evaluate(dataMap)
+		if err != nil {
+			logger.Error("Expression evaluation failed for field %s: %v", fieldName, err)
+			result[fieldName] = nil
+			return
+		}
+		evalResult = numResult
+	} else {
+		// 尝试使用桥接器处理其他表达式
+		exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
+		if err != nil {
+			// 如果桥接器失败，回退到原来的表达式引擎
+			exprToUse := fieldExpr.Expression
+			if bridge.ContainsBacktickIdentifiers(exprToUse) {
+				if processed, err := bridge.PreprocessBacktickIdentifiers(exprToUse); err == nil {
+					exprToUse = processed
+				}
+			}
+			expression, parseErr := expr.NewExpression(exprToUse)
+			if parseErr != nil {
+				logger.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
+				result[fieldName] = nil
+				return
+			}
+
+			numResult, evalErr := expression.Evaluate(dataMap)
+			if evalErr != nil {
+				logger.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
+				result[fieldName] = nil
+				return
+			}
+			evalResult = numResult
+		} else {
+			evalResult = exprResult
+		}
+	}
+
+	result[fieldName] = evalResult
+}
+
+// processDirectData 直接处理非窗口数据
 func (s *Stream) processDirectData(data interface{}) {
 	// 增加输入计数
 	atomic.AddInt64(&s.inputCount, 1)
 
-	// 简化：直接将数据作为map处理
+	// 直接将数据作为map处理
 	dataMap, ok := data.(map[string]interface{})
 	if !ok {
 		logger.Error("Unsupported data type: %T", data)
@@ -482,86 +899,67 @@ func (s *Stream) processDirectData(data interface{}) {
 		return
 	}
 
-	// 创建结果map
-	result := make(map[string]interface{})
+	// 创建结果map，预分配合适容量
+	estimatedSize := len(s.config.FieldExpressions) + len(s.config.SimpleFields)
+	if estimatedSize < 8 {
+		estimatedSize = 8 // 最小容量
+	}
+	result := make(map[string]interface{}, estimatedSize)
 
-	// 处理表达式字段
-	for fieldName, fieldExpr := range s.config.FieldExpressions {
-
-		// 使用桥接器计算表达式，支持IS NULL等语法
-		bridge := functions.GetExprBridge()
-
-		// 预处理表达式中的IS NULL和LIKE语法
-		processedExpr := fieldExpr.Expression
-		if bridge.ContainsIsNullOperator(processedExpr) {
-			if processed, err := bridge.PreprocessIsNullExpression(processedExpr); err == nil {
-				processedExpr = processed
-				logger.Debug("Preprocessed IS NULL expression: %s -> %s", fieldExpr.Expression, processedExpr)
-			}
-		}
-		if bridge.ContainsLikeOperator(processedExpr) {
-			if processed, err := bridge.PreprocessLikeExpression(processedExpr); err == nil {
-				processedExpr = processed
-				logger.Debug("Preprocessed LIKE expression: %s -> %s", fieldExpr.Expression, processedExpr)
-			}
-		}
-
-		// 检查表达式是否是函数调用（包含括号）
-		isFunctionCall := strings.Contains(fieldExpr.Expression, "(") && strings.Contains(fieldExpr.Expression, ")")
-
-		// 检查表达式是否包含嵌套字段（但排除函数调用中的点号）
-		hasNestedFields := false
-		if !isFunctionCall && strings.Contains(fieldExpr.Expression, ".") {
-			hasNestedFields = true
+	// 处理表达式字段（使用预编译信息）
+	for fieldName := range s.config.FieldExpressions {
+		exprInfo := s.compiledExprInfo[fieldName]
+		if exprInfo == nil {
+			// 回退到原逻辑（安全性保证）
+			s.processExpressionFieldFallback(fieldName, dataMap, result)
+			continue
 		}
 
 		var evalResult interface{}
+		bridge := functions.GetExprBridge()
 
-		if isFunctionCall {
-			// 对于函数调用，优先使用桥接器处理，这样可以保持原始类型
-			exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
+		if exprInfo.isFunctionCall {
+			// 对于函数调用，使用桥接器处理
+			exprResult, err := bridge.EvaluateExpression(exprInfo.processedExpr, dataMap)
 			if err != nil {
 				logger.Error("Function call evaluation failed for field %s: %v", fieldName, err)
 				result[fieldName] = nil
 				continue
 			}
 			evalResult = exprResult
-		} else if hasNestedFields {
-			// 检测到嵌套字段（非函数调用），使用自定义表达式引擎
-			expression, parseErr := expr.NewExpression(fieldExpr.Expression)
-			if parseErr != nil {
-				logger.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
-				result[fieldName] = nil
-				continue
-			}
-
-			numResult, err := expression.Evaluate(dataMap)
-			if err != nil {
-				logger.Error("Expression evaluation failed for field %s: %v", fieldName, err)
-				result[fieldName] = nil
-				continue
-			}
-			evalResult = numResult
-		} else {
-			// 尝试使用桥接器处理其他表达式
-			exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
-			if err != nil {
-				// 如果桥接器失败，回退到原来的表达式引擎（使用原始表达式，不是预处理的）
-				expression, parseErr := expr.NewExpression(fieldExpr.Expression)
-				if parseErr != nil {
-					logger.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
-					result[fieldName] = nil
-					continue
-				}
-
-				// 计算表达式
-				numResult, evalErr := expression.Evaluate(dataMap)
-				if evalErr != nil {
-					logger.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
+		} else if exprInfo.hasNestedFields {
+			// 使用预编译的表达式对象
+			if exprInfo.compiledExpr != nil {
+				numResult, err := exprInfo.compiledExpr.Evaluate(dataMap)
+				if err != nil {
+					logger.Error("Expression evaluation failed for field %s: %v", fieldName, err)
 					result[fieldName] = nil
 					continue
 				}
 				evalResult = numResult
+			} else {
+				// 回退到动态编译
+				s.processExpressionFieldFallback(fieldName, dataMap, result)
+				continue
+			}
+		} else {
+			// 尝试使用桥接器处理其他表达式
+			exprResult, err := bridge.EvaluateExpression(exprInfo.processedExpr, dataMap)
+			if err != nil {
+				// 如果桥接器失败，使用预编译的表达式对象
+				if exprInfo.compiledExpr != nil {
+					numResult, evalErr := exprInfo.compiledExpr.Evaluate(dataMap)
+					if evalErr != nil {
+						logger.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
+						result[fieldName] = nil
+						continue
+					}
+					evalResult = numResult
+				} else {
+					// 回退到动态编译
+					s.processExpressionFieldFallback(fieldName, dataMap, result)
+					continue
+				}
 			} else {
 				evalResult = exprResult
 			}
@@ -570,46 +968,57 @@ func (s *Stream) processDirectData(data interface{}) {
 		result[fieldName] = evalResult
 	}
 
-	// 如果指定了字段，只保留这些字段
+	// 使用预编译的字段信息处理SimpleFields
 	if len(s.config.SimpleFields) > 0 {
 		for _, fieldSpec := range s.config.SimpleFields {
-			// 处理别名
-			parts := strings.Split(fieldSpec, ":")
-			fieldName := parts[0]
-			outputName := fieldName
-			if len(parts) > 1 {
-				outputName = parts[1]
-			}
-
-			// 跳过已经通过表达式字段处理的字段
-			if _, isExpression := s.config.FieldExpressions[outputName]; isExpression {
+			info := s.compiledFieldInfo[fieldSpec]
+			if info == nil {
+				// 如果没有预编译信息，回退到原逻辑（安全性保证）
+				s.processSingleFieldFallback(fieldSpec, dataMap, data, result)
 				continue
 			}
 
-			// 检查是否是函数调用
-			if strings.Contains(fieldName, "(") && strings.Contains(fieldName, ")") {
+			if info.isSelectAll {
+				// SELECT *：批量复制所有字段，跳过表达式字段
+				for k, v := range dataMap {
+					if _, isExpression := s.config.FieldExpressions[k]; !isExpression {
+						result[k] = v
+					}
+				}
+				continue
+			}
+
+			// 跳过已经通过表达式字段处理的字段
+			if _, isExpression := s.config.FieldExpressions[info.outputName]; isExpression {
+				continue
+			}
+
+			if info.isStringLiteral {
+				// 字符串字面量处理：使用预编译的字符串值
+				result[info.alias] = info.stringValue
+			} else if info.isFunctionCall {
 				// 执行函数调用
-				if funcResult, err := s.executeFunction(fieldName, dataMap); err == nil {
-					result[outputName] = funcResult
+				if funcResult, err := s.executeFunction(info.fieldName, dataMap); err == nil {
+					result[info.outputName] = funcResult
 				} else {
-					logger.Error("Function execution error %s: %v", fieldName, err)
-					result[outputName] = nil
+					logger.Error("Function execution error %s: %v", info.fieldName, err)
+					result[info.outputName] = nil
 				}
 			} else {
-				// 普通字段 - 支持嵌套字段
+				// 普通字段处理
 				var value interface{}
 				var exists bool
 
-				if fieldpath.IsNestedField(fieldName) {
-					value, exists = fieldpath.GetNestedField(data, fieldName)
+				if info.hasNestedField {
+					value, exists = fieldpath.GetNestedField(data, info.fieldName)
 				} else {
-					value, exists = dataMap[fieldName]
+					value, exists = dataMap[info.fieldName]
 				}
 
 				if exists {
-					result[outputName] = value
+					result[info.outputName] = value
 				} else {
-					result[outputName] = nil
+					result[info.outputName] = nil
 				}
 			}
 		}
@@ -623,11 +1032,66 @@ func (s *Stream) processDirectData(data interface{}) {
 	// 将结果包装为数组
 	results := []map[string]interface{}{result}
 
-	// 优化: 非阻塞发送结果到resultChan
+	// 非阻塞发送结果到resultChan
 	s.sendResultNonBlocking(results)
 
-	// 优化: 异步调用所有sinks，避免阻塞
+	// 异步调用所有sinks，避免阻塞
 	s.callSinksAsync(results)
+}
+
+// processSingleFieldFallback 回退处理单个字段（当预编译信息缺失时）
+func (s *Stream) processSingleFieldFallback(fieldSpec string, dataMap map[string]interface{}, data interface{}, result map[string]interface{}) {
+	// 处理SELECT *的特殊情况
+	if fieldSpec == "*" {
+		// SELECT *：返回所有字段，但跳过已经通过表达式字段处理的字段
+		for k, v := range dataMap {
+			// 如果该字段已经通过表达式字段处理，则跳过，保持表达式计算结果
+			if _, isExpression := s.config.FieldExpressions[k]; !isExpression {
+				result[k] = v
+			}
+		}
+		return
+	}
+
+	// 处理别名
+	parts := strings.Split(fieldSpec, ":")
+	fieldName := parts[0]
+	outputName := fieldName
+	if len(parts) > 1 {
+		outputName = parts[1]
+	}
+
+	// 跳过已经通过表达式字段处理的字段
+	if _, isExpression := s.config.FieldExpressions[outputName]; isExpression {
+		return
+	}
+
+	// 检查是否是函数调用
+	if strings.Contains(fieldName, "(") && strings.Contains(fieldName, ")") {
+		// 执行函数调用
+		if funcResult, err := s.executeFunction(fieldName, dataMap); err == nil {
+			result[outputName] = funcResult
+		} else {
+			logger.Error("Function execution error %s: %v", fieldName, err)
+			result[outputName] = nil
+		}
+	} else {
+		// 普通字段 - 支持嵌套字段
+		var value interface{}
+		var exists bool
+
+		if fieldpath.IsNestedField(fieldName) {
+			value, exists = fieldpath.GetNestedField(data, fieldName)
+		} else {
+			value, exists = dataMap[fieldName]
+		}
+
+		if exists {
+			result[outputName] = value
+		} else {
+			result[outputName] = nil
+		}
+	}
 }
 
 // sendResultNonBlocking 非阻塞方式发送结果到resultChan (智能背压控制)
@@ -866,24 +1330,10 @@ func (s *Stream) smartSplitArgs(argsStr string) ([]string, error) {
 	return args, nil
 }
 
-func (s *Stream) AddData(data interface{}) {
+func (s *Stream) Emit(data interface{}) {
 	atomic.AddInt64(&s.inputCount, 1)
-
-	// 根据溢出策略处理数据
-	switch s.overflowStrategy {
-	case "block":
-		// 阻塞模式：保证数据不丢失
-		s.addDataBlocking(data)
-	case "expand":
-		// 动态扩容模式：自动扩大缓冲区
-		s.addDataWithExpansion(data)
-	case "persist":
-		// 持久化模式：溢出数据写入磁盘
-		s.addDataWithPersistence(data)
-	default:
-		// 默认drop模式：原有逻辑
-		s.addDataWithDrop(data)
-	}
+	// 直接调用预编译的函数指针，避免switch判断
+	s.addDataFunc(data)
 }
 
 // addDataBlocking 阻塞模式添加数据，保证零数据丢失 (线程安全版本)
@@ -925,7 +1375,7 @@ func (s *Stream) addDataWithExpansion(data interface{}) {
 
 	// 扩容后重试，重新获取通道引用
 	if s.safeSendToDataChan(data) {
-		logger.Info("Successfully added data after data channel expansion")
+		logger.Debug("Successfully added data after data channel expansion")
 		return
 	}
 
@@ -960,7 +1410,7 @@ func (s *Stream) addDataWithPersistence(data interface{}) {
 
 // addDataWithDrop 原有的丢弃模式 (线程安全版本)
 func (s *Stream) addDataWithDrop(data interface{}) {
-	// 优化: 智能非阻塞添加，分层背压控制
+	// 智能非阻塞添加，分层背压控制
 	if s.safeSendToDataChan(data) {
 		return
 	}
@@ -1101,17 +1551,17 @@ func (s *Stream) GetStats() map[string]int64 {
 	s.dataChanMux.RUnlock()
 
 	return map[string]int64{
-		"input_count":     atomic.LoadInt64(&s.inputCount),
-		"output_count":    atomic.LoadInt64(&s.outputCount),
-		"dropped_count":   atomic.LoadInt64(&s.droppedCount),
-		"data_chan_len":   dataChanLen,
-		"data_chan_cap":   dataChanCap,
-		"result_chan_len": int64(len(s.resultChan)),
-		"result_chan_cap": int64(cap(s.resultChan)),
-		"sink_pool_len":   int64(len(s.sinkWorkerPool)),
-		"sink_pool_cap":   int64(cap(s.sinkWorkerPool)),
-		"active_retries":  int64(atomic.LoadInt32(&s.activeRetries)),
-		"expanding":       int64(atomic.LoadInt32(&s.expanding)),
+		StatsInputCount:    atomic.LoadInt64(&s.inputCount),
+		StatsOutputCount:   atomic.LoadInt64(&s.outputCount),
+		StatsDroppedCount:  atomic.LoadInt64(&s.droppedCount),
+		StatsDataChanLen:   dataChanLen,
+		StatsDataChanCap:   dataChanCap,
+		StatsResultChanLen: int64(len(s.resultChan)),
+		StatsResultChanCap: int64(cap(s.resultChan)),
+		StatsSinkPoolLen:   int64(len(s.sinkWorkerPool)),
+		StatsSinkPoolCap:   int64(cap(s.sinkWorkerPool)),
+		StatsActiveRetries: int64(atomic.LoadInt32(&s.activeRetries)),
+		StatsExpanding:     int64(atomic.LoadInt32(&s.expanding)),
 	}
 }
 
@@ -1120,27 +1570,27 @@ func (s *Stream) GetDetailedStats() map[string]interface{} {
 	stats := s.GetStats()
 
 	// 计算使用率
-	dataUsage := float64(stats["data_chan_len"]) / float64(stats["data_chan_cap"]) * 100
-	resultUsage := float64(stats["result_chan_len"]) / float64(stats["result_chan_cap"]) * 100
-	sinkUsage := float64(stats["sink_pool_len"]) / float64(stats["sink_pool_cap"]) * 100
+	dataUsage := float64(stats[StatsDataChanLen]) / float64(stats[StatsDataChanCap]) * 100
+	resultUsage := float64(stats[StatsResultChanLen]) / float64(stats[StatsResultChanCap]) * 100
+	sinkUsage := float64(stats[StatsSinkPoolLen]) / float64(stats[StatsSinkPoolCap]) * 100
 
 	// 计算效率指标
 	var processRate float64 = 100.0
 	var dropRate float64 = 0.0
 
-	if stats["input_count"] > 0 {
-		processRate = float64(stats["output_count"]) / float64(stats["input_count"]) * 100
-		dropRate = float64(stats["dropped_count"]) / float64(stats["input_count"]) * 100
+	if stats[StatsInputCount] > 0 {
+		processRate = float64(stats[StatsOutputCount]) / float64(stats[StatsInputCount]) * 100
+		dropRate = float64(stats[StatsDroppedCount]) / float64(stats[StatsInputCount]) * 100
 	}
 
 	return map[string]interface{}{
-		"basic_stats":       stats,
-		"data_chan_usage":   dataUsage,
-		"result_chan_usage": resultUsage,
-		"sink_pool_usage":   sinkUsage,
-		"process_rate":      processRate,
-		"drop_rate":         dropRate,
-		"performance_level": s.assessPerformanceLevel(dataUsage, dropRate),
+		StatsBasicStats:       stats,
+		StatsDataChanUsage:    dataUsage,
+		StatsResultChanUsage:  resultUsage,
+		StatsSinkPoolUsage:    sinkUsage,
+		StatsProcessRate:      processRate,
+		StatsDropRate:         dropRate,
+		StatsPerformanceLevel: s.assessPerformanceLevel(dataUsage, dropRate),
 	}
 }
 
@@ -1148,15 +1598,15 @@ func (s *Stream) GetDetailedStats() map[string]interface{} {
 func (s *Stream) assessPerformanceLevel(dataUsage, dropRate float64) string {
 	switch {
 	case dropRate > 50:
-		return "CRITICAL" // 严重性能问题
+		return PerformanceLevelCritical // 严重性能问题
 	case dropRate > 20:
-		return "WARNING" // 性能警告
+		return PerformanceLevelWarning // 性能警告
 	case dataUsage > 90:
-		return "HIGH_LOAD" // 高负载
+		return PerformanceLevelHighLoad // 高负载
 	case dataUsage > 70:
-		return "MODERATE_LOAD" // 中等负载
+		return PerformanceLevelModerateLoad // 中等负载
 	default:
-		return "OPTIMAL" // 最佳状态
+		return PerformanceLevelOptimal // 最佳状态
 	}
 }
 
@@ -1197,7 +1647,7 @@ func (s *Stream) expandDataChannel() {
 		newCap = oldCap + 1000 // 至少增加1000
 	}
 
-	logger.Info("Dynamic expansion of data channel: %d -> %d", oldCap, newCap)
+	logger.Debug("Dynamic expansion of data channel: %d -> %d", oldCap, newCap)
 
 	// 创建新的更大的通道
 	newChan := make(chan interface{}, newCap)
@@ -1235,7 +1685,7 @@ migration_done:
 	s.dataChan = newChan
 	s.dataChanMux.Unlock()
 
-	logger.Info("Channel expansion completed: migrated %d items", migratedCount)
+	logger.Debug("Channel expansion completed: migrated %d items", migratedCount)
 }
 
 // persistAndRetryData 持久化数据并重试 (改进版本，具备指数退避和资源控制)
@@ -1361,14 +1811,236 @@ func (s *Stream) LoadAndReprocessPersistedData() error {
 func (s *Stream) GetPersistenceStats() map[string]interface{} {
 	if s.persistenceManager == nil {
 		return map[string]interface{}{
-			"enabled": false,
-			"message": "persistence not enabled",
+			PersistenceEnabled: false,
+			PersistenceMessage: PersistenceNotEnabledMsg,
 		}
 	}
 
 	stats := s.persistenceManager.GetStats()
-	stats["enabled"] = true
+	stats[PersistenceEnabled] = true
 	return stats
+}
+
+// IsAggregationQuery 检查当前流是否为聚合查询
+func (s *Stream) IsAggregationQuery() bool {
+	return s.config.NeedWindow
+}
+
+// ProcessSync 同步处理单条数据，立即返回结果
+// 仅适用于非聚合查询，聚合查询会返回错误
+func (s *Stream) ProcessSync(data interface{}) (interface{}, error) {
+	// 检查是否为聚合查询
+	if s.config.NeedWindow {
+		return nil, fmt.Errorf("聚合查询不支持同步处理")
+	}
+
+	// 应用过滤条件
+	if s.filter != nil && !s.filter.Evaluate(data) {
+		return nil, nil // 不匹配过滤条件，返回nil
+	}
+
+	// 直接处理数据并返回结果
+	return s.processDirectDataSync(data)
+}
+
+// processDirectDataSync 同步版本的直接数据处理
+func (s *Stream) processDirectDataSync(data interface{}) (interface{}, error) {
+	// 增加输入计数
+	atomic.AddInt64(&s.inputCount, 1)
+
+	// 简化：直接将数据作为map处理
+	dataMap, ok := data.(map[string]interface{})
+	if !ok {
+		atomic.AddInt64(&s.droppedCount, 1)
+		return nil, fmt.Errorf("不支持的数据类型: %T", data)
+	}
+
+	// 创建结果map，预分配合适容量
+	estimatedSize := len(s.config.FieldExpressions) + len(s.config.SimpleFields)
+	if estimatedSize < 8 {
+		estimatedSize = 8 // 最小容量
+	}
+	result := make(map[string]interface{}, estimatedSize)
+
+	// 处理表达式字段
+	for fieldName, fieldExpr := range s.config.FieldExpressions {
+		// 使用桥接器计算表达式，支持IS NULL等语法
+		bridge := functions.GetExprBridge()
+
+		// 预处理表达式中的IS NULL和LIKE语法
+		processedExpr := fieldExpr.Expression
+		if bridge.ContainsIsNullOperator(processedExpr) {
+			if processed, err := bridge.PreprocessIsNullExpression(processedExpr); err == nil {
+				processedExpr = processed
+			}
+		}
+		if bridge.ContainsLikeOperator(processedExpr) {
+			if processed, err := bridge.PreprocessLikeExpression(processedExpr); err == nil {
+				processedExpr = processed
+			}
+		}
+
+		// 检查表达式是否是函数调用（包含括号）
+		isFunctionCall := strings.Contains(fieldExpr.Expression, "(") && strings.Contains(fieldExpr.Expression, ")")
+
+		// 检查表达式是否包含嵌套字段（但排除函数调用中的点号）
+		hasNestedFields := false
+		if !isFunctionCall && strings.Contains(fieldExpr.Expression, ".") {
+			hasNestedFields = true
+		}
+
+		// 检查是否为CASE表达式
+		trimmedExpr := strings.TrimSpace(fieldExpr.Expression)
+		upperExpr := strings.ToUpper(trimmedExpr)
+		isCaseExpression := strings.HasPrefix(upperExpr, SQLKeywordCase)
+
+		var evalResult interface{}
+
+		if isFunctionCall {
+			// 对于函数调用，优先使用桥接器处理，这样可以保持原始类型
+			exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
+			if err != nil {
+				logger.Error("Function call evaluation failed for field %s: %v", fieldName, err)
+				result[fieldName] = nil
+				continue
+			}
+			evalResult = exprResult
+		} else if hasNestedFields || isCaseExpression {
+			// 检测到嵌套字段（非函数调用）或CASE表达式，使用自定义表达式引擎
+			// 预处理反引号标识符
+			exprToUse := fieldExpr.Expression
+			if bridge.ContainsBacktickIdentifiers(exprToUse) {
+				if processed, err := bridge.PreprocessBacktickIdentifiers(exprToUse); err == nil {
+					exprToUse = processed
+				}
+			}
+			expression, parseErr := expr.NewExpression(exprToUse)
+			if parseErr != nil {
+				logger.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
+				result[fieldName] = nil
+				continue
+			}
+
+			// 使用支持NULL的计算方法
+			numResult, isNull, err := expression.EvaluateWithNull(dataMap)
+			if err != nil {
+				logger.Error("Expression evaluation failed for field %s: %v", fieldName, err)
+				result[fieldName] = nil
+				continue
+			}
+			if isNull {
+				evalResult = nil // NULL值
+			} else {
+				evalResult = numResult
+			}
+		} else {
+			// 尝试使用桥接器处理其他表达式
+			exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
+			if err != nil {
+				// 如果桥接器失败，回退到原来的表达式引擎（使用原始表达式，不是预处理的）
+				// 预处理反引号标识符
+				exprToUse := fieldExpr.Expression
+				if bridge.ContainsBacktickIdentifiers(exprToUse) {
+					if processed, err := bridge.PreprocessBacktickIdentifiers(exprToUse); err == nil {
+						exprToUse = processed
+					}
+				}
+				expression, parseErr := expr.NewExpression(exprToUse)
+				if parseErr != nil {
+					logger.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
+					result[fieldName] = nil
+					continue
+				}
+
+				// 计算表达式，支持NULL值
+				numResult, isNull, evalErr := expression.EvaluateWithNull(dataMap)
+				if evalErr != nil {
+					logger.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
+					result[fieldName] = nil
+					continue
+				}
+				if isNull {
+					evalResult = nil // NULL值
+				} else {
+					evalResult = numResult
+				}
+			} else {
+				evalResult = exprResult
+			}
+		}
+
+		result[fieldName] = evalResult
+	}
+
+	// 处理SimpleFields（复用现有逻辑）
+	if len(s.config.SimpleFields) > 0 {
+		for _, fieldSpec := range s.config.SimpleFields {
+			info := s.compiledFieldInfo[fieldSpec]
+			if info == nil {
+				// 如果没有预编译信息，回退到原逻辑（安全性保证）
+				s.processSingleFieldFallback(fieldSpec, dataMap, data, result)
+				continue
+			}
+
+			if info.isSelectAll {
+				// SELECT *：批量复制所有字段，跳过表达式字段
+				for k, v := range dataMap {
+					if _, isExpression := s.config.FieldExpressions[k]; !isExpression {
+						result[k] = v
+					}
+				}
+				continue
+			}
+
+			// 跳过已经通过表达式字段处理的字段
+			if _, isExpression := s.config.FieldExpressions[info.outputName]; isExpression {
+				continue
+			}
+
+			if info.isFunctionCall {
+				// 执行函数调用
+				if funcResult, err := s.executeFunction(info.fieldName, dataMap); err == nil {
+					result[info.outputName] = funcResult
+				} else {
+					logger.Error("Function execution error %s: %v", info.fieldName, err)
+					result[info.outputName] = nil
+				}
+			} else {
+				// 普通字段处理
+				var value interface{}
+				var exists bool
+
+				if info.hasNestedField {
+					value, exists = fieldpath.GetNestedField(data, info.fieldName)
+				} else {
+					value, exists = dataMap[info.fieldName]
+				}
+
+				if exists {
+					result[info.outputName] = value
+				} else {
+					result[info.outputName] = nil
+				}
+			}
+		}
+	} else if len(s.config.FieldExpressions) == 0 {
+		// 如果没有指定字段且没有表达式字段，保留所有字段
+		for k, v := range dataMap {
+			result[k] = v
+		}
+	}
+
+	// 增加输出计数
+	atomic.AddInt64(&s.outputCount, 1)
+
+	// 包装结果为数组格式，保持与异步模式的一致性
+	results := []map[string]interface{}{result}
+
+	// 触发 AddSink 回调，保持同步和异步模式的一致性
+	// 这样用户可以同时获得同步结果和异步回调
+	s.callSinksAsync(results)
+
+	return result, nil
 }
 
 // 向后兼容性函数
@@ -1398,15 +2070,15 @@ func NewStreamWithoutDataLoss(config types.Config, strategy string) (*Stream, er
 
 	// 应用用户指定的策略
 	validStrategies := map[string]bool{
-		"drop":    true,
-		"block":   true,
-		"expand":  true,
-		"persist": true,
+		StrategyDrop:    true,
+		StrategyBlock:   true,
+		StrategyExpand:  true,
+		StrategyPersist: true,
 	}
 
 	if validStrategies[strategy] {
 		perfConfig.OverflowConfig.Strategy = strategy
-		if strategy == "drop" {
+		if strategy == StrategyDrop {
 			perfConfig.OverflowConfig.AllowDataLoss = true
 		}
 	}
@@ -1426,7 +2098,7 @@ func NewStreamWithLossPolicy(config types.Config, dataBufSize, resultBufSize, si
 	perfConfig.WorkerConfig.SinkPoolSize = sinkPoolSize
 	perfConfig.OverflowConfig.Strategy = overflowStrategy
 	perfConfig.OverflowConfig.BlockTimeout = timeout
-	perfConfig.OverflowConfig.AllowDataLoss = (overflowStrategy == "drop")
+	perfConfig.OverflowConfig.AllowDataLoss = (overflowStrategy == StrategyDrop)
 
 	config.PerformanceConfig = perfConfig
 	return newStreamWithUnifiedConfig(config)
@@ -1443,10 +2115,10 @@ func NewStreamWithLossPolicyAndPersistence(config types.Config, dataBufSize, res
 	perfConfig.WorkerConfig.SinkPoolSize = sinkPoolSize
 	perfConfig.OverflowConfig.Strategy = overflowStrategy
 	perfConfig.OverflowConfig.BlockTimeout = timeout
-	perfConfig.OverflowConfig.AllowDataLoss = (overflowStrategy == "drop")
+	perfConfig.OverflowConfig.AllowDataLoss = (overflowStrategy == StrategyDrop)
 
 	// 设置持久化配置
-	if overflowStrategy == "persist" {
+	if overflowStrategy == StrategyPersist {
 		perfConfig.OverflowConfig.PersistenceConfig = &types.PersistenceConfig{
 			DataDir:       persistDataDir,
 			MaxFileSize:   persistMaxFileSize,

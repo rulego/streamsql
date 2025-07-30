@@ -136,7 +136,9 @@ func validateBasicSyntax(exprStr string) error {
 // checkConsecutiveOperators 检查连续运算符
 func checkConsecutiveOperators(expr string) error {
 	// 简化的连续运算符检查：查找明显的双运算符模式
+	// 但要允许比较运算符后跟负数的情况
 	operators := []string{"+", "-", "*", "/", "%", "^", "==", "!=", ">=", "<=", ">", "<"}
+	comparisonOps := []string{"==", "!=", ">=", "<=", ">", "<"}
 
 	for i := 0; i < len(expr)-1; i++ {
 		// 跳过空白字符
@@ -147,10 +149,12 @@ func checkConsecutiveOperators(expr string) error {
 		// 检查当前位置是否是运算符
 		isCurrentOp := false
 		currentOpLen := 0
+		currentOp := ""
 		for _, op := range operators {
 			if i+len(op) <= len(expr) && expr[i:i+len(op)] == op {
 				isCurrentOp = true
 				currentOpLen = len(op)
+				currentOp = op
 				break
 			}
 		}
@@ -164,10 +168,35 @@ func checkConsecutiveOperators(expr string) error {
 
 			// 检查下一个字符是否也是运算符
 			if nextPos < len(expr) {
+				// 特殊处理：如果当前是比较运算符，下一个是负号，且负号后跟数字，则允许
+				isCurrentComparison := false
+				for _, compOp := range comparisonOps {
+					if currentOp == compOp {
+						isCurrentComparison = true
+						break
+					}
+				}
+
+				// 检查是否是负数的情况
+				if isCurrentComparison && nextPos < len(expr) && expr[nextPos] == '-' {
+					// 检查负号后是否跟数字
+					digitPos := nextPos + 1
+					for digitPos < len(expr) && (expr[digitPos] == ' ' || expr[digitPos] == '\t') {
+						digitPos++
+					}
+					if digitPos < len(expr) && expr[digitPos] >= '0' && expr[digitPos] <= '9' {
+						// 这是比较运算符后跟负数，允许通过
+						i = nextPos // 跳过到负号位置
+						continue
+					}
+				}
+
+				// 检查其他连续运算符
 				for _, op := range operators {
 					if nextPos+len(op) <= len(expr) && expr[nextPos:nextPos+len(op)] == op {
+						// 如果不是允许的负数情况，则报错
 						return fmt.Errorf("consecutive operators found: '%s' followed by '%s'",
-							expr[i:i+currentOpLen], op)
+							currentOp, op)
 					}
 				}
 			}
@@ -394,28 +423,34 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 		return float64(len(value)), nil
 
 	case TypeField:
+		// 处理反引号标识符，去除反引号
+		fieldName := node.Value
+		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
+			fieldName = fieldName[1 : len(fieldName)-1] // 去掉反引号
+		}
+		
 		// 支持嵌套字段访问
-		if fieldpath.IsNestedField(node.Value) {
-			if val, found := fieldpath.GetNestedField(data, node.Value); found {
+		if fieldpath.IsNestedField(fieldName) {
+			if val, found := fieldpath.GetNestedField(data, fieldName); found {
 				// 尝试转换为float64
 				if floatVal, err := convertToFloat(val); err == nil {
 					return floatVal, nil
 				}
 				// 如果不能转换为数字，返回错误
-				return 0, fmt.Errorf("field '%s' value cannot be converted to number: %v", node.Value, val)
+				return 0, fmt.Errorf("field '%s' value cannot be converted to number: %v", fieldName, val)
 			}
 		} else {
 			// 原有的简单字段访问
-			if val, found := data[node.Value]; found {
+			if val, found := data[fieldName]; found {
 				// 尝试转换为float64
 				if floatVal, err := convertToFloat(val); err == nil {
 					return floatVal, nil
 				}
 				// 如果不能转换为数字，返回错误
-				return 0, fmt.Errorf("field '%s' value cannot be converted to number: %v", node.Value, val)
+				return 0, fmt.Errorf("field '%s' value cannot be converted to number: %v", fieldName, val)
 			}
 		}
-		return 0, fmt.Errorf("field '%s' not found", node.Value)
+		return 0, fmt.Errorf("field '%s' not found", fieldName)
 
 	case TypeOperator:
 		// 计算左右子表达式的值
@@ -788,18 +823,24 @@ func evaluateNodeValue(node *ExprNode, data map[string]interface{}) (interface{}
 		return value, nil
 
 	case TypeField:
+		// 处理反引号标识符，去除反引号
+		fieldName := node.Value
+		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
+			fieldName = fieldName[1 : len(fieldName)-1] // 去掉反引号
+		}
+		
 		// 支持嵌套字段访问
-		if fieldpath.IsNestedField(node.Value) {
-			if val, found := fieldpath.GetNestedField(data, node.Value); found {
+		if fieldpath.IsNestedField(fieldName) {
+			if val, found := fieldpath.GetNestedField(data, fieldName); found {
 				return val, nil
 			}
 		} else {
 			// 原有的简单字段访问
-			if val, found := data[node.Value]; found {
+			if val, found := data[fieldName]; found {
 				return val, nil
 			}
 		}
-		return nil, fmt.Errorf("field '%s' not found", node.Value)
+		return nil, fmt.Errorf("field '%s' not found", fieldName)
 
 	default:
 		// 对于其他类型，回退到数值计算
@@ -985,8 +1026,12 @@ func tokenize(expr string) ([]string, error) {
 						prevToken == "(" || // 左括号后
 						prevToken == "," || // 逗号后（函数参数）
 						isOperator(prevToken) || // 运算符后
+						isComparisonOperator(prevToken) || // 比较运算符后
 						strings.ToUpper(prevToken) == "THEN" || // THEN后
-						strings.ToUpper(prevToken) == "ELSE" // ELSE后
+						strings.ToUpper(prevToken) == "ELSE" || // ELSE后
+						strings.ToUpper(prevToken) == "WHEN" || // WHEN后
+						strings.ToUpper(prevToken) == "AND" || // AND后
+						strings.ToUpper(prevToken) == "OR" // OR后
 				}
 
 				if canBeNegativeNumber && i+1 < len(expr) && isDigit(expr[i+1]) {
@@ -1073,6 +1118,25 @@ func tokenize(expr string) ([]string, error) {
 			}
 
 			i++ // 跳过结束引号
+			tokens = append(tokens, expr[start:i])
+			continue
+		}
+
+		// 处理反引号标识符
+		if ch == '`' {
+			start := i
+			i++ // 跳过开始反引号
+
+			// 寻找结束反引号
+			for i < len(expr) && expr[i] != '`' {
+				i++
+			}
+
+			if i >= len(expr) {
+				return nil, fmt.Errorf("unterminated quoted identifier starting at position %d", start)
+			}
+
+			i++ // 跳过结束反引号
 			tokens = append(tokens, expr[start:i])
 			continue
 		}
@@ -1621,6 +1685,505 @@ func isOperator(s string) bool {
 	}
 }
 
+// isComparisonOperator 检查是否是比较运算符
+func isComparisonOperator(s string) bool {
+	switch s {
+	case ">", "<", ">=", "<=", "==", "=", "!=", "<>":
+		return true
+	default:
+		return false
+	}
+}
+
 func isStringLiteral(expr string) bool {
 	return len(expr) > 1 && (expr[0] == '\'' || expr[0] == '"') && expr[len(expr)-1] == expr[0]
+}
+
+// evaluateNodeWithNull 计算节点值，支持NULL值返回
+// 返回 (result, isNull, error)
+func evaluateNodeWithNull(node *ExprNode, data map[string]interface{}) (float64, bool, error) {
+	if node == nil {
+		return 0, true, nil // NULL
+	}
+
+	switch node.Type {
+	case TypeNumber:
+		val, err := strconv.ParseFloat(node.Value, 64)
+		return val, false, err
+
+	case TypeString:
+		// 字符串长度作为数值，特殊处理NULL字符串
+		value := node.Value
+		if len(value) >= 2 && (value[0] == '\'' || value[0] == '"') {
+			value = value[1 : len(value)-1]
+		}
+		// 检查是否是NULL字符串
+		if strings.ToUpper(value) == "NULL" {
+			return 0, true, nil
+		}
+		return float64(len(value)), false, nil
+
+	case TypeField:
+		// 支持嵌套字段访问
+		var fieldVal interface{}
+		var found bool
+
+		if fieldpath.IsNestedField(node.Value) {
+			fieldVal, found = fieldpath.GetNestedField(data, node.Value)
+		} else {
+			fieldVal, found = data[node.Value]
+		}
+
+		if !found || fieldVal == nil {
+			return 0, true, nil // NULL
+		}
+
+		// 尝试转换为数值
+		if val, err := convertToFloat(fieldVal); err == nil {
+			return val, false, nil
+		}
+		return 0, true, fmt.Errorf("cannot convert field '%s' to number", node.Value)
+
+	case TypeOperator:
+		return evaluateOperatorWithNull(node, data)
+
+	case TypeFunction:
+		// 函数调用保持原有逻辑，但处理NULL结果
+		result, err := evaluateBuiltinFunction(node, data)
+		return result, false, err
+
+	case TypeCase:
+		return evaluateCaseExpressionWithNull(node, data)
+
+	default:
+		return 0, true, fmt.Errorf("unsupported node type: %s", node.Type)
+	}
+}
+
+// evaluateOperatorWithNull 计算运算符表达式，支持NULL值
+func evaluateOperatorWithNull(node *ExprNode, data map[string]interface{}) (float64, bool, error) {
+	leftVal, leftNull, err := evaluateNodeWithNull(node.Left, data)
+	if err != nil {
+		return 0, false, err
+	}
+
+	rightVal, rightNull, err := evaluateNodeWithNull(node.Right, data)
+	if err != nil {
+		return 0, false, err
+	}
+
+	// 算术运算：如果任一操作数为NULL，结果为NULL
+	if leftNull || rightNull {
+		switch node.Value {
+		case "+", "-", "*", "/", "%", "^":
+			return 0, true, nil
+		}
+	}
+
+	// 比较运算：NULL值的比较有特殊规则
+	switch node.Value {
+	case "==", "=":
+		if leftNull && rightNull {
+			return 1, false, nil // NULL = NULL 为 true
+		}
+		if leftNull || rightNull {
+			return 0, false, nil // NULL = value 为 false
+		}
+		if leftVal == rightVal {
+			return 1, false, nil
+		}
+		return 0, false, nil
+
+	case "!=", "<>":
+		if leftNull && rightNull {
+			return 0, false, nil // NULL != NULL 为 false
+		}
+		if leftNull || rightNull {
+			return 0, false, nil // NULL != value 为 false
+		}
+		if leftVal != rightVal {
+			return 1, false, nil
+		}
+		return 0, false, nil
+
+	case ">", "<", ">=", "<=":
+		if leftNull || rightNull {
+			return 0, false, nil // NULL与任何值的比较都为false
+		}
+	}
+
+	// 对于非NULL值，执行正常的算术和比较运算
+	switch node.Value {
+	case "+":
+		return leftVal + rightVal, false, nil
+	case "-":
+		return leftVal - rightVal, false, nil
+	case "*":
+		return leftVal * rightVal, false, nil
+	case "/":
+		if rightVal == 0 {
+			return 0, true, nil // 除零返回NULL
+		}
+		return leftVal / rightVal, false, nil
+	case "%":
+		if rightVal == 0 {
+			return 0, true, nil
+		}
+		return math.Mod(leftVal, rightVal), false, nil
+	case "^":
+		return math.Pow(leftVal, rightVal), false, nil
+	case ">":
+		if leftVal > rightVal {
+			return 1, false, nil
+		}
+		return 0, false, nil
+	case "<":
+		if leftVal < rightVal {
+			return 1, false, nil
+		}
+		return 0, false, nil
+	case ">=":
+		if leftVal >= rightVal {
+			return 1, false, nil
+		}
+		return 0, false, nil
+	case "<=":
+		if leftVal <= rightVal {
+			return 1, false, nil
+		}
+		return 0, false, nil
+	default:
+		return 0, false, fmt.Errorf("unsupported operator: %s", node.Value)
+	}
+}
+
+// evaluateCaseExpressionWithNull 计算CASE表达式，支持NULL值
+func evaluateCaseExpressionWithNull(node *ExprNode, data map[string]interface{}) (float64, bool, error) {
+	if node.Type != TypeCase {
+		return 0, false, fmt.Errorf("node is not a CASE expression")
+	}
+
+	// 处理简单CASE表达式 (CASE expr WHEN value1 THEN result1 ...)
+	if node.CaseExpr != nil {
+		// 计算CASE后面的表达式值
+		caseValue, caseNull, err := evaluateNodeValueWithNull(node.CaseExpr, data)
+		if err != nil {
+			return 0, false, err
+		}
+
+		// 遍历WHEN子句，查找匹配的值
+		for _, whenClause := range node.WhenClauses {
+			conditionValue, condNull, err := evaluateNodeValueWithNull(whenClause.Condition, data)
+			if err != nil {
+				return 0, false, err
+			}
+
+			// 比较值是否相等（考虑NULL值）
+			var isEqual bool
+			if caseNull && condNull {
+				isEqual = true // NULL = NULL
+			} else if caseNull || condNull {
+				isEqual = false // NULL != value
+			} else {
+				isEqual, err = compareValuesForEquality(caseValue, conditionValue)
+				if err != nil {
+					return 0, false, err
+				}
+			}
+
+			if isEqual {
+				return evaluateNodeWithNull(whenClause.Result, data)
+			}
+		}
+	} else {
+		// 处理搜索CASE表达式 (CASE WHEN condition1 THEN result1 ...)
+		for _, whenClause := range node.WhenClauses {
+			// 评估WHEN条件
+			conditionResult, err := evaluateBooleanConditionWithNull(whenClause.Condition, data)
+			if err != nil {
+				return 0, false, err
+			}
+
+			// 如果条件为真，返回对应的结果
+			if conditionResult {
+				return evaluateNodeWithNull(whenClause.Result, data)
+			}
+		}
+	}
+
+	// 如果没有匹配的WHEN子句，执行ELSE子句
+	if node.ElseExpr != nil {
+		return evaluateNodeWithNull(node.ElseExpr, data)
+	}
+
+	// 如果没有ELSE子句，SQL标准是返回NULL
+	return 0, true, nil
+}
+
+// evaluateNodeValueWithNull 计算节点值，返回interface{}以支持不同类型，包含NULL检查
+func evaluateNodeValueWithNull(node *ExprNode, data map[string]interface{}) (interface{}, bool, error) {
+	if node == nil {
+		return nil, true, nil
+	}
+
+	switch node.Type {
+	case TypeNumber:
+		val, err := strconv.ParseFloat(node.Value, 64)
+		return val, false, err
+
+	case TypeString:
+		// 去掉引号
+		value := node.Value
+		if len(value) >= 2 && (value[0] == '\'' || value[0] == '"') {
+			value = value[1 : len(value)-1]
+		}
+		// 检查是否是NULL字符串
+		if strings.ToUpper(value) == "NULL" {
+			return nil, true, nil
+		}
+		return value, false, nil
+
+	case TypeField:
+		// 处理反引号标识符，去除反引号
+		fieldName := node.Value
+		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
+			fieldName = fieldName[1 : len(fieldName)-1] // 去掉反引号
+		}
+		
+		// 支持嵌套字段访问
+		if fieldpath.IsNestedField(fieldName) {
+			if val, found := fieldpath.GetNestedField(data, fieldName); found {
+				return val, val == nil, nil
+			}
+		} else {
+			// 原有的简单字段访问
+			if val, found := data[fieldName]; found {
+				return val, val == nil, nil
+			}
+		}
+		return nil, true, nil // 字段不存在视为NULL
+
+	default:
+		// 对于其他类型，回退到数值计算
+		result, isNull, err := evaluateNodeWithNull(node, data)
+		return result, isNull, err
+	}
+}
+
+// evaluateBooleanConditionWithNull 计算布尔条件表达式，支持NULL值
+func evaluateBooleanConditionWithNull(node *ExprNode, data map[string]interface{}) (bool, error) {
+	if node == nil {
+		return false, fmt.Errorf("null condition expression")
+	}
+
+	// 处理逻辑运算符（实现短路求值）
+	if node.Type == TypeOperator && (node.Value == "AND" || node.Value == "OR") {
+		leftBool, err := evaluateBooleanConditionWithNull(node.Left, data)
+		if err != nil {
+			return false, err
+		}
+
+		// 短路求值：对于AND，如果左边为false，立即返回false
+		if node.Value == "AND" && !leftBool {
+			return false, nil
+		}
+
+		// 短路求值：对于OR，如果左边为true，立即返回true
+		if node.Value == "OR" && leftBool {
+			return true, nil
+		}
+
+		// 只有在需要时才评估右边的表达式
+		rightBool, err := evaluateBooleanConditionWithNull(node.Right, data)
+		if err != nil {
+			return false, err
+		}
+
+		switch node.Value {
+		case "AND":
+			return leftBool && rightBool, nil
+		case "OR":
+			return leftBool || rightBool, nil
+		}
+	}
+
+	// 处理IS NULL和IS NOT NULL特殊情况
+	if node.Type == TypeOperator && node.Value == "IS" {
+		return evaluateIsConditionWithNull(node, data)
+	}
+
+	// 处理比较运算符
+	if node.Type == TypeOperator {
+		leftValue, leftNull, err := evaluateNodeValueWithNull(node.Left, data)
+		if err != nil {
+			return false, err
+		}
+
+		rightValue, rightNull, err := evaluateNodeValueWithNull(node.Right, data)
+		if err != nil {
+			return false, err
+		}
+
+		return compareValuesWithNull(leftValue, leftNull, rightValue, rightNull, node.Value)
+	}
+
+	// 对于其他表达式，计算其数值并转换为布尔值
+	result, isNull, err := evaluateNodeWithNull(node, data)
+	if err != nil {
+		return false, err
+	}
+
+	// NULL值在布尔上下文中为false，非零值为真，零值为假
+	return !isNull && result != 0, nil
+}
+
+// evaluateIsConditionWithNull 处理IS NULL和IS NOT NULL条件，支持NULL值
+func evaluateIsConditionWithNull(node *ExprNode, data map[string]interface{}) (bool, error) {
+	if node == nil || node.Left == nil || node.Right == nil {
+		return false, fmt.Errorf("invalid IS condition")
+	}
+
+	// 获取左侧值
+	leftValue, leftNull, err := evaluateNodeValueWithNull(node.Left, data)
+	if err != nil {
+		// 如果字段不存在，认为是null
+		leftValue = nil
+		leftNull = true
+	}
+
+	// 检查右侧是否是NULL或NOT NULL
+	if node.Right.Type == TypeField && strings.ToUpper(node.Right.Value) == "NULL" {
+		// IS NULL
+		return leftNull || leftValue == nil, nil
+	}
+
+	// 检查是否是IS NOT NULL
+	if node.Right.Type == TypeOperator && node.Right.Value == "NOT" &&
+		node.Right.Right != nil && node.Right.Right.Type == TypeField &&
+		strings.ToUpper(node.Right.Right.Value) == "NULL" {
+		// IS NOT NULL
+		return !leftNull && leftValue != nil, nil
+	}
+
+	// 其他IS比较
+	rightValue, rightNull, err := evaluateNodeValueWithNull(node.Right, data)
+	if err != nil {
+		return false, err
+	}
+
+	return compareValuesWithNullForEquality(leftValue, leftNull, rightValue, rightNull)
+}
+
+// compareValuesForEquality 比较两个值是否相等
+func compareValuesForEquality(left, right interface{}) (bool, error) {
+	// 尝试字符串比较
+	leftStr, leftIsStr := left.(string)
+	rightStr, rightIsStr := right.(string)
+
+	if leftIsStr && rightIsStr {
+		return leftStr == rightStr, nil
+	}
+
+	// 尝试数值比较
+	leftFloat, leftErr := convertToFloat(left)
+	rightFloat, rightErr := convertToFloat(right)
+
+	if leftErr == nil && rightErr == nil {
+		return leftFloat == rightFloat, nil
+	}
+
+	// 如果都不能转换，直接比较
+	return left == right, nil
+}
+
+// compareValuesWithNull 比较两个值（支持NULL）
+func compareValuesWithNull(left interface{}, leftNull bool, right interface{}, rightNull bool, operator string) (bool, error) {
+	// NULL值的比较有特殊规则
+	switch operator {
+	case "==", "=":
+		if leftNull && rightNull {
+			return true, nil // NULL = NULL 为 true
+		}
+		if leftNull || rightNull {
+			return false, nil // NULL = value 为 false
+		}
+
+	case "!=", "<>":
+		if leftNull && rightNull {
+			return false, nil // NULL != NULL 为 false
+		}
+		if leftNull || rightNull {
+			return false, nil // NULL != value 为 false
+		}
+
+	case ">", "<", ">=", "<=":
+		if leftNull || rightNull {
+			return false, nil // NULL与任何值的比较都为false
+		}
+	}
+
+	// 对于非NULL值，执行正确的比较逻辑
+	switch operator {
+	case "==", "=":
+		return compareValuesForEquality(left, right)
+	case "!=", "<>":
+		equal, err := compareValuesForEquality(left, right)
+		return !equal, err
+	case ">", "<", ">=", "<=":
+		// 进行数值比较
+		leftFloat, leftErr := convertToFloat(left)
+		rightFloat, rightErr := convertToFloat(right)
+
+		if leftErr != nil || rightErr != nil {
+			// 如果不能转换为数值，尝试字符串比较
+			leftStr := fmt.Sprintf("%v", left)
+			rightStr := fmt.Sprintf("%v", right)
+
+			switch operator {
+			case ">":
+				return leftStr > rightStr, nil
+			case "<":
+				return leftStr < rightStr, nil
+			case ">=":
+				return leftStr >= rightStr, nil
+			case "<=":
+				return leftStr <= rightStr, nil
+			}
+		}
+
+		// 数值比较
+		switch operator {
+		case ">":
+			return leftFloat > rightFloat, nil
+		case "<":
+			return leftFloat < rightFloat, nil
+		case ">=":
+			return leftFloat >= rightFloat, nil
+		case "<=":
+			return leftFloat <= rightFloat, nil
+		}
+	}
+
+	return false, fmt.Errorf("unsupported operator: %s", operator)
+}
+
+// compareValuesWithNullForEquality 比较两个值是否相等（支持NULL）
+func compareValuesWithNullForEquality(left interface{}, leftNull bool, right interface{}, rightNull bool) (bool, error) {
+	if leftNull && rightNull {
+		return true, nil // NULL = NULL 为 true
+	}
+	if leftNull || rightNull {
+		return false, nil // NULL = value 为 false
+	}
+	return compareValuesForEquality(left, right)
+}
+
+// EvaluateWithNull 提供公开接口，用于聚合函数调用
+func (e *Expression) EvaluateWithNull(data map[string]interface{}) (float64, bool, error) {
+	if e.useExprLang {
+		// expr-lang不支持NULL，回退到原有逻辑
+		result, err := e.evaluateWithExprLang(data)
+		return result, false, err
+	}
+	return evaluateNodeWithNull(e.Root, data)
 }

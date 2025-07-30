@@ -32,7 +32,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			"temperature": -25.5,
 			"humidity":    64.0,
 		}
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -77,7 +77,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			"device":   "sensor01",
 			"location": "ROOM_A",
 		}
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -120,7 +120,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			"temperature": 25.7,
 			"humidity":    65.0,
 		}
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -162,7 +162,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			"device":    "test-device",
 			"timestamp": testTime,
 		}
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -204,7 +204,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			"device":   "test-device",
 			"metadata": `{"type": "temperature_sensor", "version": "1.0"}`,
 		}
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -253,7 +253,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -317,7 +317,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -368,7 +368,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -430,7 +430,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -449,12 +449,6 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 
 			item := resultSlice[0]
 
-			// 打印调试信息
-			t.Logf("Result item: %+v", item)
-			for key, value := range item {
-				t.Logf("  %s: %v (type: %T)", key, value, value)
-			}
-
 			assert.Equal(t, "sensor1", item["device"])
 			assert.Equal(t, "SENSOR1", item["device_upper"])
 
@@ -472,7 +466,6 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 				} else if val, ok := roundedAvg.(float64); ok {
 					// 验证结果在合理范围内
 					assert.True(t, val >= 25.0 && val <= 25.5, "rounded_avg should be between 25.0 and 25.5, got %v", val)
-					t.Logf("rounded_avg test passed: %v", val)
 				} else {
 					t.Errorf("rounded_avg is not a float64: %v (type: %T)", roundedAvg, roundedAvg)
 				}
@@ -504,7 +497,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 			"device":      "sensor1",
 			"temperature": 25.7,
 		}
-		strm.AddData(testData)
+		strm.Emit(testData)
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -547,7 +540,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -584,7 +577,6 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 		// 执行包含 round(avg(temperature), 2) 的查询
 		query := "SELECT device, round(avg(temperature), 2) as rounded_avg FROM stream GROUP BY device, TumblingWindow('1s')"
-		t.Logf("Executing query: %s", query)
 		err := streamsql.Execute(query)
 		assert.Nil(t, err)
 
@@ -602,7 +594,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -620,11 +612,6 @@ func TestNestedFunctionSupport(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			t.Logf("Result item: %+v", item)
-			for key, value := range item {
-				t.Logf("  %s: %v (type: %T)", key, value, value)
-			}
-
 			assert.Equal(t, "sensor1", item["device"])
 
 			// 验证四舍五入的平均值
@@ -672,7 +659,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -741,7 +728,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -807,7 +794,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		})
 
 		// 添加测试数据
-		strm.AddData(map[string]interface{}{"device": "sensor1", "temperature": 25.67})
+		strm.Emit(map[string]interface{}{"device": "sensor1", "temperature": 25.67})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -847,7 +834,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		})
 
 		// 添加测试数据
-		strm.AddData(map[string]interface{}{"device": "sensor1"})
+		strm.Emit(map[string]interface{}{"device": "sensor1"})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -887,7 +874,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		})
 
 		// 添加测试数据
-		strm.AddData(map[string]interface{}{"device": "sensor1", "temperature": 16.0})
+		strm.Emit(map[string]interface{}{"device": "sensor1", "temperature": 16.0})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -934,7 +921,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口初始化
@@ -979,7 +966,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		})
 
 		// 添加测试数据
-		strm.AddData(map[string]interface{}{"device": "sensor1", "created_at": "2023-12-25 15:30:45"})
+		strm.Emit(map[string]interface{}{"device": "sensor1", "created_at": "2023-12-25 15:30:45"})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -1019,7 +1006,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		})
 
 		// 添加测试数据（不包含invalid_field）
-		strm.AddData(map[string]interface{}{"device": "sensor1", "temperature": 25.0})
+		strm.Emit(map[string]interface{}{"device": "sensor1", "temperature": 25.0})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

@@ -70,8 +70,8 @@ func TestStreamData(t *testing.T) {
 						"humidity":    50.0 + rand.Float64()*20,                // 湿度范围: 50-70%
 					}
 					// 将数据添加到流中，触发 StreamSQL 的实时处理
-					// AddData 会将数据分发到相应的窗口和聚合器中
-					ssql.stream.AddData(randomData)
+					// Emit 会将数据分发到相应的窗口和聚合器中
+					ssql.Emit(randomData)
 				}
 
 			case <-ctx.Done():
@@ -131,7 +131,7 @@ func TestStreamsql(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 	// 捕获结果
 	resultChan := make(chan interface{})
@@ -201,7 +201,7 @@ func TestStreamsqlWithoutGroupBy(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 	// 捕获结果
 	resultChan := make(chan interface{})
@@ -272,7 +272,7 @@ func TestStreamsqlDistinct(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -350,7 +350,7 @@ func TestStreamsqlLimit(t *testing.T) {
 		streamsql := New()
 		defer streamsql.Stop()
 
-		var rsql = "SELECT device, temperature FROM stream LIMIT 2"
+		var rsql = "SELECT * FROM stream LIMIT 2"
 		err := streamsql.Execute(rsql)
 		assert.Nil(t, err)
 		strm := streamsql.stream
@@ -374,7 +374,7 @@ func TestStreamsqlLimit(t *testing.T) {
 		// 实时验证：添加一条数据，立即验证一条结果
 		for i, data := range testData {
 			// 添加数据
-			strm.AddData(data)
+			strm.Emit(data)
 
 			// 立即等待并验证结果
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -438,7 +438,7 @@ func TestStreamsqlLimit(t *testing.T) {
 
 		// 添加数据
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待聚合
@@ -513,7 +513,7 @@ func TestStreamsqlLimit(t *testing.T) {
 
 		// 添加数据
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待窗口触发
@@ -586,7 +586,7 @@ func TestStreamsqlLimit(t *testing.T) {
 
 		// 添加数据
 		for _, data := range testData {
-			strm.AddData(data)
+			strm.Emit(data)
 		}
 
 		// 等待聚合
@@ -657,7 +657,7 @@ func TestSimpleQuery(t *testing.T) {
 	// 发送数据
 	//fmt.Println("添加数据...")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待结果
@@ -713,7 +713,7 @@ func TestHavingClause(t *testing.T) {
 
 	// 添加数据
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待窗口初始化
@@ -796,7 +796,7 @@ func TestSessionWindow(t *testing.T) {
 		if item.wait > 0 {
 			time.Sleep(item.wait)
 		}
-		strm.AddData(item.data)
+		strm.Emit(item.data)
 	}
 
 	// 等待会话超时，使最后一个会话触发
@@ -889,7 +889,7 @@ func TestExpressionInAggregation(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -974,7 +974,7 @@ func TestAdvancedFunctionsInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1073,7 +1073,7 @@ func TestCustomFunctionInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1158,7 +1158,7 @@ func TestNewAggregateFunctionsInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1268,7 +1268,7 @@ func TestStatisticalAggregateFunctionsInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1370,7 +1370,7 @@ func TestDeduplicateAggregateInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1480,7 +1480,7 @@ func TestExprAggregationFunctions(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1637,7 +1637,7 @@ func TestAnalyticalFunctionsInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1734,7 +1734,7 @@ func TestLagFunctionInSQL(t *testing.T) {
 	//fmt.Println("添加测试数据：", testData)
 	for _, data := range testData {
 		//fmt.Printf("添加第%d个数据: temperature=%.1f\n", i+1, data.(map[string]interface{})["temperature"])
-		strm.AddData(data)
+		strm.Emit(data)
 		time.Sleep(100 * time.Millisecond) // 稍微延迟确保顺序
 	}
 
@@ -1832,7 +1832,7 @@ func TestHadChangedFunctionInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -1912,7 +1912,7 @@ func TestLatestFunctionInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -2004,7 +2004,7 @@ func TestChangedColFunctionInSQL(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -2085,7 +2085,7 @@ func TestAnalyticalFunctionsIncrementalComputation(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -2184,7 +2184,7 @@ func TestIncrementalComputationBasic(t *testing.T) {
 	// 添加数据
 	//fmt.Println("添加测试数据")
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 创建结果接收通道
@@ -2288,7 +2288,7 @@ func TestExprFunctions(t *testing.T) {
 
 	// 添加数据
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待结果
@@ -2374,7 +2374,7 @@ func TestExprFunctionsInAggregation(t *testing.T) {
 
 	// 添加数据
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待窗口初始化
@@ -2450,7 +2450,7 @@ func TestNestedExprFunctions(t *testing.T) {
 
 	// 添加数据
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待结果
@@ -2540,7 +2540,7 @@ func TestExprFunctionsWithStreamSQLFunctions(t *testing.T) {
 
 	// 添加数据
 	for _, data := range testData {
-		strm.AddData(data)
+		strm.Emit(data)
 	}
 
 	// 等待结果
@@ -2589,5 +2589,379 @@ func TestExprFunctionsWithStreamSQLFunctions(t *testing.T) {
 			expected := strings.ToUpper(device) + "_processed"
 			assert.Equal(t, expected, processedName, "混合函数调用应该正确处理")
 		}
+	}
+}
+
+// TestSelectAllFeature 专门测试SELECT *功能
+func TestSelectAllFeature(t *testing.T) {
+	// 测试场景1：基本SELECT *查询
+	t.Run("基本SELECT *查询", func(t *testing.T) {
+		streamsql := New()
+		defer streamsql.Stop()
+
+		var rsql = "SELECT * FROM stream"
+		err := streamsql.Execute(rsql)
+		assert.Nil(t, err)
+		strm := streamsql.stream
+
+		// 创建结果接收通道
+		resultChan := make(chan interface{}, 10)
+
+		// 添加结果接收器
+		strm.AddSink(func(result interface{}) {
+			resultChan <- result
+		})
+
+		// 添加测试数据
+		testData := map[string]interface{}{
+			"device":      "sensor001",
+			"temperature": 25.5,
+			"humidity":    60,
+			"location":    "room1",
+			"status":      "active",
+		}
+
+		// 发送数据
+		strm.Emit(testData)
+
+		// 等待结果
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		select {
+		case result := <-resultChan:
+			// 验证结果
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+			require.Len(t, resultSlice, 1, "应该只有一条结果")
+
+			item := resultSlice[0]
+			// 验证所有原始字段都存在
+			assert.Equal(t, "sensor001", item["device"], "device字段应该正确")
+			assert.Equal(t, 25.5, item["temperature"], "temperature字段应该正确")
+			assert.Equal(t, 60, item["humidity"], "humidity字段应该正确")
+			assert.Equal(t, "room1", item["location"], "location字段应该正确")
+			assert.Equal(t, "active", item["status"], "status字段应该正确")
+
+			// 验证字段数量
+			assert.Len(t, item, 5, "应该包含所有5个字段")
+
+			cancel()
+		case <-ctx.Done():
+			t.Fatal("测试超时，未收到结果")
+		}
+	})
+
+	// 测试场景2：SELECT * + WHERE条件
+	t.Run("SELECT * + WHERE条件", func(t *testing.T) {
+		streamsql := New()
+		defer streamsql.Stop()
+
+		var rsql = "SELECT * FROM stream WHERE temperature > 20"
+		err := streamsql.Execute(rsql)
+		assert.Nil(t, err)
+		strm := streamsql.stream
+
+		// 创建结果接收通道
+		resultChan := make(chan interface{}, 10)
+
+		// 添加结果接收器
+		strm.AddSink(func(result interface{}) {
+			resultChan <- result
+		})
+
+		// 添加测试数据
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": 25.0, "humidity": 60}, // 应该被包含
+			{"device": "sensor2", "temperature": 15.0, "humidity": 70}, // 应该被过滤掉
+			{"device": "sensor3", "temperature": 30.0, "humidity": 50}, // 应该被包含
+		}
+
+		var results []interface{}
+		var resultsMutex sync.Mutex
+
+		// 发送数据
+		for _, data := range testData {
+			strm.Emit(data)
+
+			// 立即检查结果
+			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			select {
+			case result := <-resultChan:
+				resultsMutex.Lock()
+				results = append(results, result)
+				resultsMutex.Unlock()
+				cancel()
+			case <-ctx.Done():
+				cancel()
+				// 对于不满足条件的数据，超时是正常的
+			}
+		}
+
+		// 验证结果
+		resultsMutex.Lock()
+		finalResultCount := len(results)
+		resultsCopy := make([]interface{}, len(results))
+		copy(resultsCopy, results)
+		resultsMutex.Unlock()
+
+		assert.Equal(t, 2, finalResultCount, "应该有2条记录满足条件")
+
+		// 验证结果内容
+		deviceFound := make(map[string]bool)
+		for _, result := range resultsCopy {
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+			require.Len(t, resultSlice, 1, "每个结果应该只有一条记录")
+
+			item := resultSlice[0]
+			device, _ := item["device"].(string)
+			temp, _ := item["temperature"].(float64)
+
+			// 验证温度条件
+			assert.Greater(t, temp, 20.0, "温度应该大于20")
+
+			// 记录找到的设备
+			deviceFound[device] = true
+
+			// 验证所有字段都存在
+			assert.Contains(t, item, "device", "应该包含device字段")
+			assert.Contains(t, item, "temperature", "应该包含temperature字段")
+			assert.Contains(t, item, "humidity", "应该包含humidity字段")
+		}
+
+		// 验证正确的设备被包含
+		assert.True(t, deviceFound["sensor1"], "sensor1应该被包含")
+		assert.True(t, deviceFound["sensor3"], "sensor3应该被包含")
+		assert.False(t, deviceFound["sensor2"], "sensor2不应该被包含")
+	})
+
+	// 测试场景3：SELECT * + LIMIT
+	t.Run("SELECT * + LIMIT", func(t *testing.T) {
+		streamsql := New()
+		defer streamsql.Stop()
+
+		var rsql = "SELECT * FROM stream LIMIT 2"
+		err := streamsql.Execute(rsql)
+		assert.Nil(t, err)
+		strm := streamsql.stream
+
+		// 创建结果接收通道
+		resultChan := make(chan interface{}, 10)
+
+		// 添加结果接收器
+		strm.AddSink(func(result interface{}) {
+			resultChan <- result
+		})
+
+		// 添加测试数据
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": 25.0},
+			{"device": "sensor2", "temperature": 26.0},
+			{"device": "sensor3", "temperature": 27.0},
+			{"device": "sensor4", "temperature": 28.0},
+		}
+
+		var results []interface{}
+		var resultsMutex sync.Mutex
+
+		// 发送数据
+		for _, data := range testData {
+			strm.Emit(data)
+
+			// 立即检查结果
+			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			select {
+			case result := <-resultChan:
+				resultsMutex.Lock()
+				results = append(results, result)
+				resultsMutex.Unlock()
+				cancel()
+			case <-ctx.Done():
+				cancel()
+			}
+		}
+
+		// 验证结果
+		resultsMutex.Lock()
+		finalResultCount := len(results)
+		resultsCopy := make([]interface{}, len(results))
+		copy(resultsCopy, results)
+		resultsMutex.Unlock()
+
+		assert.GreaterOrEqual(t, finalResultCount, 2, "应该至少有2条结果")
+
+		// 验证结果内容
+		for _, result := range resultsCopy {
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+
+			// 验证LIMIT限制：每个batch最多2条记录
+			assert.LessOrEqual(t, len(resultSlice), 2, "每个batch最多2条记录")
+			assert.Greater(t, len(resultSlice), 0, "应该有结果")
+
+			// 验证字段
+			for _, item := range resultSlice {
+				assert.Contains(t, item, "device", "结果应包含device字段")
+				assert.Contains(t, item, "temperature", "结果应包含temperature字段")
+			}
+		}
+	})
+
+	// 测试场景4：SELECT * with嵌套字段
+	t.Run("SELECT * with嵌套字段", func(t *testing.T) {
+		streamsql := New()
+		defer streamsql.Stop()
+
+		var rsql = "SELECT * FROM stream"
+		err := streamsql.Execute(rsql)
+		assert.Nil(t, err)
+		strm := streamsql.stream
+
+		// 创建结果接收通道
+		resultChan := make(chan interface{}, 10)
+
+		// 添加结果接收器
+		strm.AddSink(func(result interface{}) {
+			resultChan <- result
+		})
+
+		// 添加带嵌套字段的测试数据
+		testData := map[string]interface{}{
+			"device": "sensor001",
+			"metrics": map[string]interface{}{
+				"temperature": 25.5,
+				"humidity":    60,
+			},
+			"location": map[string]interface{}{
+				"building": "A",
+				"room":     "101",
+			},
+		}
+
+		// 发送数据
+		strm.Emit(testData)
+
+		// 等待结果
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		select {
+		case result := <-resultChan:
+			// 验证结果
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+			require.Len(t, resultSlice, 1, "应该只有一条结果")
+
+			item := resultSlice[0]
+			// 验证顶级字段
+			assert.Equal(t, "sensor001", item["device"], "device字段应该正确")
+
+			// 验证嵌套字段结构被保留
+			metrics, ok := item["metrics"].(map[string]interface{})
+			assert.True(t, ok, "metrics应该是map类型")
+			assert.Equal(t, 25.5, metrics["temperature"], "嵌套temperature字段应该正确")
+			assert.Equal(t, 60, metrics["humidity"], "嵌套humidity字段应该正确")
+
+			location, ok := item["location"].(map[string]interface{})
+			assert.True(t, ok, "location应该是map类型")
+			assert.Equal(t, "A", location["building"], "嵌套building字段应该正确")
+			assert.Equal(t, "101", location["room"], "嵌套room字段应该正确")
+
+			cancel()
+		case <-ctx.Done():
+			t.Fatal("测试超时，未收到结果")
+		}
+	})
+}
+
+// TestCaseNullValueHandlingInAggregation 测试CASE表达式在聚合函数中正确处理NULL值
+func TestCaseNullValueHandlingInAggregation(t *testing.T) {
+	sql := `SELECT deviceType,
+	              SUM(CASE WHEN temperature > 30 THEN temperature ELSE NULL END) as high_temp_sum,
+	              COUNT(CASE WHEN temperature > 30 THEN 1 ELSE NULL END) as high_temp_count,
+	              AVG(CASE WHEN temperature > 30 THEN temperature ELSE NULL END) as high_temp_avg
+	         FROM stream 
+	         GROUP BY deviceType, TumblingWindow('2s')`
+
+	// 创建StreamSQL实例
+	ssql := New()
+	defer ssql.Stop()
+
+	// 执行SQL
+	err := ssql.Execute(sql)
+	require.NoError(t, err)
+
+	// 收集结果
+	var results []map[string]interface{}
+	resultChan := make(chan interface{}, 10)
+
+	ssql.AddSink(func(result interface{}) {
+		resultChan <- result
+	})
+
+	// 添加测试数据
+	testData := []map[string]interface{}{
+		{"deviceType": "sensor", "temperature": 35.0},  // 满足条件
+		{"deviceType": "sensor", "temperature": 25.0},  // 不满足条件，返回NULL
+		{"deviceType": "sensor", "temperature": 32.0},  // 满足条件
+		{"deviceType": "monitor", "temperature": 28.0}, // 不满足条件，返回NULL
+		{"deviceType": "monitor", "temperature": 33.0}, // 满足条件
+	}
+
+	for _, data := range testData {
+		ssql.Emit(data)
+	}
+
+	// 等待窗口触发
+	time.Sleep(3 * time.Second)
+
+	// 收集结果
+collecting:
+	for {
+		select {
+		case result := <-resultChan:
+			if resultSlice, ok := result.([]map[string]interface{}); ok {
+				results = append(results, resultSlice...)
+			}
+		case <-time.After(500 * time.Millisecond):
+			break collecting
+		}
+	}
+
+	// 验证结果
+	assert.Len(t, results, 2, "应该有两个设备类型的结果")
+
+	// 验证各个deviceType的结果
+	expectedResults := map[string]map[string]interface{}{
+		"sensor": {
+			"high_temp_sum":   67.0, // 35 + 32
+			"high_temp_count": 2.0,  // COUNT应该忽略NULL
+			"high_temp_avg":   33.5, // (35 + 32) / 2
+		},
+		"monitor": {
+			"high_temp_sum":   33.0, // 只有33
+			"high_temp_count": 1.0,  // COUNT应该忽略NULL
+			"high_temp_avg":   33.0, // 只有33
+		},
+	}
+
+	for _, result := range results {
+		deviceType := result["deviceType"].(string)
+		expected := expectedResults[deviceType]
+
+		assert.NotNil(t, expected, "应该有设备类型 %s 的期望结果", deviceType)
+
+		// 验证SUM聚合（忽略NULL值）
+		assert.Equal(t, expected["high_temp_sum"], result["high_temp_sum"],
+			"设备类型 %s 的SUM聚合结果应该正确", deviceType)
+
+		// 验证COUNT聚合（忽略NULL值）
+		assert.Equal(t, expected["high_temp_count"], result["high_temp_count"],
+			"设备类型 %s 的COUNT聚合结果应该正确", deviceType)
+
+		// 验证AVG聚合（忽略NULL值）
+		assert.Equal(t, expected["high_temp_avg"], result["high_temp_avg"],
+			"设备类型 %s 的AVG聚合结果应该正确", deviceType)
 	}
 }

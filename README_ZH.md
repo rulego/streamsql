@@ -85,7 +85,7 @@ func main() {
 	}
 
 	// 处理实时转换结果
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("实时处理结果: %+v\n", result)
 	})
 
@@ -113,7 +113,7 @@ func main() {
 
 	// 逐条处理数据，每条都会立即输出结果
 	for _, data := range sensorData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 		time.Sleep(100 * time.Millisecond) // 模拟实时数据到达
 	}
 
@@ -289,7 +289,7 @@ func main() {
 	}
 
 	// 处理聚合结果
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("聚合结果: %+v\n", result)
 	})
 
@@ -309,21 +309,13 @@ func main() {
 		"timestamp": time.Now().Unix(),
 	}
 
-	ssql.Stream().AddData(nestedData)
+	ssql.Emit(nestedData)
 }
 ```
 
 ## 函数
 
 StreamSQL 支持多种函数类型，包括数学、字符串、转换、聚合、分析、窗口等上百个函数。[文档](docs/FUNCTIONS_USAGE_GUIDE.md)
-
-### 🎨 支持的函数类型
-
-- **📊 数学函数** - sqrt, power, abs, 三角函数等
-- **📝 字符串函数** - concat, upper, lower, trim等  
-- **🔄 转换函数** - cast, hex2dec, encode/decode等
-- **📈 聚合函数** - 自定义聚合逻辑
-- **🔍 分析函数** - lag, latest, 变化检测等
 
 ## 概念
 

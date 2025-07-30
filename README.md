@@ -82,7 +82,7 @@ func main() {
 	}
 
 	// Handle real-time transformation results
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("Real-time result: %+v\n", result)
 	})
 
@@ -110,7 +110,7 @@ func main() {
 
 	// Process data one by one, each will output results immediately
 	for _, data := range sensorData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 		time.Sleep(100 * time.Millisecond) // Simulate real-time data arrival
 	}
 
@@ -273,7 +273,7 @@ func main() {
 	}
 
 	// Handle aggregation results
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("Aggregation result: %+v\n", result)
 	})
 
@@ -293,7 +293,7 @@ func main() {
 		"timestamp": time.Now().Unix(),
 	}
 
-	ssql.Stream().AddData(nestedData)
+	ssql.Emit(nestedData)
 }
 ```
 

@@ -51,7 +51,7 @@ func main() {
 	fmt.Println("✓ SQL执行成功")
 
 	// 5. 添加结果监听器
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("📊 聚合结果: %v\n", result)
 	})
 
@@ -69,7 +69,7 @@ func main() {
 	for _, data := range sensorData {
 		fmt.Printf("   设备: %s, 温度: %.1f°F, 湿度: %.1f%%\n",
 			data["device"], data["temperature"], data["humidity"])
-		ssql.AddData(data)
+		ssql.Emit(data)
 	}
 
 	// 7. 等待处理完成

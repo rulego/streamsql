@@ -119,7 +119,7 @@ func demonstrateBasicNestedAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		defer wg.Done()
 
 		fmt.Println("  📋 基础嵌套字段访问结果:")
@@ -137,7 +137,7 @@ func demonstrateBasicNestedAccess(ssql *streamsql.Streamsql) {
 
 	// 添加测试数据
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 	}
 
 	// 等待结果
@@ -166,7 +166,7 @@ func demonstrateNestedAggregation(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		defer wg.Done()
 
 		fmt.Println("  📈 嵌套字段聚合结果:")
@@ -205,7 +205,7 @@ func demonstrateNestedAggregation(ssql *streamsql.Streamsql) {
 				"timestamp": time.Now().Unix(),
 			}
 
-			ssql.Stream().AddData(data)
+			ssql.Emit(data)
 			time.Sleep(300 * time.Millisecond) // 每300ms发送一条数据
 		}
 	}()
@@ -271,7 +271,7 @@ func demonstrateArrayAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		defer wg.Done()
 
 		fmt.Println("  📋 数组索引访问结果:")
@@ -289,7 +289,7 @@ func demonstrateArrayAccess(ssql *streamsql.Streamsql) {
 
 	// 添加测试数据
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 	}
 
 	// 等待结果
@@ -356,7 +356,7 @@ func demonstrateMapKeyAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		defer wg.Done()
 
 		fmt.Println("  🗝️ Map键访问结果:")
@@ -375,7 +375,7 @@ func demonstrateMapKeyAccess(ssql *streamsql.Streamsql) {
 
 	// 添加测试数据
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 	}
 
 	// 等待结果
@@ -454,7 +454,7 @@ func demonstrateComplexMixedAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		defer wg.Done()
 
 		fmt.Println("  🔄 混合复杂访问结果:")
@@ -472,7 +472,7 @@ func demonstrateComplexMixedAccess(ssql *streamsql.Streamsql) {
 	})
 
 	// 添加数据
-	ssql.Stream().AddData(testData)
+	ssql.Emit(testData)
 
 	// 等待结果
 	wg.Wait()
@@ -513,7 +513,7 @@ func demonstrateNegativeIndexAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		defer wg.Done()
 
 		fmt.Println("  ⬅️ 负数索引访问结果:")
@@ -531,7 +531,7 @@ func demonstrateNegativeIndexAccess(ssql *streamsql.Streamsql) {
 
 	// 添加测试数据
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 	}
 
 	// 等待结果
@@ -560,7 +560,7 @@ func demonstrateArrayIndexAggregation(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		defer wg.Done()
 
 		fmt.Println("  📈 数组索引聚合计算结果:")
@@ -600,7 +600,7 @@ func demonstrateArrayIndexAggregation(ssql *streamsql.Streamsql) {
 				"timestamp": time.Now().Unix(),
 			}
 
-			ssql.Stream().AddData(data)
+			ssql.Emit(data)
 			time.Sleep(200 * time.Millisecond) // 每200ms发送一条数据
 		}
 	}()

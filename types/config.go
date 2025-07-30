@@ -15,8 +15,9 @@ type Config struct {
 	FieldAlias       map[string]string                   `json:"fieldAlias"`
 	SimpleFields     []string                            `json:"simpleFields"`
 	FieldExpressions map[string]FieldExpression          `json:"fieldExpressions"`
+	FieldOrder       []string                            `json:"fieldOrder"`       // SELECT语句中字段的原始顺序
 	Where            string                              `json:"where"`
-	Having           string                              `json:"having"`
+	Having           string                              `json:"having"` 
 
 	// 功能开关
 	NeedWindow bool `json:"needWindow"`

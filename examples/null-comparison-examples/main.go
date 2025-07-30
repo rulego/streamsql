@@ -35,7 +35,7 @@ func demo1() {
 		panic(err)
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		if results, ok := result.([]map[string]interface{}); ok {
 			for _, data := range results {
 				fmt.Printf("发现空值数据: %+v\n", data)
@@ -51,7 +51,7 @@ func demo1() {
 	}
 
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 	}
 
 	time.Sleep(300 * time.Millisecond)
@@ -75,7 +75,7 @@ func demo2() {
 		panic(err)
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		if results, ok := result.([]map[string]interface{}); ok {
 			for _, data := range results {
 				fmt.Printf("发现有效数据: %+v\n", data)
@@ -91,7 +91,7 @@ func demo2() {
 	}
 
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 	}
 
 	time.Sleep(300 * time.Millisecond)
@@ -115,7 +115,7 @@ func demo3() {
 		panic(err)
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		if results, ok := result.([]map[string]interface{}); ok {
 			for _, data := range results {
 				status := data["status"]
@@ -137,7 +137,7 @@ func demo3() {
 	}
 
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 	}
 
 	time.Sleep(300 * time.Millisecond)
@@ -162,7 +162,7 @@ func demo4() {
 		panic(err)
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		if results, ok := result.([]map[string]interface{}); ok {
 			for _, data := range results {
 				value := data["value"]
@@ -188,7 +188,7 @@ func demo4() {
 	}
 
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 	}
 
 	time.Sleep(300 * time.Millisecond)
@@ -212,7 +212,7 @@ func demo5() {
 		panic(err)
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		if results, ok := result.([]map[string]interface{}); ok {
 			for _, data := range results {
 				fmt.Printf("有位置信息的设备: %+v\n", data)
@@ -246,7 +246,7 @@ func demo5() {
 	}
 
 	for _, data := range testData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 	}
 
 	time.Sleep(300 * time.Millisecond)

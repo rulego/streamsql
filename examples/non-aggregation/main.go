@@ -62,7 +62,7 @@ func demonstrateDataCleaning() {
 	}
 
 	// 结果处理
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  清洗后数据: %+v\n", result)
 	})
 
@@ -75,7 +75,7 @@ func demonstrateDataCleaning() {
 	}
 
 	for _, data := range dirtyData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 		time.Sleep(50 * time.Millisecond)
 	}
 
@@ -103,7 +103,7 @@ func demonstrateDataEnrichment() {
 		panic(err)
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  富化后数据: %+v\n", result)
 	})
 
@@ -115,7 +115,7 @@ func demonstrateDataEnrichment() {
 	}
 
 	for _, data := range rawData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 		time.Sleep(100 * time.Millisecond)
 	}
 
@@ -147,7 +147,7 @@ func demonstrateRealTimeAlerting() {
 		panic(err)
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  🚨 告警事件: %+v\n", result)
 	})
 
@@ -162,7 +162,7 @@ func demonstrateRealTimeAlerting() {
 	}
 
 	for _, data := range sensorData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 		time.Sleep(150 * time.Millisecond)
 	}
 
@@ -191,7 +191,7 @@ func demonstrateDataFormatConversion() {
 		panic(err)
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  格式转换结果: %+v\n", result)
 	})
 
@@ -202,7 +202,7 @@ func demonstrateDataFormatConversion() {
 	}
 
 	for _, data := range inputData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 		time.Sleep(100 * time.Millisecond)
 	}
 
@@ -230,7 +230,7 @@ func demonstrateDataRouting() {
 		panic(err)
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  路由结果: %+v\n", result)
 	})
 
@@ -243,7 +243,7 @@ func demonstrateDataRouting() {
 	}
 
 	for _, data := range deviceData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 		time.Sleep(100 * time.Millisecond)
 	}
 
@@ -273,7 +273,7 @@ func demonstrateNestedFieldProcessing() {
 		panic(err)
 	}
 
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.AddSink(func(result interface{}) {
 		fmt.Printf("  嵌套字段处理结果: %+v\n", result)
 	})
 
@@ -324,7 +324,7 @@ func demonstrateNestedFieldProcessing() {
 	}
 
 	for _, data := range nestedData {
-		ssql.Stream().AddData(data)
+		ssql.Emit(data)
 		time.Sleep(100 * time.Millisecond)
 	}
 
