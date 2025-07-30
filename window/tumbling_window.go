@@ -130,11 +130,20 @@ func (tw *TumblingWindow) Stop() {
 }
 
 // Start 启动滚动窗口的定时触发机制。
+// 采用延迟初始化模式，避免在没有数据时无限等待，同时确保后续数据能正常处理
 func (tw *TumblingWindow) Start() {
 	go func() {
-		<-tw.initChan
 		// 在函数结束时关闭输出通道。
 		defer close(tw.outputChan)
+
+		// 等待初始化完成或上下文取消
+		select {
+		case <-tw.initChan:
+			// 正常初始化完成，继续处理
+		case <-tw.ctx.Done():
+			// 上下文被取消，直接退出
+			return
+		}
 
 		for {
 			// 在每次循环中安全地获取timer

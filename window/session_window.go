@@ -135,11 +135,21 @@ func (sw *SessionWindow) Add(data interface{}) {
 }
 
 // Start 启动会话窗口的定时检查机制
+// Start 启动会话窗口，开始定期检查过期会话
+// 采用延迟初始化模式，避免在没有数据时无限等待，同时确保后续数据能正常处理
 func (sw *SessionWindow) Start() {
 	go func() {
-		<-sw.initChan
 		// 在函数结束时关闭输出通道
 		defer close(sw.outputChan)
+
+		// 等待初始化完成或上下文取消
+		select {
+		case <-sw.initChan:
+			// 正常初始化完成，继续处理
+		case <-sw.ctx.Done():
+			// 上下文被取消，直接退出
+			return
+		}
 
 		// 定期检查过期会话
 		sw.tickerMu.Lock()

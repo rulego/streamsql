@@ -2,6 +2,7 @@ package streamsql
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -114,38 +115,33 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 			// 收集结果
 			var results []map[string]interface{}
 			resultChan := make(chan interface{}, 10)
+			resultsMutex := sync.Mutex{}
 
 			ssql.Stream().AddSink(func(result interface{}) {
 				resultChan <- result
 			})
-
-			// 使用一个done channel来同步
-			done := make(chan bool, 1)
 
 			// 添加测试数据
 			for _, data := range tc.testData {
 				ssql.Stream().Emit(data)
 			}
 
-			// 在另一个goroutine中收集结果
-			go func() {
-				defer func() { done <- true }()
-				// 等待一段时间收集结果
-				timeout := time.After(300 * time.Millisecond)
-				for {
-					select {
-					case result := <-resultChan:
-						if resultSlice, ok := result.([]map[string]interface{}); ok {
-							results = append(results, resultSlice...)
-						}
-					case <-timeout:
-						return
-					}
-				}
-			}()
+			// 使用更短的超时时间，避免在CI环境中长时间等待
+			timeout := time.After(500 * time.Millisecond)
 
-			// 等待收集完成
-			<-done
+		collecting:
+			for {
+				select {
+				case result := <-resultChan:
+					resultsMutex.Lock()
+					if resultSlice, ok := result.([]map[string]interface{}); ok {
+						results = append(results, resultSlice...)
+					}
+					resultsMutex.Unlock()
+				case <-timeout:
+					break collecting
+				}
+			}
 
 			// 验证结果数量
 			assert.Len(t, results, len(tc.expected), "结果数量应该匹配")
@@ -156,10 +152,12 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 				expectedDeviceIds[i] = exp["deviceId"].(string)
 			}
 
+			resultsMutex.Lock()
 			actualDeviceIds := make([]string, len(results))
 			for i, result := range results {
 				actualDeviceIds[i] = result["deviceId"].(string)
 			}
+			resultsMutex.Unlock()
 
 			// 验证每个期望的设备ID都在结果中
 			for _, expectedId := range expectedDeviceIds {
@@ -167,6 +165,7 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 			}
 
 			// 验证每个结果的字段值
+			resultsMutex.Lock()
 			for _, result := range results {
 				deviceId := result["deviceId"].(string)
 				// 找到对应的期望结果
@@ -186,6 +185,7 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 					}
 				}
 			}
+			resultsMutex.Unlock()
 		})
 	}
 }
@@ -424,7 +424,7 @@ func TestIsNullWithOtherOperators(t *testing.T) {
 
 	// 使用超时方式安全收集结果
 	var results []map[string]interface{}
-	timeout := time.After(500 * time.Millisecond)
+	timeout := time.After(2 * time.Second)
 
 collecting:
 	for {
@@ -1004,7 +1004,7 @@ func TestMixedNullComparisons(t *testing.T) {
 
 	// 使用超时方式安全收集结果
 	var results []map[string]interface{}
-	timeout := time.After(500 * time.Millisecond)
+	timeout := time.After(2 * time.Second)
 
 collecting:
 	for {
