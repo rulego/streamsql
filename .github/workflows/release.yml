@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   test:
     name: Test Before Release
@@ -55,11 +58,3 @@ jobs:
 
     - name: Download dependencies
       run: go mod download
-
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
