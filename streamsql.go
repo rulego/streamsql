@@ -22,6 +22,7 @@ import (
 	"github.com/rulego/streamsql/rsql"
 	"github.com/rulego/streamsql/stream"
 	"github.com/rulego/streamsql/types"
+	"github.com/rulego/streamsql/utils/table"
 )
 
 // Streamsql 是StreamSQL流处理引擎的主要接口。
@@ -41,6 +42,9 @@ type Streamsql struct {
 
 	// 新增：同步处理模式配置
 	enableSyncMode bool // 是否启用同步模式（用于非聚合查询）
+
+	// 保存原始SELECT字段顺序，用于表格输出时保持字段顺序
+	fieldOrder []string
 }
 
 // New 创建一个新的StreamSQL实例。
@@ -124,6 +128,9 @@ func (s *Streamsql) Execute(sql string) error {
 	if err != nil {
 		return fmt.Errorf("SQL解析失败: %w", err)
 	}
+
+	// 从解析结果中获取字段顺序信息
+	s.fieldOrder = config.FieldOrder
 
 	// 根据性能模式创建流处理器
 	var streamInstance *stream.Stream
@@ -338,22 +345,35 @@ func (s *Streamsql) AddSink(sink func(interface{})) {
 	}
 }
 
-// Print 打印结果到控制台。
-// 这是一个便捷方法，自动添加一个打印结果的sink函数。
+// PrintTable 以表格形式打印结果到控制台，类似数据库输出格式。
+// 首先显示列名，然后逐行显示数据。
+//
+// 支持的数据格式:
+//   - []map[string]interface{}: 多行记录
+//   - map[string]interface{}: 单行记录
+//   - 其他类型: 直接打印
 //
 // 示例:
 //
-//	// 简单打印结果
-//	ssql.Print()
+//	// 表格式打印结果
+//	ssql.PrintTable()
 //
-//	// 等价于:
-//	ssql.AddSink(func(result interface{}) {
-//	    fmt.Printf("Ressult: %v\n", result)
-//	})
-func (s *Streamsql) Print() {
+//	// 输出格式:
+//	// +--------+----------+
+//	// | device | max_temp |
+//	// +--------+----------+
+//	// | aa     | 30.0     |
+//	// | bb     | 22.0     |
+//	// +--------+----------+
+func (s *Streamsql) PrintTable() {
 	s.AddSink(func(result interface{}) {
-		fmt.Printf("Ressult: %v\n", result)
+		s.printTableFormat(result)
 	})
+}
+
+// printTableFormat 格式化打印表格数据
+func (s *Streamsql) printTableFormat(result interface{}) {
+	table.FormatTableData(result, s.fieldOrder)
 }
 
 // ToChannel 返回结果通道，用于异步获取处理结果。
