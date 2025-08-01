@@ -26,6 +26,12 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
+// 导入stream包中的常量
+const (
+	StrategyDrop = stream.StrategyDrop
+)
+
+// main 主函数，演示StreamSQL持久化功能的完整测试流程
 func main() {
 	fmt.Println("=== StreamSQL 持久化功能测试 ===")
 
@@ -47,19 +53,38 @@ func main() {
 	fmt.Println("✅ 真正持久化功能测试完成！")
 }
 
+// testDataOverflowPersistence 测试数据溢出时的持久化功能
+// 通过创建小缓冲区并快速发送大量数据来触发溢出和持久化
 func testDataOverflowPersistence() {
 	config := types.Config{
 		SimpleFields: []string{"id", "value"},
 	}
+	overflowStrategy := "persist"
+	perfConfig := types.DefaultPerformanceConfig()
+	perfConfig.BufferConfig.DataChannelSize = 100
+	perfConfig.BufferConfig.ResultChannelSize = 100
+	perfConfig.WorkerConfig.SinkPoolSize = 50
+	perfConfig.OverflowConfig.Strategy = overflowStrategy
+	perfConfig.OverflowConfig.BlockTimeout = 5 * time.Second
+	perfConfig.OverflowConfig.AllowDataLoss = (overflowStrategy == StrategyDrop)
+	// 配置持久化参数
+	// 注意：当溢出策略设置为"persist"时，必须提供PersistenceConfig配置
+	// 如果不提供此配置，系统会返回友好的错误提示和配置示例
+	if overflowStrategy == "persist" {
+		perfConfig.OverflowConfig.PersistenceConfig = &types.PersistenceConfig{
+			DataDir:       "./streamsql_overflow_data", // 持久化数据存储目录
+			MaxFileSize:   10 * 1024 * 1024,            // 单个文件最大大小：10MB
+			FlushInterval: 5 * time.Second,             // 数据刷新到磁盘的间隔：5秒
+			MaxRetries:    3,                           // 持久化失败时的最大重试次数
+			RetryInterval: 1 * time.Second,             // 重试间隔：1秒
+		}
+	}
 
+	config.PerformanceConfig = perfConfig
 	// 创建小缓冲区的持久化流处理器
-	stream, err := stream.NewStreamWithLossPolicy(
+	stream, err := stream.NewStreamWithCustomPerformance(
 		config,
-		100,       // 很小的缓冲区，容易溢出
-		100,       // 小结果缓冲区
-		50,        // 小sink池
-		"persist", // 持久化策略
-		5*time.Second,
+		perfConfig,
 	)
 	if err != nil {
 		fmt.Printf("创建流失败: %v\n", err)
@@ -102,19 +127,38 @@ func testDataOverflowPersistence() {
 	stream.Stop()
 }
 
+// testDataRecovery 测试程序重启后的数据恢复功能
+// 模拟程序重启，加载之前持久化的数据并重新处理
 func testDataRecovery() {
 	config := types.Config{
 		SimpleFields: []string{"id", "value"},
 	}
+	overflowStrategy := "persist"
+	perfConfig := types.DefaultPerformanceConfig()
+	perfConfig.BufferConfig.DataChannelSize = 200
+	perfConfig.BufferConfig.ResultChannelSize = 200
+	perfConfig.WorkerConfig.SinkPoolSize = 100
+	perfConfig.OverflowConfig.Strategy = overflowStrategy
+	perfConfig.OverflowConfig.BlockTimeout = 5 * time.Second
+	perfConfig.OverflowConfig.AllowDataLoss = (overflowStrategy == StrategyDrop)
+	// 配置持久化参数
+	// 注意：当溢出策略设置为"persist"时，必须提供PersistenceConfig配置
+	// 如果不提供此配置，系统会返回友好的错误提示和配置示例
+	if overflowStrategy == "persist" {
+		perfConfig.OverflowConfig.PersistenceConfig = &types.PersistenceConfig{
+			DataDir:       "./streamsql_overflow_data", // 持久化数据存储目录
+			MaxFileSize:   10 * 1024 * 1024,            // 单个文件最大大小：10MB
+			FlushInterval: 5 * time.Second,             // 数据刷新到磁盘的间隔：5秒
+			MaxRetries:    3,                           // 持久化失败时的最大重试次数
+			RetryInterval: 1 * time.Second,             // 重试间隔：1秒
+		}
+	}
 
+	config.PerformanceConfig = perfConfig
 	// 创建新的持久化流处理器（模拟程序重启）
-	stream, err := stream.NewStreamWithLossPolicy(
+	stream, err := stream.NewStreamWithCustomPerformance(
 		config,
-		200, // 更大的缓冲区用于恢复
-		200,
-		100,
-		"persist", // 持久化策略
-		5*time.Second,
+		perfConfig,
 	)
 	if err != nil {
 		fmt.Printf("创建流失败: %v\n", err)
@@ -148,6 +192,8 @@ func testDataRecovery() {
 	stream.Stop()
 }
 
+// analyzePersistenceFiles 分析持久化文件的内容和统计信息
+// 检查持久化目录中的文件，显示文件大小和内容预览
 func analyzePersistenceFiles() {
 	dataDir := "./streamsql_overflow_data"
 
@@ -187,6 +233,9 @@ func analyzePersistenceFiles() {
 	}
 }
 
+// showFileContent 显示指定文件的前几行内容
+// filename: 要读取的文件路径
+// maxLines: 最大显示行数
 func showFileContent(filename string, maxLines int) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -225,6 +274,8 @@ func showFileContent(filename string, maxLines int) {
 	}
 }
 
+// cleanupTestData 清理测试产生的持久化数据
+// 删除测试目录及其所有内容，为新的测试做准备
 func cleanupTestData() {
 	dataDir := "./streamsql_overflow_data"
 	if err := os.RemoveAll(dataDir); err != nil {

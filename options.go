@@ -145,29 +145,3 @@ func WithMonitoring(updateInterval time.Duration, enableDetailedStats bool) Opti
 		s.customConfig = &config
 	}
 }
-
-// Deprecated Options - 向后兼容，但建议使用新的配置方式
-
-// WithBuffers 设置缓冲区大小 (已弃用，使用WithBufferSizes)
-// Deprecated: 使用WithBufferSizes替代
-func WithBuffers(dataBufSize, resultBufSize, sinkPoolSize int) Option {
-	return WithBufferSizes(dataBufSize, resultBufSize, 1000)
-}
-
-// WithHighPerf 启用高性能模式 (已弃用，使用WithHighPerformance)
-// Deprecated: 使用WithHighPerformance替代
-func WithHighPerf() Option {
-	return WithHighPerformance()
-}
-
-// WithOverflowPolicy 设置溢出策略 (已弃用，使用WithOverflowStrategy)
-// Deprecated: 使用WithOverflowStrategy替代
-func WithOverflowPolicy(strategy string, timeout time.Duration) Option {
-	return WithOverflowStrategy(strategy, timeout)
-}
-
-// WithPersistenceConfig 设置持久化配置 (已弃用，使用WithCustomPersistence)
-// Deprecated: 使用WithCustomPersistence替代
-func WithPersistenceConfig(dataDir string, maxFileSize int64, flushInterval time.Duration) Option {
-	return WithCustomPersistence(dataDir, maxFileSize, flushInterval)
-}
