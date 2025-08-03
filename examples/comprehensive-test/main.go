@@ -127,7 +127,7 @@ func testBasicFiltering() {
 	}
 
 	// 添加结果处理函数
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  📊 高温告警: %v\n", result)
 	})
 
@@ -172,7 +172,7 @@ func testAggregation() {
 	}
 
 	// 处理聚合结果
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  📊 聚合结果: %v\n", result)
 	})
 
@@ -221,7 +221,7 @@ func testSlidingWindow() {
 		return
 	}
 
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  📊 滑动窗口分析: %v\n", result)
 	})
 
@@ -262,7 +262,7 @@ func testNestedFields() {
 		return
 	}
 
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  📊 嵌套字段结果: %v\n", result)
 	})
 
@@ -336,7 +336,7 @@ func testCustomFunctions() {
 		return
 	}
 
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  📊 自定义函数结果: %v\n", result)
 	})
 
@@ -396,7 +396,7 @@ func testComplexQuery() {
 		return
 	}
 
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  📊 复杂查询结果: %v\n", result)
 	})
 

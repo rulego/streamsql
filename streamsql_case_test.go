@@ -39,14 +39,10 @@ func TestCaseExpressionInSQL(t *testing.T) {
 	// 添加数据并获取结果
 	var results []map[string]interface{}
 	var resultsMutex sync.Mutex
-	streamSQL.stream.AddSink(func(result interface{}) {
+	streamSQL.stream.AddSink(func(result []map[string]interface{}) {
 		resultsMutex.Lock()
 		defer resultsMutex.Unlock()
-		if resultSlice, ok := result.([]map[string]interface{}); ok {
-			results = append(results, resultSlice...)
-		} else if resultMap, ok := result.(map[string]interface{}); ok {
-			results = append(results, resultMap)
-		}
+		results = append(results, result...)
 	})
 
 	for _, data := range testData {
@@ -93,12 +89,10 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 	// 添加数据并获取结果
 	var results []map[string]interface{}
 	var resultsMutex sync.Mutex
-	streamSQL.stream.AddSink(func(result interface{}) {
+	streamSQL.stream.AddSink(func(result []map[string]interface{}) {
 		resultsMutex.Lock()
 		defer resultsMutex.Unlock()
-		if resultSlice, ok := result.([]map[string]interface{}); ok {
-			results = append(results, resultSlice...)
-		}
+		results = append(results, result...)
 	})
 
 	for _, data := range testData {
@@ -265,12 +259,10 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 			// 添加数据并获取结果
 			var results []map[string]interface{}
 			var resultsMutex sync.Mutex
-			streamSQL.stream.AddSink(func(result interface{}) {
-				if resultSlice, ok := result.([]map[string]interface{}); ok {
-					resultsMutex.Lock()
-					results = append(results, resultSlice...)
-					resultsMutex.Unlock()
-				}
+			streamSQL.stream.AddSink(func(result []map[string]interface{}) {
+				resultsMutex.Lock()
+				defer resultsMutex.Unlock()
+				results = append(results, result...)
 			})
 
 			for _, data := range tc.data {
@@ -382,7 +374,7 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 
 			// 捕获结果
 			resultChan := make(chan interface{}, 10)
-			strm.AddSink(func(result interface{}) {
+			strm.AddSink(func(result []map[string]interface{}) {
 				select {
 				case resultChan <- result:
 				default:
@@ -474,7 +466,7 @@ func TestCaseExpressionAggregated(t *testing.T) {
 
 			// 使用通道等待结果，避免固定等待时间
 			resultChan := make(chan interface{}, 5)
-			strm.AddSink(func(result interface{}) {
+			strm.AddSink(func(result []map[string]interface{}) {
 				select {
 				case resultChan <- result:
 				default:
@@ -606,7 +598,7 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 			var results []map[string]interface{}
 			resultChan := make(chan interface{}, 10)
 
-			ssql.AddSink(func(result interface{}) {
+			ssql.AddSink(func(result []map[string]interface{}) {
 				resultChan <- result
 			})
 
@@ -768,12 +760,10 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 	// 添加数据并获取结果
 	var results []map[string]interface{}
 	var resultsMutex sync.Mutex
-	streamSQL.stream.AddSink(func(result interface{}) {
+	streamSQL.stream.AddSink(func(result []map[string]interface{}) {
 		resultsMutex.Lock()
 		defer resultsMutex.Unlock()
-		if resultSlice, ok := result.([]map[string]interface{}); ok {
-			results = append(results, resultSlice...)
-		}
+		results = append(results, result...)
 	})
 
 	for _, data := range testData {
@@ -854,14 +844,10 @@ func TestNegativeNumberInSQL(t *testing.T) {
 	var results []map[string]interface{}
 	var resultsMutex sync.Mutex
 
-	streamSQL.stream.AddSink(func(result interface{}) {
+	streamSQL.stream.AddSink(func(result []map[string]interface{}) {
 		resultsMutex.Lock()
 		defer resultsMutex.Unlock()
-		if resultSlice, ok := result.([]map[string]interface{}); ok {
-			results = append(results, resultSlice...)
-		} else if resultMap, ok := result.(map[string]interface{}); ok {
-			results = append(results, resultMap)
-		}
+		results = append(results, result...)
 	})
 
 	// 添加测试数据

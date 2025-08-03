@@ -117,7 +117,7 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 			resultChan := make(chan interface{}, 10)
 			resultsMutex := sync.Mutex{}
 
-			ssql.Stream().AddSink(func(result interface{}) {
+			ssql.Stream().AddSink(func(result []map[string]interface{}) {
 				resultChan <- result
 			})
 
@@ -208,7 +208,7 @@ func TestIsNullInAggregation(t *testing.T) {
 
 	// 收集结果
 	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -274,7 +274,7 @@ func TestIsNullInHaving(t *testing.T) {
 	require.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -339,7 +339,7 @@ func TestIsNullInHavingWithIsNotNull(t *testing.T) {
 	require.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -405,7 +405,7 @@ func TestIsNullWithOtherOperators(t *testing.T) {
 	require.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -572,7 +572,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 			var results []map[string]interface{}
 			resultChan := make(chan interface{}, 10)
 
-			ssql.Stream().AddSink(func(result interface{}) {
+			ssql.Stream().AddSink(func(result []map[string]interface{}) {
 				resultChan <- result
 			})
 
@@ -835,7 +835,7 @@ func TestNullComparisons(t *testing.T) {
 			var results []map[string]interface{}
 			resultChan := make(chan interface{}, 10)
 
-			ssql.Stream().AddSink(func(result interface{}) {
+			ssql.Stream().AddSink(func(result []map[string]interface{}) {
 				resultChan <- result
 			})
 
@@ -920,7 +920,7 @@ func TestNullComparisonInAggregation(t *testing.T) {
 
 	// 收集结果
 	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -984,7 +984,7 @@ func TestMixedNullComparisons(t *testing.T) {
 	require.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result interface{}) {
+	ssql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 

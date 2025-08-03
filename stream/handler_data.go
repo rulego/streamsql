@@ -18,7 +18,9 @@ func NewDataHandler(stream *Stream) *DataHandler {
 }
 
 // addDataBlocking 阻塞模式添加数据，保证零数据丢失
-func (s *Stream) addDataBlocking(data interface{}) {
+// 参数:
+//   - data: 要处理的数据，必须是map[string]interface{}类型
+func (s *Stream) addDataBlocking(data map[string]interface{}) {
 	if s.blockingTimeout <= 0 {
 		// 无超时限制，永久阻塞直到成功
 		dataChan := s.safeGetDataChan()
@@ -45,7 +47,9 @@ func (s *Stream) addDataBlocking(data interface{}) {
 }
 
 // addDataWithExpansion 动态扩容模式
-func (s *Stream) addDataWithExpansion(data interface{}) {
+// 参数:
+//   - data: 要处理的数据，必须是map[string]interface{}类型
+func (s *Stream) addDataWithExpansion(data map[string]interface{}) {
 	// 首次尝试添加数据
 	if s.safeSendToDataChan(data) {
 		return
@@ -66,7 +70,9 @@ func (s *Stream) addDataWithExpansion(data interface{}) {
 }
 
 // addDataWithPersistence 持久化模式
-func (s *Stream) addDataWithPersistence(data interface{}) {
+// 参数:
+//   - data: 要处理的数据，必须是map[string]interface{}类型
+func (s *Stream) addDataWithPersistence(data map[string]interface{}) {
 	// 首次尝试添加数据
 	if s.safeSendToDataChan(data) {
 		return
@@ -90,7 +96,9 @@ func (s *Stream) addDataWithPersistence(data interface{}) {
 }
 
 // addDataWithDrop 丢弃模式
-func (s *Stream) addDataWithDrop(data interface{}) {
+// 参数:
+//   - data: 要处理的数据，必须是map[string]interface{}类型
+func (s *Stream) addDataWithDrop(data map[string]interface{}) {
 	// 智能非阻塞添加，分层背压控制
 	if s.safeSendToDataChan(data) {
 		return
@@ -180,14 +188,14 @@ func (s *Stream) addDataWithDrop(data interface{}) {
 }
 
 // safeGetDataChan 线程安全地获取dataChan引用
-func (s *Stream) safeGetDataChan() chan interface{} {
+func (s *Stream) safeGetDataChan() chan map[string]interface{} {
 	s.dataChanMux.RLock()
 	defer s.dataChanMux.RUnlock()
 	return s.dataChan
 }
 
 // safeSendToDataChan 线程安全地向dataChan发送数据
-func (s *Stream) safeSendToDataChan(data interface{}) bool {
+func (s *Stream) safeSendToDataChan(data map[string]interface{}) bool {
 	dataChan := s.safeGetDataChan()
 	select {
 	case dataChan <- data:
@@ -230,7 +238,7 @@ func (s *Stream) expandDataChannel() {
 	logger.Debug("Dynamic expansion of data channel: %d -> %d", oldCap, newCap)
 
 	// 创建新的更大的通道
-	newChan := make(chan interface{}, newCap)
+	newChan := make(chan map[string]interface{}, newCap)
 
 	// 使用写锁安全地迁移数据
 	s.dataChanMux.Lock()
@@ -269,7 +277,10 @@ migration_done:
 }
 
 // persistAndRetryData 持久化数据并重试 (改进版本，具备指数退避和资源控制)
-func (s *Stream) persistAndRetryData(data interface{}) {
+// persistAndRetryData 持久化并重试数据
+// 参数:
+//   - data: 要持久化的数据，必须是map[string]interface{}类型
+func (s *Stream) persistAndRetryData(data map[string]interface{}) {
 	// 检查活跃重试协程数量，防止资源泄漏
 	currentRetries := atomic.LoadInt32(&s.activeRetries)
 	if currentRetries >= s.maxRetryRoutines {

@@ -72,7 +72,7 @@ func TestCustomMathFunctions(t *testing.T) {
 
 	// 创建结果接收通道
 	resultChan := make(chan interface{}, 10)
-	streamsql.AddSink(func(result interface{}) {
+	streamsql.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -179,7 +179,7 @@ func TestCustomStringFunctions(t *testing.T) {
 
 	// 创建结果接收通道
 	resultChan := make(chan interface{}, 10)
-	streamsql.AddSink(func(result interface{}) {
+	streamsql.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -318,16 +318,16 @@ func TestCustomAggregateFunctions(t *testing.T) {
 
 	// 创建结果接收通道
 	resultChan := make(chan interface{}, 10)
-	streamsql.AddSink(func(result interface{}) {
+	streamsql.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "sensor1", "value": 2.0, "category": "A"},
-		map[string]interface{}{"device": "sensor1", "value": 8.0, "category": "A"},
-		map[string]interface{}{"device": "sensor1", "value": 32.0, "category": "B"},
-		map[string]interface{}{"device": "sensor1", "value": 128.0, "category": "A"},
+	testData := []map[string]interface{}{
+		{"device": "sensor1", "value": 2.0, "category": "A"},
+		{"device": "sensor1", "value": 8.0, "category": "A"},
+		{"device": "sensor1", "value": 32.0, "category": "B"},
+		{"device": "sensor1", "value": 128.0, "category": "A"},
 	}
 
 	for _, data := range testData {
@@ -557,14 +557,14 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 
 	// 创建结果接收通道
 	resultChan := make(chan interface{}, 10)
-	streamsql.AddSink(func(result interface{}) {
+	streamsql.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
 	// 添加测试数据（摄氏度）
-	testData := []interface{}{
-		map[string]interface{}{"device": "thermometer", "temperature": 0.0},   // 32°F
-		map[string]interface{}{"device": "thermometer", "temperature": 100.0}, // 212°F
+	testData := []map[string]interface{}{
+		{"device": "thermometer", "temperature": 0.0},   // 32°F
+		{"device": "thermometer", "temperature": 100.0}, // 212°F
 	}
 
 	for _, data := range testData {

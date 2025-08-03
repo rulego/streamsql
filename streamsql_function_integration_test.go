@@ -22,7 +22,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -68,7 +68,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -110,7 +110,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -152,7 +152,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -195,7 +195,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -239,17 +239,17 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []interface{}{
-			map[string]interface{}{"device": "sensor1", "temperature": 20.0},
-			map[string]interface{}{"device": "sensor1", "temperature": 25.0},
-			map[string]interface{}{"device": "sensor1", "temperature": 30.0},
-			map[string]interface{}{"device": "sensor2", "temperature": 15.0},
-			map[string]interface{}{"device": "sensor2", "temperature": 18.0},
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": 20.0},
+			{"device": "sensor1", "temperature": 25.0},
+			{"device": "sensor1", "temperature": 30.0},
+			{"device": "sensor2", "temperature": 15.0},
+			{"device": "sensor2", "temperature": 18.0},
 		}
 
 		for _, data := range testData {
@@ -303,17 +303,17 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []interface{}{
-			map[string]interface{}{"device": "sensor1", "temperature": 10.0},
-			map[string]interface{}{"device": "sensor1", "temperature": 20.0},
-			map[string]interface{}{"device": "sensor1", "temperature": 30.0},
-			map[string]interface{}{"device": "sensor1", "temperature": 40.0},
-			map[string]interface{}{"device": "sensor1", "temperature": 50.0},
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": 10.0},
+			{"device": "sensor1", "temperature": 20.0},
+			{"device": "sensor1", "temperature": 30.0},
+			{"device": "sensor1", "temperature": 40.0},
+			{"device": "sensor1", "temperature": 50.0},
 		}
 
 		for _, data := range testData {
@@ -356,15 +356,15 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []interface{}{
-			map[string]interface{}{"device": "sensor1", "temperature": 20.0},
-			map[string]interface{}{"device": "sensor1", "temperature": 25.0},
-			map[string]interface{}{"device": "sensor1", "temperature": 30.0},
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": 20.0},
+			{"device": "sensor1", "temperature": 25.0},
+			{"device": "sensor1", "temperature": 30.0},
 		}
 
 		for _, data := range testData {
@@ -418,15 +418,15 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []interface{}{
-			map[string]interface{}{"device": "sensor1", "temperature": 20.567},
-			map[string]interface{}{"device": "sensor1", "temperature": 25.234},
-			map[string]interface{}{"device": "sensor1", "temperature": 30.123},
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": 20.567},
+			{"device": "sensor1", "temperature": 25.234},
+			{"device": "sensor1", "temperature": 30.123},
 		}
 
 		for _, data := range testData {
@@ -488,7 +488,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -529,14 +529,14 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []interface{}{
-			map[string]interface{}{"device": "sensor1", "temperature": 20.0},
-			map[string]interface{}{"device": "sensor1", "temperature": 30.0},
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": 20.0},
+			{"device": "sensor1", "temperature": 30.0},
 		}
 
 		for _, data := range testData {
@@ -582,15 +582,15 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []interface{}{
-			map[string]interface{}{"device": "sensor1", "temperature": 20.567},
-			map[string]interface{}{"device": "sensor1", "temperature": 25.234},
-			map[string]interface{}{"device": "sensor1", "temperature": 30.123},
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": 20.567},
+			{"device": "sensor1", "temperature": 25.234},
+			{"device": "sensor1", "temperature": 30.123},
 		}
 
 		for _, data := range testData {
@@ -647,15 +647,15 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []interface{}{
-			map[string]interface{}{"device": "sensor1", "temperature": 20.567}, // round(20.567, 2) = 20.57
-			map[string]interface{}{"device": "sensor1", "temperature": 25.234}, // round(25.234, 2) = 25.23
-			map[string]interface{}{"device": "sensor1", "temperature": 30.123}, // round(30.123, 2) = 30.12
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": 20.567}, // round(20.567, 2) = 20.57
+			{"device": "sensor1", "temperature": 25.234}, // round(25.234, 2) = 25.23
+			{"device": "sensor1", "temperature": 30.123}, // round(30.123, 2) = 30.12
 		}
 
 		for _, data := range testData {
@@ -716,15 +716,15 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据（包含负数）
-		testData := []interface{}{
-			map[string]interface{}{"device": "sensor1", "temperature": -20.567}, // abs(-20.567) = 20.567
-			map[string]interface{}{"device": "sensor1", "temperature": 25.234},  // abs(25.234) = 25.234
-			map[string]interface{}{"device": "sensor1", "temperature": -30.123}, // abs(-30.123) = 30.123
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": -20.567}, // abs(-20.567) = 20.567
+			{"device": "sensor1", "temperature": 25.234},  // abs(25.234) = 25.234
+			{"device": "sensor1", "temperature": -30.123}, // abs(-30.123) = 30.123
 		}
 
 		for _, data := range testData {
@@ -789,7 +789,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -829,7 +829,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -869,7 +869,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -909,15 +909,15 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []interface{}{
-			map[string]interface{}{"device": "sensor1", "temperature": 20.567},
-			map[string]interface{}{"device": "sensor1", "temperature": 25.234},
-			map[string]interface{}{"device": "sensor1", "temperature": 30.123},
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": 20.567},
+			{"device": "sensor1", "temperature": 25.234},
+			{"device": "sensor1", "temperature": 30.123},
 		}
 
 		for _, data := range testData {
@@ -961,7 +961,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -1001,7 +1001,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 		strm := streamsql.stream
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 

@@ -117,7 +117,7 @@ func (s *Stream) callSinksAsync(results []map[string]interface{}) {
 }
 
 // submitSinkTask 提交Sink任务
-func (s *Stream) submitSinkTask(sink func(interface{}), results []map[string]interface{}) {
+func (s *Stream) submitSinkTask(sink func([]map[string]interface{}), results []map[string]interface{}) {
 	// 捕获sink变量，避免闭包问题
 	currentSink := sink
 
@@ -143,13 +143,15 @@ func (s *Stream) submitSinkTask(sink func(interface{}), results []map[string]int
 }
 
 // AddSink 添加Sink函数
-func (s *Stream) AddSink(sink func(interface{})) {
+// 参数:
+//   - sink: 结果处理函数，接收[]map[string]interface{}类型的结果数据
+func (s *Stream) AddSink(sink func([]map[string]interface{})) {
 	s.sinksMux.Lock()
 	defer s.sinksMux.Unlock()
 	s.sinks = append(s.sinks, sink)
 }
 
 // GetResultsChan 获取结果通道
-func (s *Stream) GetResultsChan() <-chan interface{} {
+func (s *Stream) GetResultsChan() <-chan []map[string]interface{} {
 	return s.resultChan
 }

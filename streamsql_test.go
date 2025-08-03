@@ -85,7 +85,7 @@ func TestStreamData(t *testing.T) {
 	resultChan := make(chan interface{})
 	// 添加计算结果回调函数（Sink）
 	// 当窗口触发计算时，结果会通过这个回调函数输出
-	ssql.stream.AddSink(func(result interface{}) {
+	ssql.stream.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -124,10 +124,10 @@ func TestStreamsql(t *testing.T) {
 	assert.Nil(t, err)
 	strm := streamsql.stream
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
-	testData := []interface{}{
-		map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60, "Ts": baseTime},
-		map[string]interface{}{"device": "aa", "temperature": 30.0, "humidity": 55, "Ts": baseTime.Add(1 * time.Second)},
-		map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70, "Ts": baseTime},
+	testData := []map[string]interface{}{
+		{"device": "aa", "temperature": 25.0, "humidity": 60, "Ts": baseTime},
+		{"device": "aa", "temperature": 30.0, "humidity": 55, "Ts": baseTime.Add(1 * time.Second)},
+		{"device": "bb", "temperature": 22.0, "humidity": 70, "Ts": baseTime},
 	}
 
 	for _, data := range testData {
@@ -135,7 +135,7 @@ func TestStreamsql(t *testing.T) {
 	}
 	// 捕获结果
 	resultChan := make(chan interface{})
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -194,10 +194,10 @@ func TestStreamsqlWithoutGroupBy(t *testing.T) {
 	assert.Nil(t, err)
 	strm := streamsql.stream
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
-	testData := []interface{}{
-		map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60, "Ts": baseTime},
-		map[string]interface{}{"device": "aa", "temperature": 30.0, "humidity": 55, "Ts": baseTime.Add(1 * time.Second)},
-		map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70, "Ts": baseTime},
+	testData := []map[string]interface{}{
+		{"device": "aa", "temperature": 25.0, "humidity": 60, "Ts": baseTime},
+		{"device": "aa", "temperature": 30.0, "humidity": 55, "Ts": baseTime.Add(1 * time.Second)},
+		{"device": "bb", "temperature": 22.0, "humidity": 70, "Ts": baseTime},
 	}
 
 	for _, data := range testData {
@@ -205,7 +205,7 @@ func TestStreamsqlWithoutGroupBy(t *testing.T) {
 	}
 	// 捕获结果
 	resultChan := make(chan interface{})
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -261,12 +261,12 @@ func TestStreamsqlDistinct(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据，包含重复的设备数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "aa", "temperature": 25.0, "Ts": baseTime},
-		map[string]interface{}{"device": "aa", "temperature": 35.0, "Ts": baseTime}, // 相同设备，不同温度
-		map[string]interface{}{"device": "bb", "temperature": 22.0, "Ts": baseTime},
-		map[string]interface{}{"device": "bb", "temperature": 28.0, "Ts": baseTime}, // 相同设备，不同温度
-		map[string]interface{}{"device": "cc", "temperature": 30.0, "Ts": baseTime},
+	testData := []map[string]interface{}{
+		{"device": "aa", "temperature": 25.0, "Ts": baseTime},
+		{"device": "aa", "temperature": 35.0, "Ts": baseTime}, // 相同设备，不同温度
+		{"device": "bb", "temperature": 22.0, "Ts": baseTime},
+		{"device": "bb", "temperature": 28.0, "Ts": baseTime}, // 相同设备，不同温度
+		{"device": "cc", "temperature": 30.0, "Ts": baseTime},
 	}
 
 	// 添加数据
@@ -279,7 +279,7 @@ func TestStreamsqlDistinct(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -359,16 +359,16 @@ func TestStreamsqlLimit(t *testing.T) {
 		resultChan := make(chan interface{}, 10)
 
 		// 添加结果接收器
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []interface{}{
-			map[string]interface{}{"device": "aa", "temperature": 25.0},
-			map[string]interface{}{"device": "bb", "temperature": 22.0},
-			map[string]interface{}{"device": "cc", "temperature": 30.0},
-			map[string]interface{}{"device": "dd", "temperature": 28.0},
+		testData := []map[string]interface{}{
+			{"device": "aa", "temperature": 25.0},
+			{"device": "bb", "temperature": 22.0},
+			{"device": "cc", "temperature": 30.0},
+			{"device": "dd", "temperature": 28.0},
 		}
 
 		// 实时验证：添加一条数据，立即验证一条结果
@@ -420,20 +420,20 @@ func TestStreamsqlLimit(t *testing.T) {
 		resultChan := make(chan interface{}, 10)
 
 		// 添加结果回调
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据 - 多个设备的温度数据
-		testData := []interface{}{
-			map[string]interface{}{"device": "sensor1", "temperature": 20.0},
-			map[string]interface{}{"device": "sensor1", "temperature": 22.0},
-			map[string]interface{}{"device": "sensor2", "temperature": 25.0},
-			map[string]interface{}{"device": "sensor2", "temperature": 27.0},
-			map[string]interface{}{"device": "sensor3", "temperature": 30.0},
-			map[string]interface{}{"device": "sensor3", "temperature": 32.0},
-			map[string]interface{}{"device": "sensor4", "temperature": 35.0},
-			map[string]interface{}{"device": "sensor4", "temperature": 37.0},
+		testData := []map[string]interface{}{
+			{"device": "sensor1", "temperature": 20.0},
+			{"device": "sensor1", "temperature": 22.0},
+			{"device": "sensor2", "temperature": 25.0},
+			{"device": "sensor2", "temperature": 27.0},
+			{"device": "sensor3", "temperature": 30.0},
+			{"device": "sensor3", "temperature": 32.0},
+			{"device": "sensor4", "temperature": 35.0},
+			{"device": "sensor4", "temperature": 37.0},
 		}
 
 		// 添加数据
@@ -498,17 +498,17 @@ func TestStreamsqlLimit(t *testing.T) {
 		resultChan := make(chan interface{}, 10)
 
 		// 添加结果回调
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据 - 5个设备的数据
-		testData := []interface{}{
-			map[string]interface{}{"device": "dev1", "temperature": 20.0},
-			map[string]interface{}{"device": "dev2", "temperature": 25.0},
-			map[string]interface{}{"device": "dev3", "temperature": 30.0},
-			map[string]interface{}{"device": "dev4", "temperature": 35.0},
-			map[string]interface{}{"device": "dev5", "temperature": 40.0},
+		testData := []map[string]interface{}{
+			{"device": "dev1", "temperature": 20.0},
+			{"device": "dev2", "temperature": 25.0},
+			{"device": "dev3", "temperature": 30.0},
+			{"device": "dev4", "temperature": 35.0},
+			{"device": "dev5", "temperature": 40.0},
 		}
 
 		// 添加数据
@@ -568,20 +568,20 @@ func TestStreamsqlLimit(t *testing.T) {
 		resultChan := make(chan interface{}, 10)
 
 		// 添加结果回调
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据 - 设计一些平均温度大于25的设备
-		testData := []interface{}{
-			map[string]interface{}{"device": "cold_sensor", "temperature": 15.0},
-			map[string]interface{}{"device": "cold_sensor", "temperature": 18.0}, // 平均16.5，不满足条件
-			map[string]interface{}{"device": "warm_sensor1", "temperature": 26.0},
-			map[string]interface{}{"device": "warm_sensor1", "temperature": 28.0}, // 平均27，满足条件
-			map[string]interface{}{"device": "warm_sensor2", "temperature": 30.0},
-			map[string]interface{}{"device": "warm_sensor2", "temperature": 32.0}, // 平均31，满足条件
-			map[string]interface{}{"device": "warm_sensor3", "temperature": 35.0},
-			map[string]interface{}{"device": "warm_sensor3", "temperature": 37.0}, // 平均36，满足条件
+		testData := []map[string]interface{}{
+			{"device": "cold_sensor", "temperature": 15.0},
+			{"device": "cold_sensor", "temperature": 18.0}, // 平均16.5，不满足条件
+			{"device": "warm_sensor1", "temperature": 26.0},
+			{"device": "warm_sensor1", "temperature": 28.0}, // 平均27，满足条件
+			{"device": "warm_sensor2", "temperature": 30.0},
+			{"device": "warm_sensor2", "temperature": 32.0}, // 平均31，满足条件
+			{"device": "warm_sensor3", "temperature": 35.0},
+			{"device": "warm_sensor3", "temperature": 37.0}, // 平均36，满足条件
 		}
 
 		// 添加数据
@@ -644,14 +644,14 @@ func TestSimpleQuery(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加sink
-	strm.stream.AddSink(func(result interface{}) {
+	strm.stream.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
 
 	//添加数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "test-device", "temperature": 25.5},
+	testData := []map[string]interface{}{
+		{"device": "test-device", "temperature": 25.5},
 	}
 
 	// 发送数据
@@ -697,18 +697,18 @@ func TestHavingClause(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
 
 	// 添加测试数据，确保有不同的聚合结果
-	testData := []interface{}{
-		map[string]interface{}{"device": "dev1", "temperature": 20.0},
-		map[string]interface{}{"device": "dev1", "temperature": 22.0},
-		map[string]interface{}{"device": "dev2", "temperature": 26.0},
-		map[string]interface{}{"device": "dev2", "temperature": 28.0},
-		map[string]interface{}{"device": "dev3", "temperature": 30.0},
+	testData := []map[string]interface{}{
+		{"device": "dev1", "temperature": 20.0},
+		{"device": "dev1", "temperature": 22.0},
+		{"device": "dev2", "temperature": 26.0},
+		{"device": "dev2", "temperature": 28.0},
+		{"device": "dev3", "temperature": 30.0},
 	}
 
 	// 添加数据
@@ -765,7 +765,7 @@ func TestSessionWindow(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -774,7 +774,7 @@ func TestSessionWindow(t *testing.T) {
 
 	// 添加测试数据 - 两个设备，不同的时间
 	testData := []struct {
-		data interface{}
+		data map[string]interface{}
 		wait time.Duration
 	}{
 		// 第一组数据 - device1
@@ -879,11 +879,11 @@ func TestExpressionInAggregation(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据，温度使用摄氏度
-	testData := []interface{}{
-		map[string]interface{}{"device": "aa", "temperature": 0.0, "Ts": baseTime},   // 华氏度应为 32
-		map[string]interface{}{"device": "aa", "temperature": 100.0, "Ts": baseTime}, // 华氏度应为 212
-		map[string]interface{}{"device": "bb", "temperature": 20.0, "Ts": baseTime},  // 华氏度应为 68
-		map[string]interface{}{"device": "bb", "temperature": 30.0, "Ts": baseTime},  // 华氏度应为 86
+	testData := []map[string]interface{}{
+		{"device": "aa", "temperature": 0.0, "Ts": baseTime},   // 华氏度应为 32
+		{"device": "aa", "temperature": 100.0, "Ts": baseTime}, // 华氏度应为 212
+		{"device": "bb", "temperature": 20.0, "Ts": baseTime},  // 华氏度应为 68
+		{"device": "bb", "temperature": 30.0, "Ts": baseTime},  // 华氏度应为 86
 	}
 
 	// 添加数据
@@ -896,7 +896,7 @@ func TestExpressionInAggregation(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -964,11 +964,11 @@ func TestAdvancedFunctionsInSQL(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "sensor1", "temperature": 15.0, "Ts": baseTime}, // abs(15-20) = 5
-		map[string]interface{}{"device": "sensor1", "temperature": 25.0, "Ts": baseTime}, // abs(25-20) = 5
-		map[string]interface{}{"device": "sensor2", "temperature": 18.0, "Ts": baseTime}, // abs(18-20) = 2
-		map[string]interface{}{"device": "sensor2", "temperature": 22.0, "Ts": baseTime}, // abs(22-20) = 2
+	testData := []map[string]interface{}{
+		{"device": "sensor1", "temperature": 15.0, "Ts": baseTime}, // abs(15-20) = 5
+		{"device": "sensor1", "temperature": 25.0, "Ts": baseTime}, // abs(25-20) = 5
+		{"device": "sensor2", "temperature": 18.0, "Ts": baseTime}, // abs(18-20) = 2
+		{"device": "sensor2", "temperature": 22.0, "Ts": baseTime}, // abs(22-20) = 2
 	}
 
 	// 添加数据
@@ -981,7 +981,7 @@ func TestAdvancedFunctionsInSQL(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1063,11 +1063,11 @@ func TestCustomFunctionInSQL(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据（华氏度）
-	testData := []interface{}{
-		map[string]interface{}{"device": "thermometer1", "temperature": 32.0, "Ts": baseTime},  // 0°C
-		map[string]interface{}{"device": "thermometer1", "temperature": 212.0, "Ts": baseTime}, // 100°C
-		map[string]interface{}{"device": "thermometer2", "temperature": 68.0, "Ts": baseTime},  // 20°C
-		map[string]interface{}{"device": "thermometer2", "temperature": 86.0, "Ts": baseTime},  // 30°C
+	testData := []map[string]interface{}{
+		{"device": "thermometer1", "temperature": 32.0, "Ts": baseTime},  // 0°C
+		{"device": "thermometer1", "temperature": 212.0, "Ts": baseTime}, // 100°C
+		{"device": "thermometer2", "temperature": 68.0, "Ts": baseTime},  // 20°C
+		{"device": "thermometer2", "temperature": 86.0, "Ts": baseTime},  // 30°C
 	}
 
 	// 添加数据
@@ -1080,7 +1080,7 @@ func TestCustomFunctionInSQL(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1148,11 +1148,11 @@ func TestNewAggregateFunctionsInSQL(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "sensor1", "temperature": 15.0, "status": "good", "Ts": baseTime},
-		map[string]interface{}{"device": "sensor1", "temperature": 25.0, "status": "ok", "Ts": baseTime},
-		map[string]interface{}{"device": "sensor2", "temperature": 18.0, "status": "good", "Ts": baseTime},
-		map[string]interface{}{"device": "sensor2", "temperature": 22.0, "status": "warning", "Ts": baseTime},
+	testData := []map[string]interface{}{
+		{"device": "sensor1", "temperature": 15.0, "status": "good", "Ts": baseTime},
+		{"device": "sensor1", "temperature": 25.0, "status": "ok", "Ts": baseTime},
+		{"device": "sensor2", "temperature": 18.0, "status": "good", "Ts": baseTime},
+		{"device": "sensor2", "temperature": 22.0, "status": "warning", "Ts": baseTime},
 	}
 
 	// 添加数据
@@ -1165,7 +1165,7 @@ func TestNewAggregateFunctionsInSQL(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1257,12 +1257,12 @@ func TestStatisticalAggregateFunctionsInSQL(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "sensor1", "temperature": 10.0, "Ts": baseTime},
-		map[string]interface{}{"device": "sensor1", "temperature": 20.0, "Ts": baseTime},
-		map[string]interface{}{"device": "sensor1", "temperature": 30.0, "Ts": baseTime},
-		map[string]interface{}{"device": "sensor2", "temperature": 15.0, "Ts": baseTime},
-		map[string]interface{}{"device": "sensor2", "temperature": 25.0, "Ts": baseTime},
+	testData := []map[string]interface{}{
+		{"device": "sensor1", "temperature": 10.0, "Ts": baseTime},
+		{"device": "sensor1", "temperature": 20.0, "Ts": baseTime},
+		{"device": "sensor1", "temperature": 30.0, "Ts": baseTime},
+		{"device": "sensor2", "temperature": 15.0, "Ts": baseTime},
+		{"device": "sensor2", "temperature": 25.0, "Ts": baseTime},
 	}
 
 	// 添加数据
@@ -1275,7 +1275,7 @@ func TestStatisticalAggregateFunctionsInSQL(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1357,14 +1357,14 @@ func TestDeduplicateAggregateInSQL(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据，包含重复的状态
-	testData := []interface{}{
-		map[string]interface{}{"device": "sensor1", "status": "good", "Ts": baseTime},
-		map[string]interface{}{"device": "sensor1", "status": "good", "Ts": baseTime}, // 重复
-		map[string]interface{}{"device": "sensor1", "status": "warning", "Ts": baseTime},
-		map[string]interface{}{"device": "sensor1", "status": "good", "Ts": baseTime}, // 重复
-		map[string]interface{}{"device": "sensor2", "status": "error", "Ts": baseTime},
-		map[string]interface{}{"device": "sensor2", "status": "error", "Ts": baseTime}, // 重复
-		map[string]interface{}{"device": "sensor2", "status": "ok", "Ts": baseTime},
+	testData := []map[string]interface{}{
+		{"device": "sensor1", "status": "good", "Ts": baseTime},
+		{"device": "sensor1", "status": "good", "Ts": baseTime}, // 重复
+		{"device": "sensor1", "status": "warning", "Ts": baseTime},
+		{"device": "sensor1", "status": "good", "Ts": baseTime}, // 重复
+		{"device": "sensor2", "status": "error", "Ts": baseTime},
+		{"device": "sensor2", "status": "error", "Ts": baseTime}, // 重复
+		{"device": "sensor2", "status": "ok", "Ts": baseTime},
 	}
 
 	// 添加数据
@@ -1377,7 +1377,7 @@ func TestDeduplicateAggregateInSQL(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1465,16 +1465,16 @@ func TestExprAggregationFunctions(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据
-	testData := []interface{}{
+	testData := []map[string]interface{}{
 		// device1的数据
-		map[string]interface{}{"device": "device1", "temperature": 20.0, "humidity": 60.0, "status": "normal", "Ts": baseTime},  // 华氏度=68, 偏差=0, 和=80
-		map[string]interface{}{"device": "device1", "temperature": 25.0, "humidity": 65.0, "status": "warning", "Ts": baseTime}, // 华氏度=77, 偏差=10, 和=90
-		map[string]interface{}{"device": "device1", "temperature": 30.0, "humidity": 70.0, "status": "normal", "Ts": baseTime},  // 华氏度=86, 偏差=20, 和=100
+		{"device": "device1", "temperature": 20.0, "humidity": 60.0, "status": "normal", "Ts": baseTime},  // 华氏度=68, 偏差=0, 和=80
+		{"device": "device1", "temperature": 25.0, "humidity": 65.0, "status": "warning", "Ts": baseTime}, // 华氏度=77, 偏差=10, 和=90
+		{"device": "device1", "temperature": 30.0, "humidity": 70.0, "status": "normal", "Ts": baseTime},  // 华氏度=86, 偏差=20, 和=100
 
 		// device2的数据
-		map[string]interface{}{"device": "device2", "temperature": 15.0, "humidity": 55.0, "status": "error", "Ts": baseTime},  // 华氏度=59, 偏差=-10, 和=70
-		map[string]interface{}{"device": "device2", "temperature": 18.0, "humidity": 58.0, "status": "normal", "Ts": baseTime}, // 华氏度=64.4, 偏差=-4, 和=76
-		map[string]interface{}{"device": "device2", "temperature": 22.0, "humidity": 62.0, "status": "error", "Ts": baseTime},  // 华氏度=71.6, 偏差=4, 和=84
+		{"device": "device2", "temperature": 15.0, "humidity": 55.0, "status": "error", "Ts": baseTime},  // 华氏度=59, 偏差=-10, 和=70
+		{"device": "device2", "temperature": 18.0, "humidity": 58.0, "status": "normal", "Ts": baseTime}, // 华氏度=64.4, 偏差=-4, 和=76
+		{"device": "device2", "temperature": 22.0, "humidity": 62.0, "status": "error", "Ts": baseTime},  // 华氏度=71.6, 偏差=4, 和=84
 	}
 
 	// 添加数据
@@ -1487,7 +1487,7 @@ func TestExprAggregationFunctions(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1626,12 +1626,12 @@ func TestAnalyticalFunctionsInSQL(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "sensor1", "temperature": 20.0, "Ts": baseTime},
-		map[string]interface{}{"device": "sensor1", "temperature": 25.0, "Ts": baseTime},
-		map[string]interface{}{"device": "sensor1", "temperature": 25.0, "Ts": baseTime}, // 重复值，测试had_changed
-		map[string]interface{}{"device": "sensor2", "temperature": 18.0, "Ts": baseTime},
-		map[string]interface{}{"device": "sensor2", "temperature": 22.0, "Ts": baseTime},
+	testData := []map[string]interface{}{
+		{"device": "sensor1", "temperature": 20.0, "Ts": baseTime},
+		{"device": "sensor1", "temperature": 25.0, "Ts": baseTime},
+		{"device": "sensor1", "temperature": 25.0, "Ts": baseTime}, // 重复值，测试had_changed
+		{"device": "sensor2", "temperature": 18.0, "Ts": baseTime},
+		{"device": "sensor2", "temperature": 22.0, "Ts": baseTime},
 	}
 
 	// 添加数据
@@ -1644,7 +1644,7 @@ func TestAnalyticalFunctionsInSQL(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1723,11 +1723,11 @@ func TestLagFunctionInSQL(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据 - 按顺序添加，测试LAG功能
-	testData := []interface{}{
-		map[string]interface{}{"device": "temp_sensor", "temperature": 10.0, "Ts": baseTime},
-		map[string]interface{}{"device": "temp_sensor", "temperature": 15.0, "Ts": baseTime},
-		map[string]interface{}{"device": "temp_sensor", "temperature": 20.0, "Ts": baseTime},
-		map[string]interface{}{"device": "temp_sensor", "temperature": 25.0, "Ts": baseTime}, // 最后一个值
+	testData := []map[string]interface{}{
+		{"device": "temp_sensor", "temperature": 10.0, "Ts": baseTime},
+		{"device": "temp_sensor", "temperature": 15.0, "Ts": baseTime},
+		{"device": "temp_sensor", "temperature": 20.0, "Ts": baseTime},
+		{"device": "temp_sensor", "temperature": 25.0, "Ts": baseTime}, // 最后一个值
 	}
 
 	// 添加数据
@@ -1742,7 +1742,7 @@ func TestLagFunctionInSQL(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1821,12 +1821,12 @@ func TestHadChangedFunctionInSQL(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据 - 包含重复值和变化值
-	testData := []interface{}{
-		map[string]interface{}{"device": "monitor", "temperature": 20.0, "Ts": baseTime},
-		map[string]interface{}{"device": "monitor", "temperature": 20.0, "Ts": baseTime}, // 相同值
-		map[string]interface{}{"device": "monitor", "temperature": 25.0, "Ts": baseTime}, // 变化值
-		map[string]interface{}{"device": "monitor", "temperature": 25.0, "Ts": baseTime}, // 相同值
-		map[string]interface{}{"device": "monitor", "temperature": 30.0, "Ts": baseTime}, // 变化值
+	testData := []map[string]interface{}{
+		{"device": "monitor", "temperature": 20.0, "Ts": baseTime},
+		{"device": "monitor", "temperature": 20.0, "Ts": baseTime}, // 相同值
+		{"device": "monitor", "temperature": 25.0, "Ts": baseTime}, // 变化值
+		{"device": "monitor", "temperature": 25.0, "Ts": baseTime}, // 相同值
+		{"device": "monitor", "temperature": 30.0, "Ts": baseTime}, // 变化值
 	}
 
 	// 添加数据
@@ -1839,7 +1839,7 @@ func TestHadChangedFunctionInSQL(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1902,11 +1902,11 @@ func TestLatestFunctionInSQL(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "thermometer", "temperature": 10.0, "Ts": baseTime},
-		map[string]interface{}{"device": "thermometer", "temperature": 15.0, "Ts": baseTime},
-		map[string]interface{}{"device": "thermometer", "temperature": 20.0, "Ts": baseTime},
-		map[string]interface{}{"device": "thermometer", "temperature": 25.0, "Ts": baseTime}, // 最新值
+	testData := []map[string]interface{}{
+		{"device": "thermometer", "temperature": 10.0, "Ts": baseTime},
+		{"device": "thermometer", "temperature": 15.0, "Ts": baseTime},
+		{"device": "thermometer", "temperature": 20.0, "Ts": baseTime},
+		{"device": "thermometer", "temperature": 25.0, "Ts": baseTime}, // 最新值
 	}
 
 	// 添加数据
@@ -1919,7 +1919,7 @@ func TestLatestFunctionInSQL(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1983,18 +1983,18 @@ func TestChangedColFunctionInSQL(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据 - 使用map作为数据测试changed_col
-	testData := []interface{}{
-		map[string]interface{}{
+	testData := []map[string]interface{}{
+		{
 			"device": "datacollector",
 			"data":   map[string]interface{}{"temp": 20.0, "humidity": 60.0},
 			"Ts":     baseTime,
 		},
-		map[string]interface{}{
+		{
 			"device": "datacollector",
 			"data":   map[string]interface{}{"temp": 25.0, "humidity": 60.0}, // temp变化
 			"Ts":     baseTime,
 		},
-		map[string]interface{}{
+		{
 			"device": "datacollector",
 			"data":   map[string]interface{}{"temp": 25.0, "humidity": 65.0}, // humidity变化
 			"Ts":     baseTime,
@@ -2011,7 +2011,7 @@ func TestChangedColFunctionInSQL(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -2074,12 +2074,12 @@ func TestAnalyticalFunctionsIncrementalComputation(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "sensor1", "temperature": 15.0, "status": "good", "Ts": baseTime},
-		map[string]interface{}{"device": "sensor1", "temperature": 25.0, "status": "good", "Ts": baseTime},
-		map[string]interface{}{"device": "sensor1", "temperature": 35.0, "status": "warning", "Ts": baseTime},
-		map[string]interface{}{"device": "sensor2", "temperature": 18.0, "status": "good", "Ts": baseTime},
-		map[string]interface{}{"device": "sensor2", "temperature": 22.0, "status": "ok", "Ts": baseTime},
+	testData := []map[string]interface{}{
+		{"device": "sensor1", "temperature": 15.0, "status": "good", "Ts": baseTime},
+		{"device": "sensor1", "temperature": 25.0, "status": "good", "Ts": baseTime},
+		{"device": "sensor1", "temperature": 35.0, "status": "warning", "Ts": baseTime},
+		{"device": "sensor2", "temperature": 18.0, "status": "good", "Ts": baseTime},
+		{"device": "sensor2", "temperature": 22.0, "status": "ok", "Ts": baseTime},
 	}
 
 	// 添加数据
@@ -2092,7 +2092,7 @@ func TestAnalyticalFunctionsIncrementalComputation(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -2173,12 +2173,12 @@ func TestIncrementalComputationBasic(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "sensor1", "temperature": 10.0, "Ts": baseTime},
-		map[string]interface{}{"device": "sensor1", "temperature": 20.0, "Ts": baseTime},
-		map[string]interface{}{"device": "sensor1", "temperature": 30.0, "Ts": baseTime},
-		map[string]interface{}{"device": "sensor2", "temperature": 15.0, "Ts": baseTime},
-		map[string]interface{}{"device": "sensor2", "temperature": 25.0, "Ts": baseTime},
+	testData := []map[string]interface{}{
+		{"device": "sensor1", "temperature": 10.0, "Ts": baseTime},
+		{"device": "sensor1", "temperature": 20.0, "Ts": baseTime},
+		{"device": "sensor1", "temperature": 30.0, "Ts": baseTime},
+		{"device": "sensor2", "temperature": 15.0, "Ts": baseTime},
+		{"device": "sensor2", "temperature": 25.0, "Ts": baseTime},
 	}
 
 	// 添加数据
@@ -2191,7 +2191,7 @@ func TestIncrementalComputationBasic(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -2276,14 +2276,14 @@ func TestExprFunctions(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "SensorA"},
-		map[string]interface{}{"device": "SensorB"},
+	testData := []map[string]interface{}{
+		{"device": "SensorA"},
+		{"device": "SensorB"},
 	}
 
 	// 添加数据
@@ -2357,18 +2357,18 @@ func TestExprFunctionsInAggregation(t *testing.T) {
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "sensor1", "temperature": 23.5, "Ts": baseTime}, // abs(23.5-25) = 1.5, ceil(23.5) = 24
-		map[string]interface{}{"device": "sensor1", "temperature": 26.8, "Ts": baseTime}, // abs(26.8-25) = 1.8, ceil(26.8) = 27
-		map[string]interface{}{"device": "sensor2", "temperature": 24.2, "Ts": baseTime}, // abs(24.2-25) = 0.8, ceil(24.2) = 25
-		map[string]interface{}{"device": "sensor2", "temperature": 25.9, "Ts": baseTime}, // abs(25.9-25) = 0.9, ceil(25.9) = 26
+	testData := []map[string]interface{}{
+		{"device": "sensor1", "temperature": 23.5, "Ts": baseTime}, // abs(23.5-25) = 1.5, ceil(23.5) = 24
+		{"device": "sensor1", "temperature": 26.8, "Ts": baseTime}, // abs(26.8-25) = 1.8, ceil(26.8) = 27
+		{"device": "sensor2", "temperature": 24.2, "Ts": baseTime}, // abs(24.2-25) = 0.8, ceil(24.2) = 25
+		{"device": "sensor2", "temperature": 25.9, "Ts": baseTime}, // abs(25.9-25) = 0.9, ceil(25.9) = 26
 	}
 
 	// 创建结果接收通道
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -2437,15 +2437,15 @@ func TestNestedExprFunctions(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "sensor1"},      // upper -> "SENSOR1", split by "SENSOR" -> ["", "1"], len -> 2
-		map[string]interface{}{"device": "sensorsensor"}, // upper -> "SENSORSENSOR", split by "SENSOR" -> ["", "", ""], len -> 3
-		map[string]interface{}{"device": "device1"},      // upper -> "DEVICE1", split by "SENSOR" -> ["DEVICE1"], len -> 1
+	testData := []map[string]interface{}{
+		{"device": "sensor1"},      // upper -> "SENSOR1", split by "SENSOR" -> ["", "1"], len -> 2
+		{"device": "sensorsensor"}, // upper -> "SENSORSENSOR", split by "SENSOR" -> ["", "", ""], len -> 3
+		{"device": "device1"},      // upper -> "DEVICE1", split by "SENSOR" -> ["DEVICE1"], len -> 1
 	}
 
 	// 添加数据
@@ -2528,14 +2528,14 @@ func TestExprFunctionsWithStreamSQLFunctions(t *testing.T) {
 	resultChan := make(chan interface{}, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "sensor1"},
-		map[string]interface{}{"device": "device2"},
+	testData := []map[string]interface{}{
+		{"device": "sensor1"},
+		{"device": "device2"},
 	}
 
 	// 添加数据
@@ -2608,7 +2608,7 @@ func TestSelectAllFeature(t *testing.T) {
 		resultChan := make(chan interface{}, 10)
 
 		// 添加结果接收器
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -2666,7 +2666,7 @@ func TestSelectAllFeature(t *testing.T) {
 		resultChan := make(chan interface{}, 10)
 
 		// 添加结果接收器
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -2750,7 +2750,7 @@ func TestSelectAllFeature(t *testing.T) {
 		resultChan := make(chan interface{}, 10)
 
 		// 添加结果接收器
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -2822,7 +2822,7 @@ func TestSelectAllFeature(t *testing.T) {
 		resultChan := make(chan interface{}, 10)
 
 		// 添加结果接收器
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -2896,7 +2896,7 @@ func TestCaseNullValueHandlingInAggregation(t *testing.T) {
 	var results []map[string]interface{}
 	resultChan := make(chan interface{}, 10)
 
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 

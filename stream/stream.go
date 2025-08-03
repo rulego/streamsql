@@ -78,13 +78,13 @@ const (
 )
 
 type Stream struct {
-	dataChan       chan interface{}
+	dataChan       chan map[string]interface{}
 	filter         condition.Condition
 	Window         window.Window
 	aggregator     aggregator.Aggregator
 	config         types.Config
-	sinks          []func(interface{})
-	resultChan     chan interface{} // 结果通道
+	sinks          []func([]map[string]interface{})
+	resultChan     chan []map[string]interface{} // 结果通道
 	seenResults    *sync.Map
 	done           chan struct{} // 用于关闭处理协程
 	sinkWorkerPool chan func()   // Sink工作池，避免阻塞
@@ -110,7 +110,7 @@ type Stream struct {
 	persistenceManager *PersistenceManager // 持久化管理器
 
 	// 预编译的AddData函数指针，避免每次switch判断
-	addDataFunc func(interface{}) // 根据策略预设的函数指针
+	addDataFunc func(map[string]interface{}) // 根据策略预设的函数指针
 
 	// 预编译字段处理信息，避免重复解析
 	compiledFieldInfo map[string]*fieldProcessInfo      // 字段处理信息缓存
@@ -222,7 +222,10 @@ func (s *Stream) Start() {
 	go processor.Process()
 }
 
-func (s *Stream) Emit(data interface{}) {
+// Emit 添加数据到流处理管道
+// 参数:
+//   - data: 要处理的数据，必须是map[string]interface{}类型
+func (s *Stream) Emit(data map[string]interface{}) {
 	atomic.AddInt64(&s.inputCount, 1)
 	// 直接调用预编译的函数指针，避免switch判断
 	s.addDataFunc(data)
@@ -304,7 +307,12 @@ func (s *Stream) IsAggregationQuery() bool {
 
 // ProcessSync 同步处理单条数据，立即返回结果
 // 仅适用于非聚合查询，聚合查询会返回错误
-func (s *Stream) ProcessSync(data interface{}) (interface{}, error) {
+// 参数:
+//   - data: 要处理的数据，必须是map[string]interface{}类型
+// 返回值:
+//   - map[string]interface{}: 处理后的结果数据，如果不匹配过滤条件返回nil
+//   - error: 处理错误，如果是聚合查询会返回错误
+func (s *Stream) ProcessSync(data map[string]interface{}) (map[string]interface{}, error) {
 	// 检查是否为聚合查询
 	if s.config.NeedWindow {
 		return nil, fmt.Errorf("Synchronous processing is not supported for aggregation queries.")
@@ -320,12 +328,14 @@ func (s *Stream) ProcessSync(data interface{}) (interface{}, error) {
 }
 
 // processDirectDataSync 同步版本的直接数据处理
-func (s *Stream) processDirectDataSync(data interface{}) (interface{}, error) {
-	dataMap, ok := data.(map[string]interface{})
-	if !ok {
-		atomic.AddInt64(&s.droppedCount, 1)
-		return nil, fmt.Errorf("Unsupported data type:%T", data)
-	}
+// 参数:
+//   - data: 要处理的数据，必须是map[string]interface{}类型
+// 返回值:
+//   - map[string]interface{}: 处理后的结果数据
+//   - error: 处理错误
+func (s *Stream) processDirectDataSync(data map[string]interface{}) (map[string]interface{}, error) {
+	// 直接使用传入的map，无需类型转换
+	dataMap := data
 
 	// 创建结果map，预分配合适容量
 	estimatedSize := len(s.config.FieldExpressions) + len(s.config.SimpleFields)
@@ -342,7 +352,7 @@ func (s *Stream) processDirectDataSync(data interface{}) (interface{}, error) {
 	// 使用预编译的字段信息处理SimpleFields
 	if len(s.config.SimpleFields) > 0 {
 		for _, fieldSpec := range s.config.SimpleFields {
-			s.processSimpleField(fieldSpec, dataMap, data, result)
+			s.processSimpleField(fieldSpec, dataMap, dataMap, result)
 		}
 	} else if len(s.config.FieldExpressions) == 0 {
 		// 如果没有指定字段且没有表达式字段，保留所有字段

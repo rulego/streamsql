@@ -25,7 +25,7 @@ func TestPersistenceManagerBasic(t *testing.T) {
 	defer pm.Stop()
 
 	// 测试数据持久化
-	testData := []interface{}{
+	testData := []map[string]interface{}{
 		map[string]interface{}{"id": 1, "value": "test1"},
 		map[string]interface{}{"id": 2, "value": "test2"},
 		map[string]interface{}{"id": 3, "value": "test3"},

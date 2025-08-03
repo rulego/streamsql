@@ -37,7 +37,7 @@ func TestWindowSlotAggregation(t *testing.T) {
 
 	// 使用固定时间戳的测试数据
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
-	testData := []interface{}{
+	testData := []map[string]interface{}{
 		map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60, "ts": baseTime},
 		map[string]interface{}{"device": "aa", "temperature": 30.0, "humidity": 55, "ts": baseTime.Add(1 * time.Second)},
 		map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70, "ts": baseTime},
@@ -49,7 +49,7 @@ func TestWindowSlotAggregation(t *testing.T) {
 
 	// 捕获结果
 	resultChan := make(chan interface{})
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -178,10 +178,10 @@ func TestWindowTypes(t *testing.T) {
 // TestAggregationTypes 测试不同的聚合类型
 func TestAggregationTypes(t *testing.T) {
 	tests := []struct {
-		name      string
-		aggType   aggregator.AggregateType
-		testData  []float64
-		expected  float64
+		name     string
+		aggType  aggregator.AggregateType
+		testData []float64
+		expected float64
 	}{
 		{"Sum", aggregator.Sum, []float64{1, 2, 3, 4, 5}, 15.0},
 		{"Avg", aggregator.Avg, []float64{2, 4, 6, 8}, 5.0},
@@ -209,7 +209,7 @@ func TestAggregationTypes(t *testing.T) {
 			defer stream.Stop()
 
 			resultChan := make(chan interface{}, 1)
-			stream.AddSink(func(result interface{}) {
+			stream.AddSink(func(result []map[string]interface{}) {
 				select {
 				case resultChan <- result:
 				default:

@@ -85,8 +85,8 @@ func main() {
 	}
 
 	// 处理实时转换结果
-	ssql.AddSink(func(result interface{}) {
-		fmt.Printf("实时处理结果: %+v\n", result)
+	ssql.AddSink(func(results []map[string]interface{}) {
+		fmt.Printf("实时处理结果: %+v\n", results)
 	})
 
 	// 模拟传感器数据输入
@@ -206,7 +206,7 @@ func main() {
 					// - 按deviceId分组
 					// - 将数据分配到对应的时间窗口
 					// - 更新聚合计算状态
-					ssql.stream.AddData(randomData)
+					ssql.Emit(randomData)
 				}
 
 			case <-ctx.Done():
@@ -221,8 +221,10 @@ func main() {
 	// 6. 注册结果回调函数
 	// 当窗口触发时（每5秒），会调用这个回调函数
 	// 传递聚合计算的结果
-	ssql.stream.AddSink(func(result interface{}) {
-		resultChan <- result
+	ssql.AddSink(func(results []map[string]interface{}) {
+		for _, result := range results {
+			resultChan <- result
+		}
 	})
 	
 	// 7. 结果消费者 - 处理计算结果
@@ -289,18 +291,22 @@ func main() {
 	}
 
 	// 处理聚合结果
-	ssql.AddSink(func(result interface{}) {
-		fmt.Printf("聚合结果: %+v\n", result)
+	ssql.AddSink(func(results []map[string]interface{}) {
+		fmt.Printf("聚合结果: %+v\n", results)
 	})
 
 	// 添加嵌套结构数据
 	nestedData := map[string]interface{}{
 		"device": map[string]interface{}{
 			"info": map[string]interface{}{
-				"name": "temperature-sensor-001",
-				"type": "temperature",
+				"name":   "temperature-sensor-001",
+				"type":   "temperature",
+				"status": "active",
 			},
-			"location": "智能温室-A区",
+			"location": map[string]interface{}{
+				"building": "智能温室-A区",
+				"floor":    "3F",
+			},
 		},
 		"sensor": map[string]interface{}{
 			"temperature": 25.5,

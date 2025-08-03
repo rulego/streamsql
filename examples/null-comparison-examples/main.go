@@ -35,11 +35,9 @@ func demo1() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result interface{}) {
-		if results, ok := result.([]map[string]interface{}); ok {
-			for _, data := range results {
-				fmt.Printf("发现空值数据: %+v\n", data)
-			}
+	ssql.AddSink(func(result []map[string]interface{}) {
+		for _, data := range result {
+			fmt.Printf("发现空值数据: %+v\n", data)
 		}
 	})
 
@@ -75,11 +73,9 @@ func demo2() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result interface{}) {
-		if results, ok := result.([]map[string]interface{}); ok {
-			for _, data := range results {
-				fmt.Printf("发现有效数据: %+v\n", data)
-			}
+	ssql.AddSink(func(result []map[string]interface{}) {
+		for _, data := range result {
+			fmt.Printf("发现有效数据: %+v\n", data)
 		}
 	})
 
@@ -115,16 +111,14 @@ func demo3() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result interface{}) {
-		if results, ok := result.([]map[string]interface{}); ok {
-			for _, data := range results {
-				status := data["status"]
-				value := data["value"]
-				if status != nil {
-					fmt.Printf("状态非空的数据: %+v\n", data)
-				} else if value == nil {
-					fmt.Printf("值为空的数据: %+v\n", data)
-				}
+	ssql.AddSink(func(result []map[string]interface{}) {
+		for _, data := range result {
+			status := data["status"]
+			value := data["value"]
+			if status != nil {
+				fmt.Printf("状态非空的数据: %+v\n", data)
+			} else if value == nil {
+				fmt.Printf("值为空的数据: %+v\n", data)
 			}
 		}
 	})
@@ -162,18 +156,16 @@ func demo4() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result interface{}) {
-		if results, ok := result.([]map[string]interface{}); ok {
-			for _, data := range results {
-				value := data["value"]
-				status := data["status"]
-				priority := data["priority"]
+	ssql.AddSink(func(result []map[string]interface{}) {
+		for _, data := range result {
+			value := data["value"]
+			status := data["status"]
+			priority := data["priority"]
 
-				if value != nil && value.(float64) > 20 {
-					fmt.Printf("高值数据 (value > 20): %+v\n", data)
-				} else if status == nil && priority != nil {
-					fmt.Printf("状态异常但有优先级的数据: %+v\n", data)
-				}
+			if value != nil && value.(float64) > 20 {
+				fmt.Printf("高值数据 (value > 20): %+v\n", data)
+			} else if status == nil && priority != nil {
+				fmt.Printf("状态异常但有优先级的数据: %+v\n", data)
 			}
 		}
 	})
@@ -212,11 +204,9 @@ func demo5() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result interface{}) {
-		if results, ok := result.([]map[string]interface{}); ok {
-			for _, data := range results {
-				fmt.Printf("有位置信息的设备: %+v\n", data)
-			}
+	ssql.AddSink(func(result []map[string]interface{}) {
+		for _, data := range result {
+			fmt.Printf("有位置信息的设备: %+v\n", data)
 		}
 	})
 

@@ -62,7 +62,7 @@ func demonstrateDataCleaning() {
 	}
 
 	// 结果处理
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  清洗后数据: %+v\n", result)
 	})
 
@@ -103,7 +103,7 @@ func demonstrateDataEnrichment() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  富化后数据: %+v\n", result)
 	})
 
@@ -147,7 +147,7 @@ func demonstrateRealTimeAlerting() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  🚨 告警事件: %+v\n", result)
 	})
 
@@ -191,7 +191,7 @@ func demonstrateDataFormatConversion() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  格式转换结果: %+v\n", result)
 	})
 
@@ -230,7 +230,7 @@ func demonstrateDataRouting() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  路由结果: %+v\n", result)
 	})
 
@@ -273,7 +273,7 @@ func demonstrateNestedFieldProcessing() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  嵌套字段处理结果: %+v\n", result)
 	})
 

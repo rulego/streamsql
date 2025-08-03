@@ -300,22 +300,22 @@ func TestStatsManager(t *testing.T) {
 // TestDataHandler 测试数据处理器
 func TestDataHandler(t *testing.T) {
 	tests := []struct {
-		name           string
+		name              string
 		performanceConfig types.PerformanceConfig
-		dataCount      int
-		expectedDrops  bool
+		dataCount         int
+		expectedDrops     bool
 	}{
 		{
-			name:             "高性能配置 - 无丢弃",
+			name:              "高性能配置 - 无丢弃",
 			performanceConfig: types.HighPerformanceConfig(),
-			dataCount:        100,
-			expectedDrops:    false,
+			dataCount:         100,
+			expectedDrops:     false,
 		},
 		{
-			name:             "低延迟配置 - 可能丢弃",
+			name:              "低延迟配置 - 可能丢弃",
 			performanceConfig: types.LowLatencyConfig(),
-			dataCount:        1000,
-			expectedDrops:    true,
+			dataCount:         1000,
+			expectedDrops:     true,
 		},
 	}
 
@@ -369,7 +369,7 @@ func TestResultHandler(t *testing.T) {
 	var mu sync.Mutex
 	var receivedResults []interface{}
 
-	stream.AddSink(func(result interface{}) {
+	stream.AddSink(func(result []map[string]interface{}) {
 		mu.Lock()
 		defer mu.Unlock()
 		receivedResults = append(receivedResults, result)
@@ -407,10 +407,10 @@ func TestResultHandler(t *testing.T) {
 // TestPerformanceConfigurations 测试不同性能配置的效果
 func TestPerformanceConfigurations(t *testing.T) {
 	configs := map[string]types.PerformanceConfig{
-		"Default":        types.DefaultPerformanceConfig(),
+		"Default":         types.DefaultPerformanceConfig(),
 		"HighPerformance": types.HighPerformanceConfig(),
-		"LowLatency":     types.LowLatencyConfig(),
-		"ZeroDataLoss":   types.ZeroDataLossConfig(),
+		"LowLatency":      types.LowLatencyConfig(),
+		"ZeroDataLoss":    types.ZeroDataLossConfig(),
 	}
 
 	for name, perfConfig := range configs {

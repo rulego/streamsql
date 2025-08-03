@@ -100,10 +100,10 @@ func (sf *StreamFactory) createWindow(config types.Config) (window.Window, error
 func (sf *StreamFactory) createStreamInstance(config types.Config, win window.Window) *Stream {
 	perfConfig := config.PerformanceConfig
 	return &Stream{
-		dataChan:         make(chan interface{}, perfConfig.BufferConfig.DataChannelSize),
+		dataChan:         make(chan map[string]interface{}, perfConfig.BufferConfig.DataChannelSize),
 		config:           config,
 		Window:           win,
-		resultChan:       make(chan interface{}, perfConfig.BufferConfig.ResultChannelSize),
+		resultChan:       make(chan []map[string]interface{}, perfConfig.BufferConfig.ResultChannelSize),
 		seenResults:      &sync.Map{},
 		done:             make(chan struct{}),
 		sinkWorkerPool:   make(chan func(), perfConfig.WorkerConfig.SinkPoolSize),

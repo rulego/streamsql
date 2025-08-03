@@ -42,14 +42,4 @@ func TestPrintTableFormat(t *testing.T) {
 		// 测试空切片
 		ssql.printTableFormat([]map[string]interface{}{})
 	}, "空切片不应该panic")
-
-	assert.NotPanics(t, func() {
-		// 测试单个map
-		ssql.printTableFormat(map[string]interface{}{"key": "value"})
-	}, "单个map不应该panic")
-
-	assert.NotPanics(t, func() {
-		// 测试其他类型
-		ssql.printTableFormat("string data")
-	}, "字符串数据不应该panic")
 }

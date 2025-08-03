@@ -94,7 +94,7 @@ func testStringFunctionsOnly(t *testing.T) {
 	assert.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result interface{}) {
+	streamsql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -140,7 +140,7 @@ func testConversionFunctionsOnly(t *testing.T) {
 	assert.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result interface{}) {
+	streamsql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -186,18 +186,18 @@ func testMathFunctionsInAggregate(t *testing.T) {
 	assert.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result interface{}) {
+	streamsql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{
+	testData := []map[string]interface{}{
+		{
 			"department":      "sales",
 			"sales":           8000.0,
 			"commission_rate": 3.0,
 		},
-		map[string]interface{}{
+		{
 			"department":      "sales",
 			"sales":           12000.0,
 			"commission_rate": 4.0,
@@ -265,7 +265,7 @@ func TestRuntimeFunctionManagement(t *testing.T) {
 	assert.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result interface{}) {
+	streamsql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -380,7 +380,7 @@ func TestCompleteSQLIntegration(t *testing.T) {
 	assert.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result interface{}) {
+	streamsql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 

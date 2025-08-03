@@ -184,7 +184,7 @@ func compareConfigurations() {
 
 func demonstrateRealTimeProcessing(s *stream.Stream) {
 	// 设置数据接收器
-	s.AddSink(func(data interface{}) {
+	s.AddSink(func(data []map[string]interface{}) {
 		fmt.Printf("  接收到处理结果: %v\n", data)
 	})
 

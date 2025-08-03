@@ -83,19 +83,17 @@ func demonstrateArrayAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		defer wg.Done()
 
 		fmt.Println("  📋 数组索引访问结果:")
-		if resultSlice, ok := result.([]map[string]interface{}); ok {
-			for i, item := range resultSlice {
-				fmt.Printf("    记录 %d:\n", i+1)
-				fmt.Printf("      设备: %v\n", item["device"])
-				fmt.Printf("      第一个传感器温度: %v°C\n", item["first_sensor_temp"])
-				fmt.Printf("      第二个传感器湿度: %v%%\n", item["second_sensor_humidity"])
-				fmt.Printf("      第三个数据项: %v\n", item["third_data_item"])
-				fmt.Println()
-			}
+		for i, item := range result {
+			fmt.Printf("    记录 %d:\n", i+1)
+			fmt.Printf("      设备: %v\n", item["device"])
+			fmt.Printf("      第一个传感器温度: %v°C\n", item["first_sensor_temp"])
+			fmt.Printf("      第二个传感器湿度: %v%%\n", item["second_sensor_humidity"])
+			fmt.Printf("      第三个数据项: %v\n", item["third_data_item"])
+			fmt.Println()
 		}
 	})
 
@@ -168,20 +166,19 @@ func demonstrateMapKeyAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		defer wg.Done()
 
 		fmt.Println("  🗝️ Map键访问结果:")
-		if resultSlice, ok := result.([]map[string]interface{}); ok {
-			for i, item := range resultSlice {
-				fmt.Printf("    记录 %d:\n", i+1)
-				fmt.Printf("      设备ID: %v\n", item["device_id"])
-				fmt.Printf("      服务器主机: %v\n", item["server_host"])
-				fmt.Printf("      服务器端口: %v\n", item["server_port"])
-				fmt.Printf("      SSL启用: %v\n", item["ssl_enabled"])
-				fmt.Printf("      应用版本: %v\n", item["app_version"])
-				fmt.Println()
-			}
+		resultSlice := result
+		for i, item := range resultSlice {
+			fmt.Printf("    记录 %d:\n", i+1)
+			fmt.Printf("      设备ID: %v\n", item["device_id"])
+			fmt.Printf("      服务器主机: %v\n", item["server_host"])
+			fmt.Printf("      服务器端口: %v\n", item["server_port"])
+			fmt.Printf("      SSL启用: %v\n", item["ssl_enabled"])
+			fmt.Printf("      应用版本: %v\n", item["app_version"])
+			fmt.Println()
 		}
 	})
 
@@ -266,20 +263,19 @@ func demonstrateComplexMixedAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		defer wg.Done()
 
 		fmt.Println("  🔄 混合复杂访问结果:")
-		if resultSlice, ok := result.([]map[string]interface{}); ok {
-			for i, item := range resultSlice {
-				fmt.Printf("    记录 %d:\n", i+1)
-				fmt.Printf("      建筑: %v\n", item["building"])
-				fmt.Printf("      一层第3个房间: %v\n", item["first_floor_room3_name"])
-				fmt.Printf("      二层第1个传感器温度: %v°C\n", item["second_floor_first_sensor_temp"])
-				fmt.Printf("      建筑师: %v\n", item["building_architect"])
-				fmt.Printf("      最新警报: %v\n", item["latest_alert"])
-				fmt.Println()
-			}
+		resultSlice := result
+		for i, item := range resultSlice {
+			fmt.Printf("    记录 %d:\n", i+1)
+			fmt.Printf("      建筑: %v\n", item["building"])
+			fmt.Printf("      一层第3个房间: %v\n", item["first_floor_room3_name"])
+			fmt.Printf("      二层第1个传感器温度: %v°C\n", item["second_floor_first_sensor_temp"])
+			fmt.Printf("      建筑师: %v\n", item["building_architect"])
+			fmt.Printf("      最新警报: %v\n", item["latest_alert"])
+			fmt.Println()
 		}
 	})
 
@@ -325,19 +321,18 @@ func demonstrateNegativeIndexAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		defer wg.Done()
 
 		fmt.Println("  ⬅️ 负数索引访问结果:")
-		if resultSlice, ok := result.([]map[string]interface{}); ok {
-			for i, item := range resultSlice {
-				fmt.Printf("    记录 %d:\n", i+1)
-				fmt.Printf("      设备名称: %v\n", item["device_name"])
-				fmt.Printf("      最新读数: %v\n", item["latest_reading"])
-				fmt.Printf("      倒数第二个事件: %v\n", item["second_last_event"])
-				fmt.Printf("      最后一个标签: %v\n", item["last_tag"])
-				fmt.Println()
-			}
+		resultSlice := result
+		for i, item := range resultSlice {
+			fmt.Printf("    记录 %d:\n", i+1)
+			fmt.Printf("      设备名称: %v\n", item["device_name"])
+			fmt.Printf("      最新读数: %v\n", item["latest_reading"])
+			fmt.Printf("      倒数第二个事件: %v\n", item["second_last_event"])
+			fmt.Printf("      最后一个标签: %v\n", item["last_tag"])
+			fmt.Println()
 		}
 	})
 
@@ -372,20 +367,19 @@ func demonstrateArrayIndexAggregation(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		defer wg.Done()
 
 		fmt.Println("  📈 数组索引聚合计算结果:")
-		if resultSlice, ok := result.([]map[string]interface{}); ok {
-			for i, item := range resultSlice {
-				resultCount++
-				fmt.Printf("    聚合结果 %d:\n", i+1)
-				fmt.Printf("      位置: %v\n", item["location"])
-				fmt.Printf("      第一个传感器平均温度: %.2f°C\n", item["avg_first_sensor_temp"])
-				fmt.Printf("      第二个传感器最大湿度: %.1f%%\n", item["max_second_sensor_humidity"])
-				fmt.Printf("      设备数量: %v\n", item["device_count"])
-				fmt.Println()
-			}
+		resultSlice := result
+		for i, item := range resultSlice {
+			resultCount++
+			fmt.Printf("    聚合结果 %d:\n", i+1)
+			fmt.Printf("      位置: %v\n", item["location"])
+			fmt.Printf("      第一个传感器平均温度: %.2f°C\n", item["avg_first_sensor_temp"])
+			fmt.Printf("      第二个传感器最大湿度: %.1f%%\n", item["max_second_sensor_humidity"])
+			fmt.Printf("      设备数量: %v\n", item["device_count"])
+			fmt.Println()
 		}
 	})
 

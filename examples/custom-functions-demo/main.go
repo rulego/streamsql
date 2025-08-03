@@ -609,14 +609,14 @@ func testMathFunctions(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{
+	testData := []map[string]interface{}{
+		{
 			"device":      "sensor1",
 			"temperature": 68.0, // 华氏度
 			"radius":      5.0,
 			"x1":          0.0, "y1": 0.0, "x2": 3.0, "y2": 4.0, // 距离=5
 		},
-		map[string]interface{}{
+		{
 			"device":      "sensor1",
 			"temperature": 86.0, // 华氏度
 			"radius":      10.0,
@@ -625,7 +625,7 @@ func testMathFunctions(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加结果监听器
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  📊 数学函数结果: %v\n", result)
 	})
 
@@ -659,20 +659,20 @@ func testStringFunctions(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{
+	testData := []map[string]interface{}{
+		{
 			"device":   "sensor1",
 			"metadata": `{"version":"1.0","type":"temperature"}`,
 			"level":    3,
 		},
-		map[string]interface{}{
+		{
 			"device":   "sensor2",
 			"metadata": `{"version":"2.0","type":"humidity"}`,
 			"level":    5,
 		},
 	}
 
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  📊 字符串函数结果: %v\n", result)
 	})
 
@@ -702,20 +702,20 @@ func testConversionFunctions(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{
+	testData := []map[string]interface{}{
+		{
 			"device":       "server1",
 			"client_ip":    "192.168.1.100",
 			"memory_usage": 1073741824, // 1GB
 		},
-		map[string]interface{}{
+		{
 			"device":       "server2",
 			"client_ip":    "10.0.0.50",
 			"memory_usage": 2147483648, // 2GB
 		},
 	}
 
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  📊 转换函数结果: %v\n", result)
 	})
 
@@ -746,14 +746,14 @@ func testAggregateFunctions(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{"device": "sensor1", "value": 2.0, "category": "A"},
-		map[string]interface{}{"device": "sensor1", "value": 8.0, "category": "A"},
-		map[string]interface{}{"device": "sensor1", "value": 32.0, "category": "B"},
-		map[string]interface{}{"device": "sensor1", "value": 128.0, "category": "A"},
+	testData := []map[string]interface{}{
+		{"device": "sensor1", "value": 2.0, "category": "A"},
+		{"device": "sensor1", "value": 8.0, "category": "A"},
+		{"device": "sensor1", "value": 32.0, "category": "B"},
+		{"device": "sensor1", "value": 128.0, "category": "A"},
 	}
 
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  📊 聚合函数结果: %v\n", result)
 	})
 

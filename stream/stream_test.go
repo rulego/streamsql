@@ -17,7 +17,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 		name           string
 		config         types.Config
 		filter         string
-		testData       []interface{}
+		testData       []map[string]interface{}
 		expectedDevice string
 		expectedTemp   float64
 		expectedHum    float64
@@ -37,7 +37,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 				NeedWindow: true,
 			},
 			filter: "device == 'aa' && temperature > 10",
-			testData: []interface{}{
+			testData: []map[string]interface{}{
 				map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60},
 				map[string]interface{}{"device": "aa", "temperature": 30.0, "humidity": 55},
 				map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70},
@@ -61,7 +61,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 				NeedWindow: true,
 			},
 			filter: "device == 'aa'",
-			testData: []interface{}{
+			testData: []map[string]interface{}{
 				map[string]interface{}{"device": "aa", "temperature": 25.0},
 				map[string]interface{}{"device": "aa", "humidity": 60},
 				map[string]interface{}{"device": "aa", "temperature": 30.0},
@@ -87,7 +87,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 
 			// 添加 Sink 函数来捕获结果
 			resultChan := make(chan interface{}, 1)
-			strm.AddSink(func(result interface{}) {
+			strm.AddSink(func(result []map[string]interface{}) {
 				select {
 				case resultChan <- result:
 				default:
@@ -152,7 +152,7 @@ func TestStreamWithoutFilter(t *testing.T) {
 
 	strm.Start()
 
-	testData := []interface{}{
+	testData := []map[string]interface{}{
 		map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60},
 		map[string]interface{}{"device": "aa", "temperature": 30.0, "humidity": 55},
 		map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70},
@@ -164,7 +164,7 @@ func TestStreamWithoutFilter(t *testing.T) {
 
 	// 捕获结果
 	resultChan := make(chan interface{})
-	strm.AddSink(func(result interface{}) {
+	strm.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 

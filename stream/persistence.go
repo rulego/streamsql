@@ -14,21 +14,21 @@ import (
 
 // PersistenceManager 数据持久化管理器
 type PersistenceManager struct {
-	dataDir       string        // 持久化数据目录
-	maxFileSize   int64         // 单个文件最大大小（字节）
-	flushInterval time.Duration // 刷新间隔
-	currentFile   *os.File      // 当前写入文件
-	currentSize   int64         // 当前文件大小
-	fileIndex     int           // 文件索引
-	writeMutex    sync.Mutex    // 写入互斥锁
-	flushTimer    *time.Timer   // 刷新定时器
-	pendingData   []interface{} // 待写入数据
-	pendingMutex  sync.Mutex    // 待写入数据互斥锁
-	isRunning     bool          // 是否运行中
-	runningMutex  sync.RWMutex  // 保护isRunning字段的读写锁
-	stopChan      chan struct{} // 停止通道
+	dataDir       string                         // 持久化数据目录
+	maxFileSize   int64                          // 单个文件最大大小（字节）
+	flushInterval time.Duration                  // 刷新间隔
+	currentFile   *os.File                       // 当前写入文件
+	currentSize   int64                          // 当前文件大小
+	fileIndex     int                            // 文件索引
+	writeMutex    sync.Mutex                     // 写入互斥锁
+	flushTimer    *time.Timer                    // 刷新定时器
+	pendingData   []map[string]interface{}       // 待写入数据，类型安全
+	pendingMutex  sync.Mutex                     // 待写入数据互斥锁
+	isRunning     bool                           // 是否运行中
+	runningMutex  sync.RWMutex                   // 保护isRunning字段的读写锁
+	stopChan      chan struct{}                  // 停止通道
 
-	// 统计信息 (新增)
+	// 统计信息 
 	totalPersisted int64
 	totalLoaded    int64
 	filesCreated   int64
@@ -41,7 +41,7 @@ func NewPersistenceManager(dataDir string) *PersistenceManager {
 		maxFileSize:   10 * 1024 * 1024, // 10MB per file
 		flushInterval: 5 * time.Second,  // 5秒刷新一次
 		fileIndex:     0,
-		pendingData:   make([]interface{}, 0),
+		pendingData:   make([]map[string]interface{}, 0),
 		stopChan:      make(chan struct{}),
 	}
 
@@ -60,7 +60,7 @@ func NewPersistenceManagerWithConfig(dataDir string, maxFileSize int64, flushInt
 		maxFileSize:   maxFileSize,
 		flushInterval: flushInterval,
 		fileIndex:     0,
-		pendingData:   make([]interface{}, 0),
+		pendingData:   make([]map[string]interface{}, 0),
 		stopChan:      make(chan struct{}),
 	}
 
@@ -147,7 +147,9 @@ func (pm *PersistenceManager) Stop() error {
 }
 
 // PersistData 持久化单条数据
-func (pm *PersistenceManager) PersistData(data interface{}) error {
+// 参数:
+//   - data: 要持久化的数据，必须是map[string]interface{}类型
+func (pm *PersistenceManager) PersistData(data map[string]interface{}) error {
 	// 检查是否正在运行
 	pm.runningMutex.RLock()
 	running := pm.isRunning
@@ -165,13 +167,16 @@ func (pm *PersistenceManager) PersistData(data interface{}) error {
 }
 
 // LoadPersistedData 加载并删除持久化数据
-func (pm *PersistenceManager) LoadPersistedData() ([]interface{}, error) {
+// 返回值:
+//   - []map[string]interface{}: 加载的数据列表，类型安全
+//   - error: 加载过程中的错误
+func (pm *PersistenceManager) LoadPersistedData() ([]map[string]interface{}, error) {
 	files, err := filepath.Glob(filepath.Join(pm.dataDir, "streamsql_overflow_*.log"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to glob files: %w", err)
 	}
 
-	var allData []interface{}
+	var allData []map[string]interface{}
 
 	for _, filename := range files {
 		data, err := pm.loadDataFromFile(filename)
@@ -258,7 +263,9 @@ func (pm *PersistenceManager) createNewFile() error {
 
 // writeDataToFile 将数据写入文件
 // 注意：此方法应该在writeMutex锁保护下调用
-func (pm *PersistenceManager) writeDataToFile(data interface{}) error {
+// 参数:
+//   - data: 要写入的数据，必须是map[string]interface{}类型
+func (pm *PersistenceManager) writeDataToFile(data map[string]interface{}) error {
 	if pm.currentFile == nil {
 		return fmt.Errorf("no current file")
 	}
@@ -296,7 +303,7 @@ func (pm *PersistenceManager) writeDataToFile(data interface{}) error {
 // flushPendingData 刷新待写入数据
 func (pm *PersistenceManager) flushPendingData() {
 	pm.pendingMutex.Lock()
-	dataToWrite := make([]interface{}, len(pm.pendingData))
+	dataToWrite := make([]map[string]interface{}, len(pm.pendingData))
 	copy(dataToWrite, pm.pendingData)
 	pm.pendingData = pm.pendingData[:0] // 清空切片
 	pm.pendingMutex.Unlock()
@@ -365,14 +372,19 @@ func (pm *PersistenceManager) backgroundProcessor() {
 }
 
 // loadDataFromFile 从文件加载数据
-func (pm *PersistenceManager) loadDataFromFile(filename string) ([]interface{}, error) {
+// 参数:
+//   - filename: 要加载的文件名
+// 返回值:
+//   - []map[string]interface{}: 加载的数据列表，类型安全
+//   - error: 加载过程中的错误
+func (pm *PersistenceManager) loadDataFromFile(filename string) ([]map[string]interface{}, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file %s: %w", filename, err)
 	}
 	defer file.Close()
 
-	var data []interface{}
+	var data []map[string]interface{}
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -384,9 +396,13 @@ func (pm *PersistenceManager) loadDataFromFile(filename string) ([]interface{}, 
 			continue
 		}
 
-		// 提取实际数据
+		// 提取实际数据并进行类型断言
 		if actualData, ok := record["data"]; ok {
-			data = append(data, actualData)
+			if dataMap, isMap := actualData.(map[string]interface{}); isMap {
+				data = append(data, dataMap)
+			} else {
+				logger.Error("Invalid data type in persistence file, expected map[string]interface{}")
+			}
 		}
 	}
 

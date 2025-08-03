@@ -82,9 +82,9 @@ func main() {
 	}
 
 	// Handle real-time transformation results
-	ssql.AddSink(func(result interface{}) {
-		fmt.Printf("Real-time result: %+v\n", result)
-	})
+    ssql.AddSink(func(results []map[string]interface{}) {
+        fmt.Printf("Real-time result: %+v\n", results)
+    })
 
 	// Simulate sensor data input
 	sensorData := []map[string]interface{}{
@@ -195,8 +195,8 @@ func main() {
 						"humidity":    50.0 + rand.Float64()*20,                // Humidity range: 50-70%
 					}
 					// Add data to stream, triggering StreamSQL's real-time processing
-					// AddData distributes data to corresponding windows and aggregators
-					ssql.stream.AddData(randomData)
+                    // Emit distributes data to corresponding windows and aggregators
+                    ssql.Emit(randomData)
 				}
 
 			case <-ctx.Done():
@@ -209,10 +209,10 @@ func main() {
 	// Step 6: Setup Result Processing Pipeline
 	resultChan := make(chan interface{})
 	// Add computation result callback function (Sink)
-	// When window triggers computation, results are output through this callback
-	ssql.stream.AddSink(func(result interface{}) {
-		resultChan <- result
-	})
+    // When window triggers computation, results are output through this callback
+    ssql.AddSink(func(results []map[string]interface{}) {
+        resultChan <- results
+    })
 	
 	// Step 7: Start Result Consumer Goroutine
 	// Count received results for effect verification
@@ -273,9 +273,9 @@ func main() {
 	}
 
 	// Handle aggregation results
-	ssql.AddSink(func(result interface{}) {
-		fmt.Printf("Aggregation result: %+v\n", result)
-	})
+    ssql.AddSink(func(results []map[string]interface{}) {
+        fmt.Printf("Aggregation result: %+v\n", results)
+    })
 
 	// Add nested structured data
 	nestedData := map[string]interface{}{

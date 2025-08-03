@@ -169,7 +169,7 @@ func testDataRecovery() {
 
 	// 添加sink来接收恢复的数据
 	recoveredCount := 0
-	stream.AddSink(func(data interface{}) {
+	stream.AddSink(func(data []map[string]interface{}) {
 		recoveredCount++
 		if recoveredCount <= 5 {
 			fmt.Printf("恢复数据 %d: %+v\n", recoveredCount, data)

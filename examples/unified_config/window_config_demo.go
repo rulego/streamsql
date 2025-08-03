@@ -46,7 +46,7 @@ func testWindowWithConfig(configName string, ssql *streamsql.Streamsql) {
 	// 添加结果处理器
 	stream := ssql.Stream()
 	if stream != nil {
-		stream.AddSink(func(result interface{}) {
+		stream.AddSink(func(result []map[string]interface{}) {
 			fmt.Printf("📊 %s - 窗口结果: %v\n", configName, result)
 		})
 

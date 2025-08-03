@@ -51,7 +51,7 @@ func main() {
 	fmt.Println("✓ SQL执行成功")
 
 	// 5. 添加结果监听器
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("📊 聚合结果: %v\n", result)
 	})
 

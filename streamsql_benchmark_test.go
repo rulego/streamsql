@@ -50,7 +50,7 @@ func BenchmarkStreamSQLCore(b *testing.B) {
 			var resultReceived int64
 
 			// 添加结果处理器
-			ssql.AddSink(func(result interface{}) {
+			ssql.AddSink(func(result []map[string]interface{}) {
 				atomic.AddInt64(&resultReceived, 1)
 			})
 
@@ -150,7 +150,7 @@ func BenchmarkConfigComparison(b *testing.B) {
 			}
 
 			var resultCount int64
-			ssql.AddSink(func(result interface{}) {
+			ssql.AddSink(func(result []map[string]interface{}) {
 				atomic.AddInt64(&resultCount, 1)
 			})
 
@@ -322,7 +322,7 @@ func BenchmarkConfigurationComparison(b *testing.B) {
 			var resultCount int64
 
 			// 添加轻量级sink
-			ssql.AddSink(func(result interface{}) {
+			ssql.AddSink(func(result []map[string]interface{}) {
 				atomic.AddInt64(&resultCount, 1)
 			})
 
@@ -547,7 +547,7 @@ func BenchmarkLightweightVsDefaultComparison(b *testing.B) {
 			}
 
 			var resultCount int64
-			ssql.AddSink(func(result interface{}) {
+			ssql.AddSink(func(result []map[string]interface{}) {
 				atomic.AddInt64(&resultCount, 1)
 			})
 
@@ -641,7 +641,7 @@ func BenchmarkStreamSQLRealistic(b *testing.B) {
 			var actualResultCount int64
 
 			// 测量实际的处理完成
-			ssql.AddSink(func(result interface{}) {
+			ssql.AddSink(func(result []map[string]interface{}) {
 				atomic.AddInt64(&actualResultCount, 1)
 			})
 
@@ -805,7 +805,7 @@ func BenchmarkEndToEndProcessing(b *testing.B) {
 				resultChan := make(chan bool, currentBatchSize)
 
 				// 设置sink来捕获结果
-				ssql.AddSink(func(result interface{}) {
+				ssql.AddSink(func(result []map[string]interface{}) {
 					count := atomic.AddInt64(&resultsReceived, 1)
 					if count <= int64(currentBatchSize) {
 						resultChan <- true
@@ -881,7 +881,7 @@ func BenchmarkSustainedProcessing(b *testing.B) {
 	var lastResultTime time.Time
 
 	// 设置结果处理器
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		atomic.AddInt64(&processedResults, 1)
 		lastResultTime = time.Now()
 	})

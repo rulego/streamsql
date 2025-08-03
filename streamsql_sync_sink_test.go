@@ -44,7 +44,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 		var sinkCallCount int32
 		var sinkResults []interface{}
 		var sinkResultsMux sync.Mutex // 保护sinkResults访问
-		ssql.AddSink(func(result interface{}) {
+		ssql.AddSink(func(result []map[string]interface{}) {
 			atomic.AddInt32(&sinkCallCount, 1)
 			sinkResultsMux.Lock()
 			sinkResults = append(sinkResults, result)
@@ -58,7 +58,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 			{"temperature": 30.0, "humidity": 80.0}, // 符合条件
 		}
 
-		var syncResults []interface{}
+		var syncResults []map[string]interface{}
 
 		// 处理测试数据
 		for _, data := range testData {
@@ -98,25 +98,24 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 
 			// 收集同步结果
 			for _, result := range syncResults {
-				if syncResult, ok := result.(map[string]interface{}); ok {
-					syncTemperatures = append(syncTemperatures, syncResult["temperature"].(float64))
-					syncHumidities = append(syncHumidities, syncResult["humidity"].(float64))
+				syncResult := result
+				syncTemperatures = append(syncTemperatures, syncResult["temperature"].(float64))
+				syncHumidities = append(syncHumidities, syncResult["humidity"].(float64))
 
-					// 验证字符串常量字段
-					assert.Equal(t, "normal", syncResult["status"], "status字段应该是常量'normal'")
-					assert.Equal(t, "sensor_data", syncResult["data_type"], "data_type字段应该是常量'sensor_data'")
+				// 验证字符串常量字段
+				assert.Equal(t, "normal", syncResult["status"], "status字段应该是常量'normal'")
+				assert.Equal(t, "sensor_data", syncResult["data_type"], "data_type字段应该是常量'sensor_data'")
 
-					// 验证反引号字段的数学运算
-					expectedFahrenheit := syncResult["temperature"].(float64)*1.8 + 32
-					assert.InDelta(t, expectedFahrenheit, syncResult["temp_fahrenheit"].(float64), 0.01, "华氏温度转换应该正确")
+				// 验证反引号字段的数学运算
+				expectedFahrenheit := syncResult["temperature"].(float64)*1.8 + 32
+				assert.InDelta(t, expectedFahrenheit, syncResult["temp_fahrenheit"].(float64), 0.01, "华氏温度转换应该正确")
 
-					// 验证结果包含所有预期字段
-					assert.Contains(t, syncResult, "temperature", "应该包含temperature字段")
-					assert.Contains(t, syncResult, "humidity", "应该包含humidity字段")
-					assert.Contains(t, syncResult, "temp_fahrenheit", "应该包含temp_fahrenheit字段")
-					assert.Contains(t, syncResult, "status", "应该包含status字段")
-					assert.Contains(t, syncResult, "data_type", "应该包含data_type字段")
-				}
+				// 验证结果包含所有预期字段
+				assert.Contains(t, syncResult, "temperature", "应该包含temperature字段")
+				assert.Contains(t, syncResult, "humidity", "应该包含humidity字段")
+				assert.Contains(t, syncResult, "temp_fahrenheit", "应该包含temp_fahrenheit字段")
+				assert.Contains(t, syncResult, "status", "应该包含status字段")
+				assert.Contains(t, syncResult, "data_type", "应该包含data_type字段")
 			}
 
 			// 收集异步结果
@@ -173,15 +172,15 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 		// 添加多个AddSink回调，使用原子操作确保线程安全
 		var sink1Count, sink2Count, sink3Count int32
 
-		ssql.AddSink(func(result interface{}) {
+		ssql.AddSink(func(result []map[string]interface{}) {
 			atomic.AddInt32(&sink1Count, 1)
 		})
 
-		ssql.AddSink(func(result interface{}) {
+		ssql.AddSink(func(result []map[string]interface{}) {
 			atomic.AddInt32(&sink2Count, 1)
 		})
 
-		ssql.AddSink(func(result interface{}) {
+		ssql.AddSink(func(result []map[string]interface{}) {
 			atomic.AddInt32(&sink3Count, 1)
 		})
 
@@ -211,7 +210,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 
 		// 添加AddSink回调
 		var sinkCallCount int32
-		ssql.AddSink(func(result interface{}) {
+		ssql.AddSink(func(result []map[string]interface{}) {
 			atomic.AddInt32(&sinkCallCount, 1)
 		})
 
@@ -248,17 +247,15 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 		result, err := ssql.EmitSync(testData)
 		require.NoError(t, err)
 		require.NotNil(t, result)
+		syncResult := result
+		// 验证反引号字段
+		assert.Equal(t, 25.5, syncResult["temp"], "温度字段应该正确")
+		assert.Equal(t, 65.0, syncResult["humidity"], "湿度字段应该正确")
 
-		if syncResult, ok := result.(map[string]interface{}); ok {
-			// 验证反引号字段
-			assert.Equal(t, 25.5, syncResult["temp"], "温度字段应该正确")
-			assert.Equal(t, 65.0, syncResult["humidity"], "湿度字段应该正确")
-
-			// 验证字符串常量字段
-			assert.Equal(t, "celsius", syncResult["unit"], "单位应该是celsius")
-			assert.Equal(t, "high", syncResult["level"], "级别应该是high")
-			assert.Equal(t, "percent", syncResult["humidity_unit"], "湿度单位应该是percent")
-		}
+		// 验证字符串常量字段
+		assert.Equal(t, "celsius", syncResult["unit"], "单位应该是celsius")
+		assert.Equal(t, "high", syncResult["level"], "级别应该是high")
+		assert.Equal(t, "percent", syncResult["humidity_unit"], "湿度单位应该是percent")
 	})
 }
 
@@ -273,7 +270,7 @@ func TestEmitSyncPerformance(t *testing.T) {
 
 	// 添加AddSink回调，使用原子操作确保线程安全
 	var sinkCallCount int32
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		atomic.AddInt32(&sinkCallCount, 1)
 	})
 

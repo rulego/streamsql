@@ -3,9 +3,7 @@ package stream
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/rulego/streamsql/aggregator"
@@ -94,18 +92,22 @@ func (dp *DataProcessor) registerExpressionCalculator(field string, fieldExpr ty
 		currentFieldExpr.Expression,
 		currentFieldExpr.Fields,
 		func(data interface{}) (interface{}, error) {
-			return dp.evaluateExpressionForAggregation(currentFieldExpr, data)
+			// 确保数据是map[string]interface{}类型
+			if dataMap, ok := data.(map[string]interface{}); ok {
+				return dp.evaluateExpressionForAggregation(currentFieldExpr, dataMap)
+			}
+			return nil, fmt.Errorf("unsupported data type: %T, expected map[string]interface{}", data)
 		},
 	)
 }
 
 // evaluateExpressionForAggregation 为聚合计算表达式
-func (dp *DataProcessor) evaluateExpressionForAggregation(fieldExpr types.FieldExpression, data interface{}) (interface{}, error) {
-	// 将数据转换为 map[string]interface{} 以便计算
-	dataMap, err := dp.convertToDataMap(data)
-	if err != nil {
-		return nil, err
-	}
+// 参数:
+//   - fieldExpr: 字段表达式
+//   - data: 要处理的数据，必须是map[string]interface{}类型
+func (dp *DataProcessor) evaluateExpressionForAggregation(fieldExpr types.FieldExpression, data map[string]interface{}) (interface{}, error) {
+	// 直接使用传入的map数据
+	dataMap := data
 
 	// 检查表达式是否包含嵌套字段，如果有则直接使用自定义表达式引擎
 	hasNestedFields := strings.Contains(fieldExpr.Expression, ".")
@@ -147,31 +149,7 @@ func (dp *DataProcessor) evaluateExpressionForAggregation(fieldExpr types.FieldE
 }
 
 // convertToDataMap 将数据转换为map格式
-func (dp *DataProcessor) convertToDataMap(data interface{}) (map[string]interface{}, error) {
-	switch d := data.(type) {
-	case map[string]interface{}:
-		return d, nil
-	default:
-		// 如果不是 map，尝试转换
-		v := reflect.ValueOf(data)
-		if v.Kind() == reflect.Ptr {
-			v = v.Elem()
-		}
-
-		if v.Kind() == reflect.Struct {
-			// 将结构体转换为 map
-			dataMap := make(map[string]interface{})
-			t := v.Type()
-			for i := 0; i < t.NumField(); i++ {
-				field := t.Field(i)
-				dataMap[field.Name] = v.Field(i).Interface()
-			}
-			return dataMap, nil
-		} else {
-			return nil, fmt.Errorf("unsupported data type for expression: %T", data)
-		}
-	}
-}
+// convertToDataMap 方法已移除，请使用 github.com/rulego/streamsql/utils/converter.ToDataMap 函数替代
 
 // evaluateNestedFieldExpression 计算嵌套字段表达式
 func (dp *DataProcessor) evaluateNestedFieldExpression(expression string, dataMap map[string]interface{}) (interface{}, error) {
@@ -440,14 +418,11 @@ func (dp *DataProcessor) applyHavingWithCondition(results []map[string]interface
 }
 
 // processDirectData 直接处理非窗口数据
-func (dp *DataProcessor) processDirectData(data interface{}) {
-	// 直接将数据作为map处理
-	dataMap, ok := data.(map[string]interface{})
-	if !ok {
-		logger.Error("Unsupported data type: %T", data)
-		atomic.AddInt64(&dp.stream.droppedCount, 1)
-		return
-	}
+// 参数:
+//   - data: 要处理的数据，必须是map[string]interface{}类型
+func (dp *DataProcessor) processDirectData(data map[string]interface{}) {
+	// 直接使用传入的map数据
+	dataMap := data
 
 	// 创建结果map，预分配合适容量
 	estimatedSize := len(dp.stream.config.FieldExpressions) + len(dp.stream.config.SimpleFields)
@@ -464,7 +439,7 @@ func (dp *DataProcessor) processDirectData(data interface{}) {
 	// 使用预编译的字段信息处理SimpleFields
 	if len(dp.stream.config.SimpleFields) > 0 {
 		for _, fieldSpec := range dp.stream.config.SimpleFields {
-			dp.stream.processSimpleField(fieldSpec, dataMap, data, result)
+			dp.stream.processSimpleField(fieldSpec, dataMap, dataMap, result)
 		}
 	} else if len(dp.stream.config.FieldExpressions) == 0 {
 		// 如果没有指定字段且没有表达式字段，保留所有字段

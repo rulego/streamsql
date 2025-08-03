@@ -122,19 +122,19 @@ func testSimpleQuery(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加结果监听器
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  📊 简单查询结果: %v\n", result)
 	})
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{
+	testData := []map[string]interface{}{
+		{
 			"device":      "sensor1",
 			"value":       5.0,
 			"temperature": 68.0, // 华氏度
 			"radius":      3.0,
 		},
-		map[string]interface{}{
+		{
 			"device":      "sensor2",
 			"value":       10.0,
 			"temperature": 86.0, // 华氏度
@@ -171,25 +171,25 @@ func testAggregateQuery(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加结果监听器
-	ssql.AddSink(func(result interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		fmt.Printf("  📊 聚合查询结果: %v\n", result)
 	})
 
 	// 添加测试数据
-	testData := []interface{}{
-		map[string]interface{}{
+	testData := []map[string]interface{}{
+		{
 			"device":      "sensor1",
 			"value":       3.0,
 			"temperature": 32.0, // 0°C
 			"radius":      1.0,
 		},
-		map[string]interface{}{
+		{
 			"device":      "sensor1",
 			"value":       4.0,
 			"temperature": 212.0, // 100°C
 			"radius":      2.0,
 		},
-		map[string]interface{}{
+		{
 			"device":      "sensor2",
 			"value":       5.0,
 			"temperature": 68.0, // 20°C

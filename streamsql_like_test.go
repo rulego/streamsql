@@ -28,16 +28,16 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		resultChan := make(chan interface{}, 10)
 
 		// 添加结果回调
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []interface{}{
-			map[string]interface{}{"deviceId": "sensor001", "deviceType": "temperature"},
-			map[string]interface{}{"deviceId": "device002", "deviceType": "humidity"},
-			map[string]interface{}{"deviceId": "sensor003", "deviceType": "pressure"},
-			map[string]interface{}{"deviceId": "pump004", "deviceType": "actuator"},
+		testData := []map[string]interface{}{
+			{"deviceId": "sensor001", "deviceType": "temperature"},
+			{"deviceId": "device002", "deviceType": "humidity"},
+			{"deviceId": "sensor003", "deviceType": "pressure"},
+			{"deviceId": "pump004", "deviceType": "actuator"},
 		}
 
 		// 添加数据
@@ -86,15 +86,15 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		strm := streamsql.stream
 
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
-		testData := []interface{}{
-			map[string]interface{}{"deviceId": "dev1", "status": "connection_error"},
-			map[string]interface{}{"deviceId": "dev2", "status": "running"},
-			map[string]interface{}{"deviceId": "dev3", "status": "timeout_error"},
-			map[string]interface{}{"deviceId": "dev4", "status": "normal"},
+		testData := []map[string]interface{}{
+			{"deviceId": "dev1", "status": "connection_error"},
+			{"deviceId": "dev2", "status": "running"},
+			{"deviceId": "dev3", "status": "timeout_error"},
+			{"deviceId": "dev4", "status": "normal"},
 		}
 
 		for _, data := range testData {
@@ -141,15 +141,15 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		strm := streamsql.stream
 
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
-		testData := []interface{}{
-			map[string]interface{}{"deviceId": "dev1", "message": "system alert: high temperature"},
-			map[string]interface{}{"deviceId": "dev2", "message": "normal operation"},
-			map[string]interface{}{"deviceId": "dev3", "message": "critical alert detected"},
-			map[string]interface{}{"deviceId": "dev4", "message": "info: device startup"},
+		testData := []map[string]interface{}{
+			{"deviceId": "dev1", "message": "system alert: high temperature"},
+			{"deviceId": "dev2", "message": "normal operation"},
+			{"deviceId": "dev3", "message": "critical alert detected"},
+			{"deviceId": "dev4", "message": "info: device startup"},
 		}
 
 		for _, data := range testData {
@@ -196,15 +196,15 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		strm := streamsql.stream
 
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
-		testData := []interface{}{
-			map[string]interface{}{"deviceId": "dev1", "code": "E101"},
-			map[string]interface{}{"deviceId": "dev2", "code": "E202"},
-			map[string]interface{}{"deviceId": "dev3", "code": "E305"},
-			map[string]interface{}{"deviceId": "dev4", "code": "F101"},
+		testData := []map[string]interface{}{
+			{"deviceId": "dev1", "code": "E101"},
+			{"deviceId": "dev2", "code": "E202"},
+			{"deviceId": "dev3", "code": "E305"},
+			{"deviceId": "dev4", "code": "F101"},
 		}
 
 		for _, data := range testData {
@@ -241,15 +241,15 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		strm := streamsql.stream
 
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
-		testData := []interface{}{
-			map[string]interface{}{"deviceId": "dev1", "filename": "system.log"},
-			map[string]interface{}{"deviceId": "dev2", "filename": "config.txt"},
-			map[string]interface{}{"deviceId": "dev3", "filename": "error.log"},
-			map[string]interface{}{"deviceId": "dev4", "filename": "backup.bak"},
+		testData := []map[string]interface{}{
+			{"deviceId": "dev1", "filename": "system.log"},
+			{"deviceId": "dev2", "filename": "config.txt"},
+			{"deviceId": "dev3", "filename": "error.log"},
+			{"deviceId": "dev4", "filename": "backup.bak"},
 		}
 
 		for _, data := range testData {
@@ -296,16 +296,16 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		strm := streamsql.stream
 
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
-		testData := []interface{}{
-			map[string]interface{}{"deviceId": "sensor001", "deviceType": "temperature"},
-			map[string]interface{}{"deviceId": "sensor002", "deviceType": "temperature"},
-			map[string]interface{}{"deviceId": "device003", "deviceType": "temperature"},
-			map[string]interface{}{"deviceId": "sensor004", "deviceType": "humidity"},
-			map[string]interface{}{"deviceId": "pump005", "deviceType": "actuator"},
+		testData := []map[string]interface{}{
+			{"deviceId": "sensor001", "deviceType": "temperature"},
+			{"deviceId": "sensor002", "deviceType": "temperature"},
+			{"deviceId": "device003", "deviceType": "temperature"},
+			{"deviceId": "sensor004", "deviceType": "humidity"},
+			{"deviceId": "pump005", "deviceType": "actuator"},
 		}
 
 		for _, data := range testData {
@@ -358,15 +358,15 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		strm := streamsql.stream
 
 		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result interface{}) {
+		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
-		testData := []interface{}{
-			map[string]interface{}{"deviceType": "temperature_sensor", "temperature": 25.0},
-			map[string]interface{}{"deviceType": "temperature_sensor", "temperature": 30.0},
-			map[string]interface{}{"deviceType": "humidity_sensor", "temperature": 22.0},
-			map[string]interface{}{"deviceType": "pressure_gauge", "temperature": 20.0},
+		testData := []map[string]interface{}{
+			{"deviceType": "temperature_sensor", "temperature": 25.0},
+			{"deviceType": "temperature_sensor", "temperature": 30.0},
+			{"deviceType": "humidity_sensor", "temperature": 22.0},
+			{"deviceType": "pressure_gauge", "temperature": 20.0},
 		}
 
 		for _, data := range testData {
@@ -419,15 +419,15 @@ func TestLikeFunctionEquivalence(t *testing.T) {
 		assert.Nil(t, err)
 
 		resultChan := make(chan interface{}, 10)
-		streamsql.stream.AddSink(func(result interface{}) {
+		streamsql.stream.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
 		// 测试数据
-		testData := []interface{}{
-			map[string]interface{}{"deviceId": "sensor001"},
-			map[string]interface{}{"deviceId": "device002"},
-			map[string]interface{}{"deviceId": "sensor003"},
+		testData := []map[string]interface{}{
+			{"deviceId": "sensor001"},
+			{"deviceId": "device002"},
+			{"deviceId": "sensor003"},
 		}
 
 		// 添加数据
@@ -521,7 +521,7 @@ func TestLikePatternMatching(t *testing.T) {
 			assert.Nil(t, err)
 
 			resultChan := make(chan interface{}, 10)
-			streamsql.stream.AddSink(func(result interface{}) {
+			streamsql.stream.AddSink(func(result []map[string]interface{}) {
 				resultChan <- result
 			})
 

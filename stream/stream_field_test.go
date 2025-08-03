@@ -100,7 +100,7 @@ func TestSelectStarWithExpressionFields(t *testing.T) {
 			// 收集结果
 			var mu sync.Mutex
 			var results []interface{}
-			stream.AddSink(func(result interface{}) {
+			stream.AddSink(func(result []map[string]interface{}) {
 				mu.Lock()
 				defer mu.Unlock()
 				results = append(results, result)
@@ -205,7 +205,7 @@ func TestFieldProcessor(t *testing.T) {
 
 			var mu sync.Mutex
 			var results []interface{}
-			stream.AddSink(func(result interface{}) {
+			stream.AddSink(func(result []map[string]interface{}) {
 				mu.Lock()
 				defer mu.Unlock()
 				results = append(results, result)
@@ -297,7 +297,7 @@ func TestExpressionEvaluation(t *testing.T) {
 
 			var mu sync.Mutex
 			var results []interface{}
-			stream.AddSink(func(result interface{}) {
+			stream.AddSink(func(result []map[string]interface{}) {
 				mu.Lock()
 				defer mu.Unlock()
 				results = append(results, result)

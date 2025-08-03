@@ -168,15 +168,11 @@ func (s *Streamsql) Execute(sql string) error {
 	return nil
 }
 
-// Emit 向流中添加一条数据记录。
-// 数据会根据已配置的SQL查询进行处理和聚合。
-//
-// 支持的数据格式:
-//   - map[string]interface{}: 最常用的键值对格式
-//   - 结构体: 会自动转换为map格式处理
+// Emit 添加数据到流处理管道。
+// 接受类型安全的map[string]interface{}格式数据。
 //
 // 参数:
-//   - data: 要添加的数据，通常是map[string]interface{}或结构体
+//   - data: 要添加的数据，必须是map[string]interface{}类型
 //
 // 示例:
 //
@@ -194,50 +190,36 @@ func (s *Streamsql) Execute(sql string) error {
 //	    "action": "click",
 //	    "page": "/home",
 //	})
-func (s *Streamsql) Emit(data interface{}) {
+func (s *Streamsql) Emit(data map[string]interface{}) {
 	if s.stream != nil {
 		s.stream.Emit(data)
 	}
 }
 
 // EmitSync 同步处理数据，立即返回处理结果。
-// 仅适用于非聚合查询（如过滤、转换等），聚合查询会返回错误。
-//
-// 对于非聚合查询，此方法提供同步的数据处理能力，同时：
-// 1. 立即返回处理结果（同步）
-// 2. 触发已注册的AddSink回调（异步）
-//
-// 这确保了同步和异步模式的一致性，用户可以同时获得：
-// - 立即可用的处理结果
-// - 异步回调处理（用于日志、监控、持久化等）
+// 仅适用于非聚合查询，聚合查询会返回错误。
+// 接受类型安全的map[string]interface{}格式数据。
 //
 // 参数:
-//   - data: 要处理的数据
+//   - data: 要处理的数据，必须是map[string]interface{}类型
 //
 // 返回值:
-//   - interface{}: 处理后的结果，如果不匹配过滤条件返回nil
-//   - error: 处理错误，如果是聚合查询会返回错误
+//   - map[string]interface{}: 处理后的结果数据，如果不匹配过滤条件返回nil
+//   - error: 处理错误
 //
 // 示例:
 //
-//	// 添加日志回调
-//	ssql.AddSink(func(result interface{}) {
-//	    fmt.Printf("异步日志: %v\n", result)
-//	})
-//
-//	// 同步处理并立即获取结果
 //	result, err := ssql.EmitSync(map[string]interface{}{
+//	    "deviceId": "sensor001",
 //	    "temperature": 25.5,
-//	    "humidity": 60.0,
 //	})
 //	if err != nil {
-//	    // 处理错误
+//	    log.Printf("处理错误: %v", err)
 //	} else if result != nil {
-//	    // 立即使用处理结果
-//	    fmt.Printf("同步结果: %v\n", result)
-//	    // 同时异步回调也会被触发
+//	    // 立即使用处理结果（result是map[string]interface{}类型）
+//	    fmt.Printf("处理结果: %v\n", result)
 //	}
-func (s *Streamsql) EmitSync(data interface{}) (interface{}, error) {
+func (s *Streamsql) EmitSync(data map[string]interface{}) (map[string]interface{}, error) {
 	if s.stream == nil {
 		return nil, fmt.Errorf("stream未初始化")
 	}
@@ -272,8 +254,8 @@ func (s *Streamsql) IsAggregationQuery() bool {
 // 示例:
 //
 //	// 添加结果处理回调
-//	ssql.Stream().AddSink(func(result interface{}) {
-//	    fmt.Printf("处理结果: %v\n", result)
+//	ssql.Stream().AddSink(func(results []map[string]interface{}) {
+//	    fmt.Printf("处理结果: %v\n", results)
 //	})
 //
 //	// 获取结果通道
@@ -321,25 +303,25 @@ func (s *Streamsql) Stop() {
 // 这是对 Stream().AddSink() 的便捷封装，使API调用更简洁。
 //
 // 参数:
-//   - sink: 结果处理函数，接收处理结果作为参数
+//   - sink: 结果处理函数，接收[]map[string]interface{}类型的结果数据
 //
 // 示例:
 //
 //	// 直接添加结果处理
-//	ssql.AddSink(func(result interface{}) {
-//	    fmt.Printf("处理结果: %v\n", result)
+//	ssql.AddSink(func(results []map[string]interface{}) {
+//	    fmt.Printf("处理结果: %v\n", results)
 //	})
 //
 //	// 添加多个处理器
-//	ssql.AddSink(func(result interface{}) {
+//	ssql.AddSink(func(results []map[string]interface{}) {
 //	    // 保存到数据库
-//	    saveToDatabase(result)
+//	    saveToDatabase(results)
 //	})
-//	ssql.AddSink(func(result interface{}) {
+//	ssql.AddSink(func(results []map[string]interface{}) {
 //	    // 发送到消息队列
-//	    sendToQueue(result)
+//	    sendToQueue(results)
 //	})
-func (s *Streamsql) AddSink(sink func(interface{})) {
+func (s *Streamsql) AddSink(sink func([]map[string]interface{})) {
 	if s.stream != nil {
 		s.stream.AddSink(sink)
 	}
@@ -366,14 +348,16 @@ func (s *Streamsql) AddSink(sink func(interface{})) {
 //	// | bb     | 22.0     |
 //	// +--------+----------+
 func (s *Streamsql) PrintTable() {
-	s.AddSink(func(result interface{}) {
-		s.printTableFormat(result)
+	s.AddSink(func(results []map[string]interface{}) {
+		s.printTableFormat(results)
 	})
 }
 
 // printTableFormat 格式化打印表格数据
-func (s *Streamsql) printTableFormat(result interface{}) {
-	table.FormatTableData(result, s.fieldOrder)
+// 参数:
+//   - results: []map[string]interface{}类型的结果数据
+func (s *Streamsql) printTableFormat(results []map[string]interface{}) {
+	table.FormatTableData(results, s.fieldOrder)
 }
 
 // ToChannel 返回结果通道，用于异步获取处理结果。
@@ -393,10 +377,14 @@ func (s *Streamsql) printTableFormat(result interface{}) {
 //	        }
 //	    }()
 //	}
+
+// ToChannel 将查询结果转换为通道输出
+// 返回一个只读通道，用于接收查询结果
 //
 // 注意:
 //   - 必须有消费者持续从通道读取数据，否则可能导致流处理阻塞
-func (s *Streamsql) ToChannel() <-chan interface{} {
+//   - 返回的通道传输批量结果数据
+func (s *Streamsql) ToChannel() <-chan []map[string]interface{} {
 	if s.stream != nil {
 		return s.stream.GetResultsChan()
 	}
