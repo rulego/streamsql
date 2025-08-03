@@ -21,40 +21,6 @@ const (
 	WindowEndField   = "window_end"
 )
 
-// 溢出策略常量
-const (
-	StrategyDrop    = "drop"
-	StrategyBlock   = "block"
-	StrategyExpand  = "expand"
-	StrategyPersist = "persist"
-)
-
-// 统计信息字段常量
-const (
-	StatsInputCount    = "input_count"
-	StatsOutputCount   = "output_count"
-	StatsDroppedCount  = "dropped_count"
-	StatsDataChanLen   = "data_chan_len"
-	StatsDataChanCap   = "data_chan_cap"
-	StatsResultChanLen = "result_chan_len"
-	StatsResultChanCap = "result_chan_cap"
-	StatsSinkPoolLen   = "sink_pool_len"
-	StatsSinkPoolCap   = "sink_pool_cap"
-	StatsActiveRetries = "active_retries"
-	StatsExpanding     = "expanding"
-)
-
-// 详细统计信息字段常量
-const (
-	StatsBasicStats       = "basic_stats"
-	StatsDataChanUsage    = "data_chan_usage"
-	StatsResultChanUsage  = "result_chan_usage"
-	StatsSinkPoolUsage    = "sink_pool_usage"
-	StatsProcessRate      = "process_rate"
-	StatsDropRate         = "drop_rate"
-	StatsPerformanceLevel = "performance_level"
-)
-
 // 性能级别常量
 const (
 	PerformanceLevelCritical     = "CRITICAL"
@@ -89,7 +55,7 @@ type Stream struct {
 	done           chan struct{} // 用于关闭处理协程
 	sinkWorkerPool chan func()   // Sink工作池，避免阻塞
 
-	// 新增：线程安全控制
+	// 线程安全控制
 	dataChanMux      sync.RWMutex // 保护dataChan访问的读写锁
 	sinksMux         sync.RWMutex // 保护sinks访问的读写锁
 	expansionMux     sync.Mutex   // 防止并发扩容的互斥锁
@@ -109,8 +75,8 @@ type Stream struct {
 	overflowStrategy   string              // 溢出策略: "drop", "block", "expand", "persist"
 	persistenceManager *PersistenceManager // 持久化管理器
 
-	// 预编译的AddData函数指针，避免每次switch判断
-	addDataFunc func(map[string]interface{}) // 根据策略预设的函数指针
+	// 数据处理策略，使用策略模式提供更好的扩展性
+	dataStrategy DataProcessingStrategy // 数据处理策略实例
 
 	// 预编译字段处理信息，避免重复解析
 	compiledFieldInfo map[string]*fieldProcessInfo      // 字段处理信息缓存
@@ -227,13 +193,20 @@ func (s *Stream) Start() {
 //   - data: 要处理的数据，必须是map[string]interface{}类型
 func (s *Stream) Emit(data map[string]interface{}) {
 	atomic.AddInt64(&s.inputCount, 1)
-	// 直接调用预编译的函数指针，避免switch判断
-	s.addDataFunc(data)
+	// 使用策略模式处理数据，提供更好的扩展性
+	s.dataStrategy.ProcessData(data)
 }
 
 // Stop 停止流处理
 func (s *Stream) Stop() {
 	close(s.done)
+
+	// 停止并清理数据处理策略资源
+	if s.dataStrategy != nil {
+		if err := s.dataStrategy.Stop(); err != nil {
+			logger.Error("Failed to stop data strategy: %v", err)
+		}
+	}
 
 	// 停止持久化管理器
 	if s.persistenceManager != nil {
@@ -243,8 +216,6 @@ func (s *Stream) Stop() {
 	}
 }
 
-// GetStats, GetDetailedStats, ResetStats, expandDataChannel, persistAndRetryData 方法已移动到stats_manager.go和data_handler.go文件
-
 // LoadAndReprocessPersistedData 加载并重新处理持久化数据
 func (s *Stream) LoadAndReprocessPersistedData() error {
 	if s.persistenceManager == nil {
@@ -252,37 +223,23 @@ func (s *Stream) LoadAndReprocessPersistedData() error {
 	}
 
 	// 加载持久化数据
-	persistedData, err := s.persistenceManager.LoadPersistedData()
+	err := s.persistenceManager.LoadAndRecoverData()
 	if err != nil {
 		return fmt.Errorf("failed to load persisted data: %w", err)
 	}
 
-	if len(persistedData) == 0 {
+	// 检查是否有恢复数据
+	if !s.persistenceManager.IsInRecoveryMode() {
 		logger.Info("No persistent data to recover")
 		return nil
 	}
 
-	logger.Info("Start reprocessing %d persistent data records", len(persistedData))
+	logger.Info("Starting persistent data recovery process")
 
-	// 重新处理每条数据
-	successCount := 0
-	for i, data := range persistedData {
-		// 使用线程安全方式尝试发送数据
-		if s.safeSendToDataChan(data) {
-			successCount++
-			continue
-		}
+	// 启动恢复处理协程
+	go s.checkAndProcessRecoveryData()
 
-		// 如果通道还是满的，等待一小段时间再试
-		time.Sleep(10 * time.Millisecond)
-		if s.safeSendToDataChan(data) {
-			successCount++
-		} else {
-			logger.Warn("Failed to recover data record %d, channel still full", i+1)
-		}
-	}
-
-	logger.Info("Persistent data recovery completed: successful %d/%d records", successCount, len(persistedData))
+	logger.Info("Persistent data recovery process started")
 	return nil
 }
 
@@ -309,6 +266,7 @@ func (s *Stream) IsAggregationQuery() bool {
 // 仅适用于非聚合查询，聚合查询会返回错误
 // 参数:
 //   - data: 要处理的数据，必须是map[string]interface{}类型
+//
 // 返回值:
 //   - map[string]interface{}: 处理后的结果数据，如果不匹配过滤条件返回nil
 //   - error: 处理错误，如果是聚合查询会返回错误
@@ -330,6 +288,7 @@ func (s *Stream) ProcessSync(data map[string]interface{}) (map[string]interface{
 // processDirectDataSync 同步版本的直接数据处理
 // 参数:
 //   - data: 要处理的数据，必须是map[string]interface{}类型
+//
 // 返回值:
 //   - map[string]interface{}: 处理后的结果数据
 //   - error: 处理错误

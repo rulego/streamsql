@@ -72,7 +72,9 @@ func (sf *StreamFactory) createStreamWithUnifiedConfig(config types.Config) (*St
 	}
 
 	// 设置数据处理策略
-	sf.setupDataProcessingStrategy(stream, config.PerformanceConfig)
+	if err := sf.setupDataProcessingStrategy(stream, config.PerformanceConfig); err != nil {
+		return nil, fmt.Errorf("failed to setup data processing strategy: %w", err)
+	}
 
 	// 预编译字段处理信息
 	stream.compileFieldProcessInfo()
@@ -127,26 +129,36 @@ func (sf *StreamFactory) initializePersistenceManager(stream *Stream, perfConfig
 			persistConfig.MaxFileSize,
 			persistConfig.FlushInterval,
 		)
-		if err := stream.persistenceManager.Start(); err != nil {
+		err := stream.persistenceManager.Start()
+		if err != nil {
 			return fmt.Errorf("failed to start persistence manager: %w", err)
 		}
+		// 尝试加载和恢复持久化数据
+		return stream.persistenceManager.LoadAndRecoverData()
 	}
 	return nil
 }
 
 // setupDataProcessingStrategy 设置数据处理策略
-func (sf *StreamFactory) setupDataProcessingStrategy(stream *Stream, perfConfig types.PerformanceConfig) {
-	// 根据溢出策略预设AddData函数指针，避免运行时switch判断
-	switch perfConfig.OverflowConfig.Strategy {
-	case StrategyBlock:
-		stream.addDataFunc = stream.addDataBlocking
-	case StrategyExpand:
-		stream.addDataFunc = stream.addDataWithExpansion
-	case StrategyPersist:
-		stream.addDataFunc = stream.addDataWithPersistence
-	default:
-		stream.addDataFunc = stream.addDataWithDrop
+// 使用策略模式替代函数指针，提供更好的扩展性和可维护性
+func (sf *StreamFactory) setupDataProcessingStrategy(stream *Stream, perfConfig types.PerformanceConfig) error {
+	// 创建策略工厂
+	strategyFactory := NewStrategyFactory()
+
+	// 根据配置创建对应的策略实例
+	strategy, err := strategyFactory.CreateStrategy(perfConfig.OverflowConfig.Strategy)
+	if err != nil {
+		return err
 	}
+
+	// 初始化策略
+	if err := strategy.Init(stream, perfConfig); err != nil {
+		return err
+	}
+
+	// 设置策略到Stream实例
+	stream.dataStrategy = strategy
+	return nil
 }
 
 // startWorkerRoutines 启动工作协程

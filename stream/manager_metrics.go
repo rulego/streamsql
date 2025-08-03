@@ -6,14 +6,14 @@ import (
 
 // StatsManager 统计信息管理器
 type StatsManager struct {
-	stream *Stream
+	stream         *Stream
 	statsCollector *StatsCollector
 }
 
 // NewStatsManager 创建统计信息管理器
 func NewStatsManager(stream *Stream) *StatsManager {
 	return &StatsManager{
-		stream: stream,
+		stream:         stream,
 		statsCollector: NewStatsCollector(),
 	}
 }
@@ -59,7 +59,7 @@ func (s *Stream) GetDetailedStats() map[string]interface{} {
 		dropRate = float64(basicStats[DroppedCount]) / float64(basicStats[InputCount]) * 100
 	}
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		BasicStats:       basicStats,
 		DataChanUsage:    dataUsage,
 		ResultChanUsage:  resultUsage,
@@ -68,6 +68,13 @@ func (s *Stream) GetDetailedStats() map[string]interface{} {
 		DropRate:         dropRate,
 		PerformanceLevel: AssessPerformanceLevel(dataUsage, dropRate),
 	}
+
+	// 添加持久化统计信息
+	if s.persistenceManager != nil {
+		result["Persistence"] = s.persistenceManager.GetStats()
+	}
+
+	return result
 }
 
 // ResetStats 重置统计信息
