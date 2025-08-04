@@ -32,14 +32,14 @@ func NewTimeSlot(start, end *time.Time) *TimeSlot {
 	}
 }
 
-// Hash 生成槽位的哈希值
+// Hash generates slot hash value
 func (ts TimeSlot) Hash() uint64 {
-	// 将开始时间和结束时间转换为 Unix 时间戳（纳秒级）
+	// Convert start and end times to Unix timestamps (nanoseconds)
 	startNano := ts.Start.UnixNano()
 	endNano := ts.End.UnixNano()
 
-	// 使用简单但高效的哈希算法
-	// 将两个时间戳组合成一个唯一的哈希值
+	// Use simple but efficient hash algorithm
+	// Combine two timestamps into unique hash value
 	hash := uint64(startNano)
 	hash = (hash << 32) | (hash >> 32)
 	hash = hash ^ uint64(endNano)
@@ -47,7 +47,7 @@ func (ts TimeSlot) Hash() uint64 {
 	return hash
 }
 
-// Contains 检查给定时间是否在槽位范围内
+// Contains checks if given time is within slot range
 func (ts TimeSlot) Contains(t time.Time) bool {
 	return (t.Equal(*ts.Start) || t.After(*ts.Start)) &&
 		t.Before(*ts.End)

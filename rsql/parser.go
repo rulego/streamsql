@@ -191,13 +191,13 @@ func (p *Parser) createCombinedError() error {
 }
 
 func (p *Parser) parseSelect(stmt *SelectStatement) error {
-	// 验证第一个token是否为SELECT
+	// Validate if first token is SELECT
 	firstToken := p.lexer.NextToken()
 	if firstToken.Type != TokenSELECT {
-		// 如果不是SELECT，检查是否是拼写错误
+		// If not SELECT, check for typos
 		if firstToken.Type == TokenIdent {
-			// 这里的错误已经由lexer的checkForTypos处理了
-			// 我们继续解析，假设用户想要SELECT
+			// The error here has been handled by lexer's checkForTypos
+			// Continue parsing, assuming user meant SELECT
 		} else {
 			return CreateSyntaxError(
 				fmt.Sprintf("Expected SELECT, got %s", firstToken.Value),
@@ -237,7 +237,7 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 
 	for {
 		fieldCount++
-		// 安全检查：防止无限循环
+		// Safety check: prevent infinite loops
 		if fieldCount > maxFields {
 			return errors.New("select field list parsing exceeded maximum fields, possible syntax error")
 		}
@@ -369,7 +369,7 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 		return nil
 	}
 
-	// 设置最大次数限制，防止无限循环
+	// Set max iterations limit to prevent infinite loops
 	maxIterations := 100
 	iterations := 0
 
@@ -410,16 +410,16 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 		case TokenNOT:
 			conditions = append(conditions, "NOT")
 		default:
-			// 处理字符串值的引号
-			if len(conditions) > 0 && conditions[len(conditions)-1] == "'" {
-				conditions[len(conditions)-1] = conditions[len(conditions)-1] + tok.Value
-			} else {
-				conditions = append(conditions, tok.Value)
-			}
+			// Handle string value quotes
+		if len(conditions) > 0 && conditions[len(conditions)-1] == "'" {
+			conditions[len(conditions)-1] = conditions[len(conditions)-1] + tok.Value
+		} else {
+			conditions = append(conditions, tok.Value)
+		}
 		}
 	}
 
-	// 验证WHERE条件中的函数
+	// Validate functions in WHERE condition
 	whereCondition := strings.Join(conditions, " ")
 	if whereCondition != "" {
 		validator := NewFunctionValidator(p.errorRecovery)
@@ -454,7 +454,7 @@ func (p *Parser) parseWindowFunction(stmt *SelectStatement, winType string) erro
 			continue
 		}
 		//valTok := p.lexer.NextToken()
-		// 处理引号包裹的值
+		// Handle quoted values
 		if strings.HasPrefix(valTok.Value, "'") && strings.HasSuffix(valTok.Value, "'") {
 			valTok.Value = strings.Trim(valTok.Value, "'")
 		}
@@ -611,7 +611,7 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 				if strings.HasPrefix(next.Value, "'") && strings.HasSuffix(next.Value, "'") {
 					next.Value = strings.Trim(next.Value, "'")
 				}
-				// 检查Window是否已初始化，如果未初始化则创建新的WindowDefinition
+				// Check if Window is initialized; if not, create new WindowDefinition
 				if stmt.Window.Type == "" {
 					stmt.Window = WindowDefinition{
 						TsProp: next.Value,
@@ -643,7 +643,7 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 				default:
 
 				}
-				// 检查Window是否已初始化，如果未初始化则创建新的WindowDefinition
+				// Check if Window is initialized; if not, create new WindowDefinition
 				if stmt.Window.Type == "" {
 					stmt.Window = WindowDefinition{
 						TimeUnit: timeUnit,
@@ -862,7 +862,7 @@ func (p *Parser) parseHaving(stmt *SelectStatement) error {
 		case TokenNOT:
 			conditions = append(conditions, "NOT")
 		default:
-			// 处理字符串值的引号
+			// Handle string value quotes
 			if len(conditions) > 0 && conditions[len(conditions)-1] == "'" {
 				conditions[len(conditions)-1] = conditions[len(conditions)-1] + tok.Value
 			} else {
@@ -871,7 +871,7 @@ func (p *Parser) parseHaving(stmt *SelectStatement) error {
 		}
 	}
 
-	// 验证HAVING条件中的函数
+	// Validate functions in HAVING condition
 	havingCondition := strings.Join(conditions, " ")
 	if havingCondition != "" {
 		validator := NewFunctionValidator(p.errorRecovery)

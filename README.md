@@ -3,6 +3,7 @@
 [![Go Report](https://goreportcard.com/badge/github.com/rulego/streamsql)](https://goreportcard.com/report/github.com/rulego/streamsql)
 [![CI](https://github.com/rulego/streamsql/actions/workflows/ci.yml/badge.svg)](https://github.com/rulego/streamsql/actions/workflows/ci.yml)
 [![RELEASE](https://github.com/rulego/streamsql/actions/workflows/release.yml/badge.svg)](https://github.com/rulego/streamsql/actions/workflows/release.yml)
+[![codecov](https://codecov.io/gh/rulego/streamsql/graph/badge.svg?token=1CK1O5J1BI)](https://codecov.io/gh/rulego/streamsql)
 
 English| [简体中文](README_ZH.md)
 
@@ -111,6 +112,7 @@ func main() {
 	// Process data one by one, each will output results immediately
 	for _, data := range sensorData {
 		ssql.Emit(data)
+        //changedData,err:=ssql.EmitSync(data) //Synchronize to obtain processing results
 		time.Sleep(100 * time.Millisecond) // Simulate real-time data arrival
 	}
 

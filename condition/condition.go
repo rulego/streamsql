@@ -16,7 +16,7 @@ type ExprCondition struct {
 }
 
 func NewExprCondition(expression string) (Condition, error) {
-	// 添加自定义字符串函数支持（startsWith、endsWith、contains是内置操作符）
+	// Add custom string function support (startsWith, endsWith, contains are built-in operators)
 	options := []expr.Option{
 		expr.Function("like_match", func(params ...any) (any, error) {
 			if len(params) != 2 {
@@ -60,22 +60,22 @@ func (ec *ExprCondition) Evaluate(env interface{}) bool {
 	return result.(bool)
 }
 
-// matchesLikePattern 实现LIKE模式匹配
-// 支持%（匹配任意字符序列）和_（匹配单个字符）
+// matchesLikePattern implements LIKE pattern matching
+// Supports % (matches any character sequence) and _ (matches single character)
 func matchesLikePattern(text, pattern string) bool {
 	return likeMatch(text, pattern, 0, 0)
 }
 
-// likeMatch 递归实现LIKE匹配算法
+// likeMatch recursively implements LIKE matching algorithm
 func likeMatch(text, pattern string, textIndex, patternIndex int) bool {
-	// 如果模式已经匹配完成
+	// If pattern has been fully matched
 	if patternIndex >= len(pattern) {
-		return textIndex >= len(text) // 文本也应该匹配完成
+		return textIndex >= len(text) // Text should also be fully matched
 	}
 
-	// 如果文本已经结束，但模式还有非%字符，则不匹配
+	// If text has ended but pattern still has non-% characters, no match
 	if textIndex >= len(text) {
-		// 检查剩余的模式是否都是%
+		// Check if remaining pattern characters are all %
 		for i := patternIndex; i < len(pattern); i++ {
 			if pattern[i] != '%' {
 				return false
@@ -84,16 +84,16 @@ func likeMatch(text, pattern string, textIndex, patternIndex int) bool {
 		return true
 	}
 
-	// 处理当前模式字符
+	// Process current pattern character
 	patternChar := pattern[patternIndex]
 
 	if patternChar == '%' {
-		// %可以匹配0个或多个字符
-		// 尝试匹配0个字符（跳过%）
+		// % can match 0 or more characters
+		// Try matching 0 characters (skip %)
 		if likeMatch(text, pattern, textIndex, patternIndex+1) {
 			return true
 		}
-		// 尝试匹配1个或多个字符
+		// Try matching 1 or more characters
 		for i := textIndex; i < len(text); i++ {
 			if likeMatch(text, pattern, i+1, patternIndex+1) {
 				return true
@@ -101,10 +101,10 @@ func likeMatch(text, pattern string, textIndex, patternIndex int) bool {
 		}
 		return false
 	} else if patternChar == '_' {
-		// _匹配恰好一个字符
+		// _ matches exactly one character
 		return likeMatch(text, pattern, textIndex+1, patternIndex+1)
 	} else {
-		// 普通字符必须精确匹配
+		// Regular characters must match exactly
 		if text[textIndex] == patternChar {
 			return likeMatch(text, pattern, textIndex+1, patternIndex+1)
 		}

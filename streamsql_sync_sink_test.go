@@ -157,7 +157,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "同步模式仅支持非聚合查询")
+		assert.Contains(t, err.Error(), "synchronous mode only supports non-aggregation queries, use Emit() method for aggregation queries")
 	})
 
 	t.Run("多个AddSink回调都被触发", func(t *testing.T) {

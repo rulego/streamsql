@@ -25,10 +25,10 @@ import (
 	"github.com/rulego/streamsql/utils/table"
 )
 
-// Streamsql 是StreamSQL流处理引擎的主要接口。
-// 它封装了SQL解析、流处理、窗口管理等核心功能。
+// Streamsql is the main interface for the StreamSQL streaming engine.
+// It encapsulates core functionality including SQL parsing, stream processing, and window management.
 //
-// 使用示例:
+// Usage example:
 //
 //	ssql := streamsql.New()
 //	err := ssql.Execute("SELECT AVG(temperature) FROM stream GROUP BY TumblingWindow('5s')")
@@ -36,42 +36,39 @@ import (
 type Streamsql struct {
 	stream *stream.Stream
 
-	// 性能配置模式
+	// Performance configuration mode
 	performanceMode string // "default", "high_performance", "low_latency", "zero_data_loss", "custom"
 	customConfig    *types.PerformanceConfig
 
-	// 新增：同步处理模式配置
-	enableSyncMode bool // 是否启用同步模式（用于非聚合查询）
-
-	// 保存原始SELECT字段顺序，用于表格输出时保持字段顺序
+	// Save original SELECT field order to maintain field order for table output
 	fieldOrder []string
 }
 
-// New 创建一个新的StreamSQL实例。
-// 支持通过可选的Option参数进行配置。
+// New creates a new StreamSQL instance.
+// Supports configuration through optional Option parameters.
 //
-// 参数:
-//   - options: 可变长度的配置选项，用于自定义StreamSQL行为
+// Parameters:
+//   - options: Variable configuration options for customizing StreamSQL behavior
 //
-// 返回值:
-//   - *Streamsql: 新创建的StreamSQL实例
+// Returns:
+//   - *Streamsql: Newly created StreamSQL instance
 //
-// 示例:
+// Examples:
 //
-//	// 创建默认实例
+//	// Create default instance
 //	ssql := streamsql.New()
 //
-//	// 创建高性能实例
+//	// Create high performance instance
 //	ssql := streamsql.New(streamsql.WithHighPerformance())
 //
-//	// 创建零数据丢失实例
+//	// Create zero data loss instance
 //	ssql := streamsql.New(streamsql.WithZeroDataLoss())
 func New(options ...Option) *Streamsql {
 	s := &Streamsql{
-		performanceMode: "default", // 默认使用标准性能配置
+		performanceMode: "default", // Default to standard performance configuration
 	}
 
-	// 应用所有配置选项
+	// Apply all configuration options
 	for _, option := range options {
 		option(s)
 	}
@@ -79,39 +76,39 @@ func New(options ...Option) *Streamsql {
 	return s
 }
 
-// Execute 解析并执行SQL查询，创建对应的流处理管道。
-// 这是StreamSQL的核心方法，负责将SQL转换为实际的流处理逻辑。
+// Execute parses and executes SQL queries, creating corresponding stream processing pipelines.
+// This is the core method of StreamSQL, responsible for converting SQL into actual stream processing logic.
 //
-// 支持的SQL语法:
-//   - SELECT 子句: 选择字段和聚合函数
-//   - FROM 子句: 指定数据源（通常为'stream'）
-//   - WHERE 子句: 数据过滤条件
-//   - GROUP BY 子句: 分组字段和窗口函数
-//   - HAVING 子句: 聚合结果过滤
-//   - LIMIT 子句: 限制结果数量
-//   - DISTINCT: 结果去重
+// Supported SQL syntax:
+//   - SELECT clause: Select fields and aggregate functions
+//   - FROM clause: Specify data source (usually 'stream')
+//   - WHERE clause: Data filtering conditions
+//   - GROUP BY clause: Grouping fields and window functions
+//   - HAVING clause: Aggregate result filtering
+//   - LIMIT clause: Limit result count
+//   - DISTINCT: Result deduplication
 //
-// 窗口函数:
-//   - TumblingWindow('5s'): 滚动窗口
-//   - SlidingWindow('30s', '10s'): 滑动窗口
-//   - CountingWindow(100): 计数窗口
-//   - SessionWindow('5m'): 会话窗口
+// Window functions:
+//   - TumblingWindow('5s'): Tumbling window
+//   - SlidingWindow('30s', '10s'): Sliding window
+//   - CountingWindow(100): Counting window
+//   - SessionWindow('5m'): Session window
 //
-// 参数:
-//   - sql: 要执行的SQL查询语句
+// Parameters:
+//   - sql: SQL query statement to execute
 //
-// 返回值:
-//   - error: 如果SQL解析或执行失败，返回相应错误
+// Returns:
+//   - error: Returns error if SQL parsing or execution fails
 //
-// 示例:
+// Examples:
 //
-//	// 基本聚合查询
+//	// Basic aggregation query
 //	err := ssql.Execute("SELECT deviceId, AVG(temperature) FROM stream GROUP BY deviceId, TumblingWindow('5s')")
 //
-//	// 带过滤条件的查询
+//	// Query with filtering conditions
 //	err := ssql.Execute("SELECT * FROM stream WHERE temperature > 30")
 //
-//	// 复杂的窗口聚合
+//	// Complex window aggregation
 //	err := ssql.Execute(`
 //	    SELECT deviceId,
 //	           AVG(temperature) as avg_temp,
@@ -123,16 +120,16 @@ func New(options ...Option) *Streamsql {
 //	    LIMIT 100
 //	`)
 func (s *Streamsql) Execute(sql string) error {
-	// 解析SQL语句
+	// Parse SQL statement
 	config, condition, err := rsql.Parse(sql)
 	if err != nil {
-		return fmt.Errorf("SQL解析失败: %w", err)
+		return fmt.Errorf("SQL parsing failed: %w", err)
 	}
 
-	// 从解析结果中获取字段顺序信息
+	// Get field order information from parsing result
 	s.fieldOrder = config.FieldOrder
 
-	// 根据性能模式创建流处理器
+	// Create stream processor based on performance mode
 	var streamInstance *stream.Stream
 
 	switch s.performanceMode {
@@ -153,30 +150,30 @@ func (s *Streamsql) Execute(sql string) error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("创建流处理器失败: %w", err)
+		return fmt.Errorf("failed to create stream processor: %w", err)
 	}
 
 	s.stream = streamInstance
 
-	// 注册过滤条件
+	// Register filter condition
 	if err = s.stream.RegisterFilter(condition); err != nil {
-		return fmt.Errorf("注册过滤条件失败: %w", err)
+		return fmt.Errorf("failed to register filter condition: %w", err)
 	}
 
-	// 启动流处理
+	// Start stream processing
 	s.stream.Start()
 	return nil
 }
 
-// Emit 添加数据到流处理管道。
-// 接受类型安全的map[string]interface{}格式数据。
+// Emit adds data to the stream processing pipeline.
+// Accepts type-safe map[string]interface{} format data.
 //
-// 参数:
-//   - data: 要添加的数据，必须是map[string]interface{}类型
+// Parameters:
+//   - data: Data to add, must be map[string]interface{} type
 //
-// 示例:
+// Examples:
 //
-//	// 添加设备数据
+//	// Add device data
 //	ssql.Emit(map[string]interface{}{
 //	    "deviceId": "sensor001",
 //	    "temperature": 25.5,
@@ -184,7 +181,7 @@ func (s *Streamsql) Execute(sql string) error {
 //	    "timestamp": time.Now(),
 //	})
 //
-//	// 添加用户行为数据
+//	// Add user behavior data
 //	ssql.Emit(map[string]interface{}{
 //	    "userId": "user123",
 //	    "action": "click",
@@ -196,43 +193,43 @@ func (s *Streamsql) Emit(data map[string]interface{}) {
 	}
 }
 
-// EmitSync 同步处理数据，立即返回处理结果。
-// 仅适用于非聚合查询，聚合查询会返回错误。
-// 接受类型安全的map[string]interface{}格式数据。
+// EmitSync processes data synchronously, returning results immediately.
+// Only applicable for non-aggregation queries, aggregation queries will return an error.
+// Accepts type-safe map[string]interface{} format data.
 //
-// 参数:
-//   - data: 要处理的数据，必须是map[string]interface{}类型
+// Parameters:
+//   - data: Data to process, must be map[string]interface{} type
 //
-// 返回值:
-//   - map[string]interface{}: 处理后的结果数据，如果不匹配过滤条件返回nil
-//   - error: 处理错误
+// Returns:
+//   - map[string]interface{}: Processed result data, returns nil if filter conditions don't match
+//   - error: Processing error
 //
-// 示例:
+// Examples:
 //
 //	result, err := ssql.EmitSync(map[string]interface{}{
 //	    "deviceId": "sensor001",
 //	    "temperature": 25.5,
 //	})
 //	if err != nil {
-//	    log.Printf("处理错误: %v", err)
+//	    log.Printf("processing error: %v", err)
 //	} else if result != nil {
-//	    // 立即使用处理结果（result是map[string]interface{}类型）
-//	    fmt.Printf("处理结果: %v\n", result)
+//	    // Use processed result immediately (result is map[string]interface{} type)
+//	    fmt.Printf("Processing result: %v\n", result)
 //	}
 func (s *Streamsql) EmitSync(data map[string]interface{}) (map[string]interface{}, error) {
 	if s.stream == nil {
-		return nil, fmt.Errorf("stream未初始化")
+		return nil, fmt.Errorf("stream not initialized")
 	}
 
-	// 检查是否为非聚合查询
+	// Check if it's a non-aggregation query
 	if s.stream.IsAggregationQuery() {
-		return nil, fmt.Errorf("同步模式仅支持非聚合查询，聚合查询请使用Emit()方法")
+		return nil, fmt.Errorf("synchronous mode only supports non-aggregation queries, use Emit() method for aggregation queries")
 	}
 
 	return s.stream.ProcessSync(data)
 }
 
-// IsAggregationQuery 检查当前查询是否为聚合查询
+// IsAggregationQuery checks if the current query is an aggregation query
 func (s *Streamsql) IsAggregationQuery() bool {
 	if s.stream == nil {
 		return false
@@ -240,36 +237,36 @@ func (s *Streamsql) IsAggregationQuery() bool {
 	return s.stream.IsAggregationQuery()
 }
 
-// Stream 返回底层的流处理器实例。
-// 通过此方法可以访问更底层的流处理功能。
+// Stream returns the underlying stream processor instance.
+// Provides access to lower-level stream processing functionality.
 //
-// 返回值:
-//   - *stream.Stream: 底层流处理器实例，如果未执行SQL则返回nil
+// Returns:
+//   - *stream.Stream: Underlying stream processor instance, returns nil if SQL not executed
 //
-// 常用场景:
-//   - 添加结果处理回调
-//   - 获取结果通道
-//   - 手动控制流处理生命周期
+// Common use cases:
+//   - Add result processing callbacks
+//   - Get result channel
+//   - Manually control stream processing lifecycle
 //
-// 示例:
+// Examples:
 //
-//	// 添加结果处理回调
+//	// Add result processing callback
 //	ssql.Stream().AddSink(func(results []map[string]interface{}) {
-//	    fmt.Printf("处理结果: %v\n", results)
+//	    fmt.Printf("Processing results: %v\n", results)
 //	})
 //
-//	// 获取结果通道
+//	// Get result channel
 //	resultChan := ssql.Stream().GetResultsChan()
 //	go func() {
 //	    for result := range resultChan {
-//	        // 处理结果
+//	        // Process result
 //	    }
 //	}()
 func (s *Streamsql) Stream() *stream.Stream {
 	return s.stream
 }
 
-// GetStats 获取流处理统计信息
+// GetStats returns stream processing statistics
 func (s *Streamsql) GetStats() map[string]int64 {
 	if s.stream != nil {
 		return s.stream.GetStats()
@@ -277,7 +274,7 @@ func (s *Streamsql) GetStats() map[string]int64 {
 	return make(map[string]int64)
 }
 
-// GetDetailedStats 获取详细的性能统计信息
+// GetDetailedStats returns detailed performance statistics
 func (s *Streamsql) GetDetailedStats() map[string]interface{} {
 	if s.stream != nil {
 		return s.stream.GetDetailedStats()
@@ -285,40 +282,40 @@ func (s *Streamsql) GetDetailedStats() map[string]interface{} {
 	return make(map[string]interface{})
 }
 
-// Stop 停止流处理器，释放相关资源。
-// 调用此方法后，流处理器将停止接收和处理新数据。
+// Stop stops the stream processor and releases related resources.
+// After calling this method, the stream processor will stop receiving and processing new data.
 //
-// 建议在应用程序退出前调用此方法进行清理:
+// Recommended to call this method for cleanup before application exit:
 //
 //	defer ssql.Stop()
 //
-// 注意: 停止后的StreamSQL实例不能重新启动，需要创建新实例。
+// Note: StreamSQL instance cannot be restarted after stopping, create a new instance.
 func (s *Streamsql) Stop() {
 	if s.stream != nil {
 		s.stream.Stop()
 	}
 }
 
-// AddSink 直接添加结果处理回调函数。
-// 这是对 Stream().AddSink() 的便捷封装，使API调用更简洁。
+// AddSink directly adds result processing callback functions.
+// Convenience wrapper for Stream().AddSink() for cleaner API calls.
 //
-// 参数:
-//   - sink: 结果处理函数，接收[]map[string]interface{}类型的结果数据
+// Parameters:
+//   - sink: Result processing function, receives []map[string]interface{} type result data
 //
-// 示例:
+// Examples:
 //
-//	// 直接添加结果处理
+//	// Directly add result processing
 //	ssql.AddSink(func(results []map[string]interface{}) {
-//	    fmt.Printf("处理结果: %v\n", results)
+//	    fmt.Printf("Processing results: %v\n", results)
 //	})
 //
-//	// 添加多个处理器
+//	// Add multiple processors
 //	ssql.AddSink(func(results []map[string]interface{}) {
-//	    // 保存到数据库
+//	    // Save to database
 //	    saveToDatabase(results)
 //	})
 //	ssql.AddSink(func(results []map[string]interface{}) {
-//	    // 发送到消息队列
+//	    // Send to message queue
 //	    sendToQueue(results)
 //	})
 func (s *Streamsql) AddSink(sink func([]map[string]interface{})) {
@@ -327,20 +324,20 @@ func (s *Streamsql) AddSink(sink func([]map[string]interface{})) {
 	}
 }
 
-// PrintTable 以表格形式打印结果到控制台，类似数据库输出格式。
-// 首先显示列名，然后逐行显示数据。
+// PrintTable prints results to console in table format, similar to database output.
+// Displays column names first, then data rows.
 //
-// 支持的数据格式:
-//   - []map[string]interface{}: 多行记录
-//   - map[string]interface{}: 单行记录
-//   - 其他类型: 直接打印
+// Supported data formats:
+//   - []map[string]interface{}: Multiple rows
+//   - map[string]interface{}: Single row
+//   - Other types: Direct print
 //
-// 示例:
+// Example:
 //
-//	// 表格式打印结果
+//	// Print results in table format
 //	ssql.PrintTable()
 //
-//	// 输出格式:
+//	// Output format:
 //	// +--------+----------+
 //	// | device | max_temp |
 //	// +--------+----------+
@@ -353,37 +350,37 @@ func (s *Streamsql) PrintTable() {
 	})
 }
 
-// printTableFormat 格式化打印表格数据
-// 参数:
-//   - results: []map[string]interface{}类型的结果数据
+// printTableFormat formats and prints table data
+// Parameters:
+//   - results: Result data of type []map[string]interface{}
 func (s *Streamsql) printTableFormat(results []map[string]interface{}) {
 	table.FormatTableData(results, s.fieldOrder)
 }
 
-// ToChannel 返回结果通道，用于异步获取处理结果。
-// 通过此通道可以以非阻塞方式获取流处理结果。
+// ToChannel returns result channel for asynchronous result retrieval.
+// Provides non-blocking access to stream processing results.
 //
-// 返回值:
-//   - <-chan interface{}: 只读的结果通道，如果未执行SQL则返回nil
+// Returns:
+//   - <-chan interface{}: Read-only result channel, returns nil if SQL not executed
 //
-// 示例:
+// Example:
 //
-//	// 获取结果通道
+//	// Get result channel
 //	resultChan := ssql.ToChannel()
 //	if resultChan != nil {
 //	    go func() {
 //	        for result := range resultChan {
-//	            fmt.Printf("异步结果: %v\n", result)
+//	            fmt.Printf("Async result: %v\n", result)
 //	        }
 //	    }()
 //	}
 
-// ToChannel 将查询结果转换为通道输出
-// 返回一个只读通道，用于接收查询结果
+// ToChannel converts query results to channel output
+// Returns a read-only channel for receiving query results
 //
-// 注意:
-//   - 必须有消费者持续从通道读取数据，否则可能导致流处理阻塞
-//   - 返回的通道传输批量结果数据
+// Notes:
+//   - Consumer must continuously read from channel to prevent stream processing blocking
+//   - Channel transmits batch result data
 func (s *Streamsql) ToChannel() <-chan []map[string]interface{} {
 	if s.stream != nil {
 		return s.stream.GetResultsChan()

@@ -30,7 +30,7 @@ type Row struct {
 	Slot      *TimeSlot
 }
 
-// GetTimestamp 获取时间戳
+// GetTimestamp gets timestamp
 func (r *Row) GetTimestamp() time.Time {
 	return r.Timestamp
 }

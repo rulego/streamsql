@@ -4,12 +4,10 @@ import (
 	"github.com/rulego/streamsql/functions"
 )
 
-// 为了向后兼容，重新导出functions模块中的类型和函数
-
-// AggregateType 聚合类型，重新导出functions.AggregateType
+// AggregateType aggregate type, re-exports functions.AggregateType
 type AggregateType = functions.AggregateType
 
-// 重新导出所有聚合类型常量
+// Re-export all aggregate type constants
 const (
 	Sum         = functions.Sum
 	Count       = functions.Count
@@ -28,29 +26,29 @@ const (
 	Deduplicate = functions.Deduplicate
 	Var         = functions.Var
 	VarS        = functions.VarS
-	// 分析函数
+	// Analytical functions
 	Lag        = functions.Lag
 	Latest     = functions.Latest
 	ChangedCol = functions.ChangedCol
 	HadChanged = functions.HadChanged
-	// 表达式聚合器，用于处理自定义函数
+	// Expression aggregator for handling custom functions
 	Expression = functions.Expression
 )
 
-// AggregatorFunction 聚合器函数接口，重新导出functions.LegacyAggregatorFunction
+// AggregatorFunction aggregator function interface, re-exports functions.LegacyAggregatorFunction
 type AggregatorFunction = functions.LegacyAggregatorFunction
 
-// ContextAggregator 支持context机制的聚合器接口，重新导出functions.ContextAggregator
+// ContextAggregator aggregator interface supporting context mechanism, re-exports functions.ContextAggregator
 type ContextAggregator = functions.ContextAggregator
 
-// Register 添加自定义聚合器到全局注册表，重新导出functions.RegisterLegacyAggregator
+// Register adds custom aggregator to global registry, re-exports functions.RegisterLegacyAggregator
 func Register(name string, constructor func() AggregatorFunction) {
 	functions.RegisterLegacyAggregator(name, constructor)
 }
 
-// CreateBuiltinAggregator 创建内置聚合器，重新导出functions.CreateLegacyAggregator
+// CreateBuiltinAggregator creates built-in aggregator, re-exports functions.CreateLegacyAggregator
 func CreateBuiltinAggregator(aggType AggregateType) AggregatorFunction {
-	// 特殊处理expression类型
+	// Special handling for expression type
 	if aggType == "expression" {
 		return &ExpressionAggregatorWrapper{
 			function: functions.NewExpressionAggregatorFunction(),
@@ -60,7 +58,7 @@ func CreateBuiltinAggregator(aggType AggregateType) AggregatorFunction {
 	return functions.CreateLegacyAggregator(aggType)
 }
 
-// ExpressionAggregatorWrapper 包装表达式聚合器，使其兼容LegacyAggregatorFunction接口
+// ExpressionAggregatorWrapper wraps expression aggregator to make it compatible with LegacyAggregatorFunction interface
 type ExpressionAggregatorWrapper struct {
 	function *functions.ExpressionAggregatorFunction
 }

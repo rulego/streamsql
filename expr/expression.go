@@ -10,18 +10,18 @@ import (
 	"github.com/rulego/streamsql/utils/fieldpath"
 )
 
-// 表达式类型
+// Expression types
 const (
-	TypeNumber      = "number"      // 数字常量
-	TypeField       = "field"       // 字段引用
-	TypeOperator    = "operator"    // 运算符
-	TypeFunction    = "function"    // 函数调用
-	TypeParenthesis = "parenthesis" // 括号
-	TypeCase        = "case"        // CASE表达式
-	TypeString      = "string"      // 字符串常量
+	TypeNumber      = "number"      // Number constant
+	TypeField       = "field"       // Field reference
+	TypeOperator    = "operator"    // Operator
+	TypeFunction    = "function"    // Function call
+	TypeParenthesis = "parenthesis" // Parenthesis
+	TypeCase        = "case"        // CASE expression
+	TypeString      = "string"      // String constant
 )
 
-// 操作符优先级
+// Operator precedence
 var operatorPrecedence = map[string]int{
 	"OR":  1,
 	"AND": 2,
@@ -29,47 +29,47 @@ var operatorPrecedence = map[string]int{
 	">": 4, "<": 4, ">=": 4, "<=": 4, "LIKE": 4, "IS": 4,
 	"+": 5, "-": 5,
 	"*": 6, "/": 6, "%": 6,
-	"^": 7, // 幂运算
+	"^": 7, // Power operation
 }
 
-// CASE表达式的WHEN子句
+// WhenClause represents a WHEN clause in CASE expression
 type WhenClause struct {
-	Condition *ExprNode // WHEN条件
-	Result    *ExprNode // THEN结果
+	Condition *ExprNode // WHEN condition
+	Result    *ExprNode // THEN result
 }
 
-// 表达式节点
+// ExprNode represents an expression node
 type ExprNode struct {
 	Type  string
 	Value string
 	Left  *ExprNode
 	Right *ExprNode
-	Args  []*ExprNode // 用于函数调用的参数
+	Args  []*ExprNode // Arguments for function calls
 
-	// CASE表达式专用字段
-	CaseExpr    *ExprNode    // CASE后面的表达式（简单CASE）
-	WhenClauses []WhenClause // WHEN子句列表
-	ElseExpr    *ExprNode    // ELSE表达式
+	// Fields specific to CASE expressions
+	CaseExpr    *ExprNode    // Expression after CASE (simple CASE)
+	WhenClauses []WhenClause // List of WHEN clauses
+	ElseExpr    *ExprNode    // ELSE expression
 }
 
-// Expression 表示一个可计算的表达式
+// Expression represents a computable expression
 type Expression struct {
 	Root               *ExprNode
-	useExprLang        bool   // 是否使用expr-lang/expr
-	exprLangExpression string // expr-lang表达式字符串
+	useExprLang        bool   // Whether to use expr-lang/expr
+	exprLangExpression string // expr-lang expression string
 }
 
-// NewExpression 创建一个新的表达式
+// NewExpression creates a new expression
 func NewExpression(exprStr string) (*Expression, error) {
-	// 进行基本的语法验证
+	// Perform basic syntax validation
 	if err := validateBasicSyntax(exprStr); err != nil {
 		return nil, err
 	}
 
-	// 首先尝试使用自定义解析器
+	// First try using custom parser
 	tokens, err := tokenize(exprStr)
 	if err != nil {
-		// 如果自定义解析失败，标记为使用expr-lang
+		// If custom parsing fails, mark to use expr-lang
 		return &Expression{
 			Root:               nil,
 			useExprLang:        true,
@@ -79,7 +79,7 @@ func NewExpression(exprStr string) (*Expression, error) {
 
 	root, err := parseExpression(tokens)
 	if err != nil {
-		// 如果自定义解析失败，标记为使用expr-lang
+		// If custom parsing fails, mark to use expr-lang
 		return &Expression{
 			Root:               nil,
 			useExprLang:        true,
@@ -93,9 +93,9 @@ func NewExpression(exprStr string) (*Expression, error) {
 	}, nil
 }
 
-// validateBasicSyntax 进行基本的语法验证
+// validateBasicSyntax performs basic syntax validation
 func validateBasicSyntax(exprStr string) error {
-	// 检查空表达式
+	// Check empty expression
 	trimmed := strings.TrimSpace(exprStr)
 	if trimmed == "" {
 		return fmt.Errorf("empty expression")
@@ -133,10 +133,10 @@ func validateBasicSyntax(exprStr string) error {
 	return nil
 }
 
-// checkConsecutiveOperators 检查连续运算符
+// checkConsecutiveOperators checks for consecutive operators
 func checkConsecutiveOperators(expr string) error {
-	// 简化的连续运算符检查：查找明显的双运算符模式
-	// 但要允许比较运算符后跟负数的情况
+	// Simplified consecutive operator check: look for obvious double operator patterns
+	// But allow comparison operators followed by negative numbers
 	operators := []string{"+", "-", "*", "/", "%", "^", "==", "!=", ">=", "<=", ">", "<"}
 	comparisonOps := []string{"==", "!=", ">=", "<=", ">", "<"}
 
@@ -209,34 +209,34 @@ func checkConsecutiveOperators(expr string) error {
 	return nil
 }
 
-// isValidChar 检查字符是否有效
+// isValidChar checks if a character is valid
 func isValidChar(ch rune) bool {
-	// 字母和数字
+	// Letters and digits
 	if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') {
 		return true
 	}
-	// 特殊字符
+	// Special characters
 	switch ch {
-	case ' ', '\t', '\n', '\r': // 空白字符
+	case ' ', '\t', '\n', '\r': // Whitespace characters
 		return true
-	case '+', '-', '*', '/', '%', '^': // 算术运算符
+	case '+', '-', '*', '/', '%', '^': // Arithmetic operators
 		return true
-	case '(', ')', ',': // 括号和逗号
+	case '(', ')', ',': // Parentheses and comma
 		return true
-	case '>', '<', '=', '!': // 比较运算符
+	case '>', '<', '=', '!': // Comparison operators
 		return true
-	case '\'', '"': // 引号
+	case '\'', '"': // Quotes
 		return true
-	case '.', '_': // 点和下划线
+	case '.', '_': // Dot and underscore
 		return true
-	case '$': // 美元符号（用于JSON路径等）
+	case '$': // Dollar sign (for JSON paths etc.)
 		return true
 	default:
 		return false
 	}
 }
 
-// Evaluate 计算表达式的值
+// Evaluate calculates the value of the expression
 func (e *Expression) Evaluate(data map[string]interface{}) (float64, error) {
 	if e.useExprLang {
 		return e.evaluateWithExprLang(data)
@@ -244,16 +244,16 @@ func (e *Expression) Evaluate(data map[string]interface{}) (float64, error) {
 	return evaluateNode(e.Root, data)
 }
 
-// evaluateWithExprLang 使用expr-lang/expr评估表达式
+// evaluateWithExprLang evaluates expression using expr-lang/expr
 func (e *Expression) evaluateWithExprLang(data map[string]interface{}) (float64, error) {
-	// 使用桥接器评估表达式
+	// Use bridge to evaluate expression
 	bridge := functions.GetExprBridge()
 	result, err := bridge.EvaluateExpression(e.exprLangExpression, data)
 	if err != nil {
 		return 0, err
 	}
 
-	// 尝试转换结果为float64
+	// Try to convert result to float64
 	switch v := result.(type) {
 	case float64:
 		return v, nil
@@ -275,11 +275,11 @@ func (e *Expression) evaluateWithExprLang(data map[string]interface{}) (float64,
 	}
 }
 
-// GetFields 获取表达式中引用的所有字段
+// GetFields gets all fields referenced in the expression
 func (e *Expression) GetFields() []string {
 	if e.useExprLang {
-		// 对于expr-lang表达式，需要解析字段引用
-		// 这里简化处理，实际应该使用AST分析
+		// For expr-lang expressions, need to parse field references
+		// Simplified handling here, should use AST analysis in practice
 		return extractFieldsFromExprLang(e.exprLangExpression)
 	}
 
@@ -293,13 +293,13 @@ func (e *Expression) GetFields() []string {
 	return result
 }
 
-// extractFieldsFromExprLang 从expr-lang表达式中提取字段引用（简化版本）
+// extractFieldsFromExprLang extracts field references from expr-lang expression (simplified version)
 func extractFieldsFromExprLang(expression string) []string {
-	// 这是一个简化的实现，实际应该使用AST解析
-	// 暂时使用正则表达式或简单的字符串解析
+	// This is a simplified implementation, should use AST parsing in practice
+	// Temporarily use regex or simple string parsing
 	fields := make(map[string]bool)
 
-	// 简单的字段提取：查找标识符模式，支持点号分隔的嵌套字段
+	// Simple field extraction: find identifier patterns, support dot-separated nested fields
 	tokens := strings.FieldsFunc(expression, func(c rune) bool {
 		return !(c >= 'a' && c <= 'z') && !(c >= 'A' && c <= 'Z') && !(c >= '0' && c <= '9') && c != '_' && c != '.'
 	})
@@ -317,13 +317,13 @@ func extractFieldsFromExprLang(expression string) []string {
 	return result
 }
 
-// isValidFieldIdentifier 检查是否是有效的字段标识符（支持点号分隔的嵌套字段）
+// isValidFieldIdentifier checks if it's a valid field identifier (supports dot-separated nested fields)
 func isValidFieldIdentifier(s string) bool {
 	if len(s) == 0 {
 		return false
 	}
 
-	// 分割点号分隔的字段
+	// Split dot-separated fields
 	parts := strings.Split(s, ".")
 	for _, part := range parts {
 		if !isIdentifier(part) {
@@ -334,13 +334,13 @@ func isValidFieldIdentifier(s string) bool {
 	return true
 }
 
-// isFunctionOrKeyword 检查是否是函数名或关键字
+// isFunctionOrKeyword checks if it's a function name or keyword
 func isFunctionOrKeyword(token string) bool {
-	// 检查是否是已知函数或关键字
+	// Check if it's a known function or keyword
 	keywords := []string{
 		"and", "or", "not", "true", "false", "nil", "null", "is",
 		"if", "else", "then", "in", "contains", "matches",
-		// CASE表达式关键字
+		// CASE expression keywords
 		"case", "when", "then", "else", "end",
 	}
 
@@ -350,13 +350,13 @@ func isFunctionOrKeyword(token string) bool {
 		}
 	}
 
-	// 检查是否是注册的函数
+	// Check if it's a registered function
 	bridge := functions.GetExprBridge()
 	_, exists, _ := bridge.ResolveFunction(token)
 	return exists
 }
 
-// collectFields 收集表达式中所有字段
+// collectFields collects all fields in the expression
 func collectFields(node *ExprNode, fields map[string]bool) {
 	if node == nil {
 		return
@@ -366,20 +366,20 @@ func collectFields(node *ExprNode, fields map[string]bool) {
 		fields[node.Value] = true
 	}
 
-	// 处理CASE表达式的字段收集
+	// Handle field collection for CASE expressions
 	if node.Type == TypeCase {
-		// 收集CASE表达式本身的字段
+		// Collect fields from CASE expression itself
 		if node.CaseExpr != nil {
 			collectFields(node.CaseExpr, fields)
 		}
 
-		// 收集所有WHEN子句中的字段
+		// Collect fields from all WHEN clauses
 		for _, whenClause := range node.WhenClauses {
 			collectFields(whenClause.Condition, fields)
 			collectFields(whenClause.Result, fields)
 		}
 
-		// 收集ELSE表达式中的字段
+		// Collect fields from ELSE expression
 		if node.ElseExpr != nil {
 			collectFields(node.ElseExpr, fields)
 		}
@@ -395,7 +395,7 @@ func collectFields(node *ExprNode, fields map[string]bool) {
 	}
 }
 
-// evaluateNode 计算节点的值
+// evaluateNode calculates the value of a node
 func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) {
 	if node == nil {
 		return 0, fmt.Errorf("null expression node")
@@ -406,54 +406,54 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 		return strconv.ParseFloat(node.Value, 64)
 
 	case TypeString:
-		// 处理字符串类型，去掉引号并尝试转换为数字
-		// 如果无法转换，返回错误（因为这个函数返回float64）
+		// Handle string type, remove quotes and try to convert to number
+		// If conversion fails, return error (since this function returns float64)
 		value := node.Value
 		if len(value) >= 2 && (value[0] == '\'' || value[0] == '"') {
-			value = value[1 : len(value)-1] // 去掉引号
+			value = value[1 : len(value)-1] // Remove quotes
 		}
 
-		// 尝试转换为数字
+		// Try to convert to number
 		if f, err := strconv.ParseFloat(value, 64); err == nil {
 			return f, nil
 		}
 
-		// 对于字符串比较，我们需要返回一个哈希值或者错误
-		// 这里简化处理，将字符串转换为其长度（作为临时解决方案）
+		// For string comparison, we need to return a hash value or error
+		// Simplified handling here, convert string to its length (as temporary solution)
 		return float64(len(value)), nil
 
 	case TypeField:
-		// 处理反引号标识符，去除反引号
+		// Handle backtick identifiers, remove backticks
 		fieldName := node.Value
 		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
-			fieldName = fieldName[1 : len(fieldName)-1] // 去掉反引号
+			fieldName = fieldName[1 : len(fieldName)-1] // Remove backticks
 		}
 		
-		// 支持嵌套字段访问
+		// Support nested field access
 		if fieldpath.IsNestedField(fieldName) {
 			if val, found := fieldpath.GetNestedField(data, fieldName); found {
-				// 尝试转换为float64
+				// Try to convert to float64
 				if floatVal, err := convertToFloat(val); err == nil {
 					return floatVal, nil
 				}
-				// 如果不能转换为数字，返回错误
+				// If cannot convert to number, return error
 				return 0, fmt.Errorf("field '%s' value cannot be converted to number: %v", fieldName, val)
 			}
 		} else {
-			// 原有的简单字段访问
+			// Original simple field access
 			if val, found := data[fieldName]; found {
-				// 尝试转换为float64
+				// Try to convert to float64
 				if floatVal, err := convertToFloat(val); err == nil {
 					return floatVal, nil
 				}
-				// 如果不能转换为数字，返回错误
+				// If cannot convert to number, return error
 				return 0, fmt.Errorf("field '%s' value cannot be converted to number: %v", fieldName, val)
 			}
 		}
 		return 0, fmt.Errorf("field '%s' not found", fieldName)
 
 	case TypeOperator:
-		// 计算左右子表达式的值
+		// Calculate values of left and right sub-expressions
 		left, err := evaluateNode(node.Left, data)
 		if err != nil {
 			return 0, err
@@ -464,7 +464,7 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 			return 0, err
 		}
 
-		// 执行运算
+		// Perform operation
 		switch node.Value {
 		case "+":
 			return left + right, nil
@@ -489,13 +489,13 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 		}
 
 	case TypeFunction:
-		// 首先检查是否是新的函数注册系统中的函数
+		// First check if it's a function in the new function registration system
 		fn, exists := functions.Get(node.Value)
 		if exists {
-			// 计算所有参数，但保持原始类型
+			// Calculate all arguments but keep original types
 			args := make([]interface{}, len(node.Args))
 			for i, arg := range node.Args {
-				// 使用evaluateNodeValue获取原始类型的值
+				// Use evaluateNodeValue to get original type values
 				val, err := evaluateNodeValue(arg, data)
 				if err != nil {
 					return 0, err
@@ -503,18 +503,18 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 				args[i] = val
 			}
 
-			// 创建函数执行上下文
+			// Create function execution context
 			ctx := &functions.FunctionContext{
 				Data: data,
 			}
 
-			// 执行函数
+			// Execute function
 			result, err := fn.Execute(ctx, args)
 			if err != nil {
 				return 0, err
 			}
 
-			// 转换结果为 float64
+			// Convert result to float64
 			switch r := result.(type) {
 			case float64:
 				return r, nil
@@ -527,13 +527,13 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 			case int64:
 				return float64(r), nil
 			case string:
-				// 对于字符串结果，尝试转换为数字，如果失败则返回字符串长度
+				// For string results, try to convert to number, if failed return string length
 				if f, err := strconv.ParseFloat(r, 64); err == nil {
 					return f, nil
 				}
 				return float64(len(r)), nil
 			case bool:
-				// 布尔值转换：true=1, false=0
+				// Boolean conversion: true=1, false=0
 				if r {
 					return 1.0, nil
 				}
@@ -543,18 +543,18 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 			}
 		}
 
-		// 回退到内置函数处理（保持向后兼容）
+		// Fall back to built-in function handling (maintain backward compatibility)
 		return evaluateBuiltinFunction(node, data)
 
 	case TypeCase:
-		// 处理CASE表达式
+		// Handle CASE expression
 		return evaluateCaseExpression(node, data)
 	}
 
 	return 0, fmt.Errorf("unknown node type: %s", node.Type)
 }
 
-// evaluateBuiltinFunction 处理内置函数（向后兼容）
+// evaluateBuiltinFunction handles built-in functions (backward compatibility)
 func evaluateBuiltinFunction(node *ExprNode, data map[string]interface{}) (float64, error) {
 	switch strings.ToLower(node.Value) {
 	case "abs":
@@ -645,28 +645,28 @@ func evaluateBuiltinFunction(node *ExprNode, data map[string]interface{}) (float
 	}
 }
 
-// evaluateCaseExpression 计算CASE表达式
+// evaluateCaseExpression evaluates CASE expression
 func evaluateCaseExpression(node *ExprNode, data map[string]interface{}) (float64, error) {
 	if node.Type != TypeCase {
 		return 0, fmt.Errorf("node is not a CASE expression")
 	}
 
-	// 处理简单CASE表达式 (CASE expr WHEN value1 THEN result1 ...)
+	// Handle simple CASE expression (CASE expr WHEN value1 THEN result1 ...)
 	if node.CaseExpr != nil {
-		// 计算CASE后面的表达式值
+		// Calculate the value of expression after CASE
 		caseValue, err := evaluateNodeValue(node.CaseExpr, data)
 		if err != nil {
 			return 0, err
 		}
 
-		// 遍历WHEN子句，查找匹配的值
+		// Iterate through WHEN clauses to find matching values
 		for _, whenClause := range node.WhenClauses {
 			conditionValue, err := evaluateNodeValue(whenClause.Condition, data)
 			if err != nil {
 				return 0, err
 			}
 
-			// 比较值是否相等
+			// Compare if values are equal
 			isEqual, err := compareValues(caseValue, conditionValue, "==")
 			if err != nil {
 				return 0, err
@@ -677,54 +677,54 @@ func evaluateCaseExpression(node *ExprNode, data map[string]interface{}) (float6
 			}
 		}
 	} else {
-		// 处理搜索CASE表达式 (CASE WHEN condition1 THEN result1 ...)
+		// Handle search CASE expression (CASE WHEN condition1 THEN result1 ...)
 		for _, whenClause := range node.WhenClauses {
-			// 评估WHEN条件，这里需要特殊处理布尔表达式
+			// Evaluate WHEN condition, need special handling for boolean expressions
 			conditionResult, err := evaluateBooleanCondition(whenClause.Condition, data)
 			if err != nil {
 				return 0, err
 			}
 
-			// 如果条件为真，返回对应的结果
+			// If condition is true, return corresponding result
 			if conditionResult {
 				return evaluateNode(whenClause.Result, data)
 			}
 		}
 	}
 
-	// 如果没有匹配的WHEN子句，执行ELSE子句
+	// If no WHEN clause matches, execute ELSE clause
 	if node.ElseExpr != nil {
 		return evaluateNode(node.ElseExpr, data)
 	}
 
-	// 如果没有ELSE子句，SQL标准是返回NULL，这里返回0
+	// If no ELSE clause, SQL standard returns NULL, here return 0
 	return 0, nil
 }
 
-// evaluateBooleanCondition 计算布尔条件表达式
+// evaluateBooleanCondition evaluates boolean condition expression
 func evaluateBooleanCondition(node *ExprNode, data map[string]interface{}) (bool, error) {
 	if node == nil {
 		return false, fmt.Errorf("null condition expression")
 	}
 
-	// 处理逻辑运算符（实现短路求值）
+	// Handle logical operators (implement short-circuit evaluation)
 	if node.Type == TypeOperator && (node.Value == "AND" || node.Value == "OR") {
 		leftBool, err := evaluateBooleanCondition(node.Left, data)
 		if err != nil {
 			return false, err
 		}
 
-		// 短路求值：对于AND，如果左边为false，立即返回false
+		// Short-circuit evaluation: for AND, if left is false, return false immediately
 		if node.Value == "AND" && !leftBool {
 			return false, nil
 		}
 
-		// 短路求值：对于OR，如果左边为true，立即返回true
+		// Short-circuit evaluation: for OR, if left is true, return true immediately
 		if node.Value == "OR" && leftBool {
 			return true, nil
 		}
 
-		// 只有在需要时才评估右边的表达式
+		// Only evaluate right expression when needed
 		rightBool, err := evaluateBooleanCondition(node.Right, data)
 		if err != nil {
 			return false, err
@@ -738,12 +738,12 @@ func evaluateBooleanCondition(node *ExprNode, data map[string]interface{}) (bool
 		}
 	}
 
-	// 处理IS NULL和IS NOT NULL特殊情况
+	// Handle IS NULL and IS NOT NULL special cases
 	if node.Type == TypeOperator && node.Value == "IS" {
 		return evaluateIsCondition(node, data)
 	}
 
-	// 处理比较运算符
+	// Handle comparison operators
 	if node.Type == TypeOperator {
 		leftValue, err := evaluateNodeValue(node.Left, data)
 		if err != nil {
@@ -758,36 +758,36 @@ func evaluateBooleanCondition(node *ExprNode, data map[string]interface{}) (bool
 		return compareValues(leftValue, rightValue, node.Value)
 	}
 
-	// 对于其他表达式，计算其数值并转换为布尔值
+	// For other expressions, calculate numeric value and convert to boolean
 	result, err := evaluateNode(node, data)
 	if err != nil {
 		return false, err
 	}
 
-	// 非零值为真，零值为假
+	// Non-zero values are true, zero values are false
 	return result != 0, nil
 }
 
-// evaluateIsCondition 处理IS NULL和IS NOT NULL条件
+// evaluateIsCondition handles IS NULL and IS NOT NULL conditions
 func evaluateIsCondition(node *ExprNode, data map[string]interface{}) (bool, error) {
 	if node == nil || node.Left == nil || node.Right == nil {
 		return false, fmt.Errorf("invalid IS condition")
 	}
 
-	// 获取左侧值
+	// Get left side value
 	leftValue, err := evaluateNodeValue(node.Left, data)
 	if err != nil {
-		// 如果字段不存在，认为是null
+		// If field doesn't exist, consider it as null
 		leftValue = nil
 	}
 
-	// 检查右侧是否是NULL或NOT NULL
+	// Check if right side is NULL or NOT NULL
 	if node.Right.Type == TypeField && strings.ToUpper(node.Right.Value) == "NULL" {
 		// IS NULL
 		return leftValue == nil, nil
 	}
 
-	// 检查是否是IS NOT NULL
+	// Check if it's IS NOT NULL
 	if node.Right.Type == TypeOperator && node.Right.Value == "NOT" &&
 		node.Right.Right != nil && node.Right.Right.Type == TypeField &&
 		strings.ToUpper(node.Right.Right.Value) == "NULL" {
@@ -795,7 +795,7 @@ func evaluateIsCondition(node *ExprNode, data map[string]interface{}) (bool, err
 		return leftValue != nil, nil
 	}
 
-	// 其他IS比较（如IS TRUE, IS FALSE等，暂不支持）
+	// Other IS comparisons (like IS TRUE, IS FALSE etc., not supported yet)
 	rightValue, err := evaluateNodeValue(node.Right, data)
 	if err != nil {
 		return false, err
@@ -804,7 +804,7 @@ func evaluateIsCondition(node *ExprNode, data map[string]interface{}) (bool, err
 	return compareValues(leftValue, rightValue, "==")
 }
 
-// evaluateNodeValue 计算节点值，返回interface{}以支持不同类型
+// evaluateNodeValue calculates node value, returns interface{} to support different types
 func evaluateNodeValue(node *ExprNode, data map[string]interface{}) (interface{}, error) {
 	if node == nil {
 		return nil, fmt.Errorf("null expression node")
@@ -815,7 +815,7 @@ func evaluateNodeValue(node *ExprNode, data map[string]interface{}) (interface{}
 		return strconv.ParseFloat(node.Value, 64)
 
 	case TypeString:
-		// 去掉引号
+		// Remove quotes
 		value := node.Value
 		if len(value) >= 2 && (value[0] == '\'' || value[0] == '"') {
 			value = value[1 : len(value)-1]
@@ -823,19 +823,19 @@ func evaluateNodeValue(node *ExprNode, data map[string]interface{}) (interface{}
 		return value, nil
 
 	case TypeField:
-		// 处理反引号标识符，去除反引号
+		// Handle backtick identifiers, remove backticks
 		fieldName := node.Value
 		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
-			fieldName = fieldName[1 : len(fieldName)-1] // 去掉反引号
+			fieldName = fieldName[1 : len(fieldName)-1] // Remove backticks
 		}
 		
-		// 支持嵌套字段访问
+		// Support nested field access
 		if fieldpath.IsNestedField(fieldName) {
 			if val, found := fieldpath.GetNestedField(data, fieldName); found {
 				return val, nil
 			}
 		} else {
-			// 原有的简单字段访问
+			// Original simple field access
 			if val, found := data[fieldName]; found {
 				return val, nil
 			}
@@ -843,14 +843,14 @@ func evaluateNodeValue(node *ExprNode, data map[string]interface{}) (interface{}
 		return nil, fmt.Errorf("field '%s' not found", fieldName)
 
 	default:
-		// 对于其他类型，回退到数值计算
+		// For other types, fall back to numeric calculation
 		return evaluateNode(node, data)
 	}
 }
 
-// compareValues 比较两个值
+// compareValues compares two values
 func compareValues(left, right interface{}, operator string) (bool, error) {
-	// 尝试字符串比较
+	// Try string comparison
 	leftStr, leftIsStr := left.(string)
 	rightStr, rightIsStr := right.(string)
 
@@ -875,7 +875,7 @@ func compareValues(left, right interface{}, operator string) (bool, error) {
 		}
 	}
 
-	// 转换为数值进行比较
+	// Convert to numeric values for comparison
 	leftNum, err1 := convertToFloat(left)
 	rightNum, err2 := convertToFloat(right)
 
@@ -901,22 +901,22 @@ func compareValues(left, right interface{}, operator string) (bool, error) {
 	}
 }
 
-// matchesLikePattern 实现LIKE模式匹配
-// 支持%（匹配任意字符序列）和_（匹配单个字符）
+// matchesLikePattern implements LIKE pattern matching
+// Supports % (matches any character sequence) and _ (matches single character)
 func matchesLikePattern(text, pattern string) bool {
 	return likeMatch(text, pattern, 0, 0)
 }
 
-// likeMatch 递归实现LIKE匹配算法
+// likeMatch recursively implements LIKE matching algorithm
 func likeMatch(text, pattern string, textIndex, patternIndex int) bool {
-	// 如果模式已经匹配完成
+	// If pattern matching is complete
 	if patternIndex >= len(pattern) {
-		return textIndex >= len(text) // 文本也应该匹配完成
+		return textIndex >= len(text) // Text should also be completely matched
 	}
 
-	// 如果文本已经结束，但模式还有非%字符，则不匹配
+	// If text has ended but pattern still has non-% characters, no match
 	if textIndex >= len(text) {
-		// 检查剩余的模式是否都是%
+		// Check if remaining pattern consists only of %
 		for i := patternIndex; i < len(pattern); i++ {
 			if pattern[i] != '%' {
 				return false
@@ -927,12 +927,12 @@ func likeMatch(text, pattern string, textIndex, patternIndex int) bool {
 
 	switch pattern[patternIndex] {
 	case '%':
-		// %可以匹配0个或多个字符
-		// 尝试匹配0个字符（跳过%）
+		// % can match 0 or more characters
+		// Try matching 0 characters (skip %)
 		if likeMatch(text, pattern, textIndex, patternIndex+1) {
 			return true
 		}
-		// 尝试匹配1个或多个字符
+		// Try matching 1 or more characters
 		for i := textIndex; i < len(text); i++ {
 			if likeMatch(text, pattern, i+1, patternIndex+1) {
 				return true
@@ -941,11 +941,11 @@ func likeMatch(text, pattern string, textIndex, patternIndex int) bool {
 		return false
 
 	case '_':
-		// _匹配任意单个字符
+		// _ matches any single character
 		return likeMatch(text, pattern, textIndex+1, patternIndex+1)
 
 	default:
-		// 普通字符必须精确匹配
+		// Regular characters must match exactly
 		if text[textIndex] == pattern[patternIndex] {
 			return likeMatch(text, pattern, textIndex+1, patternIndex+1)
 		}
@@ -953,7 +953,7 @@ func likeMatch(text, pattern string, textIndex, patternIndex int) bool {
 	}
 }
 
-// convertToFloat 将值转换为float64
+// convertToFloat converts value to float64
 func convertToFloat(val interface{}) (float64, error) {
 	switch v := val.(type) {
 	case float64:
@@ -973,7 +973,7 @@ func convertToFloat(val interface{}) (float64, error) {
 	}
 }
 
-// tokenize 将表达式字符串转换为token列表
+// tokenize converts expression string to token list
 func tokenize(expr string) ([]string, error) {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
@@ -986,13 +986,13 @@ func tokenize(expr string) ([]string, error) {
 	for i < len(expr) {
 		ch := expr[i]
 
-		// 跳过空白字符
+		// Skip whitespace characters
 		if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
 			i++
 			continue
 		}
 
-		// 处理数字
+		// Handle numbers
 		if isDigit(ch) || (ch == '.' && i+1 < len(expr) && isDigit(expr[i+1])) {
 			start := i
 			hasDot := ch == '.'
@@ -1009,37 +1009,37 @@ func tokenize(expr string) ([]string, error) {
 			continue
 		}
 
-		// 处理运算符和括号
+		// Handle operators and parentheses
 		if ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%' || ch == '^' ||
 			ch == '(' || ch == ')' || ch == ',' {
 
-			// 特殊处理负号：如果是负号且前面是运算符、括号或开始位置，则可能是负数
+			// Special handling for minus sign: if it's minus and preceded by operator, parenthesis or start position, it might be negative number
 			if ch == '-' {
-				// 检查是否可能是负数的开始
-				canBeNegativeNumber := i == 0 || // 表达式开始
-					len(tokens) == 0 // tokens为空时也可能是负数开始
+				// Check if it could be the start of a negative number
+				canBeNegativeNumber := i == 0 || // Expression start
+					len(tokens) == 0 // When tokens is empty, it could also be negative number start
 
-				// 只有当tokens不为空时才检查前一个token
+				// Only check previous token when tokens is not empty
 				if len(tokens) > 0 {
 					prevToken := tokens[len(tokens)-1]
 					canBeNegativeNumber = canBeNegativeNumber ||
-						prevToken == "(" || // 左括号后
-						prevToken == "," || // 逗号后（函数参数）
-						isOperator(prevToken) || // 运算符后
-						isComparisonOperator(prevToken) || // 比较运算符后
-						strings.ToUpper(prevToken) == "THEN" || // THEN后
-						strings.ToUpper(prevToken) == "ELSE" || // ELSE后
-						strings.ToUpper(prevToken) == "WHEN" || // WHEN后
-						strings.ToUpper(prevToken) == "AND" || // AND后
-						strings.ToUpper(prevToken) == "OR" // OR后
+						prevToken == "(" || // After left parenthesis
+						prevToken == "," || // After comma (function parameter)
+						isOperator(prevToken) || // After operator
+						isComparisonOperator(prevToken) || // After comparison operator
+						strings.ToUpper(prevToken) == "THEN" || // After THEN
+						strings.ToUpper(prevToken) == "ELSE" || // After ELSE
+						strings.ToUpper(prevToken) == "WHEN" || // After WHEN
+						strings.ToUpper(prevToken) == "AND" || // After AND
+						strings.ToUpper(prevToken) == "OR" // After OR
 				}
 
 				if canBeNegativeNumber && i+1 < len(expr) && isDigit(expr[i+1]) {
-					// 这是一个负数，解析整个数字
+					// This is a negative number, parse the entire number
 					start := i
-					i++ // 跳过负号
+					i++ // Skip minus sign
 
-					// 解析数字部分
+					// Parse numeric part
 					for i < len(expr) && (isDigit(expr[i]) || expr[i] == '.') {
 						i++
 					}
@@ -1054,12 +1054,12 @@ func tokenize(expr string) ([]string, error) {
 			continue
 		}
 
-		// 处理比较运算符
+		// Handle comparison operators
 		if ch == '>' || ch == '<' || ch == '=' || ch == '!' {
 			start := i
 			i++
 
-			// 处理双字符运算符
+			// Handle two-character operators
 			if i < len(expr) {
 				switch ch {
 				case '>':
@@ -1093,21 +1093,21 @@ func tokenize(expr string) ([]string, error) {
 				}
 			}
 
-			// 单字符运算符
+			// Single character operator
 			tokens = append(tokens, expr[start:i])
 			continue
 		}
 
-		// 处理字符串字面量（单引号和双引号）
+		// Handle string literals (single and double quotes)
 		if ch == '\'' || ch == '"' {
 			quote := ch
 			start := i
-			i++ // 跳过开始引号
+			i++ // Skip opening quote
 
-			// 寻找结束引号
+			// Find closing quote
 			for i < len(expr) && expr[i] != quote {
 				if expr[i] == '\\' && i+1 < len(expr) {
-					i += 2 // 跳过转义字符
+					i += 2 // Skip escape character
 				} else {
 					i++
 				}
@@ -1117,17 +1117,17 @@ func tokenize(expr string) ([]string, error) {
 				return nil, fmt.Errorf("unterminated string literal starting at position %d", start)
 			}
 
-			i++ // 跳过结束引号
+			i++ // Skip closing quote
 			tokens = append(tokens, expr[start:i])
 			continue
 		}
 
-		// 处理反引号标识符
+		// Handle backtick identifiers
 		if ch == '`' {
 			start := i
-			i++ // 跳过开始反引号
+			i++ // Skip opening backtick
 
-			// 寻找结束反引号
+			// Find closing backtick
 			for i < len(expr) && expr[i] != '`' {
 				i++
 			}
@@ -1136,12 +1136,12 @@ func tokenize(expr string) ([]string, error) {
 				return nil, fmt.Errorf("unterminated quoted identifier starting at position %d", start)
 			}
 
-			i++ // 跳过结束反引号
+			i++ // Skip closing backtick
 			tokens = append(tokens, expr[start:i])
 			continue
 		}
 
-		// 处理标识符（字段名或函数名）
+		// Handle identifiers (field names or function names)
 		if isLetter(ch) {
 			start := i
 			i++
@@ -1153,20 +1153,20 @@ func tokenize(expr string) ([]string, error) {
 			continue
 		}
 
-		// 未知字符
+		// Unknown character
 		return nil, fmt.Errorf("unexpected character: %c at position %d", ch, i)
 	}
 
 	return tokens, nil
 }
 
-// parseExpression 解析表达式
+// parseExpression parses expression
 func parseExpression(tokens []string) (*ExprNode, error) {
 	if len(tokens) == 0 {
 		return nil, fmt.Errorf("empty token list")
 	}
 
-	// 使用Shunting-yard算法处理运算符优先级
+	// Use Shunting-yard algorithm to handle operator precedence
 	output := make([]*ExprNode, 0)
 	operators := make([]string, 0)
 
@@ -1174,7 +1174,7 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 	for i < len(tokens) {
 		token := tokens[i]
 
-		// 处理数字
+		// Handle numbers
 		if isNumber(token) {
 			output = append(output, &ExprNode{
 				Type:  TypeNumber,
@@ -1184,7 +1184,7 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 			continue
 		}
 
-		// 处理字符串字面量
+		// Handle string literals
 		if isStringLiteral(token) {
 			output = append(output, &ExprNode{
 				Type:  TypeString,
@@ -1194,12 +1194,12 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 			continue
 		}
 
-		// 处理字段名或函数调用
+		// Handle field names or function calls
 		if isIdentifier(token) {
-			// 检查是否是逻辑运算符关键字
+			// Check if it's a logical operator keyword
 			upperToken := strings.ToUpper(token)
 			if upperToken == "AND" || upperToken == "OR" || upperToken == "NOT" || upperToken == "LIKE" {
-				// 处理逻辑运算符
+				// Handle logical operators
 				for len(operators) > 0 && operators[len(operators)-1] != "(" &&
 					operatorPrecedence[operators[len(operators)-1]] >= operatorPrecedence[upperToken] {
 					op := operators[len(operators)-1]
@@ -1226,9 +1226,9 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 				continue
 			}
 
-			// 特殊处理IS运算符，需要检查后续的NOT NULL组合
+			// Special handling for IS operator, need to check subsequent NOT NULL combination
 			if upperToken == "IS" {
-				// 处理待处理的运算符
+				// Handle pending operators
 				for len(operators) > 0 && operators[len(operators)-1] != "(" &&
 					operatorPrecedence[operators[len(operators)-1]] >= operatorPrecedence["IS"] {
 					op := operators[len(operators)-1]
@@ -1250,11 +1250,11 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 					})
 				}
 
-				// 检查是否是IS NOT NULL模式
+				// Check if it's IS NOT NULL pattern
 				if i+2 < len(tokens) &&
 					strings.ToUpper(tokens[i+1]) == "NOT" &&
 					strings.ToUpper(tokens[i+2]) == "NULL" {
-					// 这是IS NOT NULL，创建特殊的右侧节点结构
+					// This is IS NOT NULL, create special right-side node structure
 					notNullNode := &ExprNode{
 						Type:  TypeOperator,
 						Value: "NOT",
@@ -1266,10 +1266,10 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 
 					operators = append(operators, "IS")
 					output = append(output, notNullNode)
-					i += 3 // 跳过IS NOT NULL三个token
+					i += 3 // Skip three tokens: IS NOT NULL
 					continue
 				} else if i+1 < len(tokens) && strings.ToUpper(tokens[i+1]) == "NULL" {
-					// 这是IS NULL，创建NULL节点
+					// This is IS NULL, create NULL node
 					nullNode := &ExprNode{
 						Type:  TypeField,
 						Value: "NULL",
@@ -1277,17 +1277,17 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 
 					operators = append(operators, "IS")
 					output = append(output, nullNode)
-					i += 2 // 跳过IS NULL两个token
+					i += 2 // Skip two tokens: IS NULL
 					continue
 				} else {
-					// 普通的IS运算符
+					// Regular IS operator
 					operators = append(operators, "IS")
 					i++
 					continue
 				}
 			}
 
-			// 检查是否是CASE表达式
+			// Check if it's CASE expression
 			if strings.ToUpper(token) == "CASE" {
 				caseNode, newIndex, err := parseCaseExpression(tokens, i)
 				if err != nil {
@@ -1298,12 +1298,12 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 				continue
 			}
 
-			// 检查下一个token是否是左括号，如果是则为函数调用
+			// Check if next token is left parenthesis, if so it's a function call
 			if i+1 < len(tokens) && tokens[i+1] == "(" {
 				funcName := token
-				i += 2 // 跳过函数名和左括号
+				i += 2 // Skip function name and left parenthesis
 
-				// 解析函数参数
+				// Parse function arguments
 				args, newIndex, err := parseFunctionArgs(tokens, i)
 				if err != nil {
 					return nil, err
@@ -1319,7 +1319,7 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 				continue
 			}
 
-			// 普通字段
+			// Regular field
 			output = append(output, &ExprNode{
 				Type:  TypeField,
 				Value: token,
@@ -1328,14 +1328,14 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 			continue
 		}
 
-		// 处理左括号
+		// Handle left parenthesis
 		if token == "(" {
 			operators = append(operators, token)
 			i++
 			continue
 		}
 
-		// 处理右括号
+		// Handle right parenthesis
 		if token == ")" {
 			for len(operators) > 0 && operators[len(operators)-1] != "(" {
 				op := operators[len(operators)-1]
@@ -1361,12 +1361,12 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 				return nil, fmt.Errorf("mismatched parentheses")
 			}
 
-			operators = operators[:len(operators)-1] // 弹出左括号
+			operators = operators[:len(operators)-1] // Pop left parenthesis
 			i++
 			continue
 		}
 
-		// 处理运算符
+		// Handle operators
 		if isOperator(token) {
 			for len(operators) > 0 && operators[len(operators)-1] != "(" &&
 				operatorPrecedence[operators[len(operators)-1]] >= operatorPrecedence[token] {
@@ -1394,7 +1394,7 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 			continue
 		}
 
-		// 处理逗号（在函数参数列表中处理）
+		// Handle comma (processed in function argument list)
 		if token == "," {
 			i++
 			continue
@@ -1403,7 +1403,7 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 		return nil, fmt.Errorf("unexpected token: %s", token)
 	}
 
-	// 处理剩余的运算符
+	// Handle remaining operators
 	for len(operators) > 0 {
 		op := operators[len(operators)-1]
 		operators = operators[:len(operators)-1]
@@ -1435,18 +1435,18 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 	return output[0], nil
 }
 
-// parseFunctionArgs 解析函数参数
+// parseFunctionArgs parses function arguments
 func parseFunctionArgs(tokens []string, startIndex int) ([]*ExprNode, int, error) {
 	args := make([]*ExprNode, 0)
 	i := startIndex
 
-	// 处理空参数列表
+	// Handle empty argument list
 	if i < len(tokens) && tokens[i] == ")" {
 		return args, i + 1, nil
 	}
 
 	for i < len(tokens) {
-		// 解析参数表达式
+		// Parse argument expression
 		argTokens := make([]string, 0)
 		parenthesesCount := 0
 
@@ -1495,7 +1495,7 @@ func parseFunctionArgs(tokens []string, startIndex int) ([]*ExprNode, int, error
 	return nil, 0, fmt.Errorf("unexpected end of tokens in function arguments")
 }
 
-// parseCaseExpression 解析CASE表达式
+// parseCaseExpression parses CASE expression
 func parseCaseExpression(tokens []string, startIndex int) (*ExprNode, int, error) {
 	if startIndex >= len(tokens) || strings.ToUpper(tokens[startIndex]) != "CASE" {
 		return nil, startIndex, fmt.Errorf("expected CASE keyword")

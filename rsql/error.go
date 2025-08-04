@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// ErrorType 定义错误类型
+// ErrorType defines error types
 type ErrorType int
 
 const (
@@ -22,7 +22,7 @@ const (
 	ErrorTypeUnknownFunction
 )
 
-// ParseError 增强的解析错误结构
+// ParseError enhanced parsing error structure
 type ParseError struct {
 	Type        ErrorType
 	Message     string
@@ -36,36 +36,36 @@ type ParseError struct {
 	Recoverable bool
 }
 
-// Error 实现 error 接口
+// Error implements the error interface
 func (e *ParseError) Error() string {
 	var builder strings.Builder
 	
-	// 基本错误信息
+	// Basic error information
 	builder.WriteString(fmt.Sprintf("[%s] %s", e.getErrorTypeName(), e.Message))
 	
-	// 位置信息
+	// Position information
 	if e.Line > 0 && e.Column > 0 {
 		builder.WriteString(fmt.Sprintf(" at line %d, column %d", e.Line, e.Column))
 	} else if e.Position >= 0 {
 		builder.WriteString(fmt.Sprintf(" at position %d", e.Position))
 	}
 	
-	// 当前token信息
+	// Current token information
 	if e.Token != "" {
 		builder.WriteString(fmt.Sprintf(" (found '%s')", e.Token))
 	}
 	
-	// 期望的token
+	// Expected token
 	if len(e.Expected) > 0 {
 		builder.WriteString(fmt.Sprintf(", expected: %s", strings.Join(e.Expected, ", ")))
 	}
 	
-	// 上下文信息
+	// Context information
 	if e.Context != "" {
 		builder.WriteString(fmt.Sprintf("\nContext: %s", e.Context))
 	}
 	
-	// 建议
+	// Suggestions
 	if len(e.Suggestions) > 0 {
 		builder.WriteString(fmt.Sprintf("\nSuggestions: %s", strings.Join(e.Suggestions, "; ")))
 	}
@@ -73,7 +73,7 @@ func (e *ParseError) Error() string {
 	return builder.String()
 }
 
-// getErrorTypeName 获取错误类型名称
+// getErrorTypeName gets error type name
 func (e *ParseError) getErrorTypeName() string {
 	switch e.Type {
 	case ErrorTypeSyntax:
@@ -103,18 +103,18 @@ func (e *ParseError) getErrorTypeName() string {
 	}
 }
 
-// IsRecoverable 检查错误是否可恢复
+// IsRecoverable checks if error is recoverable
 func (e *ParseError) IsRecoverable() bool {
 	return e.Recoverable
 }
 
-// ErrorRecovery 错误恢复策略
+// ErrorRecovery error recovery strategy
 type ErrorRecovery struct {
 	parser *Parser
 	errors []*ParseError
 }
 
-// NewErrorRecovery 创建错误恢复实例
+// NewErrorRecovery creates error recovery instance
 func NewErrorRecovery(parser *Parser) *ErrorRecovery {
 	return &ErrorRecovery{
 		parser: parser,
@@ -122,46 +122,46 @@ func NewErrorRecovery(parser *Parser) *ErrorRecovery {
 	}
 }
 
-// AddError 添加错误
+// AddError adds an error
 func (er *ErrorRecovery) AddError(err *ParseError) {
 	er.errors = append(er.errors, err)
 }
 
-// GetErrors 获取所有错误
+// GetErrors gets all errors
 func (er *ErrorRecovery) GetErrors() []*ParseError {
 	return er.errors
 }
 
-// HasErrors 检查是否有错误
+// HasErrors checks if there are errors
 func (er *ErrorRecovery) HasErrors() bool {
 	return len(er.errors) > 0
 }
 
-// RecoverFromError 从错误中恢复
+// RecoverFromError recovers from error
 func (er *ErrorRecovery) RecoverFromError(errorType ErrorType) bool {
 	switch errorType {
 	case ErrorTypeUnexpectedToken:
-		// 跳过当前token，尝试继续解析
+		// Skip current token and continue parsing
 		er.parser.lexer.NextToken()
 		return true
 	case ErrorTypeMissingToken:
-		// 插入默认token或跳过
+		// Insert default token or skip
 		return true
 	case ErrorTypeInvalidExpression:
-		// 跳到下一个逗号或关键字
+		// Jump to next comma or keyword
 		return er.skipToNextDelimiter()
 	case ErrorTypeSyntax:
-		// 语法错误也尝试恢复，继续解析
+		// Syntax errors also attempt recovery and continue parsing
 		return true
 	case ErrorTypeUnknownKeyword:
-		// 未知关键字错误也尝试恢复
+		// Unknown keyword errors also attempt recovery
 		return true
 	default:
 		return false
 	}
 }
 
-// skipToNextDelimiter 跳到下一个分隔符
+// skipToNextDelimiter jumps to next delimiter
 func (er *ErrorRecovery) skipToNextDelimiter() bool {
 	maxSkip := 10
 	skipped := 0
@@ -180,7 +180,7 @@ func (er *ErrorRecovery) skipToNextDelimiter() bool {
 	return false
 }
 
-// CreateSyntaxError 创建语法错误
+// CreateSyntaxError creates syntax error
 func CreateSyntaxError(message string, position int, token string, expected []string) *ParseError {
 	line, column := calculateLineColumn(position)
 	return &ParseError{
@@ -196,7 +196,7 @@ func CreateSyntaxError(message string, position int, token string, expected []st
 	}
 }
 
-// CreateLexicalError 创建词法错误
+// CreateLexicalError creates lexical error
 func CreateLexicalError(message string, position int, char byte) *ParseError {
 	line, column := calculateLineColumn(position)
 	return &ParseError{
@@ -211,7 +211,7 @@ func CreateLexicalError(message string, position int, char byte) *ParseError {
 	}
 }
 
-// CreateLexicalErrorWithPosition 创建词法错误（带准确位置信息）
+// CreateLexicalErrorWithPosition creates lexical error with accurate position
 func CreateLexicalErrorWithPosition(message string, position int, line int, column int, char byte) *ParseError {
 	return &ParseError{
 		Type:        ErrorTypeLexical,
@@ -225,7 +225,7 @@ func CreateLexicalErrorWithPosition(message string, position int, line int, colu
 	}
 }
 
-// CreateUnexpectedTokenError 创建意外token错误
+// CreateUnexpectedTokenError creates unexpected token error
 func CreateUnexpectedTokenError(found string, expected []string, position int) *ParseError {
 	line, column := calculateLineColumn(position)
 	return &ParseError{
@@ -241,7 +241,7 @@ func CreateUnexpectedTokenError(found string, expected []string, position int) *
 	}
 }
 
-// CreateMissingTokenError 创建缺失token错误
+// CreateMissingTokenError creates missing token error
 func CreateMissingTokenError(expected string, position int) *ParseError {
 	line, column := calculateLineColumn(position)
 	return &ParseError{
@@ -256,7 +256,7 @@ func CreateMissingTokenError(expected string, position int) *ParseError {
 	}
 }
 
-// CreateUnknownFunctionError 创建未知函数错误
+// CreateUnknownFunctionError creates unknown function error
 func CreateUnknownFunctionError(functionName string, position int) *ParseError {
 	line, column := calculateLineColumn(position)
 	return &ParseError{
@@ -271,17 +271,17 @@ func CreateUnknownFunctionError(functionName string, position int) *ParseError {
 	}
 }
 
-// calculateLineColumn 计算行列号
-// 注意：这是一个简化的实现，实际的行列号应该由lexer提供
+// calculateLineColumn calculates line and column numbers
+// Note: This is a simplified implementation, actual line/column should be provided by lexer
 func calculateLineColumn(position int) (int, int) {
-	// 简化实现，实际应该基于输入文本计算
-	// 这里返回基于位置的估算值
+	// Simplified implementation, should be calculated based on input text
+	// Returns estimated value based on position
 	line := position/50 + 1  // 假设平均每行50个字符
 	column := position%50 + 1
 	return line, column
 }
 
-// generateSuggestions 生成建议
+// generateSuggestions generates suggestions
 func generateSuggestions(found string, expected []string) []string {
 	suggestions := make([]string, 0)
 	
@@ -289,7 +289,7 @@ func generateSuggestions(found string, expected []string) []string {
 		suggestions = append(suggestions, fmt.Sprintf("Try using '%s' instead of '%s'", expected[0], found))
 	}
 	
-	// 基于常见错误模式生成建议
+	// Generate suggestions based on common error patterns
 	switch strings.ToUpper(found) {
 	case "SELCT":
 		suggestions = append(suggestions, "Did you mean 'SELECT'?")
@@ -306,11 +306,11 @@ func generateSuggestions(found string, expected []string) []string {
 	return suggestions
 }
 
-// generateFunctionSuggestions 生成函数建议
+// generateFunctionSuggestions generates function suggestions
 func generateFunctionSuggestions(functionName string) []string {
 	suggestions := make([]string, 0)
 	
-	// 基于常见函数名拼写错误生成建议
+	// Generate suggestions based on common function name misspellings
 	funcLower := strings.ToLower(functionName)
 	switch {
 	case strings.Contains(funcLower, "coun"):
@@ -345,7 +345,7 @@ func generateFunctionSuggestions(functionName string) []string {
 		suggestions = append(suggestions, "Did you mean 'CEILING' function?")
 	}
 	
-	// 通用建议
+	// Generic suggestions
 	suggestions = append(suggestions, "Check if the function name is spelled correctly")
 	suggestions = append(suggestions, "Confirm that the function is registered or is a built-in function")
 	suggestions = append(suggestions, "View the list of available functions")
@@ -353,7 +353,7 @@ func generateFunctionSuggestions(functionName string) []string {
 	return suggestions
 }
 
-// FormatErrorContext 格式化错误上下文
+// FormatErrorContext formats error context
 func FormatErrorContext(input string, position int, contextLength int) string {
 	if position < 0 || position >= len(input) {
 		return ""

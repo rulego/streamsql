@@ -23,48 +23,48 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
-// Option 定义StreamSQL的配置选项类型
+// Option defines the configuration option type for StreamSQL
 type Option func(*Streamsql)
 
-// WithLogLevel 设置日志级别
+// WithLogLevel sets the log level
 func WithLogLevel(level logger.Level) Option {
 	return func(s *Streamsql) {
 		logger.GetDefault().SetLevel(level)
 	}
 }
 
-// WithDiscardLog 禁用日志输出
+// WithDiscardLog disables log output
 func WithDiscardLog() Option {
 	return func(s *Streamsql) {
 		logger.SetDefault(logger.NewDiscardLogger())
 	}
 }
 
-// WithHighPerformance 使用高性能配置
-// 适用于需要最大吞吐量的场景
+// WithHighPerformance uses high-performance configuration
+// Suitable for scenarios requiring maximum throughput
 func WithHighPerformance() Option {
 	return func(s *Streamsql) {
 		s.performanceMode = "high_performance"
 	}
 }
 
-// WithLowLatency 使用低延迟配置
-// 适用于实时交互应用，最小化延迟
+// WithLowLatency uses low-latency configuration
+// Suitable for real-time interactive applications, minimizing latency
 func WithLowLatency() Option {
 	return func(s *Streamsql) {
 		s.performanceMode = "low_latency"
 	}
 }
 
-// WithZeroDataLoss 使用零数据丢失配置
-// 适用于关键业务数据，保证数据不丢失
+// WithZeroDataLoss uses zero data loss configuration
+// Suitable for critical business data, ensuring no data loss
 func WithZeroDataLoss() Option {
 	return func(s *Streamsql) {
 		s.performanceMode = "zero_data_loss"
 	}
 }
 
-// WithCustomPerformance 使用自定义性能配置
+// WithCustomPerformance uses custom performance configuration
 func WithCustomPerformance(config types.PerformanceConfig) Option {
 	return func(s *Streamsql) {
 		s.performanceMode = "custom"
@@ -72,7 +72,7 @@ func WithCustomPerformance(config types.PerformanceConfig) Option {
 	}
 }
 
-// WithPersistence 使用持久化配置预设
+// WithPersistence uses persistence configuration preset
 func WithPersistence() Option {
 	return func(s *Streamsql) {
 		s.performanceMode = "custom"
@@ -81,7 +81,7 @@ func WithPersistence() Option {
 	}
 }
 
-// WithCustomPersistence 使用自定义持久化配置
+// WithCustomPersistence uses custom persistence configuration
 func WithCustomPersistence(dataDir string, maxFileSize int64, flushInterval time.Duration) Option {
 	return func(s *Streamsql) {
 		s.performanceMode = "custom"
@@ -98,7 +98,7 @@ func WithCustomPersistence(dataDir string, maxFileSize int64, flushInterval time
 	}
 }
 
-// WithBufferSizes 设置自定义缓冲区大小
+// WithBufferSizes sets custom buffer sizes
 func WithBufferSizes(dataChannelSize, resultChannelSize, windowOutputSize int) Option {
 	return func(s *Streamsql) {
 		s.performanceMode = "custom"
@@ -110,7 +110,7 @@ func WithBufferSizes(dataChannelSize, resultChannelSize, windowOutputSize int) O
 	}
 }
 
-// WithOverflowStrategy 设置溢出策略
+// WithOverflowStrategy sets the overflow strategy
 func WithOverflowStrategy(strategy string, blockTimeout time.Duration) Option {
 	return func(s *Streamsql) {
 		s.performanceMode = "custom"
@@ -122,7 +122,7 @@ func WithOverflowStrategy(strategy string, blockTimeout time.Duration) Option {
 	}
 }
 
-// WithWorkerConfig 设置工作池配置
+// WithWorkerConfig sets the worker pool configuration
 func WithWorkerConfig(sinkPoolSize, sinkWorkerCount, maxRetryRoutines int) Option {
 	return func(s *Streamsql) {
 		s.performanceMode = "custom"
@@ -134,7 +134,7 @@ func WithWorkerConfig(sinkPoolSize, sinkWorkerCount, maxRetryRoutines int) Optio
 	}
 }
 
-// WithMonitoring 启用详细监控
+// WithMonitoring enables detailed monitoring
 func WithMonitoring(updateInterval time.Duration, enableDetailedStats bool) Option {
 	return func(s *Streamsql) {
 		s.performanceMode = "custom"

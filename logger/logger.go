@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-// Package logger 提供StreamSQL的日志记录功能。
-// 支持不同日志级别和可配置的日志输出后端。
+// Package logger provides logging functionality for StreamSQL.
+// Supports different log levels and configurable log output backends.
 package logger
 
 import (
@@ -26,23 +26,23 @@ import (
 	"time"
 )
 
-// Level 定义日志级别
+// Level defines log levels
 type Level int
 
 const (
-	// DEBUG 调试级别，显示详细的调试信息
+	// DEBUG debug level, displays detailed debug information
 	DEBUG Level = iota
-	// INFO 信息级别，显示一般信息
+	// INFO info level, displays general information
 	INFO
-	// WARN 警告级别，显示警告信息
+	// WARN warning level, displays warning information
 	WARN
-	// ERROR 错误级别，仅显示错误信息
+	// ERROR error level, only displays error information
 	ERROR
-	// OFF 关闭日志
+	// OFF disables logging
 	OFF
 )
 
-// String 返回日志级别的字符串表示
+// String returns string representation of log level
 func (l Level) String() string {
 	switch l {
 	case DEBUG:
@@ -60,38 +60,38 @@ func (l Level) String() string {
 	}
 }
 
-// Logger 接口定义了日志记录的基本方法
+// Logger interface defines basic methods for logging
 type Logger interface {
-	// Debug 记录调试级别的日志
+	// Debug records debug level logs
 	Debug(format string, args ...interface{})
-	// Info 记录信息级别的日志
+	// Info records info level logs
 	Info(format string, args ...interface{})
-	// Warn 记录警告级别的日志
+	// Warn records warning level logs
 	Warn(format string, args ...interface{})
-	// Error 记录错误级别的日志
+	// Error records error level logs
 	Error(format string, args ...interface{})
-	// SetLevel 设置日志级别
+	// SetLevel sets the log level
 	SetLevel(level Level)
 }
 
-// defaultLogger 是默认的日志实现
+// defaultLogger is the default log implementation
 type defaultLogger struct {
 	level  Level
 	logger *log.Logger
 }
 
-// NewLogger 创建一个新的日志记录器
-// 参数:
-//   - level: 日志级别
-//   - output: 输出目标，如os.Stdout、os.Stderr或文件
+// NewLogger creates a new logger
+// Parameters:
+//   - level: log level
+//   - output: output destination, such as os.Stdout, os.Stderr, or file
 //
-// 返回值:
-//   - Logger: 日志记录器实例
+// Returns:
+//   - Logger: logger instance
 //
-// 示例:
+// Example:
 //
 //	logger := NewLogger(INFO, os.Stdout)
-//	logger.Info("应用程序启动")
+//	logger.Info("Application started")
 func NewLogger(level Level, output io.Writer) Logger {
 	return &defaultLogger{
 		level:  level,
@@ -132,7 +132,7 @@ func (l *defaultLogger) SetLevel(level Level) {
 	l.level = level
 }
 
-// log 内部日志记录方法，格式化输出日志信息
+// log internal logging method, formats and outputs log information
 func (l *defaultLogger) log(level Level, format string, args ...interface{}) {
 	if l.level == OFF {
 		return
@@ -144,11 +144,11 @@ func (l *defaultLogger) log(level Level, format string, args ...interface{}) {
 	l.logger.Println(logLine)
 }
 
-// discardLogger 是一个丢弃所有日志输出的记录器
+// discardLogger is a logger that discards all log output
 type discardLogger struct{}
 
-// NewDiscardLogger 创建一个丢弃所有日志的记录器
-// 用于在不需要日志输出的场景中使用
+// NewDiscardLogger creates a logger that discards all logs
+// Used in scenarios where log output is not needed
 func NewDiscardLogger() Logger {
 	return &discardLogger{}
 }
@@ -159,37 +159,37 @@ func (d *discardLogger) Warn(format string, args ...interface{})  {}
 func (d *discardLogger) Error(format string, args ...interface{}) {}
 func (d *discardLogger) SetLevel(level Level)                     {}
 
-// 全局默认日志记录器
+// Global default logger
 var defaultInstance Logger = NewLogger(INFO, os.Stdout)
 
-// SetDefault 设置全局默认日志记录器
+// SetDefault sets the global default logger
 func SetDefault(logger Logger) {
 	defaultInstance = logger
 }
 
-// GetDefault 获取全局默认日志记录器
+// GetDefault gets the global default logger
 func GetDefault() Logger {
 	return defaultInstance
 }
 
 // 便捷的全局日志方法
 
-// Debug 使用默认日志记录器记录调试信息
+// Debug uses the default logger to record debug information
 func Debug(format string, args ...interface{}) {
 	defaultInstance.Debug(format, args...)
 }
 
-// Info 使用默认日志记录器记录信息
+// Info uses the default logger to record information
 func Info(format string, args ...interface{}) {
 	defaultInstance.Info(format, args...)
 }
 
-// Warn 使用默认日志记录器记录警告
+// Warn uses the default logger to record warnings
 func Warn(format string, args ...interface{}) {
 	defaultInstance.Warn(format, args...)
 }
 
-// Error 使用默认日志记录器记录错误
+// Error uses the default logger to record errors
 func Error(format string, args ...interface{}) {
 	defaultInstance.Error(format, args...)
 }

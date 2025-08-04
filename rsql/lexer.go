@@ -242,8 +242,8 @@ func (l *Lexer) peekChar() byte {
 
 func (l *Lexer) readIdentifier() string {
 	position := l.pos
-	// 只处理基本标识符和点号（用于嵌套字段访问）
-	// 数组索引（方括号）应该由解析器处理，而不是词法分析器
+	// Only handle basic identifiers and dots (for nested field access)
+	// Array indexing (brackets) should be handled by the parser, not the lexer
 	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '.' {
 		l.readChar()
 	}
@@ -254,16 +254,16 @@ func (l *Lexer) readPreviousIdentifier() string {
 	// 保存当前位置
 	endPos := l.pos
 
-	// 向前移动直到找到非字母字符或到达输入开始
+	// Move backward until finding a non-letter character or reaching the input start
 	startPos := endPos - 1
 	for startPos >= 0 && isLetter(l.input[startPos]) {
 		startPos--
 	}
 
-	// 调整到第一个字母字符的位置
+	// Adjust to the position of the first letter character
 	startPos++
 
-	// 如果找到有效的标识符，返回它
+	// If a valid identifier is found, return it
 	if startPos < endPos {
 		return l.input[startPos:endPos]
 	}
@@ -280,8 +280,8 @@ func (l *Lexer) readNumber() string {
 }
 
 func (l *Lexer) readString() string {
-	quoteChar := l.ch // 记录引号类型（单引号或双引号）
-	startPos := l.pos // 记录开始位置（包含引号）
+	quoteChar := l.ch // Record the quote type (single or double quote)
+	startPos := l.pos // Record the start position (including the quote)
 	l.readChar()      // 跳过开头引号
 
 	for l.ch != quoteChar && l.ch != 0 {
@@ -292,7 +292,7 @@ func (l *Lexer) readString() string {
 		l.readChar() // 跳过结尾引号
 	}
 
-	// 返回包含引号的完整字符串
+	// Return the complete string including quotes
 	return l.input[startPos:l.pos]
 }
 
@@ -363,7 +363,7 @@ func (l *Lexer) lookupIdent(ident string) Token {
 	case "END":
 		return Token{Type: TokenEND, Value: ident}
 	default:
-		// 检查是否是常见的拼写错误
+		// Check for common typos
 		if l.errorRecovery != nil {
 			l.checkForTypos(ident, upperIdent)
 		}
@@ -416,7 +416,7 @@ func (l *Lexer) readStringToken(pos, line, column int) Token {
 	}
 
 	if l.ch == 0 {
-		// 未闭合的字符串
+		// Unterminated string
 		if l.errorRecovery != nil {
 			err := &ParseError{
 				Type:        ErrorTypeUnterminatedString,
@@ -452,7 +452,7 @@ func (l *Lexer) readQuotedIdentToken(pos, line, column int) Token {
 	}
 
 	if l.ch == 0 {
-		// 未闭合的反引号标识符
+		// Unterminated backtick identifier
 		if l.errorRecovery != nil {
 			err := &ParseError{
 				Type:        ErrorTypeUnterminatedString,

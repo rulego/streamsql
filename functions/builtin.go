@@ -102,7 +102,7 @@ func registerBuiltinFunctions() {
 	_ = Register(NewChangedColFunction())
 	_ = Register(NewHadChangedFunction())
 
-	// 注册窗口函数
+	// Window functions
 	_ = Register(NewWindowStartFunction())
 	_ = Register(NewWindowEndFunction())
 

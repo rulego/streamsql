@@ -14,7 +14,7 @@ func TestExpressionEvaluation(t *testing.T) {
 		expected float64
 		hasError bool
 	}{
-		// 基本运算测试
+		// Basic arithmetic tests
 		{"Simple Addition", "a + b", map[string]interface{}{"a": 5, "b": 3}, 8, false},
 		{"Simple Subtraction", "a - b", map[string]interface{}{"a": 5, "b": 3}, 2, false},
 		{"Simple Multiplication", "a * b", map[string]interface{}{"a": 5, "b": 3}, 15, false},
@@ -22,24 +22,24 @@ func TestExpressionEvaluation(t *testing.T) {
 		{"Modulo", "a % b", map[string]interface{}{"a": 7, "b": 4}, 3, false},
 		{"Power", "a ^ b", map[string]interface{}{"a": 2, "b": 3}, 8, false},
 
-		// 复合表达式测试
+		// Compound expression tests
 		{"Complex Expression", "a + b * c", map[string]interface{}{"a": 5, "b": 3, "c": 2}, 11, false},
 		{"Complex Expression With Parentheses", "(a + b) * c", map[string]interface{}{"a": 5, "b": 3, "c": 2}, 16, false},
 		{"Multiple Operations", "a + b * c - d / e", map[string]interface{}{"a": 5, "b": 3, "c": 2, "d": 8, "e": 4}, 9, false},
 
-		// 函数调用测试
+		// Function call tests
 		{"Abs Function", "abs(a - b)", map[string]interface{}{"a": 3, "b": 5}, 2, false},
 		{"Sqrt Function", "sqrt(a)", map[string]interface{}{"a": 16}, 4, false},
 		{"Round Function", "round(a)", map[string]interface{}{"a": 3.7}, 4, false},
 
-		// 转换测试
+		// Conversion tests
 		{"String to Number", "a + b", map[string]interface{}{"a": "5", "b": 3}, 8, false},
 
-		// 复杂表达式测试
+		// Complex expression tests
 		{"Temperature Conversion", "temperature * 1.8 + 32", map[string]interface{}{"temperature": 25}, 77, false},
 		{"Complex Math", "sqrt(abs(a * b - c / d))", map[string]interface{}{"a": 10, "b": 2, "c": 5, "d": 1}, 3.872983346207417, false},
 
-		// 错误测试
+		// Error tests
 		{"Division by Zero", "a / b", map[string]interface{}{"a": 5, "b": 0}, 0, true},
 		{"Missing Field", "a + b", map[string]interface{}{"a": 5}, 0, true},
 		{"Invalid Function", "unknown(a)", map[string]interface{}{"a": 5}, 0, true},
@@ -61,7 +61,7 @@ func TestExpressionEvaluation(t *testing.T) {
 	}
 }
 
-// TestCaseExpressionParsing 测试CASE表达式的解析功能
+// TestCaseExpressionParsing tests CASE expression parsing functionality
 func TestCaseExpressionParsing(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -71,105 +71,105 @@ func TestCaseExpressionParsing(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name:     "简单的搜索CASE表达式",
+			name:     "Simple search CASE expression",
 			exprStr:  "CASE WHEN temperature > 30 THEN 1 ELSE 0 END",
 			data:     map[string]interface{}{"temperature": 35.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
-			name:     "简单CASE表达式 - 值匹配",
+			name:     "Simple CASE expression - value matching",
 			exprStr:  "CASE status WHEN 'active' THEN 1 WHEN 'inactive' THEN 0 ELSE -1 END",
 			data:     map[string]interface{}{"status": "active"},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
-			name:     "CASE表达式 - ELSE分支",
+			name:     "CASE expression - ELSE branch",
 			exprStr:  "CASE WHEN temperature > 50 THEN 1 ELSE 0 END",
 			data:     map[string]interface{}{"temperature": 25.5},
 			expected: 0.0,
 			wantErr:  false,
 		},
 		{
-			name:     "复杂搜索CASE表达式",
+			name:     "Complex search CASE expression",
 			exprStr:  "CASE WHEN temperature > 30 THEN 'HOT' WHEN temperature > 20 THEN 'WARM' ELSE 'COLD' END",
 			data:     map[string]interface{}{"temperature": 25.0},
-			expected: 4.0, // 字符串"WARM"的长度
+			expected: 4.0, // Length of string "WARM"
 			wantErr:  false,
 		},
 		{
-			name:     "数值比较的简单CASE",
+			name:     "Simple CASE with numeric comparison",
 			exprStr:  "CASE temperature WHEN 25 THEN 1 WHEN 30 THEN 2 ELSE 0 END",
 			data:     map[string]interface{}{"temperature": 30.0},
 			expected: 2.0,
 			wantErr:  false,
 		},
 		{
-			name:     "布尔值CASE表达式",
+			name:     "Boolean CASE expression",
 			exprStr:  "CASE WHEN temperature > 25 AND humidity > 50 THEN 1 ELSE 0 END",
 			data:     map[string]interface{}{"temperature": 30.0, "humidity": 60.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
-			name:     "多条件CASE表达式_AND",
+			name:     "Multi-condition CASE expression with AND",
 			exprStr:  "CASE WHEN temperature > 30 AND humidity < 60 THEN 1 WHEN temperature > 20 THEN 2 ELSE 0 END",
 			data:     map[string]interface{}{"temperature": 35.0, "humidity": 50.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
-			name:     "多条件CASE表达式_OR",
+			name:     "Multi-condition CASE expression with OR",
 			exprStr:  "CASE WHEN temperature > 40 OR humidity > 80 THEN 1 ELSE 0 END",
 			data:     map[string]interface{}{"temperature": 25.0, "humidity": 85.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
-			name:     "函数调用在CASE中_ABS",
+			name:     "Function call in CASE - ABS",
 			exprStr:  "CASE WHEN ABS(temperature) > 30 THEN 1 ELSE 0 END",
 			data:     map[string]interface{}{"temperature": -35.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
-			name:     "函数调用在CASE中_ROUND",
+			name:     "Function call in CASE - ROUND",
 			exprStr:  "CASE WHEN ROUND(temperature) = 25 THEN 1 ELSE 0 END",
 			data:     map[string]interface{}{"temperature": 24.7},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
-			name:     "复杂条件组合",
+			name:     "Complex condition combination",
 			exprStr:  "CASE WHEN temperature > 30 AND (humidity > 60 OR pressure < 1000) THEN 1 ELSE 0 END",
 			data:     map[string]interface{}{"temperature": 35.0, "humidity": 55.0, "pressure": 950.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
-			name:     "CASE中的算术表达式",
+			name:     "Arithmetic expression in CASE",
 			exprStr:  "CASE WHEN temperature * 1.8 + 32 > 100 THEN 1 ELSE 0 END",
 			data:     map[string]interface{}{"temperature": 40.0}, // 40*1.8+32 = 104
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
-			name:     "字符串函数在CASE中",
+			name:     "String function in CASE",
 			exprStr:  "CASE WHEN LENGTH(device_name) > 5 THEN 1 ELSE 0 END",
 			data:     map[string]interface{}{"device_name": "sensor123"},
-			expected: 1.0, // LENGTH函数正常工作，"sensor123"长度为9 > 5，返回1
+			expected: 1.0, // LENGTH function works normally, "sensor123" length is 9 > 5, returns 1
 			wantErr:  false,
 		},
 		{
-			name:     "简单CASE与函数",
+			name:     "Simple CASE with function",
 			exprStr:  "CASE ABS(temperature) WHEN 30 THEN 1 WHEN 25 THEN 2 ELSE 0 END",
 			data:     map[string]interface{}{"temperature": -30.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
-			name:     "CASE结果中的函数",
+			name:     "Function in CASE result",
 			exprStr:  "CASE WHEN temperature > 30 THEN ABS(temperature) ELSE ROUND(temperature) END",
 			data:     map[string]interface{}{"temperature": 35.5},
 			expected: 35.5,
@@ -188,7 +188,7 @@ func TestCaseExpressionParsing(t *testing.T) {
 			assert.NoError(t, err, "Expression creation should not fail")
 			assert.NotNil(t, expression, "Expression should not be nil")
 
-			// 测试表达式计算
+			// Test expression evaluation
 			result, err := expression.Evaluate(tt.data)
 			if tt.wantErr {
 				assert.Error(t, err)

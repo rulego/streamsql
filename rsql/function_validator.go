@@ -7,33 +7,33 @@ import (
 	"github.com/rulego/streamsql/functions"
 )
 
-// FunctionValidator 函数验证器
+// FunctionValidator validates SQL functions in expressions
 type FunctionValidator struct {
 	errorRecovery *ErrorRecovery
 }
 
-// NewFunctionValidator 创建函数验证器
+// NewFunctionValidator creates a new function validator
 func NewFunctionValidator(errorRecovery *ErrorRecovery) *FunctionValidator {
 	return &FunctionValidator{
 		errorRecovery: errorRecovery,
 	}
 }
 
-// ValidateExpression 验证表达式中的函数
+// ValidateExpression validates functions within expressions
 func (fv *FunctionValidator) ValidateExpression(expression string, position int) {
 	functionCalls := fv.extractFunctionCalls(expression)
 
 	for _, funcCall := range functionCalls {
 		funcName := funcCall.Name
 
-		// 检查函数是否在注册表中
+		// Check if function exists in registry
 		if _, exists := functions.Get(funcName); !exists {
-			// 检查是否是内置函数
+			// Check if it's a built-in function
 			if !fv.isBuiltinFunction(funcName) {
-				// 检查是否是expr-lang函数
+				// Check if it's an expr-lang function
 				bridge := functions.GetExprBridge()
 				if !bridge.IsExprLangFunction(funcName) {
-					// 创建未知函数错误
+					// Create unknown function error
 					err := CreateUnknownFunctionError(funcName, position+funcCall.Position)
 					fv.errorRecovery.AddError(err)
 				}
@@ -42,29 +42,29 @@ func (fv *FunctionValidator) ValidateExpression(expression string, position int)
 	}
 }
 
-// FunctionCall 函数调用信息
+// FunctionCall contains function call information
 type FunctionCall struct {
 	Name     string
 	Position int
 }
 
-// extractFunctionCalls 从表达式中提取函数调用
+// extractFunctionCalls extracts function calls from expressions
 func (fv *FunctionValidator) extractFunctionCalls(expression string) []FunctionCall {
 	var functionCalls []FunctionCall
 
-	// 使用正则表达式匹配函数调用模式: identifier(
+	// Use regex to match function call patterns: identifier(
 	funcPattern := regexp.MustCompile(`([a-zA-Z_][a-zA-Z0-9_]*)\s*\(`)
 	matches := funcPattern.FindAllStringSubmatchIndex(expression, -1)
 
 	for _, match := range matches {
-		// match[0] 是整个匹配的开始位置
-		// match[1] 是整个匹配的结束位置
-		// match[2] 是第一个捕获组（函数名）的开始位置
-		// match[3] 是第一个捕获组（函数名）的结束位置
+		// match[0] is the start position of entire match
+		// match[1] is the end position of entire match
+		// match[2] is the start position of first capture group (function name)
+		// match[3] is the end position of first capture group (function name)
 		funcName := expression[match[2]:match[3]]
 		position := match[2]
 
-		// 过滤掉关键字（如 CASE、IF 等）
+		// Filter out keywords (like CASE, IF, etc.)
 		if !fv.isKeyword(funcName) {
 			functionCalls = append(functionCalls, FunctionCall{
 				Name:     funcName,
@@ -76,7 +76,7 @@ func (fv *FunctionValidator) extractFunctionCalls(expression string) []FunctionC
 	return functionCalls
 }
 
-// isBuiltinFunction 检查是否是内置函数
+// isBuiltinFunction checks if it's a built-in function
 func (fv *FunctionValidator) isBuiltinFunction(funcName string) bool {
 	builtinFunctions := []string{
 		"abs", "sqrt", "sin", "cos", "tan", "floor", "ceil", "round",
@@ -92,7 +92,7 @@ func (fv *FunctionValidator) isBuiltinFunction(funcName string) bool {
 	return false
 }
 
-// isKeyword 检查是否是SQL关键字
+// isKeyword checks if it's an SQL keyword
 func (fv *FunctionValidator) isKeyword(word string) bool {
 	keywords := []string{
 		"SELECT", "FROM", "WHERE", "GROUP", "BY", "HAVING", "ORDER",

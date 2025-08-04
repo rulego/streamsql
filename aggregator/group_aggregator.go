@@ -11,20 +11,21 @@ import (
 	"github.com/rulego/streamsql/utils/fieldpath"
 )
 
+// Aggregator aggregator interface
 type Aggregator interface {
 	Add(data interface{}) error
 	Put(key string, val interface{}) error
 	GetResults() ([]map[string]interface{}, error)
 	Reset()
-	// RegisterExpression 注册表达式计算器
+	// RegisterExpression registers expression evaluator
 	RegisterExpression(field, expression string, fields []string, evaluator func(data interface{}) (interface{}, error))
 }
 
-// AggregationField 定义单个聚合字段的配置
+// AggregationField defines configuration for a single aggregation field
 type AggregationField struct {
-	InputField    string        // 输入字段名（如 "temperature"）
-	AggregateType AggregateType // 聚合类型（如 Sum, Avg）
-	OutputAlias   string        // 输出别名（如 "temp_sum"）
+	InputField    string        // Input field name (e.g., "temperature")
+	AggregateType AggregateType // Aggregation type (e.g., Sum, Avg)
+	OutputAlias   string        // Output alias (e.g., "temp_sum")
 }
 
 type GroupAggregator struct {
@@ -34,26 +35,26 @@ type GroupAggregator struct {
 	groups            map[string]map[string]AggregatorFunction
 	mu                sync.RWMutex
 	context           map[string]interface{}
-	// 表达式计算器
+	// Expression evaluators
 	expressions map[string]*ExpressionEvaluator
 }
 
-// ExpressionEvaluator 包装表达式计算功能
+// ExpressionEvaluator wraps expression evaluation functionality
 type ExpressionEvaluator struct {
-	Expression   string   // 完整表达式
-	Field        string   // 主字段名
-	Fields       []string // 表达式中引用的所有字段
+	Expression   string   // Complete expression
+	Field        string   // Primary field name
+	Fields       []string // All fields referenced in expression
 	evaluateFunc func(data interface{}) (interface{}, error)
 }
 
-// NewGroupAggregator 创建新的分组聚合器
+// NewGroupAggregator creates a new group aggregator
 func NewGroupAggregator(groupFields []string, aggregationFields []AggregationField) *GroupAggregator {
 	aggregators := make(map[string]AggregatorFunction)
 
-	// 为每个聚合字段创建聚合器
+	// Create aggregator for each aggregation field
 	for i := range aggregationFields {
 		if aggregationFields[i].OutputAlias == "" {
-			// 如果没有指定别名，使用输入字段名
+			// If no alias specified, use input field name
 			aggregationFields[i].OutputAlias = aggregationFields[i].InputField
 		}
 		aggregators[aggregationFields[i].OutputAlias] = CreateBuiltinAggregator(aggregationFields[i].AggregateType)
@@ -68,7 +69,7 @@ func NewGroupAggregator(groupFields []string, aggregationFields []AggregationFie
 	}
 }
 
-// RegisterExpression 注册表达式计算器
+// RegisterExpression registers expression evaluator
 func (ga *GroupAggregator) RegisterExpression(field, expression string, fields []string, evaluator func(data interface{}) (interface{}, error)) {
 	ga.mu.Lock()
 	defer ga.mu.Unlock()
@@ -91,26 +92,26 @@ func (ga *GroupAggregator) Put(key string, val interface{}) error {
 	return nil
 }
 
-// isNumericAggregator 检查聚合器是否需要数值类型输入
+// isNumericAggregator checks if aggregator requires numeric type input
 func (ga *GroupAggregator) isNumericAggregator(aggType AggregateType) bool {
-	// 通过functions模块动态检查函数类型
+	// Dynamically check function type through functions module
 	if fn, exists := functions.Get(string(aggType)); exists {
 		switch fn.GetType() {
 		case functions.TypeMath:
-			// 数学函数通常需要数值输入
+			// Math functions usually require numeric input
 			return true
 		case functions.TypeAggregation:
-			// 检查是否是数值聚合函数
+			// Check if it's a numeric aggregation function
 			switch string(aggType) {
 			case functions.SumStr, functions.AvgStr, functions.MinStr, functions.MaxStr, functions.CountStr,
 				functions.StdDevStr, functions.MedianStr, functions.PercentileStr,
 				functions.VarStr, functions.VarSStr, functions.StdDevSStr:
 				return true
 			case functions.CollectStr, functions.MergeAggStr, functions.DeduplicateStr, functions.LastValueStr:
-				// 这些函数可以处理任意类型
+				// These functions can handle any type
 				return false
 			default:
-				// 对于未知的聚合函数，尝试检查函数名称模式
+				// For unknown aggregation functions, try to check function name patterns
 				funcName := string(aggType)
 				if strings.Contains(funcName, functions.SumStr) || strings.Contains(funcName, functions.AvgStr) ||
 					strings.Contains(funcName, functions.MinStr) || strings.Contains(funcName, functions.MaxStr) ||
@@ -120,15 +121,15 @@ func (ga *GroupAggregator) isNumericAggregator(aggType AggregateType) bool {
 				return false
 			}
 		case functions.TypeAnalytical:
-			// 分析函数通常可以处理任意类型
+			// Analytical functions can usually handle any type
 			return false
 		default:
-			// 其他类型的函数，保守起见认为不需要数值转换
+			// For other types of functions, conservatively assume no numeric conversion needed
 			return false
 		}
 	}
 
-	// 如果函数不存在，根据名称模式判断
+	// If function doesn't exist, judge by name pattern
 	funcName := string(aggType)
 	if strings.Contains(funcName, functions.SumStr) || strings.Contains(funcName, functions.AvgStr) ||
 		strings.Contains(funcName, functions.MinStr) || strings.Contains(funcName, functions.MaxStr) ||
@@ -160,11 +161,11 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		var fieldVal interface{}
 		var found bool
 
-		// 检查是否是嵌套字段
+		// Check if it's a nested field
 		if fieldpath.IsNestedField(field) {
 			fieldVal, found = fieldpath.GetNestedField(data, field)
 		} else {
-			// 原有的字段访问逻辑
+			// Original field access logic
 			var f reflect.Value
 			if v.Kind() == reflect.Map {
 				keyVal := reflect.ValueOf(field)
@@ -198,21 +199,21 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		ga.groups[key] = make(map[string]AggregatorFunction)
 	}
 
-	// 为每个字段创建聚合器实例
+	// Create aggregator instances for each field
 	for outputAlias, agg := range ga.aggregators {
 		if _, exists := ga.groups[key][outputAlias]; !exists {
 			ga.groups[key][outputAlias] = agg.New()
 		}
 	}
 
-	// 处理每个聚合字段
+	// Process each aggregation field
 	for _, aggField := range ga.aggregationFields {
 		outputAlias := aggField.OutputAlias
 		if outputAlias == "" {
 			outputAlias = aggField.InputField
 		}
 
-		// 检查是否有表达式计算器
+		// Check if there's an expression evaluator
 		if expr, hasExpr := ga.expressions[outputAlias]; hasExpr {
 			result, err := expr.evaluateFunc(data)
 			if err != nil {
@@ -227,23 +228,23 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 
 		inputField := aggField.InputField
 
-		// 特殊处理count(*)的情况
+		// Special handling for count(*) case
 		if inputField == "*" {
-			// 对于count(*)，直接添加1，不需要获取具体字段值
+			// For count(*), directly add 1 without getting specific field value
 			if groupAgg, exists := ga.groups[key][outputAlias]; exists {
 				groupAgg.Add(1)
 			}
 			continue
 		}
 
-		// 获取字段值 - 支持嵌套字段
+		// Get field value - supports nested fields
 		var fieldVal interface{}
 		var found bool
 
 		if fieldpath.IsNestedField(inputField) {
 			fieldVal, found = fieldpath.GetNestedField(data, inputField)
 		} else {
-			// 原有的字段访问逻辑
+			// Original field access logic
 			var f reflect.Value
 			if v.Kind() == reflect.Map {
 				keyVal := reflect.ValueOf(inputField)
@@ -259,7 +260,7 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		}
 
 		if !found {
-			// 尝试从context中获取
+			// Try to get from context
 			if ga.context != nil {
 				if groupAgg, exists := ga.groups[key][outputAlias]; exists {
 					if contextAgg, ok := groupAgg.(ContextAggregator); ok {
@@ -275,9 +276,9 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 
 		aggType := aggField.AggregateType
 
-		// 动态检查是否需要数值转换
+		// Dynamically check if numeric conversion is needed
 		if ga.isNumericAggregator(aggType) {
-			// 对于数值聚合函数，尝试转换为数值类型
+			// For numeric aggregation functions, try to convert to numeric type
 			if numVal, err := cast.ToFloat64E(fieldVal); err == nil {
 				if groupAgg, exists := ga.groups[key][outputAlias]; exists {
 					groupAgg.Add(numVal)
@@ -286,7 +287,7 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 				return fmt.Errorf("cannot convert field %s value %v to numeric type for aggregator %s", inputField, fieldVal, aggType)
 			}
 		} else {
-			// 对于非数值聚合函数，直接传递原始值
+			// For non-numeric aggregation functions, pass original value directly
 			if groupAgg, exists := ga.groups[key][outputAlias]; exists {
 				groupAgg.Add(fieldVal)
 			}

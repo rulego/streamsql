@@ -129,14 +129,14 @@ func TestGroupAggregator_MultipleAggregators(t *testing.T) {
 }
 
 func TestGroupAggregator_NoAlias(t *testing.T) {
-	// 测试没有指定别名的情况，应该使用输入字段名作为输出字段名
+	// Test case where no alias is specified, should use input field name as output field name
 	agg := NewGroupAggregator(
 		[]string{"Device"},
 		[]AggregationField{
 			{
 				InputField:    "temperature",
 				AggregateType: Sum,
-				// OutputAlias 留空，应该使用 InputField
+				// OutputAlias left empty, should use InputField
 			},
 		},
 	)
