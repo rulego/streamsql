@@ -54,8 +54,9 @@ func (s *Stream) compileSimpleFieldInfo(fieldSpec string) *fieldProcessInfo {
 
 	if fieldSpec == "*" {
 		info.isSelectAll = true
-		info.fieldName = "*"
+		info.fieldName = ""
 		info.outputName = "*"
+		info.alias = "*"
 		return info
 	}
 
@@ -164,13 +165,18 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]int
 	} else if exprInfo.hasNestedFields {
 		// 使用预编译的表达式对象
 		if exprInfo.compiledExpr != nil {
-			numResult, err := exprInfo.compiledExpr.Evaluate(dataMap)
+			// 使用EvaluateValueWithNull获取实际值（包括字符串）
+			exprResult, isNull, err := exprInfo.compiledExpr.EvaluateValueWithNull(dataMap)
 			if err != nil {
 				logger.Error("Expression evaluation failed for field %s: %v", fieldName, err)
 				result[fieldName] = nil
 				return
 			}
-			evalResult = numResult
+			if isNull {
+				evalResult = nil
+			} else {
+				evalResult = exprResult
+			}
 		} else {
 			// 回退到动态编译
 			s.processExpressionFieldFallback(fieldName, dataMap, result)
@@ -182,13 +188,18 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]int
 		if err != nil {
 			// 如果桥接器失败，使用预编译的表达式对象
 			if exprInfo.compiledExpr != nil {
-				numResult, evalErr := exprInfo.compiledExpr.Evaluate(dataMap)
+				// 使用EvaluateValueWithNull获取实际值（包括字符串）
+				exprResult, isNull, evalErr := exprInfo.compiledExpr.EvaluateValueWithNull(dataMap)
 				if evalErr != nil {
 					logger.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
 					result[fieldName] = nil
 					return
 				}
-				evalResult = numResult
+				if isNull {
+					evalResult = nil
+				} else {
+					evalResult = exprResult
+				}
 			} else {
 				// 回退到动态编译
 				s.processExpressionFieldFallback(fieldName, dataMap, result)
@@ -261,13 +272,18 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 			return
 		}
 
-		numResult, err := expression.Evaluate(dataMap)
+		// 使用EvaluateValueWithNull获取实际值（包括字符串）
+		exprResult, isNull, err := expression.EvaluateValueWithNull(dataMap)
 		if err != nil {
 			logger.Error("Expression evaluation failed for field %s: %v", fieldName, err)
 			result[fieldName] = nil
 			return
 		}
-		evalResult = numResult
+		if isNull {
+			evalResult = nil
+		} else {
+			evalResult = exprResult
+		}
 	} else {
 		// 尝试使用桥接器处理其他表达式
 		exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
@@ -286,13 +302,18 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 				return
 			}
 
-			numResult, evalErr := expression.Evaluate(dataMap)
+			// 使用EvaluateValueWithNull获取实际值（包括字符串）
+			exprResult, isNull, evalErr := expression.EvaluateValueWithNull(dataMap)
 			if evalErr != nil {
 				logger.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
 				result[fieldName] = nil
 				return
 			}
-			evalResult = numResult
+			if isNull {
+				evalResult = nil
+			} else {
+				evalResult = exprResult
+			}
 		} else {
 			evalResult = exprResult
 		}

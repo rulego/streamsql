@@ -428,7 +428,7 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
 			fieldName = fieldName[1 : len(fieldName)-1] // Remove backticks
 		}
-		
+
 		// Support nested field access
 		if fieldpath.IsNestedField(fieldName) {
 			if val, found := fieldpath.GetNestedField(data, fieldName); found {
@@ -828,7 +828,7 @@ func evaluateNodeValue(node *ExprNode, data map[string]interface{}) (interface{}
 		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
 			fieldName = fieldName[1 : len(fieldName)-1] // Remove backticks
 		}
-		
+
 		// Support nested field access
 		if fieldpath.IsNestedField(fieldName) {
 			if val, found := fieldpath.GetNestedField(data, fieldName); found {
@@ -1920,6 +1920,69 @@ func evaluateCaseExpressionWithNull(node *ExprNode, data map[string]interface{})
 	return 0, true, nil
 }
 
+// evaluateCaseExpressionValueWithNull 计算CASE表达式并返回实际值（支持字符串），支持NULL值
+func evaluateCaseExpressionValueWithNull(node *ExprNode, data map[string]interface{}) (interface{}, bool, error) {
+	if node.Type != TypeCase {
+		return nil, false, fmt.Errorf("node is not a CASE expression")
+	}
+
+	// 处理简单CASE表达式 (CASE expr WHEN value1 THEN result1 ...)
+	if node.CaseExpr != nil {
+		// 计算CASE后面的表达式值
+		caseValue, caseNull, err := evaluateNodeValueWithNull(node.CaseExpr, data)
+		if err != nil {
+			return nil, false, err
+		}
+
+		// 遍历WHEN子句，查找匹配的值
+		for _, whenClause := range node.WhenClauses {
+			conditionValue, condNull, err := evaluateNodeValueWithNull(whenClause.Condition, data)
+			if err != nil {
+				return nil, false, err
+			}
+
+			// 比较值是否相等（考虑NULL值）
+			var isEqual bool
+			if caseNull && condNull {
+				isEqual = true // NULL = NULL
+			} else if caseNull || condNull {
+				isEqual = false // NULL != value
+			} else {
+				isEqual, err = compareValuesForEquality(caseValue, conditionValue)
+				if err != nil {
+					return nil, false, err
+				}
+			}
+
+			if isEqual {
+				return evaluateNodeValueWithNull(whenClause.Result, data)
+			}
+		}
+	} else {
+		// 处理搜索CASE表达式 (CASE WHEN condition1 THEN result1 ...)
+		for _, whenClause := range node.WhenClauses {
+			// 评估WHEN条件
+			conditionResult, err := evaluateBooleanConditionWithNull(whenClause.Condition, data)
+			if err != nil {
+				return nil, false, err
+			}
+
+			// 如果条件为真，返回对应的结果
+			if conditionResult {
+				return evaluateNodeValueWithNull(whenClause.Result, data)
+			}
+		}
+	}
+
+	// 如果没有匹配的WHEN子句，执行ELSE子句
+	if node.ElseExpr != nil {
+		return evaluateNodeValueWithNull(node.ElseExpr, data)
+	}
+
+	// 如果没有ELSE子句，SQL标准是返回NULL
+	return nil, true, nil
+}
+
 // evaluateNodeValueWithNull 计算节点值，返回interface{}以支持不同类型，包含NULL检查
 func evaluateNodeValueWithNull(node *ExprNode, data map[string]interface{}) (interface{}, bool, error) {
 	if node == nil {
@@ -1949,7 +2012,7 @@ func evaluateNodeValueWithNull(node *ExprNode, data map[string]interface{}) (int
 		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
 			fieldName = fieldName[1 : len(fieldName)-1] // 去掉反引号
 		}
-		
+
 		// 支持嵌套字段访问
 		if fieldpath.IsNestedField(fieldName) {
 			if val, found := fieldpath.GetNestedField(data, fieldName); found {
@@ -1962,6 +2025,10 @@ func evaluateNodeValueWithNull(node *ExprNode, data map[string]interface{}) (int
 			}
 		}
 		return nil, true, nil // 字段不存在视为NULL
+
+	case TypeCase:
+		// 处理CASE表达式，返回实际值
+		return evaluateCaseExpressionValueWithNull(node, data)
 
 	default:
 		// 对于其他类型，回退到数值计算
@@ -2186,4 +2253,14 @@ func (e *Expression) EvaluateWithNull(data map[string]interface{}) (float64, boo
 		return result, false, err
 	}
 	return evaluateNodeWithNull(e.Root, data)
+}
+
+// EvaluateValueWithNull 评估表达式并返回任意类型的值，支持NULL
+func (e *Expression) EvaluateValueWithNull(data map[string]interface{}) (interface{}, bool, error) {
+	if e.useExprLang {
+		// expr-lang不支持NULL，回退到原有逻辑
+		result, err := e.evaluateWithExprLang(data)
+		return result, false, err
+	}
+	return evaluateNodeValueWithNull(e.Root, data)
 }
