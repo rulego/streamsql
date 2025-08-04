@@ -128,6 +128,20 @@ func (l *Lexer) NextToken() Token {
 		l.readChar()
 		return Token{Type: TokenPlus, Value: "+", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
 	case '-':
+		// 检查是否是负数
+		if l.peekChar() != 0 && isDigit(l.peekChar()) {
+			// 这是一个负数，读取整个数字
+			l.readChar() // 跳过负号
+			number := "-" + l.readNumber()
+			// 验证数字格式
+			if !l.isValidNumber(number) && l.errorRecovery != nil {
+				err := CreateLexicalError(fmt.Sprintf("Invalid number format: %s", number), tokenPos, 0)
+				err.Type = ErrorTypeInvalidNumber
+				l.errorRecovery.AddError(err)
+			}
+			return Token{Type: TokenNumber, Value: number, Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
+		}
+		// 这是一个减号操作符
 		l.readChar()
 		return Token{Type: TokenMinus, Value: "-", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
 	case '*':
@@ -484,20 +498,30 @@ func (l *Lexer) isValidNumber(number string) bool {
 		return false
 	}
 
+	// 处理负数
+	startIndex := 0
+	if number[0] == '-' {
+		if len(number) == 1 {
+			return false // 只有负号
+		}
+		startIndex = 1
+	}
+
 	dotCount := 0
-	for _, ch := range number {
+	for i := startIndex; i < len(number); i++ {
+		ch := number[i]
 		if ch == '.' {
 			dotCount++
 			if dotCount > 1 {
 				return false // 多个小数点
 			}
-		} else if !isDigit(byte(ch)) {
+		} else if !isDigit(ch) {
 			return false // 非数字字符
 		}
 	}
 
 	// 检查是否以小数点开头或结尾
-	if number[0] == '.' || number[len(number)-1] == '.' {
+	if number[startIndex] == '.' || number[len(number)-1] == '.' {
 		return false
 	}
 
