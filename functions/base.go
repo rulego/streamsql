@@ -4,17 +4,17 @@ import (
 	"fmt"
 )
 
-// BaseFunction 基础函数实现，提供通用功能
+// BaseFunction provides basic function implementation with common functionality
 type BaseFunction struct {
 	name        string
 	fnType      FunctionType
 	category    string
 	description string
 	minArgs     int
-	maxArgs     int // -1 表示无限制
+	maxArgs     int // -1 means unlimited
 }
 
-// NewBaseFunction 创建基础函数
+// NewBaseFunction creates a new base function
 func NewBaseFunction(name string, fnType FunctionType, category, description string, minArgs, maxArgs int) *BaseFunction {
 	return &BaseFunction{
 		name:        name,
@@ -42,7 +42,7 @@ func (bf *BaseFunction) GetDescription() string {
 	return bf.description
 }
 
-// ValidateArgCount 验证参数数量
+// ValidateArgCount validates the number of arguments
 func (bf *BaseFunction) ValidateArgCount(args []interface{}) error {
 	argCount := len(args)
 

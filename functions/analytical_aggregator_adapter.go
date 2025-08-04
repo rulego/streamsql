@@ -1,12 +1,12 @@
 package functions
 
-// AnalyticalAggregatorAdapter 分析函数到聚合器的适配器
+// AnalyticalAggregatorAdapter provides adapter from analytical functions to aggregators
 type AnalyticalAggregatorAdapter struct {
 	analFunc AnalyticalFunction
 	ctx      *FunctionContext
 }
 
-// NewAnalyticalAggregatorAdapter 创建分析函数聚合器适配器
+// NewAnalyticalAggregatorAdapter creates an analytical function aggregator adapter
 func NewAnalyticalAggregatorAdapter(name string) (*AnalyticalAggregatorAdapter, error) {
 	analFunc, err := CreateAnalytical(name)
 	if err != nil {
@@ -21,9 +21,9 @@ func NewAnalyticalAggregatorAdapter(name string) (*AnalyticalAggregatorAdapter, 
 	}, nil
 }
 
-// New 创建新的适配器实例
+// New creates a new adapter instance
 func (a *AnalyticalAggregatorAdapter) New() interface{} {
-	// 对于实现了AggregatorFunction接口的函数，使用其New方法
+	// For functions that implement AggregatorFunction interface, use their New method
 	if aggFunc, ok := a.analFunc.(AggregatorFunction); ok {
 		newAnalFunc := aggFunc.New().(AnalyticalFunction)
 		return &AnalyticalAggregatorAdapter{
@@ -34,7 +34,7 @@ func (a *AnalyticalAggregatorAdapter) New() interface{} {
 		}
 	}
 
-	// 对于其他分析函数，使用Clone方法
+	// For other analytical functions, use Clone method
 	return &AnalyticalAggregatorAdapter{
 		analFunc: a.analFunc.Clone(),
 		ctx: &FunctionContext{
@@ -43,45 +43,45 @@ func (a *AnalyticalAggregatorAdapter) New() interface{} {
 	}
 }
 
-// Add 添加值
+// Add adds a value
 func (a *AnalyticalAggregatorAdapter) Add(value interface{}) {
-	// 对于实现了AggregatorFunction接口的函数，直接调用Add方法
+	// For functions that implement AggregatorFunction interface, call Add method directly
 	if aggFunc, ok := a.analFunc.(AggregatorFunction); ok {
 		aggFunc.Add(value)
 		return
 	}
 
-	// 对于其他分析函数，执行分析函数
+	// For other analytical functions, execute the analytical function
 	args := []interface{}{value}
 	_, _ = a.analFunc.Execute(a.ctx, args)
 }
 
-// Result 获取结果
+// Result returns the result
 func (a *AnalyticalAggregatorAdapter) Result() interface{} {
-	// 对于LatestFunction，直接返回LatestValue
+	// For LatestFunction, return LatestValue directly
 	if latestFunc, ok := a.analFunc.(*LatestFunction); ok {
 		return latestFunc.LatestValue
 	}
 
-	// 对于HadChangedFunction，返回当前状态
+	// For HadChangedFunction, return current state
 	if hadChangedFunc, ok := a.analFunc.(*HadChangedFunction); ok {
 		return hadChangedFunc.IsSet
 	}
 
-	// 对于LagFunction，调用其Result方法
+	// For LagFunction, call its Result method
 	if lagFunc, ok := a.analFunc.(*LagFunction); ok {
 		return lagFunc.Result()
 	}
 
-	// 对于其他分析函数，尝试执行一次来获取当前状态的结果
-	// 这里传入nil作为参数，表示获取当前状态
+	// For other analytical functions, try to execute once to get current state result
+	// Pass nil as parameter to indicate getting current state
 	result, _ := a.analFunc.Execute(a.ctx, []interface{}{nil})
 	return result
 }
 
-// CreateAnalyticalAggregatorFromFunctions 从functions模块创建分析函数聚合器
+// CreateAnalyticalAggregatorFromFunctions creates analytical function aggregator from functions module
 func CreateAnalyticalAggregatorFromFunctions(funcType string) interface{} {
-	// 首先尝试从适配器注册表获取
+	// First try to get from adapter registry
 	if constructor, exists := GetAnalyticalAdapter(funcType); exists {
 		adapter := constructor()
 		if adapter != nil {
@@ -94,7 +94,7 @@ func CreateAnalyticalAggregatorFromFunctions(funcType string) interface{} {
 		}
 	}
 
-	// 如果没有找到，尝试直接创建
+	// If not found, try to create directly
 	adapter, err := NewAnalyticalAggregatorAdapter(funcType)
 	if err != nil {
 		return nil

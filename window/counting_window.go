@@ -35,13 +35,13 @@ func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
 		return nil, fmt.Errorf("threshold must be a positive integer")
 	}
 
-	// 使用统一的性能配置获取窗口输出缓冲区大小
-	bufferSize := 100 // 默认值，计数窗口通常缓冲较小
+	// Use unified performance config to get window output buffer size
+	bufferSize := 100 // Default value, counting windows usually have smaller buffers
 	if perfConfig, exists := config.Params["performanceConfig"]; exists {
 		if pc, ok := perfConfig.(types.PerformanceConfig); ok {
-			bufferSize = pc.BufferConfig.WindowOutputSize / 10 // 计数窗口使用1/10的缓冲区
+			bufferSize = pc.BufferConfig.WindowOutputSize / 10 // Counting window uses 1/10 of buffer
 			if bufferSize < 10 {
-				bufferSize = 10 // 最小值
+				bufferSize = 10 // Minimum value
 			}
 		}
 	}
@@ -62,7 +62,7 @@ func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
 }
 
 func (cw *CountingWindow) Add(data interface{}) {
-	// 将数据添加到窗口的数据列表中
+	// Add data to window data list
 	t := GetTimestamp(data, cw.config.TsProp, cw.config.TimeUnit)
 	row := types.Row{
 		Data:      data,
@@ -78,7 +78,7 @@ func (cw *CountingWindow) Start() {
 			select {
 			case row, ok := <-cw.triggerChan:
 				if !ok {
-					// 通道已关闭，退出循环
+					// Channel closed, exit loop
 					return
 				}
 				cw.mu.Lock()
@@ -86,11 +86,11 @@ func (cw *CountingWindow) Start() {
 				cw.count++
 				shouldTrigger := cw.count >= cw.threshold
 				if shouldTrigger {
-					// 在持有锁的情况下立即处理
+					// Process immediately while holding lock
 					slot := cw.createSlot(cw.dataBuffer[:cw.threshold])
 					data := make([]types.Row, cw.threshold)
 					copy(data, cw.dataBuffer[:cw.threshold])
-					// 设置Slot字段到复制的数据中，避免修改原始dataBuffer
+					// Set Slot field to copied data to avoid modifying original dataBuffer
 					for i := range data {
 						data[i].Slot = slot
 					}
@@ -103,11 +103,11 @@ func (cw *CountingWindow) Start() {
 					} else {
 						cw.dataBuffer = make([]types.Row, 0, cw.threshold)
 					}
-					// 重置计数
+					// Reset count
 					cw.count = len(cw.dataBuffer)
 					cw.mu.Unlock()
 
-					// 在释放锁后处理回调
+					// Handle callback after releasing lock
 					go func(data []types.Row) {
 						if cw.callback != nil {
 							cw.callback(data)
@@ -126,8 +126,8 @@ func (cw *CountingWindow) Start() {
 }
 
 func (cw *CountingWindow) Trigger() {
-	// 注意：触发逻辑已合并到Start方法中以避免数据竞争
-	// 这个方法保留是为了满足Window接口要求，但实际触发在Start方法中处理
+	// Note: trigger logic has been merged into Start method to avoid data races
+	// This method is kept to satisfy Window interface requirements, but actual triggering is handled in Start method
 }
 
 func (cw *CountingWindow) Reset() {
@@ -145,7 +145,7 @@ func (cw *CountingWindow) OutputChan() <-chan []types.Row {
 // 	return append([]mode.Row, cw.dataBuffer...)
 // }
 
-// createSlot 创建一个新的时间槽位
+// createSlot creates a new time slot
 func (cw *CountingWindow) createSlot(data []types.Row) *types.TimeSlot {
 	if len(data) == 0 {
 		return nil

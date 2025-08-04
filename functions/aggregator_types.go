@@ -4,7 +4,7 @@ import (
 	"sync"
 )
 
-// AggregateType 聚合类型，从 aggregator.AggregateType 迁移而来
+// AggregateType defines aggregate types, migrated from aggregator.AggregateType
 type AggregateType string
 
 const (
@@ -25,16 +25,16 @@ const (
 	Deduplicate AggregateType = "deduplicate"
 	Var         AggregateType = "var"
 	VarS        AggregateType = "vars"
-	// 分析函数
+	// Analytical functions
 	Lag        AggregateType = "lag"
 	Latest     AggregateType = "latest"
 	ChangedCol AggregateType = "changed_col"
 	HadChanged AggregateType = "had_changed"
-	// 表达式聚合器，用于处理自定义函数
+	// Expression aggregator for handling custom functions
 	Expression AggregateType = "expression"
 )
 
-// 为了方便使用，提供字符串常量版本
+// String constant versions for convenience
 const (
 	SumStr         = string(Sum)
 	CountStr       = string(Count)
@@ -54,24 +54,24 @@ const (
 	DeduplicateStr = string(Deduplicate)
 	VarStr         = string(Var)
 	VarSStr        = string(VarS)
-	// 分析函数
+	// Analytical functions
 	LagStr        = string(Lag)
 	LatestStr     = string(Latest)
 	ChangedColStr = string(ChangedCol)
 	HadChangedStr = string(HadChanged)
-	// 表达式聚合器
+	// Expression aggregator
 	ExpressionStr = string(Expression)
 )
 
-// LegacyAggregatorFunction 兼容原有aggregator接口的聚合器函数接口
-// 保持与原有接口兼容，用于向后兼容
+// LegacyAggregatorFunction defines aggregator function interface compatible with legacy aggregator interface
+// Maintains compatibility with original interface for backward compatibility
 type LegacyAggregatorFunction interface {
 	New() LegacyAggregatorFunction
 	Add(value interface{})
 	Result() interface{}
 }
 
-// ContextAggregator 支持context机制的聚合器接口
+// ContextAggregator defines aggregator interface that supports context mechanism
 type ContextAggregator interface {
 	GetContextKey() string
 }

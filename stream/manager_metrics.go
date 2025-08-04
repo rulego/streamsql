@@ -4,13 +4,13 @@ import (
 	"sync/atomic"
 )
 
-// StatsManager 统计信息管理器
+// StatsManager manages statistics information
 type StatsManager struct {
 	stream         *Stream
 	statsCollector *StatsCollector
 }
 
-// NewStatsManager 创建统计信息管理器
+// NewStatsManager creates a new statistics manager
 func NewStatsManager(stream *Stream) *StatsManager {
 	return &StatsManager{
 		stream:         stream,
@@ -18,9 +18,9 @@ func NewStatsManager(stream *Stream) *StatsManager {
 	}
 }
 
-// GetStats 获取流处理统计信息 (线程安全版本)
+// GetStats gets stream processing statistics (thread-safe version)
 func (s *Stream) GetStats() map[string]int64 {
-	// 线程安全地获取dataChan状态
+	// Thread-safely get dataChan status
 	s.dataChanMux.RLock()
 	dataChanLen := int64(len(s.dataChan))
 	dataChanCap := int64(cap(s.dataChan))
@@ -41,16 +41,16 @@ func (s *Stream) GetStats() map[string]int64 {
 	}
 }
 
-// GetDetailedStats 获取详细的性能统计信息
+// GetDetailedStats gets detailed performance statistics
 func (s *Stream) GetDetailedStats() map[string]interface{} {
 	basicStats := s.GetStats()
 
-	// 计算使用率
+	// Calculate usage rates
 	dataUsage := float64(basicStats[DataChanLen]) / float64(basicStats[DataChanCap]) * 100
 	resultUsage := float64(basicStats[ResultChanLen]) / float64(basicStats[ResultChanCap]) * 100
 	sinkUsage := float64(basicStats[SinkPoolLen]) / float64(basicStats[SinkPoolCap]) * 100
 
-	// 计算效率指标
+	// Calculate efficiency metrics
 	var processRate float64 = 100.0
 	var dropRate float64 = 0.0
 
@@ -69,7 +69,7 @@ func (s *Stream) GetDetailedStats() map[string]interface{} {
 		PerformanceLevel: AssessPerformanceLevel(dataUsage, dropRate),
 	}
 
-	// 添加持久化统计信息
+	// Add persistence statistics
 	if s.persistenceManager != nil {
 		result["Persistence"] = s.persistenceManager.GetStats()
 	}
@@ -77,7 +77,7 @@ func (s *Stream) GetDetailedStats() map[string]interface{} {
 	return result
 }
 
-// ResetStats 重置统计信息
+// ResetStats resets statistics information
 func (s *Stream) ResetStats() {
 	atomic.StoreInt64(&s.inputCount, 0)
 	atomic.StoreInt64(&s.outputCount, 0)

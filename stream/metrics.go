@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 )
 
-// 统计信息字段常量
+// Statistics field constants
 const (
 	InputCount    = "input_count"
 	OutputCount   = "output_count"
@@ -19,7 +19,7 @@ const (
 	Expanding     = "expanding"
 )
 
-// 详细统计信息字段常量
+// Detailed statistics field constants
 const (
 	BasicStats       = "basic_stats"
 	DataChanUsage    = "data_chan_usage"
@@ -30,76 +30,76 @@ const (
 	PerformanceLevel = "performance_level"
 )
 
-// 性能级别常量已在 stream.go 中定义
+// Performance level constants are defined in stream.go
 
-// AssessPerformanceLevel 评估当前性能水平
-// 根据数据使用率和丢弃率评估流处理的性能等级
+// AssessPerformanceLevel evaluates current performance level
+// Assesses stream processing performance level based on data usage rate and drop rate
 func AssessPerformanceLevel(dataUsage, dropRate float64) string {
 	switch {
 	case dropRate > 50:
-		return PerformanceLevelCritical // 严重性能问题
+		return PerformanceLevelCritical // Critical performance issue
 	case dropRate > 20:
-		return PerformanceLevelWarning // 性能警告
+		return PerformanceLevelWarning // Performance warning
 	case dataUsage > 90:
-		return PerformanceLevelHighLoad // 高负载
+		return PerformanceLevelHighLoad // High load
 	case dataUsage > 70:
-		return PerformanceLevelModerateLoad // 中等负载
+		return PerformanceLevelModerateLoad // Moderate load
 	default:
-		return PerformanceLevelOptimal // 最佳状态
+		return PerformanceLevelOptimal // Optimal state
 	}
 }
 
-// StatsCollector 统计信息收集器
-// 提供线程安全的统计信息收集功能
+// StatsCollector statistics information collector
+// Provides thread-safe statistics collection functionality
 type StatsCollector struct {
 	inputCount   int64
 	outputCount  int64
 	droppedCount int64
 }
 
-// NewStatsCollector 创建新的统计信息收集器
+// NewStatsCollector creates a new statistics collector
 func NewStatsCollector() *StatsCollector {
 	return &StatsCollector{}
 }
 
-// IncrementInput 增加输入计数
+// IncrementInput increments input count
 func (sc *StatsCollector) IncrementInput() {
 	atomic.AddInt64(&sc.inputCount, 1)
 }
 
-// IncrementOutput 增加输出计数
+// IncrementOutput increments output count
 func (sc *StatsCollector) IncrementOutput() {
 	atomic.AddInt64(&sc.outputCount, 1)
 }
 
-// IncrementDropped 增加丢弃计数
+// IncrementDropped increments dropped count
 func (sc *StatsCollector) IncrementDropped() {
 	atomic.AddInt64(&sc.droppedCount, 1)
 }
 
-// GetInputCount 获取输入计数
+// GetInputCount gets input count
 func (sc *StatsCollector) GetInputCount() int64 {
 	return atomic.LoadInt64(&sc.inputCount)
 }
 
-// GetOutputCount 获取输出计数
+// GetOutputCount gets output count
 func (sc *StatsCollector) GetOutputCount() int64 {
 	return atomic.LoadInt64(&sc.outputCount)
 }
 
-// GetDroppedCount 获取丢弃计数
+// GetDroppedCount gets dropped count
 func (sc *StatsCollector) GetDroppedCount() int64 {
 	return atomic.LoadInt64(&sc.droppedCount)
 }
 
-// Reset 重置统计信息
+// Reset resets statistics information
 func (sc *StatsCollector) Reset() {
 	atomic.StoreInt64(&sc.inputCount, 0)
 	atomic.StoreInt64(&sc.outputCount, 0)
 	atomic.StoreInt64(&sc.droppedCount, 0)
 }
 
-// GetBasicStats 获取基础统计信息
+// GetBasicStats gets basic statistics information
 func (sc *StatsCollector) GetBasicStats(dataChanLen, dataChanCap, resultChanLen, resultChanCap, sinkPoolLen, sinkPoolCap int, activeRetries, expanding int32) map[string]int64 {
 	return map[string]int64{
 		InputCount:    sc.GetInputCount(),
@@ -116,14 +116,14 @@ func (sc *StatsCollector) GetBasicStats(dataChanLen, dataChanCap, resultChanLen,
 	}
 }
 
-// GetDetailedStats 获取详细的性能统计信息
+// GetDetailedStats gets detailed performance statistics
 func (sc *StatsCollector) GetDetailedStats(basicStats map[string]int64) map[string]interface{} {
-	// 计算使用率
+	// Calculate usage rates
 	dataUsage := float64(basicStats[DataChanLen]) / float64(basicStats[DataChanCap]) * 100
 	resultUsage := float64(basicStats[ResultChanLen]) / float64(basicStats[ResultChanCap]) * 100
 	sinkUsage := float64(basicStats[SinkPoolLen]) / float64(basicStats[SinkPoolCap]) * 100
 
-	// 计算效率指标
+	// Calculate efficiency metrics
 	var processRate float64 = 100.0
 	var dropRate float64 = 0.0
 

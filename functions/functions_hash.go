@@ -8,14 +8,14 @@ import (
 	"fmt"
 )
 
-// Md5Function 计算MD5哈希值
+// Md5Function calculates MD5 hash value
 type Md5Function struct {
 	*BaseFunction
 }
 
 func NewMd5Function() *Md5Function {
 	return &Md5Function{
-		BaseFunction: NewBaseFunction("md5", TypeString, "哈希函数", "计算MD5哈希值", 1, 1),
+		BaseFunction: NewBaseFunction("md5", TypeString, "hash", "Calculate MD5 hash value", 1, 1),
 	}
 }
 
@@ -33,14 +33,14 @@ func (f *Md5Function) Execute(ctx *FunctionContext, args []interface{}) (interfa
 	return fmt.Sprintf("%x", hash), nil
 }
 
-// Sha1Function 计算SHA1哈希值
+// Sha1Function calculates SHA1 hash value
 type Sha1Function struct {
 	*BaseFunction
 }
 
 func NewSha1Function() *Sha1Function {
 	return &Sha1Function{
-		BaseFunction: NewBaseFunction("sha1", TypeString, "哈希函数", "计算SHA1哈希值", 1, 1),
+		BaseFunction: NewBaseFunction("sha1", TypeString, "hash", "Calculate SHA1 hash value", 1, 1),
 	}
 }
 
@@ -58,14 +58,14 @@ func (f *Sha1Function) Execute(ctx *FunctionContext, args []interface{}) (interf
 	return fmt.Sprintf("%x", hash), nil
 }
 
-// Sha256Function 计算SHA256哈希值
+// Sha256Function calculates SHA256 hash value
 type Sha256Function struct {
 	*BaseFunction
 }
 
 func NewSha256Function() *Sha256Function {
 	return &Sha256Function{
-		BaseFunction: NewBaseFunction("sha256", TypeString, "哈希函数", "计算SHA256哈希值", 1, 1),
+		BaseFunction: NewBaseFunction("sha256", TypeString, "hash", "Calculate SHA256 hash value", 1, 1),
 	}
 }
 
@@ -83,14 +83,14 @@ func (f *Sha256Function) Execute(ctx *FunctionContext, args []interface{}) (inte
 	return fmt.Sprintf("%x", hash), nil
 }
 
-// Sha512Function 计算SHA512哈希值
+// Sha512Function calculates SHA512 hash value
 type Sha512Function struct {
 	*BaseFunction
 }
 
 func NewSha512Function() *Sha512Function {
 	return &Sha512Function{
-		BaseFunction: NewBaseFunction("sha512", TypeString, "哈希函数", "计算SHA512哈希值", 1, 1),
+		BaseFunction: NewBaseFunction("sha512", TypeString, "hash", "Calculate SHA512 hash value", 1, 1),
 	}
 }
 

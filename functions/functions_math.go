@@ -8,14 +8,14 @@ import (
 	"time"
 )
 
-// AbsFunction 绝对值函数
+// AbsFunction calculates absolute value
 type AbsFunction struct {
 	*BaseFunction
 }
 
 func NewAbsFunction() *AbsFunction {
 	return &AbsFunction{
-		BaseFunction: NewBaseFunction("abs", TypeMath, "数学函数", "计算绝对值", 1, 1),
+		BaseFunction: NewBaseFunction("abs", TypeMath, "math", "Calculate absolute value", 1, 1),
 	}
 }
 
@@ -31,14 +31,14 @@ func (f *AbsFunction) Execute(ctx *FunctionContext, args []interface{}) (interfa
 	return math.Abs(val), nil
 }
 
-// SqrtFunction 平方根函数
+// SqrtFunction calculates square root
 type SqrtFunction struct {
 	*BaseFunction
 }
 
 func NewSqrtFunction() *SqrtFunction {
 	return &SqrtFunction{
-		BaseFunction: NewBaseFunction("sqrt", TypeMath, "数学函数", "计算平方根", 1, 1),
+		BaseFunction: NewBaseFunction("sqrt", TypeMath, "math", "Calculate square root", 1, 1),
 	}
 }
 
@@ -57,14 +57,14 @@ func (f *SqrtFunction) Execute(ctx *FunctionContext, args []interface{}) (interf
 	return math.Sqrt(val), nil
 }
 
-// AcosFunction 反余弦函数
+// AcosFunction calculates arccosine
 type AcosFunction struct {
 	*BaseFunction
 }
 
 func NewAcosFunction() *AcosFunction {
 	return &AcosFunction{
-		BaseFunction: NewBaseFunction("acos", TypeMath, "数学函数", "计算反余弦值", 1, 1),
+		BaseFunction: NewBaseFunction("acos", TypeMath, "math", "Calculate arccosine value", 1, 1),
 	}
 }
 
@@ -83,14 +83,14 @@ func (f *AcosFunction) Execute(ctx *FunctionContext, args []interface{}) (interf
 	return math.Acos(val), nil
 }
 
-// AsinFunction 反正弦函数
+// AsinFunction calculates arcsine
 type AsinFunction struct {
 	*BaseFunction
 }
 
 func NewAsinFunction() *AsinFunction {
 	return &AsinFunction{
-		BaseFunction: NewBaseFunction("asin", TypeMath, "数学函数", "计算反正弦值", 1, 1),
+		BaseFunction: NewBaseFunction("asin", TypeMath, "math", "Calculate arcsine value", 1, 1),
 	}
 }
 

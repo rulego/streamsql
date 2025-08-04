@@ -8,17 +8,17 @@ import (
 	"github.com/rulego/streamsql/window"
 )
 
-// StreamFactory Stream工厂，负责创建不同类型的Stream
+// StreamFactory Stream factory responsible for creating different types of Streams
 type StreamFactory struct{}
 
-// NewStreamFactory 创建Stream工厂
+// NewStreamFactory creates Stream factory
 func NewStreamFactory() *StreamFactory {
 	return &StreamFactory{}
 }
 
-// CreateStream 使用统一配置创建Stream
+// CreateStream creates Stream using unified configuration
 func (sf *StreamFactory) CreateStream(config types.Config) (*Stream, error) {
-	// 如果没有指定性能配置，使用默认配置
+	// If no performance configuration is specified, use default configuration
 	if (config.PerformanceConfig == types.PerformanceConfig{}) {
 		config.PerformanceConfig = types.DefaultPerformanceConfig()
 	}
@@ -26,36 +26,36 @@ func (sf *StreamFactory) CreateStream(config types.Config) (*Stream, error) {
 	return sf.createStreamWithUnifiedConfig(config)
 }
 
-// CreateHighPerformanceStream 创建高性能Stream
+// CreateHighPerformanceStream creates high-performance Stream
 func (sf *StreamFactory) CreateHighPerformanceStream(config types.Config) (*Stream, error) {
 	config.PerformanceConfig = types.HighPerformanceConfig()
 	return sf.createStreamWithUnifiedConfig(config)
 }
 
-// CreateLowLatencyStream 创建低延迟Stream
+// CreateLowLatencyStream creates low-latency Stream
 func (sf *StreamFactory) CreateLowLatencyStream(config types.Config) (*Stream, error) {
 	config.PerformanceConfig = types.LowLatencyConfig()
 	return sf.createStreamWithUnifiedConfig(config)
 }
 
-// CreateZeroDataLossStream 创建零数据丢失Stream
+// CreateZeroDataLossStream creates zero data loss Stream
 func (sf *StreamFactory) CreateZeroDataLossStream(config types.Config) (*Stream, error) {
 	config.PerformanceConfig = types.ZeroDataLossConfig()
 	return sf.createStreamWithUnifiedConfig(config)
 }
 
-// CreateCustomPerformanceStream 创建自定义性能配置的Stream
+// CreateCustomPerformanceStream creates Stream with custom performance configuration
 func (sf *StreamFactory) CreateCustomPerformanceStream(config types.Config, perfConfig types.PerformanceConfig) (*Stream, error) {
 	config.PerformanceConfig = perfConfig
 	return sf.createStreamWithUnifiedConfig(config)
 }
 
-// createStreamWithUnifiedConfig 使用统一配置创建Stream的内部实现
+// createStreamWithUnifiedConfig internal implementation for creating Stream using unified configuration
 func (sf *StreamFactory) createStreamWithUnifiedConfig(config types.Config) (*Stream, error) {
 	var win window.Window
 	var err error
 
-	// 只有在需要窗口时才创建窗口
+	// Only create window when needed
 	if config.NeedWindow {
 		win, err = sf.createWindow(config)
 		if err != nil {
@@ -63,36 +63,36 @@ func (sf *StreamFactory) createStreamWithUnifiedConfig(config types.Config) (*St
 		}
 	}
 
-	// 创建Stream实例
+	// Create Stream instance
 	stream := sf.createStreamInstance(config, win)
 
-	// 初始化持久化管理器
+	// Initialize persistence manager
 	if err := sf.initializePersistenceManager(stream, config.PerformanceConfig); err != nil {
 		return nil, err
 	}
 
-	// 设置数据处理策略
+	// Setup data processing strategy
 	if err := sf.setupDataProcessingStrategy(stream, config.PerformanceConfig); err != nil {
 		return nil, fmt.Errorf("failed to setup data processing strategy: %w", err)
 	}
 
-	// 预编译字段处理信息
+	// Pre-compile field processing information
 	stream.compileFieldProcessInfo()
 
-	// 启动工作协程
+	// Start worker routines
 	sf.startWorkerRoutines(stream, config.PerformanceConfig)
 
 	return stream, nil
 }
 
-// createWindow 创建窗口
+// createWindow creates window
 func (sf *StreamFactory) createWindow(config types.Config) (window.Window, error) {
-	// 将统一的性能配置传递给窗口
+	// Pass unified performance configuration to window
 	windowConfig := config.WindowConfig
 	if windowConfig.Params == nil {
 		windowConfig.Params = make(map[string]interface{})
 	}
-	// 传递完整的性能配置给窗口
+	// Pass complete performance configuration to window
 	windowConfig.Params[PerformanceConfigKey] = config.PerformanceConfig
 
 	return window.CreateWindow(windowConfig)

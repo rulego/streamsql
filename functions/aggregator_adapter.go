@@ -4,12 +4,12 @@ import (
 	"sync"
 )
 
-// AggregatorAdapter 聚合器适配器，兼容原有的aggregator接口
+// AggregatorAdapter provides adapter for aggregator functions, compatible with legacy aggregator interface
 type AggregatorAdapter struct {
 	aggFunc AggregatorFunction
 }
 
-// NewAggregatorAdapter 创建聚合器适配器
+// NewAggregatorAdapter creates an aggregator adapter
 func NewAggregatorAdapter(name string) (*AggregatorAdapter, error) {
 	aggFunc, err := CreateAggregator(name)
 	if err != nil {
@@ -21,24 +21,24 @@ func NewAggregatorAdapter(name string) (*AggregatorAdapter, error) {
 	}, nil
 }
 
-// New 创建新的聚合器实例
+// New creates a new aggregator instance
 func (a *AggregatorAdapter) New() interface{} {
 	return &AggregatorAdapter{
 		aggFunc: a.aggFunc.New(),
 	}
 }
 
-// Add 添加值
+// Add adds a value
 func (a *AggregatorAdapter) Add(value interface{}) {
 	a.aggFunc.Add(value)
 }
 
-// Result 获取结果
+// Result returns the result
 func (a *AggregatorAdapter) Result() interface{} {
 	return a.aggFunc.Result()
 }
 
-// GetFunctionName 获取底层函数名称，用于支持context机制
+// GetFunctionName returns the underlying function name for context mechanism support
 func (a *AggregatorAdapter) GetFunctionName() string {
 	if a.aggFunc != nil {
 		return a.aggFunc.GetName()
@@ -46,12 +46,12 @@ func (a *AggregatorAdapter) GetFunctionName() string {
 	return ""
 }
 
-// AnalyticalAdapter 分析函数适配器
+// AnalyticalAdapter provides adapter for analytical functions
 type AnalyticalAdapter struct {
 	analFunc AnalyticalFunction
 }
 
-// NewAnalyticalAdapter 创建分析函数适配器
+// NewAnalyticalAdapter creates an analytical function adapter
 func NewAnalyticalAdapter(name string) (*AnalyticalAdapter, error) {
 	analFunc, err := CreateAnalytical(name)
 	if err != nil {
@@ -63,31 +63,31 @@ func NewAnalyticalAdapter(name string) (*AnalyticalAdapter, error) {
 	}, nil
 }
 
-// Execute 执行分析函数
+// Execute executes the analytical function
 func (a *AnalyticalAdapter) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	return a.analFunc.Execute(ctx, args)
 }
 
-// Reset 重置状态
+// Reset resets the state
 func (a *AnalyticalAdapter) Reset() {
 	a.analFunc.Reset()
 }
 
-// Clone 克隆实例
+// Clone clones the instance
 func (a *AnalyticalAdapter) Clone() *AnalyticalAdapter {
 	return &AnalyticalAdapter{
 		analFunc: a.analFunc.Clone(),
 	}
 }
 
-// 全局适配器注册表
+// Global adapter registry
 var (
 	aggregatorAdapters = make(map[string]func() interface{})
 	analyticalAdapters = make(map[string]func() *AnalyticalAdapter)
 	adapterMutex       sync.RWMutex
 )
 
-// RegisterAggregatorAdapter 注册聚合器适配器
+// RegisterAggregatorAdapter registers an aggregator adapter
 func RegisterAggregatorAdapter(name string) error {
 	adapterMutex.Lock()
 	defer adapterMutex.Unlock()

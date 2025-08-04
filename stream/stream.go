@@ -15,13 +15,13 @@ import (
 	"github.com/rulego/streamsql/window"
 )
 
-// 窗口相关常量
+// Window related constants
 const (
 	WindowStartField = "window_start"
 	WindowEndField   = "window_end"
 )
 
-// 性能级别常量
+// Performance level constants
 const (
 	PerformanceLevelCritical     = "CRITICAL"
 	PerformanceLevelWarning      = "WARNING"
@@ -30,7 +30,7 @@ const (
 	PerformanceLevelOptimal      = "OPTIMAL"
 )
 
-// 持久化相关常量
+// Persistence related constants
 const (
 	PersistenceEnabled       = "enabled"
 	PersistenceMessage       = "message"
@@ -38,7 +38,7 @@ const (
 	PerformanceConfigKey     = "performanceConfig"
 )
 
-// SQL关键字常量
+// SQL keyword constants
 const (
 	SQLKeywordCase = "CASE"
 )
@@ -50,53 +50,53 @@ type Stream struct {
 	aggregator     aggregator.Aggregator
 	config         types.Config
 	sinks          []func([]map[string]interface{})
-	resultChan     chan []map[string]interface{} // 结果通道
+	resultChan     chan []map[string]interface{} // Result channel
 	seenResults    *sync.Map
-	done           chan struct{} // 用于关闭处理协程
-	sinkWorkerPool chan func()   // Sink工作池，避免阻塞
+	done           chan struct{} // Used to close processing goroutines
+	sinkWorkerPool chan func()   // Sink worker pool to avoid blocking
 
-	// 线程安全控制
-	dataChanMux      sync.RWMutex // 保护dataChan访问的读写锁
-	sinksMux         sync.RWMutex // 保护sinks访问的读写锁
-	expansionMux     sync.Mutex   // 防止并发扩容的互斥锁
-	retryMux         sync.Mutex   // 控制持久化重试的互斥锁
-	expanding        int32        // 扩容状态标记，使用原子操作
-	activeRetries    int32        // 活跃重试计数，使用原子操作
-	maxRetryRoutines int32        // 最大重试协程数限制
+	// Thread safety control
+	dataChanMux      sync.RWMutex // Read-write lock protecting dataChan access
+	sinksMux         sync.RWMutex // Read-write lock protecting sinks access
+	expansionMux     sync.Mutex   // Mutex preventing concurrent expansion
+	retryMux         sync.Mutex   // Mutex controlling persistence retry
+	expanding        int32        // Expansion status flag using atomic operations
+	activeRetries    int32        // Active retry count using atomic operations
+	maxRetryRoutines int32        // Maximum retry goroutine limit
 
-	// 性能监控指标
-	inputCount   int64 // 输入数据计数
-	outputCount  int64 // 输出结果计数
-	droppedCount int64 // 丢弃数据计数
+	// Performance monitoring metrics
+	inputCount   int64 // Input data count
+	outputCount  int64 // Output result count
+	droppedCount int64 // Dropped data count
 
-	// 数据丢失策略配置
-	allowDataDrop      bool                // 是否允许数据丢失
-	blockingTimeout    time.Duration       // 阻塞超时时间
-	overflowStrategy   string              // 溢出策略: "drop", "block", "expand", "persist"
-	persistenceManager *PersistenceManager // 持久化管理器
+	// Data loss strategy configuration
+	allowDataDrop      bool                // Whether to allow data loss
+	blockingTimeout    time.Duration       // Blocking timeout duration
+	overflowStrategy   string              // Overflow strategy: "drop", "block", "expand", "persist"
+	persistenceManager *PersistenceManager // Persistence manager
 
-	// 数据处理策略，使用策略模式提供更好的扩展性
-	dataStrategy DataProcessingStrategy // 数据处理策略实例
+	// Data processing strategy using strategy pattern for better extensibility
+	dataStrategy DataProcessingStrategy // Data processing strategy instance
 
-	// 预编译字段处理信息，避免重复解析
-	compiledFieldInfo map[string]*fieldProcessInfo      // 字段处理信息缓存
-	compiledExprInfo  map[string]*expressionProcessInfo // 表达式处理信息缓存
+	// Pre-compiled field processing information to avoid repeated parsing
+	compiledFieldInfo map[string]*fieldProcessInfo      // Field processing information cache
+	compiledExprInfo  map[string]*expressionProcessInfo // Expression processing information cache
 
 }
 
-// NewStream 使用统一配置创建Stream
+// NewStream creates Stream using unified configuration
 func NewStream(config types.Config) (*Stream, error) {
 	factory := NewStreamFactory()
 	return factory.CreateStream(config)
 }
 
-// NewStreamWithHighPerformance 创建高性能Stream
+// NewStreamWithHighPerformance creates high-performance Stream
 func NewStreamWithHighPerformance(config types.Config) (*Stream, error) {
 	factory := NewStreamFactory()
 	return factory.CreateHighPerformanceStream(config)
 }
 
-// NewStreamWithLowLatency 创建低延迟Stream
+// NewStreamWithLowLatency creates low-latency Stream
 func NewStreamWithLowLatency(config types.Config) (*Stream, error) {
 	factory := NewStreamFactory()
 	return factory.CreateLowLatencyStream(config)

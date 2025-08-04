@@ -12,52 +12,52 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
-// 确保 SlidingWindow 结构体实现了 Window 接口
+// Ensure SlidingWindow implements the Window interface
 var _ Window = (*SlidingWindow)(nil)
 
-// TimedData 用于包装数据和时间戳
+// TimedData wraps data with timestamp
 type TimedData struct {
 	Data      interface{}
 	Timestamp time.Time
 }
 
-// SlidingWindow 表示一个滑动窗口，用于按时间范围处理数据
+// SlidingWindow represents a sliding window for processing data within time ranges
 type SlidingWindow struct {
-	// config 窗口的配置信息
+	// config holds window configuration
 	config types.WindowConfig
-	// 窗口的总大小，即窗口覆盖的时间范围
+	// size is the total window size (time range covered by the window)
 	size time.Duration
-	// 窗口每次滑动的时间间隔
+	// slide is the sliding interval for the window
 	slide time.Duration
-	// 用于保护数据并发访问的互斥锁
+	// mu protects concurrent data access
 	mu sync.RWMutex
-	// 存储窗口内的数据
+	// data stores window data
 	data []types.Row
-	// 用于输出窗口内数据的通道
+	// outputChan is the channel for outputting window data
 	outputChan chan []types.Row
-	// 当窗口触发时执行的回调函数
+	// callback function executed when window triggers
 	callback func([]types.Row)
-	// 用于控制窗口生命周期的上下文
+	// ctx controls window lifecycle
 	ctx context.Context
-	// 用于取消上下文的函数
+	// cancelFunc cancels the context
 	cancelFunc context.CancelFunc
-	// 用于定时触发窗口的定时器
+	// timer for triggering window periodically
 	timer       *time.Ticker
 	currentSlot *types.TimeSlot
-	// 用于初始化窗口的通道
+	// initChan for window initialization
 	initChan    chan struct{}
 	initialized bool
-	// 保护timer的锁
+	// timerMu protects timer access
 	timerMu sync.Mutex
-	// 性能统计
-	droppedCount int64 // 丢弃的结果数量
-	sentCount    int64 // 成功发送的结果数量
+	// Performance statistics
+	droppedCount int64 // Number of dropped results
+	sentCount    int64 // Number of successfully sent results
 }
 
-// NewSlidingWindow 创建一个新的滑动窗口实例
-// 参数 size 表示窗口的总大小，slide 表示窗口每次滑动的时间间隔
+// NewSlidingWindow creates a new sliding window instance
+// size parameter represents the total window size, slide represents the sliding interval
 func NewSlidingWindow(config types.WindowConfig) (*SlidingWindow, error) {
-	// 创建一个可取消的上下文
+	// Create a cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
 	size, err := cast.ToDurationE(config.Params["size"])
 	if err != nil {
@@ -68,8 +68,8 @@ func NewSlidingWindow(config types.WindowConfig) (*SlidingWindow, error) {
 		return nil, fmt.Errorf("invalid slide for sliding window: %v", err)
 	}
 
-	// 使用统一的性能配置获取窗口输出缓冲区大小
-	bufferSize := 1000 // 默认值
+	// Use unified performance config to get window output buffer size
+	bufferSize := 1000 // Default value
 	if perfConfig, exists := config.Params["performanceConfig"]; exists {
 		if pc, ok := perfConfig.(types.PerformanceConfig); ok {
 			bufferSize = pc.BufferConfig.WindowOutputSize
@@ -89,21 +89,20 @@ func NewSlidingWindow(config types.WindowConfig) (*SlidingWindow, error) {
 	}, nil
 }
 
-// Add 向滑动窗口中添加数据
-// 参数 data 表示要添加的数据
+// Add adds data to the sliding window
 func (sw *SlidingWindow) Add(data interface{}) {
-	// 加锁以保证数据的并发安全
+	// Lock to ensure thread safety
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 
-	// 将数据添加到窗口的数据列表中
+	// Add data to the window's data list
 	t := GetTimestamp(data, sw.config.TsProp, sw.config.TimeUnit)
 	if !sw.initialized {
 		sw.currentSlot = sw.createSlot(t)
 		sw.timerMu.Lock()
 		sw.timer = time.NewTicker(sw.slide)
 		sw.timerMu.Unlock()
-		// 发送初始化完成信号
+		// Send initialization complete signal
 		close(sw.initChan)
 		sw.initialized = true
 	}
@@ -114,30 +113,30 @@ func (sw *SlidingWindow) Add(data interface{}) {
 	sw.data = append(sw.data, row)
 }
 
-// Start 启动滑动窗口，开始定时触发窗口
-// 采用延迟初始化模式，避免在没有数据时无限等待，同时确保后续数据能正常处理
+// Start starts the sliding window with periodic triggering
+// Uses lazy initialization to avoid infinite waiting when no data, ensuring subsequent data can be processed normally
 func (sw *SlidingWindow) Start() {
 	go func() {
-		// 在函数结束时关闭输出通道。
+		// Close output channel when function ends
 		defer close(sw.outputChan)
 
-		// 等待初始化完成或上下文取消
+		// Wait for initialization complete or context cancellation
 		select {
 		case <-sw.initChan:
-			// 正常初始化完成，继续处理
+			// Initialization completed normally, continue processing
 		case <-sw.ctx.Done():
-			// 上下文被取消，直接退出
+			// Context cancelled, exit directly
 			return
 		}
 
 		for {
-			// 在每次循环中安全地获取timer
+			// Safely get timer in each loop iteration
 			sw.timerMu.Lock()
 			timer := sw.timer
 			sw.timerMu.Unlock()
 
 			if timer == nil {
-				// 如果timer为nil，等待一小段时间后重试
+				// If timer is nil, wait briefly and retry
 				select {
 				case <-time.After(10 * time.Millisecond):
 					continue
@@ -147,10 +146,10 @@ func (sw *SlidingWindow) Start() {
 			}
 
 			select {
-			// 当定时器到期时，触发窗口
+			// Trigger window when timer expires
 			case <-timer.C:
 				sw.Trigger()
-			// 当上下文被取消时，停止定时器并退出循环
+			// Stop timer and exit loop when context is cancelled
 			case <-sw.ctx.Done():
 				sw.timerMu.Lock()
 				if sw.timer != nil {
@@ -163,12 +162,12 @@ func (sw *SlidingWindow) Start() {
 	}()
 }
 
-// Stop 停止滑动窗口的操作
+// Stop stops the sliding window operations
 func (sw *SlidingWindow) Stop() {
-	// 调用取消函数以停止窗口的操作
+	// Call cancel function to stop window operations
 	sw.cancelFunc()
 
-	// 安全地停止timer
+	// Safely stop timer
 	sw.timerMu.Lock()
 	if sw.timer != nil {
 		sw.timer.Stop()
@@ -176,22 +175,22 @@ func (sw *SlidingWindow) Stop() {
 	sw.timerMu.Unlock()
 }
 
-// Trigger 触发滑动窗口，处理窗口内的数据
+// Trigger triggers the sliding window to process data within the window
 func (sw *SlidingWindow) Trigger() {
-	// 加锁以保证数据的并发安全
+	// Lock to ensure thread safety
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 
-	// 如果窗口内没有数据，则直接返回
+	// Return directly if no data in window
 	if len(sw.data) == 0 {
 		return
 	}
 	if !sw.initialized {
 		return
 	}
-	// 计算截止时间，即当前时间减去窗口的总大小
+	// Calculate cutoff time (current time minus window size)
 	next := sw.NextSlot()
-	// 保留下一个窗口的数据
+	// Retain data for next window
 	tms := next.Start.Add(-sw.size)
 	tme := next.End.Add(sw.size)
 	temp := types.NewTimeSlot(&tms, &tme)
@@ -202,7 +201,7 @@ func (sw *SlidingWindow) Trigger() {
 		}
 	}
 
-	// 提取出 Data 字段组成 []interface{} 类型的数据
+	// Extract Data fields to form []interface{} type data
 	resultData := make([]types.Row, 0)
 	for _, item := range sw.data {
 		if sw.currentSlot.Contains(item.Timestamp) {
@@ -211,27 +210,27 @@ func (sw *SlidingWindow) Trigger() {
 		}
 	}
 
-	// 如果设置了回调函数，则执行回调函数
+	// Execute callback function if set
 	if sw.callback != nil {
 		sw.callback(resultData)
 	}
 
-	// 更新窗口内的数据
+	// Update window data
 	sw.data = newData
 	sw.currentSlot = next
 
-	// 非阻塞发送到输出通道并直接更新统计信息（已在锁内）
+	// Non-blocking send to output channel and update statistics (within lock)
 	select {
 	case sw.outputChan <- resultData:
-		// 成功发送，更新统计信息（已在锁内）
+		// Successfully sent, update statistics (within lock)
 		sw.sentCount++
 	default:
-		// 通道已满，丢弃结果并更新统计信息（已在锁内）
+		// Channel full, drop result and update statistics (within lock)
 		sw.droppedCount++
 	}
 }
 
-// GetStats 获取窗口性能统计信息
+// GetStats returns window performance statistics
 func (sw *SlidingWindow) GetStats() map[string]int64 {
 	sw.mu.RLock()
 	defer sw.mu.RUnlock()
@@ -244,7 +243,7 @@ func (sw *SlidingWindow) GetStats() map[string]int64 {
 	}
 }
 
-// ResetStats 重置性能统计
+// ResetStats resets performance statistics
 func (sw *SlidingWindow) ResetStats() {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
@@ -253,16 +252,16 @@ func (sw *SlidingWindow) ResetStats() {
 	sw.droppedCount = 0
 }
 
-// Reset 重置滑动窗口，清空窗口内的数据
+// Reset resets the sliding window and clears window data
 func (sw *SlidingWindow) Reset() {
-	// 首先取消上下文，停止所有正在运行的goroutine
+	// First cancel context to stop all running goroutines
 	sw.cancelFunc()
 
-	// 加锁以保证数据的并发安全
+	// Lock to ensure thread safety
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 
-	// 停止现有的timer
+	// Stop existing timer
 	sw.timerMu.Lock()
 	if sw.timer != nil {
 		sw.timer.Stop()
@@ -270,23 +269,22 @@ func (sw *SlidingWindow) Reset() {
 	}
 	sw.timerMu.Unlock()
 
-	// 清空窗口内的数据
+	// Clear window data
 	sw.data = nil
 	sw.currentSlot = nil
 	sw.initialized = false
 	sw.initChan = make(chan struct{})
 
-	// 重新创建context，为下次启动做准备
+	// Recreate context for next startup
 	sw.ctx, sw.cancelFunc = context.WithCancel(context.Background())
 }
 
-// OutputChan 返回滑动窗口的输出通道
+// OutputChan returns the sliding window's output channel
 func (sw *SlidingWindow) OutputChan() <-chan []types.Row {
 	return sw.outputChan
 }
 
-// SetCallback 设置滑动窗口触发时执行的回调函数
-// 参数 callback 表示要设置的回调函数
+// SetCallback sets the callback function to execute when sliding window triggers
 func (sw *SlidingWindow) SetCallback(callback func([]types.Row)) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
@@ -304,7 +302,7 @@ func (sw *SlidingWindow) NextSlot() *types.TimeSlot {
 }
 
 func (sw *SlidingWindow) createSlot(t time.Time) *types.TimeSlot {
-	// 创建一个新的时间槽位
+	// Create a new time slot
 	start := timex.AlignTimeToWindow(t, sw.slide)
 	end := start.Add(sw.size)
 	slot := types.NewTimeSlot(&start, &end)

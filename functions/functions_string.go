@@ -8,14 +8,14 @@ import (
 	"github.com/rulego/streamsql/utils/cast"
 )
 
-// ConcatFunction 字符串连接函数
+// ConcatFunction concatenates multiple strings
 type ConcatFunction struct {
 	*BaseFunction
 }
 
 func NewConcatFunction() *ConcatFunction {
 	return &ConcatFunction{
-		BaseFunction: NewBaseFunction("concat", TypeString, "字符串函数", "连接多个字符串", 1, -1),
+		BaseFunction: NewBaseFunction("concat", TypeString, "string", "Concatenate multiple strings", 1, -1),
 	}
 }
 
@@ -35,14 +35,14 @@ func (f *ConcatFunction) Execute(ctx *FunctionContext, args []interface{}) (inte
 	return result.String(), nil
 }
 
-// LengthFunction 字符串长度函数
+// LengthFunction returns the length of a string
 type LengthFunction struct {
 	*BaseFunction
 }
 
 func NewLengthFunction() *LengthFunction {
 	return &LengthFunction{
-		BaseFunction: NewBaseFunction("length", TypeString, "字符串函数", "获取字符串长度", 1, 1),
+		BaseFunction: NewBaseFunction("length", TypeString, "string", "Get string length", 1, 1),
 	}
 }
 
@@ -58,14 +58,14 @@ func (f *LengthFunction) Execute(ctx *FunctionContext, args []interface{}) (inte
 	return int64(len(str)), nil
 }
 
-// UpperFunction 转大写函数
+// UpperFunction converts string to uppercase
 type UpperFunction struct {
 	*BaseFunction
 }
 
 func NewUpperFunction() *UpperFunction {
 	return &UpperFunction{
-		BaseFunction: NewBaseFunction("upper", TypeString, "字符串函数", "转换为大写", 1, 1),
+		BaseFunction: NewBaseFunction("upper", TypeString, "string", "Convert to uppercase", 1, 1),
 	}
 }
 
@@ -81,14 +81,14 @@ func (f *UpperFunction) Execute(ctx *FunctionContext, args []interface{}) (inter
 	return strings.ToUpper(str), nil
 }
 
-// LowerFunction 转小写函数
+// LowerFunction converts string to lowercase
 type LowerFunction struct {
 	*BaseFunction
 }
 
 func NewLowerFunction() *LowerFunction {
 	return &LowerFunction{
-		BaseFunction: NewBaseFunction("lower", TypeString, "字符串函数", "转换为小写", 1, 1),
+		BaseFunction: NewBaseFunction("lower", TypeString, "string", "Convert to lowercase", 1, 1),
 	}
 }
 

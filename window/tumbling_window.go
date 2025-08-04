@@ -1,4 +1,4 @@
-// Package window 提供了窗口操作的实现，包括滚动窗口（Tumbling Window）。
+// Package window provides window operation implementations, including Tumbling Window
 package window
 
 import (
@@ -12,52 +12,52 @@ import (
 	"github.com/rulego/streamsql/utils/timex"
 )
 
-// 确保 TumblingWindow 结构体实现了 Window 接口。
+// Ensure TumblingWindow implements the Window interface
 var _ Window = (*TumblingWindow)(nil)
 
-// TumblingWindow 表示一个滚动窗口，用于在固定时间间隔内收集数据并触发处理。
+// TumblingWindow represents a tumbling window for collecting data and triggering processing at fixed time intervals
 type TumblingWindow struct {
-	// config 是窗口的配置信息。
+	// config holds window configuration
 	config types.WindowConfig
-	// size 是滚动窗口的时间大小，即窗口的持续时间。
+	// size is the time size of tumbling window (window duration)
 	size time.Duration
-	// mu 用于保护对窗口数据的并发访问。
+	// mu protects concurrent access to window data
 	mu sync.RWMutex
-	// data 存储窗口内收集的数据。
+	// data stores collected data within the window
 	data []types.Row
-	// outputChan 是一个通道，用于在窗口触发时发送数据。
+	// outputChan is a channel for sending data when window triggers
 	outputChan chan []types.Row
-	// callback 是一个可选的回调函数，在窗口触发时调用。
+	// callback is an optional callback function called when window triggers
 	callback func([]types.Row)
-	// ctx 用于控制窗口的生命周期。
+	// ctx controls window lifecycle
 	ctx context.Context
-	// cancelFunc 用于取消窗口的操作。
+	// cancelFunc cancels window operations
 	cancelFunc context.CancelFunc
-	// timer 用于定时触发窗口。
+	// timer for triggering window periodically
 	timer       *time.Ticker
 	currentSlot *types.TimeSlot
-	// 用于初始化窗口的通道
+	// initChan for window initialization
 	initChan    chan struct{}
 	initialized bool
-	// 保护timer的锁
+	// timerMu protects timer access
 	timerMu sync.Mutex
-	// 性能统计
-	droppedCount int64 // 丢弃的结果数量
-	sentCount    int64 // 成功发送的结果数量
+	// Performance statistics
+	droppedCount int64 // Number of dropped results
+	sentCount    int64 // Number of successfully sent results
 }
 
-// NewTumblingWindow 创建一个新的滚动窗口实例。
-// 参数 size 是窗口的时间大小。
+// NewTumblingWindow creates a new tumbling window instance
+// Parameter size is the time size of the window
 func NewTumblingWindow(config types.WindowConfig) (*TumblingWindow, error) {
-	// 创建一个可取消的上下文。
+	// Create a cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
 	size, err := cast.ToDurationE(config.Params["size"])
 	if err != nil {
 		return nil, fmt.Errorf("invalid size for tumbling window: %v", err)
 	}
 
-	// 使用统一的性能配置获取窗口输出缓冲区大小
-	bufferSize := 1000 // 默认值
+	// Use unified performance config to get window output buffer size
+	bufferSize := 1000 // Default value
 	if perfConfig, exists := config.Params["performanceConfig"]; exists {
 		if pc, ok := perfConfig.(types.PerformanceConfig); ok {
 			bufferSize = pc.BufferConfig.WindowOutputSize
@@ -75,21 +75,20 @@ func NewTumblingWindow(config types.WindowConfig) (*TumblingWindow, error) {
 	}, nil
 }
 
-// Add 向滚动窗口添加数据。
-// 参数 data 是要添加的数据。
+// Add adds data to the tumbling window
 func (tw *TumblingWindow) Add(data interface{}) {
-	// 加锁以确保并发安全。
+	// Lock to ensure thread safety
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 
-	// 将数据追加到窗口的数据列表中。
+	// Append data to window's data list
 	if !tw.initialized {
 		tw.currentSlot = tw.createSlot(GetTimestamp(data, tw.config.TsProp, tw.config.TimeUnit))
 		tw.timerMu.Lock()
 		tw.timer = time.NewTicker(tw.size)
 		tw.timerMu.Unlock()
 		tw.initialized = true
-		// 发送初始化完成信号（在设置timer后）
+		// Send initialization complete signal (after setting timer)
 		close(tw.initChan)
 	}
 	row := types.Row{
@@ -100,7 +99,7 @@ func (tw *TumblingWindow) Add(data interface{}) {
 }
 
 func (sw *TumblingWindow) createSlot(t time.Time) *types.TimeSlot {
-	// 创建一个新的时间槽位
+	// Create a new time slot
 	start := timex.AlignTimeToWindow(t, sw.size)
 	end := start.Add(sw.size)
 	slot := types.NewTimeSlot(&start, &end)
@@ -116,12 +115,12 @@ func (sw *TumblingWindow) NextSlot() *types.TimeSlot {
 	return types.NewTimeSlot(start, &end)
 }
 
-// Stop 停止滚动窗口的操作。
+// Stop stops tumbling window operations
 func (tw *TumblingWindow) Stop() {
-	// 调用取消函数以停止窗口的操作。
+	// Call cancel function to stop window operations
 	tw.cancelFunc()
 
-	// 安全地停止timer
+	// Safely stop timer
 	tw.timerMu.Lock()
 	if tw.timer != nil {
 		tw.timer.Stop()
@@ -129,30 +128,30 @@ func (tw *TumblingWindow) Stop() {
 	tw.timerMu.Unlock()
 }
 
-// Start 启动滚动窗口的定时触发机制。
-// 采用延迟初始化模式，避免在没有数据时无限等待，同时确保后续数据能正常处理
+// Start starts the tumbling window's periodic trigger mechanism
+// Uses lazy initialization to avoid infinite waiting when no data, ensuring subsequent data can be processed normally
 func (tw *TumblingWindow) Start() {
 	go func() {
-		// 在函数结束时关闭输出通道。
+		// Close output channel when function ends
 		defer close(tw.outputChan)
 
-		// 等待初始化完成或上下文取消
+		// Wait for initialization complete or context cancellation
 		select {
 		case <-tw.initChan:
-			// 正常初始化完成，继续处理
+			// Initialization completed normally, continue processing
 		case <-tw.ctx.Done():
-			// 上下文被取消，直接退出
+			// Context cancelled, exit directly
 			return
 		}
 
 		for {
-			// 在每次循环中安全地获取timer
+			// Safely get timer in each loop iteration
 			tw.timerMu.Lock()
 			timer := tw.timer
 			tw.timerMu.Unlock()
 
 			if timer == nil {
-				// 如果timer为nil，等待一小段时间后重试
+				// If timer is nil, wait briefly and retry
 				select {
 				case <-time.After(10 * time.Millisecond):
 					continue
@@ -162,10 +161,10 @@ func (tw *TumblingWindow) Start() {
 			}
 
 			select {
-			// 当定时器到期时，触发窗口。
+			// Trigger window when timer expires
 			case <-timer.C:
 				tw.Trigger()
-			// 当上下文被取消时，停止定时器并退出循环。
+			// Stop timer and exit loop when context is cancelled
 			case <-tw.ctx.Done():
 				tw.timerMu.Lock()
 				if tw.timer != nil {
@@ -178,18 +177,18 @@ func (tw *TumblingWindow) Start() {
 	}()
 }
 
-// Trigger 触发滚动窗口的处理逻辑。
+// Trigger triggers the tumbling window's processing logic
 func (tw *TumblingWindow) Trigger() {
-	// 加锁以确保并发安全。
+	// Lock to ensure thread safety
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 
 	if !tw.initialized {
 		return
 	}
-	// 计算下一个窗口槽位
+	// Calculate next window slot
 	next := tw.NextSlot()
-	// 保留下一个窗口的数据
+	// Retain data for next window
 	tms := next.Start.Add(-tw.size)
 	tme := next.End.Add(tw.size)
 	temp := types.NewTimeSlot(&tms, &tme)
@@ -200,7 +199,7 @@ func (tw *TumblingWindow) Trigger() {
 		}
 	}
 
-	// 提取出当前窗口数据
+	// Extract current window data
 	resultData := make([]types.Row, 0)
 	for _, item := range tw.data {
 		if tw.currentSlot.Contains(item.Timestamp) {
@@ -209,38 +208,38 @@ func (tw *TumblingWindow) Trigger() {
 		}
 	}
 
-	// 如果设置了回调函数，则执行回调函数
+	// Execute callback function if set
 	if tw.callback != nil {
 		tw.callback(resultData)
 	}
 
-	// 更新窗口内的数据
+	// Update window data
 	tw.data = newData
 	tw.currentSlot = next
 
-	// 非阻塞发送到输出通道并更新统计信息
+	// Non-blocking send to output channel and update statistics
 	select {
 	case tw.outputChan <- resultData:
-		// 成功发送，更新统计信息（已在锁内）
+		// Successfully sent, update statistics (within lock)
 		tw.sentCount++
 	default:
-		// 通道已满，丢弃结果并更新统计信息（已在锁内）
+		// Channel full, drop result and update statistics (within lock)
 		tw.droppedCount++
-		// 可选：在这里添加日志记录
-		// log.Printf("Window output channel full, dropped result with %d rows", len(resultData))
-	}
+
+		// Optional: add logging here
+	} // log.Printf("Window output channel full, dropped result with %d rows", len(resultData))
 }
 
-// Reset 重置滚动窗口的数据。
+// Reset resets tumbling window data
 func (tw *TumblingWindow) Reset() {
-	// 首先取消上下文，停止所有正在运行的goroutine
+	// First cancel context to stop all running goroutines
 	tw.cancelFunc()
 
-	// 加锁以确保并发安全。
+	// Lock to ensure thread safety
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 
-	// 停止现有的timer
+	// Stop existing timer
 	tw.timerMu.Lock()
 	if tw.timer != nil {
 		tw.timer.Stop()
@@ -248,30 +247,29 @@ func (tw *TumblingWindow) Reset() {
 	}
 	tw.timerMu.Unlock()
 
-	// 清空窗口数据。
+	// Clear window data
 	tw.data = nil
 	tw.currentSlot = nil
 	tw.initialized = false
 	tw.initChan = make(chan struct{})
 
-	// 重新创建context，为下次启动做准备
+	// Recreate context for next startup
 	tw.ctx, tw.cancelFunc = context.WithCancel(context.Background())
 }
 
-// OutputChan 返回一个只读通道，用于接收窗口触发时的数据。
+// OutputChan returns a read-only channel for receiving data when window triggers
 func (tw *TumblingWindow) OutputChan() <-chan []types.Row {
 	return tw.outputChan
 }
 
-// SetCallback 设置滚动窗口触发时的回调函数。
-// 参数 callback 是要设置的回调函数。
+// SetCallback sets the callback function to execute when tumbling window triggers
 func (tw *TumblingWindow) SetCallback(callback func([]types.Row)) {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 	tw.callback = callback
 }
 
-// GetStats 获取窗口性能统计信息
+// GetStats returns window performance statistics
 func (tw *TumblingWindow) GetStats() map[string]int64 {
 	tw.mu.RLock()
 	defer tw.mu.RUnlock()
@@ -284,7 +282,7 @@ func (tw *TumblingWindow) GetStats() map[string]int64 {
 	}
 }
 
-// ResetStats 重置性能统计
+// ResetStats resets performance statistics
 func (tw *TumblingWindow) ResetStats() {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
@@ -292,12 +290,3 @@ func (tw *TumblingWindow) ResetStats() {
 	tw.sentCount = 0
 	tw.droppedCount = 0
 }
-
-// // GetResults 获取当前滚动窗口中的数据副本。
-// func (tw *TumblingWindow) GetResults() []interface{} {
-// 	// 加锁以确保并发安全。
-// 	tw.mu.Lock()
-// 	defer tw.mu.Unlock()
-// 	// 返回窗口数据的副本。
-// 	return append([]interface{}{}, tw.data...)
-// }

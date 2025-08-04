@@ -6,14 +6,14 @@ import (
 	"strings"
 )
 
-// ToJsonFunction 转换为JSON字符串
+// ToJsonFunction converts value to JSON string
 type ToJsonFunction struct {
 	*BaseFunction
 }
 
 func NewToJsonFunction() *ToJsonFunction {
 	return &ToJsonFunction{
-		BaseFunction: NewBaseFunction("to_json", TypeConversion, "JSON函数", "转换为JSON字符串", 1, 1),
+		BaseFunction: NewBaseFunction("to_json", TypeConversion, "json", "Convert value to JSON string", 1, 1),
 	}
 }
 
@@ -30,14 +30,14 @@ func (f *ToJsonFunction) Execute(ctx *FunctionContext, args []interface{}) (inte
 	return string(jsonBytes), nil
 }
 
-// FromJsonFunction 从JSON字符串解析
+// FromJsonFunction parses value from JSON string
 type FromJsonFunction struct {
 	*BaseFunction
 }
 
 func NewFromJsonFunction() *FromJsonFunction {
 	return &FromJsonFunction{
-		BaseFunction: NewBaseFunction("from_json", TypeConversion, "JSON函数", "从JSON字符串解析", 1, 1),
+		BaseFunction: NewBaseFunction("from_json", TypeConversion, "json", "Parse value from JSON string", 1, 1),
 	}
 }
 
@@ -59,14 +59,14 @@ func (f *FromJsonFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 	return result, nil
 }
 
-// JsonExtractFunction 提取JSON字段值
+// JsonExtractFunction extracts JSON field value
 type JsonExtractFunction struct {
 	*BaseFunction
 }
 
 func NewJsonExtractFunction() *JsonExtractFunction {
 	return &JsonExtractFunction{
-		BaseFunction: NewBaseFunction("json_extract", TypeString, "JSON函数", "提取JSON字段值", 2, 2),
+		BaseFunction: NewBaseFunction("json_extract", TypeString, "json", "Extract JSON field value", 2, 2),
 	}
 }
 
@@ -91,7 +91,7 @@ func (f *JsonExtractFunction) Execute(ctx *FunctionContext, args []interface{}) 
 		return nil, fmt.Errorf("failed to parse JSON: %v", err)
 	}
 
-	// 简单的路径提取，支持 $.field 格式
+	// Simple path extraction, supports $.field format
 	if strings.HasPrefix(path, "$.") {
 		field := path[2:]
 		if dataMap, ok := data.(map[string]interface{}); ok {

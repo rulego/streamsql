@@ -8,14 +8,14 @@ import (
 	"github.com/rulego/streamsql/utils/cast"
 )
 
-// NowFunction 当前时间函数
+// NowFunction returns current timestamp
 type NowFunction struct {
 	*BaseFunction
 }
 
 func NewNowFunction() *NowFunction {
 	return &NowFunction{
-		BaseFunction: NewBaseFunction("now", TypeDateTime, "时间日期函数", "获取当前时间戳", 0, 0),
+		BaseFunction: NewBaseFunction("now", TypeDateTime, "datetime", "Get current timestamp", 0, 0),
 	}
 }
 
@@ -27,14 +27,14 @@ func (f *NowFunction) Execute(ctx *FunctionContext, args []interface{}) (interfa
 	return time.Now().Unix(), nil
 }
 
-// CurrentTimeFunction 当前时间函数
+// CurrentTimeFunction returns current time
 type CurrentTimeFunction struct {
 	*BaseFunction
 }
 
 func NewCurrentTimeFunction() *CurrentTimeFunction {
 	return &CurrentTimeFunction{
-		BaseFunction: NewBaseFunction("current_time", TypeDateTime, "时间日期函数", "获取当前时间（HH:MM:SS）", 0, 0),
+		BaseFunction: NewBaseFunction("current_time", TypeDateTime, "datetime", "Get current time (HH:MM:SS)", 0, 0),
 	}
 }
 
@@ -47,14 +47,14 @@ func (f *CurrentTimeFunction) Execute(ctx *FunctionContext, args []interface{}) 
 	return now.Format("15:04:05"), nil
 }
 
-// CurrentDateFunction 当前日期函数
+// CurrentDateFunction returns current date
 type CurrentDateFunction struct {
 	*BaseFunction
 }
 
 func NewCurrentDateFunction() *CurrentDateFunction {
 	return &CurrentDateFunction{
-		BaseFunction: NewBaseFunction("current_date", TypeDateTime, "时间日期函数", "获取当前日期（YYYY-MM-DD）", 0, 0),
+		BaseFunction: NewBaseFunction("current_date", TypeDateTime, "datetime", "Get current date (YYYY-MM-DD)", 0, 0),
 	}
 }
 
@@ -67,14 +67,14 @@ func (f *CurrentDateFunction) Execute(ctx *FunctionContext, args []interface{}) 
 	return now.Format("2006-01-02"), nil
 }
 
-// DateAddFunction 日期加法函数
+// DateAddFunction performs date addition
 type DateAddFunction struct {
 	*BaseFunction
 }
 
 func NewDateAddFunction() *DateAddFunction {
 	return &DateAddFunction{
-		BaseFunction: NewBaseFunction("date_add", TypeDateTime, "时间日期函数", "日期加法", 3, 3),
+		BaseFunction: NewBaseFunction("date_add", TypeDateTime, "datetime", "Date addition", 3, 3),
 	}
 }
 

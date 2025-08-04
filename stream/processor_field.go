@@ -11,44 +11,44 @@ import (
 	"github.com/rulego/streamsql/utils/fieldpath"
 )
 
-// fieldProcessInfo 字段处理信息，用于缓存预编译的字段处理逻辑
+// fieldProcessInfo field processing information for caching pre-compiled field processing logic
 type fieldProcessInfo struct {
-	fieldName       string // 原始字段名
-	outputName      string // 输出字段名
-	isFunctionCall  bool   // 是否为函数调用
-	hasNestedField  bool   // 是否包含嵌套字段
-	isSelectAll     bool   // 是否为SELECT *
-	isStringLiteral bool   // 是否为字符串字面量
-	stringValue     string // 预处理的字符串字面量值（去除引号）
-	alias           string // 字段别名，用于快速访问
+	fieldName       string // Original field name
+	outputName      string // Output field name
+	isFunctionCall  bool   // Whether it's a function call
+	hasNestedField  bool   // Whether it contains nested fields
+	isSelectAll     bool   // Whether it's SELECT *
+	isStringLiteral bool   // Whether it's a string literal
+	stringValue     string // Pre-processed string literal value (quotes removed)
+	alias           string // Field alias for quick access
 }
 
-// expressionProcessInfo 表达式处理信息，用于缓存预编译的表达式处理逻辑
+// expressionProcessInfo expression processing information for caching pre-compiled expression processing logic
 type expressionProcessInfo struct {
-	originalExpr            string           // 原始表达式
-	processedExpr           string           // 预处理后的表达式
-	isFunctionCall          bool             // 是否为函数调用
-	hasNestedFields         bool             // 是否包含嵌套字段
-	compiledExpr            *expr.Expression // 预编译的表达式对象
-	needsBacktickPreprocess bool             // 是否需要反引号预处理
+	originalExpr            string           // Original expression
+	processedExpr           string           // Pre-processed expression
+	isFunctionCall          bool             // Whether it's a function call
+	hasNestedFields         bool             // Whether it contains nested fields
+	compiledExpr            *expr.Expression // Pre-compiled expression object
+	needsBacktickPreprocess bool             // Whether backtick preprocessing is needed
 }
 
-// compileFieldProcessInfo 预编译字段处理信息，避免运行时重复解析
+// compileFieldProcessInfo pre-compiles field processing information to avoid runtime re-parsing
 func (s *Stream) compileFieldProcessInfo() {
 	s.compiledFieldInfo = make(map[string]*fieldProcessInfo)
 	s.compiledExprInfo = make(map[string]*expressionProcessInfo)
 
-	// 编译SimpleFields信息
+	// Compile SimpleFields information
 	for _, fieldSpec := range s.config.SimpleFields {
 		info := s.compileSimpleFieldInfo(fieldSpec)
 		s.compiledFieldInfo[fieldSpec] = info
 	}
 
-	// 预编译表达式字段信息
+	// Pre-compile expression field information
 	s.compileExpressionInfo()
 }
 
-// compileSimpleFieldInfo 编译简单字段信息
+// compileSimpleFieldInfo compiles simple field information
 func (s *Stream) compileSimpleFieldInfo(fieldSpec string) *fieldProcessInfo {
 	info := &fieldProcessInfo{}
 
@@ -59,43 +59,43 @@ func (s *Stream) compileSimpleFieldInfo(fieldSpec string) *fieldProcessInfo {
 		return info
 	}
 
-	// 解析别名
+	// Parse alias
 	parts := strings.Split(fieldSpec, ":")
 	info.fieldName = parts[0]
-	// 去除字段名中的反引号
+	// Remove backticks from field name
 	if len(info.fieldName) >= 2 && info.fieldName[0] == '`' && info.fieldName[len(info.fieldName)-1] == '`' {
 		info.fieldName = info.fieldName[1 : len(info.fieldName)-1]
 	}
 	info.outputName = info.fieldName
 	if len(parts) > 1 {
 		info.outputName = parts[1]
-		// 去除输出名中的反引号
+		// Remove backticks from output name
 		if len(info.outputName) >= 2 && info.outputName[0] == '`' && info.outputName[len(info.outputName)-1] == '`' {
 			info.outputName = info.outputName[1 : len(info.outputName)-1]
 		}
 	}
 
-	// 预判断字段特征
+	// Pre-determine field characteristics
 	info.isFunctionCall = strings.Contains(info.fieldName, "(") && strings.Contains(info.fieldName, ")")
 	info.hasNestedField = !info.isFunctionCall && fieldpath.IsNestedField(info.fieldName)
 
-	// 检查是否为字符串字面量并预处理值
+	// Check if it's a string literal and preprocess value
 	info.isStringLiteral = (len(info.fieldName) >= 2 &&
 		((info.fieldName[0] == '\'' && info.fieldName[len(info.fieldName)-1] == '\'') ||
 			(info.fieldName[0] == '"' && info.fieldName[len(info.fieldName)-1] == '"')))
 
-	// 预处理字符串字面量值，去除引号
+	// Preprocess string literal value, remove quotes
 	if info.isStringLiteral && len(info.fieldName) >= 2 {
 		info.stringValue = info.fieldName[1 : len(info.fieldName)-1]
 	}
 
-	// 设置别名用于快速访问
+	// Set alias for quick access
 	info.alias = info.outputName
 
 	return info
 }
 
-// compileExpressionInfo 预编译表达式处理信息
+// compileExpressionInfo pre-compiles expression processing information
 func (s *Stream) compileExpressionInfo() {
 	bridge := functions.GetExprBridge()
 

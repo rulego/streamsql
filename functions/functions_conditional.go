@@ -7,14 +7,14 @@ import (
 	"github.com/rulego/streamsql/utils/cast"
 )
 
-// IfNullFunction 如果第一个参数为NULL则返回第二个参数
+// IfNullFunction returns second argument if first argument is NULL
 type IfNullFunction struct {
 	*BaseFunction
 }
 
 func NewIfNullFunction() *IfNullFunction {
 	return &IfNullFunction{
-		BaseFunction: NewBaseFunction("if_null", TypeString, "条件函数", "如果第一个参数为NULL则返回第二个参数", 2, 2),
+		BaseFunction: NewBaseFunction("if_null", TypeString, "conditional", "Return second argument if first argument is NULL", 2, 2),
 	}
 }
 
@@ -29,14 +29,14 @@ func (f *IfNullFunction) Execute(ctx *FunctionContext, args []interface{}) (inte
 	return args[0], nil
 }
 
-// CoalesceFunction 返回第一个非NULL值
+// CoalesceFunction returns first non-NULL value
 type CoalesceFunction struct {
 	*BaseFunction
 }
 
 func NewCoalesceFunction() *CoalesceFunction {
 	return &CoalesceFunction{
-		BaseFunction: NewBaseFunction("coalesce", TypeString, "条件函数", "返回第一个非NULL值", 1, -1),
+		BaseFunction: NewBaseFunction("coalesce", TypeString, "conditional", "Return first non-NULL value", 1, -1),
 	}
 }
 
@@ -53,14 +53,14 @@ func (f *CoalesceFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 	return nil, nil
 }
 
-// NullIfFunction 如果两个值相等则返回NULL
+// NullIfFunction returns NULL if two values are equal
 type NullIfFunction struct {
 	*BaseFunction
 }
 
 func NewNullIfFunction() *NullIfFunction {
 	return &NullIfFunction{
-		BaseFunction: NewBaseFunction("null_if", TypeString, "条件函数", "如果两个值相等则返回NULL", 2, 2),
+		BaseFunction: NewBaseFunction("null_if", TypeString, "conditional", "Return NULL if two values are equal", 2, 2),
 	}
 }
 
@@ -75,14 +75,14 @@ func (f *NullIfFunction) Execute(ctx *FunctionContext, args []interface{}) (inte
 	return args[0], nil
 }
 
-// GreatestFunction 返回最大值
+// GreatestFunction returns maximum value
 type GreatestFunction struct {
 	*BaseFunction
 }
 
 func NewGreatestFunction() *GreatestFunction {
 	return &GreatestFunction{
-		BaseFunction: NewBaseFunction("greatest", TypeMath, "条件函数", "返回最大值", 1, -1),
+		BaseFunction: NewBaseFunction("greatest", TypeMath, "conditional", "Return maximum value", 1, -1),
 	}
 }
 

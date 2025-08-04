@@ -14,96 +14,96 @@ import (
 	"github.com/rulego/streamsql/logger"
 )
 
-// OrderedDataItem 有序数据项，包含序列号和时间戳
+// OrderedDataItem ordered data item with sequence number and timestamp
 type OrderedDataItem struct {
-	SequenceID int64                  `json:"sequence_id"` // 全局递增序列号
-	Timestamp  int64                  `json:"timestamp"`   // 数据接收时间戳
-	Data       map[string]interface{} `json:"data"`        // 实际数据
-	RetryCount int                    `json:"retry_count"` // 重试次数
-	LastRetry  int64                  `json:"last_retry"`  // 最后重试时间戳
+	SequenceID int64                  `json:"sequence_id"` // Global incremental sequence number
+	Timestamp  int64                  `json:"timestamp"`   // Data reception timestamp
+	Data       map[string]interface{} `json:"data"`        // Actual data
+	RetryCount int                    `json:"retry_count"` // Retry count
+	LastRetry  int64                  `json:"last_retry"`  // Last retry timestamp
 }
 
-// DeadLetterItem 死信队列项
+// DeadLetterItem dead letter queue item
 type DeadLetterItem struct {
-	OriginalData OrderedDataItem `json:"original_data"` // 原始数据
-	FailureTime  int64           `json:"failure_time"`  // 失败时间
-	Reason       string          `json:"reason"`        // 失败原因
+	OriginalData OrderedDataItem `json:"original_data"` // Original data
+	FailureTime  int64           `json:"failure_time"`  // Failure time
+	Reason       string          `json:"reason"`        // Failure reason
 }
 
-// PersistenceManager 持久化管理器
-// 解决数据时序性问题，确保先进先出(FIFO)处理
-// 优化版本：添加重试限制、死信队列和退避策略
+// PersistenceManager persistence manager
+// Solves data timing issues, ensures first-in-first-out (FIFO) processing
+// Optimized version: adds retry limits, dead letter queue and backoff strategy
 type PersistenceManager struct {
-	// 基础配置
-	dataDir       string        // 持久化数据目录
-	maxFileSize   int64         // 单个文件最大大小（字节）
-	flushInterval time.Duration // 刷新间隔
+	// Basic configuration
+	dataDir       string        // Persistence data directory
+	maxFileSize   int64         // Maximum size per file (bytes)
+	flushInterval time.Duration // Flush interval
 
-	// 序列号管理
-	sequenceCounter int64 // 全局序列号计数器，使用原子操作
+	// Sequence number management
+	sequenceCounter int64 // Global sequence counter, using atomic operations
 
-	// 文件管理
-	currentFile *os.File // 当前写入文件
-	currentSize int64    // 当前文件大小
-	fileIndex   int      // 文件索引
+	// File management
+	currentFile *os.File // Current write file
+	currentSize int64    // Current file size
+	fileIndex   int      // File index
 
-	// 并发控制
-	writeMutex   sync.Mutex   // 写入互斥锁
-	pendingMutex sync.Mutex   // 待写入数据互斥锁
-	runningMutex sync.RWMutex // 保护isRunning字段的读写锁
+	// Concurrency control
+	writeMutex   sync.Mutex   // Write mutex
+	pendingMutex sync.Mutex   // Pending data mutex
+	runningMutex sync.RWMutex // Read-write lock protecting isRunning field
 
-	// 数据缓冲
-	pendingData []OrderedDataItem // 待写入数据，按序列号排序
+	// Data buffering
+	pendingData []OrderedDataItem // Pending data to write, sorted by sequence number
 
-	// 状态管理
-	isRunning  bool          // 是否运行中
-	stopChan   chan struct{} // 停止通道
-	flushTimer *time.Timer   // 刷新定时器
+	// State management
+	isRunning  bool          // Whether running
+	stopChan   chan struct{} // Stop channel
+	flushTimer *time.Timer   // Flush timer
 
-	// 恢复管理
-	recoveryQueue chan OrderedDataItem // 恢复数据队列
-	recoveryMode  bool                 // 是否处于恢复模式
-	recoveryMutex sync.RWMutex         // 恢复模式保护锁
+	// Recovery management
+	recoveryQueue chan OrderedDataItem // Recovery data queue
+	recoveryMode  bool                 // Whether in recovery mode
+	recoveryMutex sync.RWMutex         // Recovery mode protection lock
 
-	// 重试和死信队列管理
-	maxRetryCount   int                        // 最大重试次数
-	deadLetterQueue []DeadLetterItem           // 死信队列
-	deadLetterMutex sync.Mutex                 // 死信队列保护锁
-	retryDataMap    map[int64]*OrderedDataItem // 重试数据映射（按序列号索引）
-	retryMapMutex   sync.RWMutex               // 重试映射保护锁
+	// Retry and dead letter queue management
+	maxRetryCount   int                        // Maximum retry count
+	deadLetterQueue []DeadLetterItem           // Dead letter queue
+	deadLetterMutex sync.Mutex                 // Dead letter queue protection lock
+	retryDataMap    map[int64]*OrderedDataItem // Retry data mapping (indexed by sequence number)
+	retryMapMutex   sync.RWMutex               // Retry mapping protection lock
 
-	// 统计信息
-	totalPersisted int64 // 总持久化数据量
-	totalLoaded    int64 // 总加载数据量
-	filesCreated   int64 // 创建的文件数量
-	totalRecovered int64 // 总恢复数据量
-	totalDropped   int64 // 总丢弃数据量（进入死信队列）
-	totalRetried   int64 // 总重试数据量
+	// Statistics
+	totalPersisted int64 // Total persisted data count
+	totalLoaded    int64 // Total loaded data count
+	filesCreated   int64 // Number of files created
+	totalRecovered int64 // Total recovered data count
+	totalDropped   int64 // Total dropped data count (entered dead letter queue)
+	totalRetried   int64 // Total retried data count
 }
 
-// NewPersistenceManager 创建持久化管理器
-// 参数:
-//   - dataDir: 数据存储目录
+// NewPersistenceManager creates a persistence manager
+// Parameters:
+//   - dataDir: data storage directory
 //
-// 返回值:
-//   - *PersistenceManager: 持久化管理器实例
+// Returns:
+//   - *PersistenceManager: persistence manager instance
 func NewPersistenceManager(dataDir string) *PersistenceManager {
 	pm := &PersistenceManager{
 		dataDir:         dataDir,
 		maxFileSize:     10 * 1024 * 1024, // 10MB per file
-		flushInterval:   2 * time.Second,  // 2秒刷新一次，更频繁以保证时序性
+		flushInterval:   2 * time.Second,  // Flush every 2 seconds, more frequent to ensure timing
 		fileIndex:       0,
-		pendingData:     make([]OrderedDataItem, 0, 1000), // 预分配容量
+		pendingData:     make([]OrderedDataItem, 0, 1000), // Pre-allocate capacity
 		stopChan:        make(chan struct{}),
-		recoveryQueue:   make(chan OrderedDataItem, 10000), // 恢复队列
+		recoveryQueue:   make(chan OrderedDataItem, 10000), // Recovery queue
 		sequenceCounter: 0,
-		// 重试和死信队列配置
-		maxRetryCount:   3,                                // 默认最大重试3次
-		deadLetterQueue: make([]DeadLetterItem, 0, 1000),  // 死信队列
-		retryDataMap:    make(map[int64]*OrderedDataItem), // 重试数据映射
+		// Retry and dead letter queue configuration
+		maxRetryCount:   3,                                // Default maximum 3 retries
+		deadLetterQueue: make([]DeadLetterItem, 0, 1000),  // Dead letter queue
+		retryDataMap:    make(map[int64]*OrderedDataItem), // Retry data mapping
 	}
 
-	// 确保数据目录存在
+	// Ensure data directory exists
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		logger.Error("Failed to create persistence directory: %v", err)
 	}
@@ -111,14 +111,14 @@ func NewPersistenceManager(dataDir string) *PersistenceManager {
 	return pm
 }
 
-// NewPersistenceManagerWithConfig 创建自定义配置的持久化管理器
-// 参数:
-//   - dataDir: 数据存储目录
-//   - maxFileSize: 单个文件最大大小
-//   - flushInterval: 刷新间隔
+// NewPersistenceManagerWithConfig creates a persistence manager with custom configuration
+// Parameters:
+//   - dataDir: data storage directory
+//   - maxFileSize: maximum size per file
+//   - flushInterval: flush interval
 //
-// 返回值:
-//   - *PersistenceManager: 持久化管理器实例
+// Returns:
+//   - *PersistenceManager: persistence manager instance
 func NewPersistenceManagerWithConfig(dataDir string, maxFileSize int64, flushInterval time.Duration) *PersistenceManager {
 	pm := &PersistenceManager{
 		dataDir:         dataDir,
@@ -131,7 +131,7 @@ func NewPersistenceManagerWithConfig(dataDir string, maxFileSize int64, flushInt
 		sequenceCounter: 0,
 	}
 
-	// 确保数据目录存在
+	// Ensure data directory exists
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		logger.Error("Failed to create persistence directory: %v", err)
 	}
@@ -139,11 +139,11 @@ func NewPersistenceManagerWithConfig(dataDir string, maxFileSize int64, flushInt
 	return pm
 }
 
-// Start 启动持久化管理器
-// 返回值:
-//   - error: 启动过程中的错误
+// Start starts the persistence manager
+// Returns:
+//   - error: error during startup process
 func (pm *PersistenceManager) Start() error {
-	// 检查是否已经在运行
+	// Check if already running
 	pm.runningMutex.RLock()
 	running := pm.isRunning
 	pm.runningMutex.RUnlock()
@@ -152,7 +152,7 @@ func (pm *PersistenceManager) Start() error {
 		return fmt.Errorf("ordered persistence manager already running")
 	}
 
-	// 创建初始文件
+	// Create initial file
 	pm.writeMutex.Lock()
 	if err := pm.createNewFile(); err != nil {
 		pm.writeMutex.Unlock()
@@ -160,15 +160,15 @@ func (pm *PersistenceManager) Start() error {
 	}
 	pm.writeMutex.Unlock()
 
-	// 设置运行状态
+	// Set running state
 	pm.runningMutex.Lock()
 	pm.isRunning = true
 	pm.runningMutex.Unlock()
 
-	// 启动定时刷新
+	// Start timed flush
 	pm.startFlushTimer()
 
-	// 启动后台处理协程
+	// Start background processing goroutines
 	go pm.backgroundProcessor()
 	go pm.recoveryProcessor()
 
@@ -176,11 +176,11 @@ func (pm *PersistenceManager) Start() error {
 	return nil
 }
 
-// Stop 停止持久化管理器
-// 返回值:
-//   - error: 停止过程中的错误
+// Stop stops the persistence manager
+// Returns:
+//   - error: error during stop process
 func (pm *PersistenceManager) Stop() error {
-	// 检查是否正在运行
+	// Check if running
 	pm.runningMutex.RLock()
 	running := pm.isRunning
 	pm.runningMutex.RUnlock()
@@ -189,24 +189,24 @@ func (pm *PersistenceManager) Stop() error {
 		return nil
 	}
 
-	// 设置停止状态
+	// Set stop state
 	pm.runningMutex.Lock()
 	pm.isRunning = false
 	pm.runningMutex.Unlock()
 
 	close(pm.stopChan)
 
-	// 停止定时器
+	// Stop timer
 	pm.writeMutex.Lock()
 	if pm.flushTimer != nil {
 		pm.flushTimer.Stop()
 	}
 	pm.writeMutex.Unlock()
 
-	// 刷新剩余数据
+	// Flush remaining data
 	pm.flushPendingData()
 
-	// 关闭当前文件
+	// Close current file
 	pm.writeMutex.Lock()
 	if pm.currentFile != nil {
 		pm.currentFile.Close()
@@ -214,32 +214,32 @@ func (pm *PersistenceManager) Stop() error {
 	}
 	pm.writeMutex.Unlock()
 
-	// 关闭恢复队列
+	// Close recovery queue
 	close(pm.recoveryQueue)
 
 	logger.Info("Ordered persistence manager stopped")
 	return nil
 }
 
-// PersistData 持久化数据，保证时序性（兼容性方法）
-// 参数:
-//   - data: 要持久化的数据，必须是map[string]interface{}类型
+// PersistData persists data ensuring timing order (compatibility method)
+// Parameters:
+//   - data: data to persist, must be map[string]interface{} type
 //
-// 返回值:
-//   - error: 持久化过程中的错误
+// Returns:
+//   - error: error during persistence process
 func (pm *PersistenceManager) PersistData(data map[string]interface{}) error {
 	return pm.PersistDataWithRetryLimit(data, 0)
 }
 
-// PersistDataWithRetryLimit 持久化数据，支持重试限制
-// 参数:
-//   - data: 要持久化的数据，必须是map[string]interface{}类型
-//   - retryCount: 当前重试次数
+// PersistDataWithRetryLimit persists data with retry limit support
+// Parameters:
+//   - data: data to persist, must be map[string]interface{} type
+//   - retryCount: current retry count
 //
-// 返回值:
-//   - error: 持久化过程中的错误
+// Returns:
+//   - error: error during persistence process
 func (pm *PersistenceManager) PersistDataWithRetryLimit(data map[string]interface{}, retryCount int) error {
-	// 检查是否正在运行
+	// Check if running
 	pm.runningMutex.RLock()
 	running := pm.isRunning
 	pm.runningMutex.RUnlock()
@@ -248,19 +248,19 @@ func (pm *PersistenceManager) PersistDataWithRetryLimit(data map[string]interfac
 		return fmt.Errorf("ordered persistence manager not running")
 	}
 
-	// 分配全局唯一序列号，保证时序性
+	// Assign globally unique sequence number to ensure timing order
 	sequenceID := atomic.AddInt64(&pm.sequenceCounter, 1)
 
-	// 创建有序数据项
+	// Create ordered data item
 	item := OrderedDataItem{
 		SequenceID: sequenceID,
-		Timestamp:  time.Now().UnixNano(), // 使用纳秒级时间戳
+		Timestamp:  time.Now().UnixNano(), // Use nanosecond timestamp
 		Data:       data,
 		RetryCount: retryCount,
 		LastRetry:  time.Now().UnixNano(),
 	}
 
-	// 如果是重试数据，更新重试映射
+	// If retry data, update retry mapping
 	if retryCount > 0 {
 		pm.retryMapMutex.Lock()
 		pm.retryDataMap[sequenceID] = &item
@@ -268,7 +268,7 @@ func (pm *PersistenceManager) PersistDataWithRetryLimit(data map[string]interfac
 		atomic.AddInt64(&pm.totalRetried, 1)
 	}
 
-	// 添加到待写入队列
+	// Add to pending write queue
 	pm.pendingMutex.Lock()
 	pm.pendingData = append(pm.pendingData, item)
 	pm.pendingMutex.Unlock()
@@ -276,9 +276,9 @@ func (pm *PersistenceManager) PersistDataWithRetryLimit(data map[string]interfac
 	return nil
 }
 
-// LoadAndRecoverData 加载持久化数据并启动有序恢复
-// 返回值:
-//   - error: 加载过程中的错误
+// LoadAndRecoverData loads persisted data and starts ordered recovery
+// Returns:
+//   - error: error during loading process
 func (pm *PersistenceManager) LoadAndRecoverData() error {
 	files, err := filepath.Glob(filepath.Join(pm.dataDir, "streamsql_ordered_*.log"))
 	if err != nil {
@@ -290,7 +290,7 @@ func (pm *PersistenceManager) LoadAndRecoverData() error {
 		return nil
 	}
 
-	// 收集所有数据项
+	// Collect all data items
 	var allItems []OrderedDataItem
 
 	for _, filename := range files {

@@ -6,72 +6,72 @@ import (
 	"sync"
 )
 
-// FunctionType 函数类型枚举
+// FunctionType defines the enumeration of function types
 type FunctionType string
 
 const (
-	// 聚合函数
+	// Aggregation functions
 	TypeAggregation FunctionType = "aggregation"
-	// 窗口函数
+	// Window functions
 	TypeWindow FunctionType = "window"
-	// 时间日期函数
+	// Date and time functions
 	TypeDateTime FunctionType = "datetime"
-	// 转换函数
+	// Conversion functions
 	TypeConversion FunctionType = "conversion"
-	// 数学函数
+	// Math functions
 	TypeMath FunctionType = "math"
-	// 字符串函数
+	// String functions
 	TypeString FunctionType = "string"
-	// 分析函数
+	// Analytical functions
 	TypeAnalytical FunctionType = "analytical"
-	// 用户自定义函数
+	// User-defined functions
 	TypeCustom FunctionType = "custom"
 )
 
-// FunctionContext 函数执行上下文
+// FunctionContext represents the execution context for functions
 type FunctionContext struct {
-	// 当前数据行
+	// Current data row
 	Data map[string]interface{}
-	// 窗口信息（如果适用）
+	// Window information (if applicable)
 	WindowInfo *WindowInfo
-	// 其他上下文信息
+	// Additional context information
 	Extra map[string]interface{}
 }
 
-// WindowInfo 窗口信息
+// WindowInfo contains window-related information
 type WindowInfo struct {
 	WindowStart int64
 	WindowEnd   int64
 	RowCount    int
 }
 
-// Function 函数接口定义
+// Function defines the interface for all functions
 type Function interface {
-	// GetName 获取函数名称
+	// GetName returns the function name
 	GetName() string
-	// GetType 获取函数类型
+	// GetType returns the function type
 	GetType() FunctionType
-	// GetCategory 获取函数分类
+	// GetCategory returns the function category
 	GetCategory() string
-	// Validate 验证参数
+	// Validate validates the arguments
 	Validate(args []interface{}) error
-	// Execute 执行函数
+	// Execute executes the function
 	Execute(ctx *FunctionContext, args []interface{}) (interface{}, error)
-	// GetDescription 获取函数描述
+	// GetDescription returns the function description
 	GetDescription() string
 }
 
-// FunctionRegistry 函数注册器
+// FunctionRegistry manages function registration and retrieval
 type FunctionRegistry struct {
 	mu         sync.RWMutex
 	functions  map[string]Function
 	categories map[FunctionType][]Function
 }
 
-// 全局函数注册器实例
+// Global function registry instance
 var globalRegistry = NewFunctionRegistry()
 
-// NewFunctionRegistry 创建新的函数注册器
+// NewFunctionRegistry creates a new function registry
 func NewFunctionRegistry() *FunctionRegistry {
 	return &FunctionRegistry{
 		functions:  make(map[string]Function),
@@ -79,21 +79,21 @@ func NewFunctionRegistry() *FunctionRegistry {
 	}
 }
 
-// Register 注册函数
+// Register registers a function
 func (r *FunctionRegistry) Register(fn Function) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	name := strings.ToLower(fn.GetName())
 
-	// 检查函数是否已存在
+	// Check if function already exists
 	if _, exists := r.functions[name]; exists {
 		return fmt.Errorf("function %s already registered", name)
 	}
 
 	r.functions[name] = fn
 	r.categories[fn.GetType()] = append(r.categories[fn.GetType()], fn)
-	//注册聚合函数适配器
+	// Register aggregator adapter
 	if fn.GetType() == TypeAggregation {
 		_ = RegisterAggregatorAdapter(fn.GetName())
 	} else if fn.GetType() == TypeAnalytical {
@@ -102,7 +102,7 @@ func (r *FunctionRegistry) Register(fn Function) error {
 	return nil
 }
 
-// Get 获取函数
+// Get retrieves a function
 func (r *FunctionRegistry) Get(name string) (Function, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -111,7 +111,7 @@ func (r *FunctionRegistry) Get(name string) (Function, bool) {
 	return fn, exists
 }
 
-// GetByType 按类型获取函数列表
+// GetByType retrieves functions by type
 func (r *FunctionRegistry) GetByType(fnType FunctionType) []Function {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -119,7 +119,7 @@ func (r *FunctionRegistry) GetByType(fnType FunctionType) []Function {
 	return r.categories[fnType]
 }
 
-// ListAll 列出所有注册的函数
+// ListAll lists all registered functions
 func (r *FunctionRegistry) ListAll() map[string]Function {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -131,7 +131,7 @@ func (r *FunctionRegistry) ListAll() map[string]Function {
 	return result
 }
 
-// Unregister 注销函数
+// Unregister removes a function
 func (r *FunctionRegistry) Unregister(name string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -144,7 +144,7 @@ func (r *FunctionRegistry) Unregister(name string) bool {
 
 	delete(r.functions, name)
 
-	// 从分类中移除
+	// Remove from categories
 	fnType := fn.GetType()
 	if funcs, ok := r.categories[fnType]; ok {
 		for i, f := range funcs {
@@ -158,7 +158,7 @@ func (r *FunctionRegistry) Unregister(name string) bool {
 	return true
 }
 
-// 全局函数注册和获取方法
+// Global function registration and retrieval methods
 func Register(fn Function) error {
 	return globalRegistry.Register(fn)
 }
@@ -179,7 +179,7 @@ func Unregister(name string) bool {
 	return globalRegistry.Unregister(name)
 }
 
-// RegisterCustomFunction 注册自定义函数
+// RegisterCustomFunction registers a custom function
 func RegisterCustomFunction(name string, fnType FunctionType, category, description string,
 	minArgs, maxArgs int, executor func(ctx *FunctionContext, args []interface{}) (interface{}, error)) error {
 
@@ -191,7 +191,7 @@ func RegisterCustomFunction(name string, fnType FunctionType, category, descript
 	return Register(customFunc)
 }
 
-// Execute 执行函数
+// Execute executes a function
 func Execute(name string, ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	fn, exists := Get(name)
 	if !exists {
@@ -205,7 +205,7 @@ func Execute(name string, ctx *FunctionContext, args []interface{}) (interface{}
 	return fn.Execute(ctx, args)
 }
 
-// CustomFunction 自定义函数实现
+// CustomFunction implements custom function
 type CustomFunction struct {
 	*BaseFunction
 	executor func(ctx *FunctionContext, args []interface{}) (interface{}, error)
@@ -220,7 +220,7 @@ func (f *CustomFunction) Execute(ctx *FunctionContext, args []interface{}) (inte
 }
 
 func init() {
-	// 注册数学函数
+	// Register math functions
 	Register(NewAbsFunction())
 	Register(NewSqrtFunction())
 	Register(NewPowerFunction())
@@ -232,7 +232,7 @@ func init() {
 	Register(NewMinFunction())
 	Register(NewRandFunction())
 
-	// 注册字符串函数
+	// Register string functions
 	Register(NewUpperFunction())
 	Register(NewLowerFunction())
 	Register(NewLengthFunction())
@@ -252,7 +252,7 @@ func init() {
 	Register(NewIndexofFunction())
 	Register(NewFormatFunction())
 
-	// 注册时间日期函数
+	// Register date and time functions
 	Register(NewNowFunction())
 	Register(NewCurrentTimeFunction())
 	Register(NewCurrentDateFunction())
@@ -274,32 +274,32 @@ func init() {
 	Register(NewDayOfYearFunction())
 	Register(NewWeekOfYearFunction())
 
-	// 注册转换函数
+	// Register conversion functions
 	Register(NewCastFunction())
 	Register(NewHex2DecFunction())
 	Register(NewDec2HexFunction())
 	Register(NewEncodeFunction())
 	Register(NewDecodeFunction())
 
-	// 注册聚合函数
+	// Register aggregation functions
 	Register(NewCountFunction())
 	Register(NewSumFunction())
 	Register(NewAvgFunction())
 	Register(NewMaxFunction())
 	Register(NewMinFunction())
 
-	// 注册窗口函数
+	// Register window functions
 	Register(NewRowNumberFunction())
 	Register(NewLagFunction())
 	Register(NewLeadFunction())
 	Register(NewFirstValueFunction())
 	Register(NewNthValueFunction())
 
-	// 注册分析函数
+	// Register analytical functions
 	Register(NewLatestFunction())
 	Register(NewHadChangedFunction())
 
-	// 注册JSON函数
+	// Register JSON functions
 	Register(NewJsonExtractFunction())
 	Register(NewJsonValidFunction())
 	Register(NewJsonTypeFunction())
@@ -307,13 +307,13 @@ func init() {
 	Register(NewToJsonFunction())
 	Register(NewFromJsonFunction())
 
-	// 注册哈希函数
+	// Register hash functions
 	Register(NewMd5Function())
 	Register(NewSha1Function())
 	Register(NewSha256Function())
 	Register(NewSha512Function())
 
-	// 注册数组函数
+	// Register array functions
 	Register(NewArrayLengthFunction())
 	Register(NewArrayContainsFunction())
 	Register(NewArrayPositionFunction())
@@ -323,7 +323,7 @@ func init() {
 	Register(NewArrayUnionFunction())
 	Register(NewArrayExceptFunction())
 
-	// 注册类型检查函数
+	// Register type checking functions
 	Register(NewIsNullFunction())
 	Register(NewIsNotNullFunction())
 	Register(NewIsStringFunction())
@@ -332,7 +332,7 @@ func init() {
 	Register(NewIsArrayFunction())
 	Register(NewIsObjectFunction())
 
-	// 注册条件函数
+	// Register conditional functions
 	Register(NewCoalesceFunction())
 	Register(NewNullIfFunction())
 	Register(NewGreatestFunction())

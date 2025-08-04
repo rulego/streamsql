@@ -6,38 +6,38 @@ import (
 	"github.com/rulego/streamsql/logger"
 )
 
-// ResultHandler 结果处理器，负责处理结果输出和Sink调用
+// ResultHandler handles result output and sink function calls
 type ResultHandler struct {
 	stream *Stream
 }
 
-// NewResultHandler 创建结果处理器
+// NewResultHandler creates a new result handler
 func NewResultHandler(stream *Stream) *ResultHandler {
 	return &ResultHandler{stream: stream}
 }
 
-// startSinkWorkerPool 启动Sink工作池，支持配置工作线程数
+// startSinkWorkerPool starts sink worker pool with configurable worker count
 func (s *Stream) startSinkWorkerPool(workerCount int) {
-	// 使用配置的工作线程数
+	// Use configured worker count
 	if workerCount <= 0 {
-		workerCount = 8 // 默认值
+		workerCount = 8 // Default value
 	}
 
 	for i := 0; i < workerCount; i++ {
 		go func(workerID int) {
 			for {
 				select {
-				case task := <-s.sinkWorkerPool:
-					// 执行sink任务
-					func() {
-						defer func() {
-							// 增强错误恢复，防止单个worker崩溃
-							if r := recover(); r != nil {
-								logger.Error("Sink worker %d panic recovered: %v", workerID, r)
-							}
-						}()
-						task()
+			case task := <-s.sinkWorkerPool:
+				// Execute sink task
+				func() {
+					defer func() {
+						// Enhanced error recovery to prevent single worker crash
+						if r := recover(); r != nil {
+							logger.Error("Sink worker %d panic recovered: %v", workerID, r)
+						}
 					}()
+					task()
+				}()
 				case <-s.done:
 					return
 				}
@@ -46,42 +46,42 @@ func (s *Stream) startSinkWorkerPool(workerCount int) {
 	}
 }
 
-// startResultConsumer 启动自动结果消费者，防止resultChan阻塞
+// startResultConsumer starts automatic result consumer to prevent resultChan blocking
 func (s *Stream) startResultConsumer() {
 	for {
 		select {
 		case <-s.resultChan:
-			// 自动消费结果，防止通道阻塞
-			// 这是一个保底机制，确保即使没有外部消费者，系统也不会阻塞
+			// Auto-consume results to prevent channel blocking
+			// This is a fallback mechanism to ensure system doesn't block even without external consumers
 		case <-s.done:
 			return
 		}
 	}
 }
 
-// sendResultNonBlocking 非阻塞方式发送结果到resultChan (智能背压控制)
+// sendResultNonBlocking sends results to resultChan in non-blocking way (intelligent backpressure control)
 func (s *Stream) sendResultNonBlocking(results []map[string]interface{}) {
 	select {
 	case s.resultChan <- results:
-		// 成功发送到结果通道
+		// Successfully sent to result channel
 		atomic.AddInt64(&s.outputCount, 1)
 	default:
-		// 结果通道已满，使用智能背压控制策略
+		// Result channel is full, use intelligent backpressure control strategy
 		s.handleResultChannelBackpressure(results)
 	}
 }
 
-// handleResultChannelBackpressure 处理结果通道背压
+// handleResultChannelBackpressure handles result channel backpressure
 func (s *Stream) handleResultChannelBackpressure(results []map[string]interface{}) {
 	chanLen := len(s.resultChan)
 	chanCap := cap(s.resultChan)
 
-	// 如果通道使用率超过90%，进入背压模式
+	// Enter backpressure mode if channel usage exceeds 90%
 	if float64(chanLen)/float64(chanCap) > 0.9 {
-		// 尝试清理一些旧数据，为新数据腾出空间
+		// Try to clean some old data to make room for new data
 		select {
 		case <-s.resultChan:
-			// 清理一个旧结果，然后尝试添加新结果
+			// Clean one old result, then try to add new result
 			select {
 			case s.resultChan <- results:
 				atomic.AddInt64(&s.outputCount, 1)
@@ -99,9 +99,9 @@ func (s *Stream) handleResultChannelBackpressure(results []map[string]interface{
 	}
 }
 
-// callSinksAsync 异步调用所有sink函数
+// callSinksAsync asynchronously calls all sink functions
 func (s *Stream) callSinksAsync(results []map[string]interface{}) {
-	// 使用读锁安全地访问sinks切片
+	// Safely access sinks slice using read lock
 	s.sinksMux.RLock()
 	defer s.sinksMux.RUnlock()
 
@@ -109,22 +109,22 @@ func (s *Stream) callSinksAsync(results []map[string]interface{}) {
 		return
 	}
 
-	// 直接遍历sinks切片，避免复制开销
-	// 由于submitSinkTask是异步的，不会长时间持有锁
+	// Directly iterate sinks slice to avoid copy overhead
+	// Since submitSinkTask is async, won't hold lock for long time
 	for _, sink := range s.sinks {
 		s.submitSinkTask(sink, results)
 	}
 }
 
-// submitSinkTask 提交Sink任务
+// submitSinkTask submits sink task
 func (s *Stream) submitSinkTask(sink func([]map[string]interface{}), results []map[string]interface{}) {
-	// 捕获sink变量，避免闭包问题
+	// Capture sink variable to avoid closure issues
 	currentSink := sink
 
-	// 提交任务到工作池
+	// Submit task to worker pool
 	task := func() {
 		defer func() {
-			// 恢复panic，防止单个sink错误影响整个系统
+			// Recover panic to prevent single sink error from affecting entire system
 			if r := recover(); r != nil {
 				logger.Error("Sink execution exception: %v", r)
 			}
@@ -132,26 +132,26 @@ func (s *Stream) submitSinkTask(sink func([]map[string]interface{}), results []m
 		currentSink(results)
 	}
 
-	// 非阻塞提交任务
+	// Non-blocking task submission
 	select {
 	case s.sinkWorkerPool <- task:
-		// 成功提交任务
+		// Successfully submitted task
 	default:
-		// 工作池已满，直接在当前goroutine执行（降级处理）
+		// Worker pool is full, execute directly in current goroutine (degraded handling)
 		go task()
 	}
 }
 
-// AddSink 添加Sink函数
-// 参数:
-//   - sink: 结果处理函数，接收[]map[string]interface{}类型的结果数据
+// AddSink adds a sink function
+// Parameters:
+//   - sink: result processing function that receives []map[string]interface{} type result data
 func (s *Stream) AddSink(sink func([]map[string]interface{})) {
 	s.sinksMux.Lock()
 	defer s.sinksMux.Unlock()
 	s.sinks = append(s.sinks, sink)
 }
 
-// GetResultsChan 获取结果通道
+// GetResultsChan gets the result channel
 func (s *Stream) GetResultsChan() <-chan []map[string]interface{} {
 	return s.resultChan
 }

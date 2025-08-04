@@ -8,39 +8,39 @@ import (
 	"strings"
 )
 
-// FieldAccessor 字段访问器结构，用于解析复杂的字段路径
+// FieldAccessor field accessor structure for parsing complex field paths
 type FieldAccessor struct {
 	Parts []FieldPart
 }
 
-// FieldPart 字段路径的单个部分
+// FieldPart represents a single part of field path
 type FieldPart struct {
 	Type    string // "field", "array_index", "map_key"
-	Name    string // 字段名或键名
-	Index   int    // 数组索引（当Type为"array_index"时）
-	Key     string // Map键（当Type为"map_key"时）
-	KeyType string // 键类型："string", "number"
+	Name    string // Field name or key name
+	Index   int    // Array index (when Type is "array_index")
+	Key     string // Map key (when Type is "map_key")
+	KeyType string // Key type: "string", "number"
 }
 
-// 正则表达式用于解析复杂字段路径
+// Regular expressions for parsing complex field paths
 var (
-	// 匹配数组索引：[0], [1], [-1] 等
+	// Match array index: [0], [1], [-1] etc
 	arrayIndexRegex = regexp.MustCompile(`\[(-?\d+)\]`)
-	// 匹配字符串键：["key"], ['key'] 等
+	// Match string keys: ["key"], ['key'] etc
 	stringKeyRegex = regexp.MustCompile(`\[['"]([^'"]*)['"]\]`)
-	// 匹配数字键：[123] 等（与数组索引相同，但在Map上下文中）
+	// Match number keys: [123] etc (same as array index but in Map context)
 	numberKeyRegex = regexp.MustCompile(`\[(\d+)\]`)
 )
 
-// ParseFieldPath 解析字段路径，支持点号、数组索引、Map键等复杂访问
-// 支持的格式：
-// - a.b.c (嵌套字段)
-// - a.b[0] (数组索引)
-// - a.b[0].c (数组元素的字段)
-// - a.b["key"] (字符串键)
-// - a.b['key'] (字符串键)
-// - a.b[123] (数字键或数组索引)
-// - a[0].b[1].c["key"] (混合访问)
+// ParseFieldPath parses field path, supports complex access like dot notation, array index, Map keys
+// Supported formats:
+// - a.b.c (nested fields)
+// - a.b[0] (array index)
+// - a.b[0].c (field of array element)
+// - a.b["key"] (string key)
+// - a.b['key'] (string key)
+// - a.b[123] (number key or array index)
+// - a[0].b[1].c["key"] (mixed access)
 func ParseFieldPath(fieldPath string) (*FieldAccessor, error) {
 	if fieldPath == "" {
 		return nil, nil
@@ -50,7 +50,7 @@ func ParseFieldPath(fieldPath string) (*FieldAccessor, error) {
 		Parts: make([]FieldPart, 0),
 	}
 
-	// 首先处理点号分割的基本路径
+	// First handle basic path split by dots
 	parts := strings.Split(fieldPath, ".")
 
 	for _, part := range parts {
@@ -58,15 +58,15 @@ func ParseFieldPath(fieldPath string) (*FieldAccessor, error) {
 			continue
 		}
 
-		// 检查当前部分是否包含数组索引或Map键访问
+		// Check if current part contains array index or Map key access
 		if strings.Contains(part, "[") {
-			// 处理包含索引/键的复杂部分
+			// Handle complex part containing index/key
 			err := parseComplexPart(part, accessor)
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			// 简单字段名
+			// Simple field name
 			accessor.Parts = append(accessor.Parts, FieldPart{
 				Type: "field",
 				Name: part,
@@ -77,12 +77,12 @@ func ParseFieldPath(fieldPath string) (*FieldAccessor, error) {
 	return accessor, nil
 }
 
-// parseComplexPart 解析包含索引或键访问的复杂部分
+// parseComplexPart parses complex part containing index or key access
 func parseComplexPart(part string, accessor *FieldAccessor) error {
-	// 找到第一个 '[' 的位置
+	// Find position of first '['
 	bracketIndex := strings.Index(part, "[")
 	if bracketIndex == -1 {
-		// 没有括号，当作普通字段处理
+		// No brackets, treat as normal field
 		accessor.Parts = append(accessor.Parts, FieldPart{
 			Type: "field",
 			Name: part,
@@ -90,7 +90,7 @@ func parseComplexPart(part string, accessor *FieldAccessor) error {
 		return nil
 	}
 
-	// 如果有字段名部分，先添加字段访问
+	// If there's field name part, add field access first
 	if bracketIndex > 0 {
 		fieldName := part[:bracketIndex]
 		accessor.Parts = append(accessor.Parts, FieldPart{
@@ -99,12 +99,12 @@ func parseComplexPart(part string, accessor *FieldAccessor) error {
 		})
 	}
 
-	// 解析剩余的索引/键访问部分
+	// Parse remaining index/key access parts
 	remaining := part[bracketIndex:]
 
-	// 依次处理所有的 [xxx] 部分
+	// Process all [xxx] parts sequentially
 	for len(remaining) > 0 && strings.HasPrefix(remaining, "[") {
-		// 找到匹配的右括号
+		// Find matching right bracket
 		rightBracket := strings.Index(remaining, "]")
 		if rightBracket == -1 {
 			return &FieldAccessError{
@@ -113,10 +113,10 @@ func parseComplexPart(part string, accessor *FieldAccessor) error {
 			}
 		}
 
-		// 提取括号内的内容
+		// Extract content within brackets
 		bracketContent := remaining[1:rightBracket]
 
-		// 解析括号内容
+		// Parse bracket content
 		fieldPart, err := parseBracketContent(bracketContent)
 		if err != nil {
 			return err
@@ -124,22 +124,22 @@ func parseComplexPart(part string, accessor *FieldAccessor) error {
 
 		accessor.Parts = append(accessor.Parts, fieldPart)
 
-		// 移动到下一部分
+		// Move to next part
 		remaining = remaining[rightBracket+1:]
 	}
 
 	return nil
 }
 
-// parseBracketContent 解析括号内的内容
+// parseBracketContent parses content within brackets
 func parseBracketContent(content string) (FieldPart, error) {
 	content = strings.TrimSpace(content)
 
-	// 检查是否是字符串键（带引号）
+	// Check if it's a string key (with quotes)
 	if (strings.HasPrefix(content, "'") && strings.HasSuffix(content, "'")) ||
 		(strings.HasPrefix(content, "\"") && strings.HasSuffix(content, "\"")) {
-		// 字符串键
-		key := content[1 : len(content)-1] // 去掉引号
+		// String key
+		key := content[1 : len(content)-1] // Remove quotes
 		return FieldPart{
 			Type:    "map_key",
 			Key:     key,
@@ -147,11 +147,11 @@ func parseBracketContent(content string) (FieldPart, error) {
 		}, nil
 	}
 
-	// 检查是否是数字
+	// Check if it's a number
 	if num, err := strconv.Atoi(content); err == nil {
-		// 数字，可能是数组索引或数字键
+		// Number, could be array index or number key
 		return FieldPart{
-			Type:    "array_index", // 默认当作数组索引，实际使用时会根据数据类型调整
+			Type:    "array_index", // Default as array index, will adjust based on data type during actual use
 			Index:   num,
 			Key:     content,
 			KeyType: "number",
@@ -164,24 +164,24 @@ func parseBracketContent(content string) (FieldPart, error) {
 	}
 }
 
-// GetNestedField 从嵌套的map或结构体中获取字段值
-// 支持点号分隔的字段路径、数组索引、Map键等复杂操作
-// 支持的格式：
-// - "device.info.name" (嵌套字段)
-// - "data[0]" (数组索引)
-// - "users[0].name" (数组元素的字段)
-// - "config['key']" (字符串键)
-// - "items[0][1]" (多维数组)
-// - "nested.data[0].field['key']" (混合访问)
+// GetNestedField gets field value from nested map or struct
+// Supports complex operations like dot-separated field paths, array indices, Map keys
+// Supported formats:
+// - "device.info.name" (nested fields)
+// - "data[0]" (array index)
+// - "users[0].name" (field of array element)
+// - "config['key']" (string key)
+// - "items[0][1]" (multi-dimensional array)
+// - "nested.data[0].field['key']" (mixed access)
 func GetNestedField(data interface{}, fieldPath string) (interface{}, bool) {
 	if fieldPath == "" {
 		return nil, false
 	}
 
-	// 解析字段路径
+	// Parse field path
 	accessor, err := ParseFieldPath(fieldPath)
 	if err != nil {
-		// 如果解析失败，回退到原有的简单点号访问
+		// If parsing fails, fallback to original simple dot access
 		return getNestedFieldSimple(data, fieldPath)
 	}
 
@@ -189,7 +189,7 @@ func GetNestedField(data interface{}, fieldPath string) (interface{}, bool) {
 		return nil, false
 	}
 
-	// 按照解析的路径逐步访问
+	// Access step by step according to parsed path
 	current := data
 	for _, part := range accessor.Parts {
 		val, found := accessFieldPart(current, part)
@@ -202,7 +202,7 @@ func GetNestedField(data interface{}, fieldPath string) (interface{}, bool) {
 	return current, true
 }
 
-// accessFieldPart 访问单个字段部分
+// accessFieldPart accesses a single field part
 func accessFieldPart(data interface{}, part FieldPart) (interface{}, bool) {
 	if data == nil {
 		return nil, false
@@ -210,7 +210,7 @@ func accessFieldPart(data interface{}, part FieldPart) (interface{}, bool) {
 
 	v := reflect.ValueOf(data)
 
-	// 如果是指针，解引用
+	// If it's a pointer, dereference
 	if v.Kind() == reflect.Ptr {
 		if v.IsNil() {
 			return nil, false
@@ -233,13 +233,13 @@ func accessFieldPart(data interface{}, part FieldPart) (interface{}, bool) {
 	}
 }
 
-// getArrayElement 获取数组或切片元素
+// getArrayElement gets array or slice element
 func getArrayElement(v reflect.Value, index int) (interface{}, bool) {
 	switch v.Kind() {
 	case reflect.Slice, reflect.Array:
 		length := v.Len()
 
-		// 支持负数索引（从末尾开始）
+		// Support negative index (from end)
 		if index < 0 {
 			index = length + index
 		}
@@ -252,14 +252,14 @@ func getArrayElement(v reflect.Value, index int) (interface{}, bool) {
 		return elem.Interface(), true
 
 	case reflect.Map:
-		// 如果数据是Map，将索引作为键来访问
+		// If data is Map, use index as key to access
 		key := reflect.ValueOf(index)
 		mapVal := v.MapIndex(key)
 		if mapVal.IsValid() {
 			return mapVal.Interface(), true
 		}
 
-		// 尝试字符串形式的索引
+		// Try string form of index
 		strKey := reflect.ValueOf(strconv.Itoa(index))
 		mapVal = v.MapIndex(strKey)
 		if mapVal.IsValid() {
@@ -273,13 +273,13 @@ func getArrayElement(v reflect.Value, index int) (interface{}, bool) {
 	}
 }
 
-// getMapValue 获取Map值
+// getMapValue gets Map value
 func getMapValue(v reflect.Value, key, keyType string) (interface{}, bool) {
 	if v.Kind() != reflect.Map {
 		return nil, false
 	}
 
-	// 首先尝试字符串键
+	// First try string key
 	if keyType == "string" || v.Type().Key().Kind() == reflect.String {
 		mapVal := v.MapIndex(reflect.ValueOf(key))
 		if mapVal.IsValid() {
@@ -287,16 +287,16 @@ func getMapValue(v reflect.Value, key, keyType string) (interface{}, bool) {
 		}
 	}
 
-	// 如果是数字类型的键
+	// If it's a numeric key
 	if keyType == "number" {
 		if num, err := strconv.Atoi(key); err == nil {
-			// 尝试int键
+			// Try int key
 			mapVal := v.MapIndex(reflect.ValueOf(num))
 			if mapVal.IsValid() {
 				return mapVal.Interface(), true
 			}
 
-			// 尝试字符串形式的数字键
+			// Try string form of numeric key
 			mapVal = v.MapIndex(reflect.ValueOf(key))
 			if mapVal.IsValid() {
 				return mapVal.Interface(), true
@@ -307,13 +307,13 @@ func getMapValue(v reflect.Value, key, keyType string) (interface{}, bool) {
 	return nil, false
 }
 
-// getNestedFieldSimple 原有的简单点号访问（向后兼容）
+// getNestedFieldSimple original simple dot access (backward compatible)
 func getNestedFieldSimple(data interface{}, fieldPath string) (interface{}, bool) {
 	if fieldPath == "" {
 		return nil, false
 	}
 
-	// 分割字段路径
+	// Split field path
 	fields := strings.Split(fieldPath, ".")
 	current := data
 
@@ -328,7 +328,7 @@ func getNestedFieldSimple(data interface{}, fieldPath string) (interface{}, bool
 	return current, true
 }
 
-// getFieldValue 从单个层级获取字段值
+// getFieldValue gets field value from single level
 func getFieldValue(data interface{}, fieldName string) (interface{}, bool) {
 	if data == nil {
 		return nil, false
@@ -336,7 +336,7 @@ func getFieldValue(data interface{}, fieldName string) (interface{}, bool) {
 
 	v := reflect.ValueOf(data)
 
-	// 如果是指针，解引用
+	// If it's a pointer, dereference
 	if v.Kind() == reflect.Ptr {
 		if v.IsNil() {
 			return nil, false
@@ -346,7 +346,7 @@ func getFieldValue(data interface{}, fieldName string) (interface{}, bool) {
 
 	switch v.Kind() {
 	case reflect.Map:
-		// 处理 map[string]interface{}
+		// Handle map[string]interface{}
 		if v.Type().Key().Kind() == reflect.String {
 			mapVal := v.MapIndex(reflect.ValueOf(fieldName))
 			if mapVal.IsValid() {
@@ -356,7 +356,7 @@ func getFieldValue(data interface{}, fieldName string) (interface{}, bool) {
 		return nil, false
 
 	case reflect.Struct:
-		// 处理结构体
+		// Handle struct
 		fieldVal := v.FieldByName(fieldName)
 		if fieldVal.IsValid() {
 			return fieldVal.Interface(), true
@@ -368,8 +368,8 @@ func getFieldValue(data interface{}, fieldName string) (interface{}, bool) {
 	}
 }
 
-// SetNestedField 在嵌套的map中设置字段值，支持复杂路径
-// 如果路径中的某些层级不存在，会自动创建
+// SetNestedField sets field value in nested map, supports complex paths
+// Automatically creates missing levels in the path
 func SetNestedField(data map[string]interface{}, fieldPath string, value interface{}) error {
 	if fieldPath == "" {
 		return &FieldAccessError{
@@ -378,10 +378,10 @@ func SetNestedField(data map[string]interface{}, fieldPath string, value interfa
 		}
 	}
 
-	// 解析字段路径
+	// Parse field path
 	accessor, err := ParseFieldPath(fieldPath)
 	if err != nil {
-		// 如果解析失败，回退到原有的简单设置
+		// If parsing fails, fallback to original simple setting
 		setNestedFieldSimple(data, fieldPath, value)
 		return nil
 	}
@@ -393,10 +393,10 @@ func SetNestedField(data map[string]interface{}, fieldPath string, value interfa
 		}
 	}
 
-	// 逐级创建路径并设置值
+	// Create path level by level and set value
 	current := data
 
-	// 处理除最后一个部分外的所有部分
+	// Handle all parts except the last one
 	for i := 0; i < len(accessor.Parts)-1; i++ {
 		part := accessor.Parts[i]
 
@@ -407,25 +407,25 @@ func SetNestedField(data map[string]interface{}, fieldPath string, value interfa
 			}
 		}
 
-		// 确保中间路径存在
+		// Ensure intermediate path exists
 		if next, exists := current[part.Name]; exists {
 			if nextMap, ok := next.(map[string]interface{}); ok {
 				current = nextMap
 			} else {
-				// 如果存在但不是map，创建新的map覆盖
+				// If exists but not a map, create new map to override
 				newMap := make(map[string]interface{})
 				current[part.Name] = newMap
 				current = newMap
 			}
 		} else {
-			// 如果不存在，创建新的map
+			// If not exists, create new map
 			newMap := make(map[string]interface{})
 			current[part.Name] = newMap
 			current = newMap
 		}
 	}
 
-	// 处理最后一个部分
+	// Handle the last part
 	lastPart := accessor.Parts[len(accessor.Parts)-1]
 	if lastPart.Type == "field" {
 		current[lastPart.Name] = value
@@ -439,7 +439,7 @@ func SetNestedField(data map[string]interface{}, fieldPath string, value interfa
 	return nil
 }
 
-// setNestedFieldSimple 原有的简单设置（向后兼容）
+// setNestedFieldSimple original simple setting (backward compatible)
 func setNestedFieldSimple(data map[string]interface{}, fieldPath string, value interface{}) {
 	if fieldPath == "" {
 		return
@@ -448,51 +448,50 @@ func setNestedFieldSimple(data map[string]interface{}, fieldPath string, value i
 	fields := strings.Split(fieldPath, ".")
 	current := data
 
-	// 遍历到倒数第二层，确保路径存在
+	// Traverse to second-to-last level, ensure path exists
 	for i := 0; i < len(fields)-1; i++ {
 		field := fields[i]
 		if next, exists := current[field]; exists {
 			if nextMap, ok := next.(map[string]interface{}); ok {
 				current = nextMap
 			} else {
-				// 如果存在但不是map，创建新的map覆盖
+				// If exists but not a map, create new map to override
 				newMap := make(map[string]interface{})
 				current[field] = newMap
 				current = newMap
 			}
 		} else {
-			// 如果不存在，创建新的map
+			// If not exists, create new map
 			newMap := make(map[string]interface{})
 			current[field] = newMap
 			current = newMap
 		}
 	}
 
-	// 设置最终的值
+	// Set final value
 	lastField := fields[len(fields)-1]
 	current[lastField] = value
 }
 
-// IsNestedField 检查字段名是否包含点号或数组索引（嵌套字段）
+// IsNestedField checks if field name contains dots or array indices (nested field)
 func IsNestedField(fieldName string) bool {
 	return strings.Contains(fieldName, ".") || strings.Contains(fieldName, "[")
 }
 
-// ExtractTopLevelField 从嵌套字段路径中提取顶级字段名
-// 例如："device.info.name" 返回 "device"
-//
-//	"data[0].name" 返回 "data"
-//	"a.b[0].c['key']" 返回 "a"
+// ExtractTopLevelField extracts top-level field name from nested field path
+// Examples: "device.info.name" returns "device"
+//	"data[0].name" returns "data"
+//	"a.b[0].c['key']" returns "a"
 func ExtractTopLevelField(fieldPath string) string {
 	if fieldPath == "" {
 		return ""
 	}
 
-	// 找到第一个分隔符（点号或左括号）
+	// Find first separator (dot or left bracket)
 	dotIndex := strings.Index(fieldPath, ".")
 	bracketIndex := strings.Index(fieldPath, "[")
 
-	// 取较早出现的分隔符位置
+	// Take the earlier separator position
 	firstSeparator := -1
 	if dotIndex >= 0 && bracketIndex >= 0 {
 		if dotIndex < bracketIndex {
@@ -506,17 +505,17 @@ func ExtractTopLevelField(fieldPath string) string {
 		firstSeparator = bracketIndex
 	}
 
-	// 如果找到分隔符，返回分隔符之前的部分
+	// If separator found, return part before separator
 	if firstSeparator > 0 {
 		return fieldPath[:firstSeparator]
 	}
 
-	// 没有分隔符，整个路径就是顶级字段
+	// No separator, entire path is top-level field
 	return fieldPath
 }
 
-// GetAllReferencedFields 获取嵌套字段路径中引用的所有顶级字段
-// 例如：["device.info.name", "sensor.temperature", "data[0].value"] 返回 ["device", "sensor", "data"]
+// GetAllReferencedFields gets all top-level fields referenced in nested field paths
+// Example: ["device.info.name", "sensor.temperature", "data[0].value"] returns ["device", "sensor", "data"]
 func GetAllReferencedFields(fieldPaths []string) []string {
 	topLevelFields := make(map[string]bool)
 
@@ -537,7 +536,7 @@ func GetAllReferencedFields(fieldPaths []string) []string {
 	return result
 }
 
-// ValidateFieldPath 验证字段路径的格式是否正确
+// ValidateFieldPath validates if field path format is correct
 func ValidateFieldPath(fieldPath string) error {
 	if fieldPath == "" {
 		return &FieldAccessError{
@@ -550,7 +549,7 @@ func ValidateFieldPath(fieldPath string) error {
 	return err
 }
 
-// FieldAccessError 字段访问错误
+// FieldAccessError field access error
 type FieldAccessError struct {
 	Path    string
 	Message string
@@ -560,7 +559,7 @@ func (e *FieldAccessError) Error() string {
 	return fmt.Sprintf("field access error for path '%s': %s", e.Path, e.Message)
 }
 
-// GetFieldPathDepth 获取字段路径的深度
+// GetFieldPathDepth gets the depth of field path
 func GetFieldPathDepth(fieldPath string) int {
 	if fieldPath == "" {
 		return 0
@@ -568,7 +567,7 @@ func GetFieldPathDepth(fieldPath string) int {
 
 	accessor, err := ParseFieldPath(fieldPath)
 	if err != nil {
-		// 回退到简单计算
+		// Fallback to simple calculation
 		return len(strings.Split(fieldPath, "."))
 	}
 
@@ -579,11 +578,11 @@ func GetFieldPathDepth(fieldPath string) int {
 	return len(accessor.Parts)
 }
 
-// NormalizeFieldPath 规范化字段路径格式
+// NormalizeFieldPath normalizes field path format
 func NormalizeFieldPath(fieldPath string) string {
 	accessor, err := ParseFieldPath(fieldPath)
 	if err != nil {
-		return fieldPath // 如果解析失败，返回原路径
+		return fieldPath // If parsing fails, return original path
 	}
 
 	if accessor == nil || len(accessor.Parts) == 0 {

@@ -20,14 +20,14 @@ import (
 	"fmt"
 )
 
-// PrintTableFromSlice 从切片数据打印表格
-// 支持自定义字段顺序，如果fieldOrder为空则使用字母排序
+// PrintTableFromSlice prints table from slice data
+// Supports custom field order, uses alphabetical order if fieldOrder is empty
 func PrintTableFromSlice(data []map[string]interface{}, fieldOrder []string) {
 	if len(data) == 0 {
 		return
 	}
 
-	// 收集所有列名
+	// Collect all column names
 	columnSet := make(map[string]bool)
 	for _, row := range data {
 		for col := range row {
@@ -35,27 +35,27 @@ func PrintTableFromSlice(data []map[string]interface{}, fieldOrder []string) {
 		}
 	}
 
-	// 根据字段顺序排列列名
+	// Arrange column names according to field order
 	var columns []string
 	if len(fieldOrder) > 0 {
-		// 使用指定的字段顺序
+		// Use specified field order
 		for _, field := range fieldOrder {
 			if columnSet[field] {
 				columns = append(columns, field)
-				delete(columnSet, field) // 标记已处理
+				delete(columnSet, field) // Mark as processed
 			}
 		}
-		// 添加剩余的列（如果有的话）
+		// Add remaining columns (if any)
 		for col := range columnSet {
 			columns = append(columns, col)
 		}
 	} else {
-		// 如果没有指定字段顺序，使用简单排序
+		// If no field order specified, use simple sorting
 		columns = make([]string, 0, len(columnSet))
 		for col := range columnSet {
 			columns = append(columns, col)
 		}
-		// 简单排序，确保输出一致性
+		// Simple sorting to ensure consistent output
 		for i := 0; i < len(columns)-1; i++ {
 			for j := i + 1; j < len(columns); j++ {
 				if columns[i] > columns[j] {
@@ -65,10 +65,10 @@ func PrintTableFromSlice(data []map[string]interface{}, fieldOrder []string) {
 		}
 	}
 
-	// 计算每列的最大宽度
+	// Calculate maximum width for each column
 	colWidths := make([]int, len(columns))
 	for i, col := range columns {
-		colWidths[i] = len(col) // 列名长度
+		colWidths[i] = len(col) // Column name length
 		for _, row := range data {
 			if val, exists := row[col]; exists {
 				valStr := fmt.Sprintf("%v", val)
@@ -77,26 +77,26 @@ func PrintTableFromSlice(data []map[string]interface{}, fieldOrder []string) {
 				}
 			}
 		}
-		// 最小宽度为4
+		// Minimum width is 4
 		if colWidths[i] < 4 {
 			colWidths[i] = 4
 		}
 	}
 
-	// 打印顶部边框
+	// Print top border
 	PrintTableBorder(colWidths)
 
-	// 打印列名
+	// Print column names
 	fmt.Print("|")
 	for i, col := range columns {
 		fmt.Printf(" %-*s |", colWidths[i], col)
 	}
 	fmt.Println()
 
-	// 打印分隔线
+	// Print separator line
 	PrintTableBorder(colWidths)
 
-	// 打印数据行
+	// Print data rows
 	for _, row := range data {
 		fmt.Print("|")
 		for i, col := range columns {
@@ -109,14 +109,14 @@ func PrintTableFromSlice(data []map[string]interface{}, fieldOrder []string) {
 		fmt.Println()
 	}
 
-	// 打印底部边框
+	// Print bottom border
 	PrintTableBorder(colWidths)
 
-	// 打印行数统计
+	// Print row count statistics
 	fmt.Printf("(%d rows)\n", len(data))
 }
 
-// PrintTableBorder 打印表格边框
+// PrintTableBorder prints table border
 func PrintTableBorder(columnWidths []int) {
 	fmt.Print("+")
 	for _, width := range columnWidths {
@@ -128,7 +128,7 @@ func PrintTableBorder(columnWidths []int) {
 	fmt.Println()
 }
 
-// FormatTableData 格式化表格数据，支持多种数据类型
+// FormatTableData formats table data, supports multiple data types
 func FormatTableData(result interface{}, fieldOrder []string) {
 	switch v := result.(type) {
 	case []map[string]interface{}:
@@ -144,7 +144,7 @@ func FormatTableData(result interface{}, fieldOrder []string) {
 		}
 		PrintTableFromSlice([]map[string]interface{}{v}, fieldOrder)
 	default:
-		// 对于非表格数据，直接打印
+		// For non-table data, print directly
 		fmt.Printf("Result: %v\n", result)
 	}
 }

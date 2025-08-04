@@ -4,14 +4,14 @@ import (
 	"reflect"
 )
 
-// IsNullFunction 检查是否为NULL
+// IsNullFunction checks if value is NULL
 type IsNullFunction struct {
 	*BaseFunction
 }
 
 func NewIsNullFunction() *IsNullFunction {
 	return &IsNullFunction{
-		BaseFunction: NewBaseFunction("is_null", TypeString, "类型检查函数", "检查是否为NULL", 1, 1),
+		BaseFunction: NewBaseFunction("is_null", TypeString, "type", "Check if value is NULL", 1, 1),
 	}
 }
 
@@ -23,14 +23,14 @@ func (f *IsNullFunction) Execute(ctx *FunctionContext, args []interface{}) (inte
 	return args[0] == nil, nil
 }
 
-// IsNotNullFunction 检查是否不为NULL
+// IsNotNullFunction checks if value is not NULL
 type IsNotNullFunction struct {
 	*BaseFunction
 }
 
 func NewIsNotNullFunction() *IsNotNullFunction {
 	return &IsNotNullFunction{
-		BaseFunction: NewBaseFunction("is_not_null", TypeString, "类型检查函数", "检查是否不为NULL", 1, 1),
+		BaseFunction: NewBaseFunction("is_not_null", TypeString, "type", "Check if value is not NULL", 1, 1),
 	}
 }
 
@@ -42,14 +42,14 @@ func (f *IsNotNullFunction) Execute(ctx *FunctionContext, args []interface{}) (i
 	return args[0] != nil, nil
 }
 
-// IsNumericFunction 检查是否为数字类型
+// IsNumericFunction checks if value is numeric type
 type IsNumericFunction struct {
 	*BaseFunction
 }
 
 func NewIsNumericFunction() *IsNumericFunction {
 	return &IsNumericFunction{
-		BaseFunction: NewBaseFunction("is_numeric", TypeString, "类型检查函数", "检查是否为数字类型", 1, 1),
+		BaseFunction: NewBaseFunction("is_numeric", TypeString, "type", "Check if value is numeric type", 1, 1),
 	}
 }
 
@@ -73,14 +73,14 @@ func (f *IsNumericFunction) Execute(ctx *FunctionContext, args []interface{}) (i
 	}
 }
 
-// IsStringFunction 检查是否为字符串类型
+// IsStringFunction checks if value is string type
 type IsStringFunction struct {
 	*BaseFunction
 }
 
 func NewIsStringFunction() *IsStringFunction {
 	return &IsStringFunction{
-		BaseFunction: NewBaseFunction("is_string", TypeString, "类型检查函数", "检查是否为字符串类型", 1, 1),
+		BaseFunction: NewBaseFunction("is_string", TypeString, "type", "Check if value is string type", 1, 1),
 	}
 }
 
@@ -97,7 +97,7 @@ func (f *IsStringFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 	return ok, nil
 }
 
-// IsBoolFunction 检查是否为布尔类型
+// IsBoolFunction checks if value is boolean type
 type IsBoolFunction struct {
 	*BaseFunction
 }

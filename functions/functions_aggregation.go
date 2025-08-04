@@ -9,16 +9,16 @@ import (
 	"github.com/rulego/streamsql/utils/cast"
 )
 
-// SumFunction 求和函数
+// SumFunction calculates the sum of numeric values
 type SumFunction struct {
 	*BaseFunction
 	value     float64
-	hasValues bool // 标记是否有非NULL值
+	hasValues    bool // Flag to track if there are non-NULL values
 }
 
 func NewSumFunction() *SumFunction {
 	return &SumFunction{
-		BaseFunction: NewBaseFunction("sum", TypeAggregation, "聚合函数", "计算数值总和", 1, -1),
+		BaseFunction: NewBaseFunction("sum", TypeAggregation, "aggregation", "Calculate sum of numeric values", 1, -1),
 		hasValues:    false,
 	}
 }
@@ -32,22 +32,22 @@ func (f *SumFunction) Execute(ctx *FunctionContext, args []interface{}) (interfa
 	hasValues := false
 	for _, arg := range args {
 		if arg == nil {
-			continue // 忽略NULL值
+			continue // Ignore NULL values
 		}
 		val, err := cast.ToFloat64E(arg)
 		if err != nil {
-			continue // 忽略无法转换的值
+			continue // Ignore values that cannot be converted
 		}
 		sum += val
 		hasValues = true
 	}
 	if !hasValues {
-		return nil, nil // 当没有有效值时返回NULL
+		return nil, nil // Return NULL when no valid values
 	}
 	return sum, nil
 }
 
-// 实现AggregatorFunction接口
+// Implement AggregatorFunction interface
 func (f *SumFunction) New() AggregatorFunction {
 	return &SumFunction{
 		BaseFunction: f.BaseFunction,
@@ -57,21 +57,21 @@ func (f *SumFunction) New() AggregatorFunction {
 }
 
 func (f *SumFunction) Add(value interface{}) {
-	// 增强的Add方法：忽略NULL值
+	// Enhanced Add method: ignore NULL values
 	if value == nil {
-		return // 忽略NULL值
+		return // Ignore NULL values
 	}
 
 	if val, err := cast.ToFloat64E(value); err == nil {
 		f.value += val
 		f.hasValues = true
 	}
-	// 如果转换失败，也忽略该值
+	// Ignore values that fail conversion
 }
 
 func (f *SumFunction) Result() interface{} {
 	if !f.hasValues {
-		return nil // 当没有有效值时返回NULL而不是0.0
+		return nil // Return NULL when no valid values instead of 0.0
 	}
 	return f.value
 }
@@ -89,7 +89,7 @@ func (f *SumFunction) Clone() AggregatorFunction {
 	}
 }
 
-// AvgFunction 求平均值函数
+// AvgFunction calculates the average of numeric values
 type AvgFunction struct {
 	*BaseFunction
 	sum   float64
@@ -98,7 +98,7 @@ type AvgFunction struct {
 
 func NewAvgFunction() *AvgFunction {
 	return &AvgFunction{
-		BaseFunction: NewBaseFunction("avg", TypeAggregation, "聚合函数", "计算数值平均值", 1, -1),
+		BaseFunction: NewBaseFunction("avg", TypeAggregation, "aggregation", "Calculate average of numeric values", 1, -1),
 	}
 }
 
@@ -111,17 +111,17 @@ func (f *AvgFunction) Execute(ctx *FunctionContext, args []interface{}) (interfa
 	count := 0
 	for _, arg := range args {
 		if arg == nil {
-			continue // 忽略NULL值
+			continue // Ignore NULL values
 		}
 		val, err := cast.ToFloat64E(arg)
 		if err != nil {
-			continue // 忽略无法转换的值
+			continue // Ignore values that cannot be converted
 		}
 		sum += val
 		count++
 	}
 	if count == 0 {
-		return nil, nil // 当没有有效值时返回nil
+		return nil, nil // Return nil when no valid values
 	}
 	return sum / float64(count), nil
 }
@@ -136,21 +136,21 @@ func (f *AvgFunction) New() AggregatorFunction {
 }
 
 func (f *AvgFunction) Add(value interface{}) {
-	// 增强的Add方法：忽略NULL值
+	// Enhanced Add method: ignore NULL values
 	if value == nil {
-		return // 忽略NULL值
+		return // Ignore NULL values
 	}
 
 	if val, err := cast.ToFloat64E(value); err == nil {
 		f.sum += val
 		f.count++
 	}
-	// 如果转换失败，也忽略该值
+	// Ignore values that fail conversion
 }
 
 func (f *AvgFunction) Result() interface{} {
 	if f.count == 0 {
-		return nil // 当没有有效值时返回nil而不是0.0
+		return nil // Return nil when no valid values instead of 0.0
 	}
 	return f.sum / float64(f.count)
 }
@@ -168,7 +168,7 @@ func (f *AvgFunction) Clone() AggregatorFunction {
 	}
 }
 
-// MinFunction 求最小值函数
+// MinFunction calculates the minimum value
 type MinFunction struct {
 	*BaseFunction
 	value float64
@@ -177,7 +177,7 @@ type MinFunction struct {
 
 func NewMinFunction() *MinFunction {
 	return &MinFunction{
-		BaseFunction: NewBaseFunction("min", TypeAggregation, "聚合函数", "计算数值最小值", 1, -1),
+		BaseFunction: NewBaseFunction("min", TypeAggregation, "aggregation", "Calculate minimum value", 1, -1),
 		first:        true,
 	}
 }
@@ -200,7 +200,7 @@ func (f *MinFunction) Execute(ctx *FunctionContext, args []interface{}) (interfa
 	return min, nil
 }
 
-// 实现AggregatorFunction接口
+// Implement AggregatorFunction interface
 func (f *MinFunction) New() AggregatorFunction {
 	return &MinFunction{
 		BaseFunction: f.BaseFunction,
@@ -209,9 +209,9 @@ func (f *MinFunction) New() AggregatorFunction {
 }
 
 func (f *MinFunction) Add(value interface{}) {
-	// 增强的Add方法：忽略NULL值
+	// Enhanced Add method: ignore NULL values
 	if value == nil {
-		return // 忽略NULL值
+		return // Ignore NULL values
 	}
 
 	if val, err := cast.ToFloat64E(value); err == nil {
@@ -242,7 +242,7 @@ func (f *MinFunction) Clone() AggregatorFunction {
 	}
 }
 
-// MaxFunction 求最大值函数
+// MaxFunction calculates the maximum value
 type MaxFunction struct {
 	*BaseFunction
 	value float64
@@ -251,7 +251,7 @@ type MaxFunction struct {
 
 func NewMaxFunction() *MaxFunction {
 	return &MaxFunction{
-		BaseFunction: NewBaseFunction("max", TypeAggregation, "聚合函数", "计算数值最大值", 1, -1),
+		BaseFunction: NewBaseFunction("max", TypeAggregation, "aggregation", "Calculate maximum value", 1, -1),
 		first:        true,
 	}
 }
@@ -274,7 +274,7 @@ func (f *MaxFunction) Execute(ctx *FunctionContext, args []interface{}) (interfa
 	return max, nil
 }
 
-// 实现AggregatorFunction接口
+// Implement AggregatorFunction interface
 func (f *MaxFunction) New() AggregatorFunction {
 	return &MaxFunction{
 		BaseFunction: f.BaseFunction,
@@ -283,9 +283,9 @@ func (f *MaxFunction) New() AggregatorFunction {
 }
 
 func (f *MaxFunction) Add(value interface{}) {
-	// 增强的Add方法：忽略NULL值
+	// Enhanced Add method: ignore NULL values
 	if value == nil {
-		return // 忽略NULL值
+		return // Ignore NULL values
 	}
 
 	if val, err := cast.ToFloat64E(value); err == nil {

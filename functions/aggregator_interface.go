@@ -2,28 +2,28 @@ package functions
 
 import "fmt"
 
-// AggregatorFunction 聚合器函数接口，支持增量计算
+// AggregatorFunction defines the interface for aggregator functions that support incremental computation
 type AggregatorFunction interface {
 	Function
-	// New 创建新的聚合器实例
+	// New creates a new aggregator instance
 	New() AggregatorFunction
-	// Add 添加值进行增量计算
+	// Add adds a value for incremental computation
 	Add(value interface{})
-	// Result 获取聚合结果
+	// Result returns the aggregation result
 	Result() interface{}
-	// Reset 重置聚合器状态
+	// Reset resets the aggregator state
 	Reset()
-	// Clone 克隆聚合器（用于窗口函数等场景）
+	// Clone clones the aggregator (used for window functions and similar scenarios)
 	Clone() AggregatorFunction
 }
 
-// AnalyticalFunction 分析函数接口，支持状态管理
-// 现在继承自AggregatorFunction，支持增量计算
+// AnalyticalFunction defines the interface for analytical functions with state management
+// Now inherits from AggregatorFunction to support incremental computation
 type AnalyticalFunction interface {
 	AggregatorFunction
 }
 
-// CreateAggregator 创建聚合器实例
+// CreateAggregator creates an aggregator instance
 func CreateAggregator(name string) (AggregatorFunction, error) {
 	fn, exists := Get(name)
 	if !exists {
@@ -37,7 +37,7 @@ func CreateAggregator(name string) (AggregatorFunction, error) {
 	return nil, fmt.Errorf("function %s is not an aggregator function", name)
 }
 
-// CreateAnalytical 创建分析函数实例
+// CreateAnalytical creates an analytical function instance
 func CreateAnalytical(name string) (AnalyticalFunction, error) {
 	fn, exists := Get(name)
 	if !exists {

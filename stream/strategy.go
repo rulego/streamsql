@@ -10,94 +10,94 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
-// 溢出策略常量
+// Overflow strategy constants
 const (
-	StrategyDrop    = "drop"    // 丢弃策略
-	StrategyBlock   = "block"   // 阻塞策略
-	StrategyExpand  = "expand"  // 动态策略
-	StrategyPersist = "persist" // 持久化策略 todo不完善
+	StrategyDrop    = "drop"    // Drop strategy
+	StrategyBlock   = "block"   // Blocking strategy
+	StrategyExpand  = "expand"  // Dynamic strategy
+	StrategyPersist = "persist" // Persistence strategy (todo: incomplete)
 )
 
-// DataProcessingStrategy 数据处理策略接口
-// 定义了不同溢出策略的统一接口，提供更好的扩展性和可维护性
+// DataProcessingStrategy data processing strategy interface
+// Defines unified interface for different overflow strategies, providing better extensibility and maintainability
 type DataProcessingStrategy interface {
-	// ProcessData 处理数据的核心方法
-	// 参数:
-	//   - data: 要处理的数据，必须是map[string]interface{}类型
+	// ProcessData core method for processing data
+	// Parameters:
+	//   - data: data to process, must be map[string]interface{} type
 	ProcessData(data map[string]interface{})
 
-	// GetStrategyName 获取策略名称
+	// GetStrategyName gets strategy name
 	GetStrategyName() string
 
-	// Init 初始化策略
-	// 参数:
-	//   - stream: Stream实例引用
-	//   - config: 性能配置
+	// Init initializes strategy
+	// Parameters:
+	//   - stream: Stream instance reference
+	//   - config: performance configuration
 	Init(stream *Stream, config types.PerformanceConfig) error
 
-	// Stop 停止并清理资源
+	// Stop stops and cleans up resources
 	Stop() error
 }
 
-// BlockingStrategy 阻塞策略实现
+// BlockingStrategy blocking strategy implementation
 type BlockingStrategy struct {
 	stream *Stream
 }
 
-// NewBlockingStrategy 创建阻塞策略实例
+// NewBlockingStrategy creates blocking strategy instance
 func NewBlockingStrategy() *BlockingStrategy {
 	return &BlockingStrategy{}
 }
 
-// ProcessData 实现阻塞模式数据处理
+// ProcessData implements blocking mode data processing
 func (bs *BlockingStrategy) ProcessData(data map[string]interface{}) {
 	if bs.stream.blockingTimeout <= 0 {
-		// 无超时限制，永久阻塞直到成功
+		// No timeout limit, block permanently until success
 		dataChan := bs.stream.safeGetDataChan()
 		dataChan <- data
 		return
 	}
 
-	// 带超时的阻塞
+	// Blocking with timeout
 	timer := time.NewTimer(bs.stream.blockingTimeout)
 	defer timer.Stop()
 
 	dataChan := bs.stream.safeGetDataChan()
 	select {
 	case dataChan <- data:
-		// 成功添加数据
+		// Successfully added data
 		return
 	case <-timer.C:
-		// 超时但不丢弃数据，记录错误但继续阻塞
+		// Timeout but don't drop data, log error but continue blocking
 		logger.Error("Data addition timeout, but continue waiting to avoid data loss")
-		// 继续无限期阻塞，重新获取当前通道引用
+		// Continue blocking indefinitely, re-get current channel reference
 		finalDataChan := bs.stream.safeGetDataChan()
 		finalDataChan <- data
 	}
 }
 
-// GetStrategyName 获取策略名称
+// GetStrategyName gets strategy name
 func (bs *BlockingStrategy) GetStrategyName() string {
 	return StrategyBlock
 }
 
-// Init 初始化阻塞策略
+// Init initializes blocking strategy
 func (bs *BlockingStrategy) Init(stream *Stream, config types.PerformanceConfig) error {
 	bs.stream = stream
 	return nil
 }
 
-// Stop 停止并清理阻塞策略资源
+// Stop stops and cleans up blocking strategy resources
 func (bs *BlockingStrategy) Stop() error {
 	return nil
 }
 
-// ExpansionStrategy 扩容策略实现
+// ExpansionStrategy expansion strategy implementation
 type ExpansionStrategy struct {
 	stream *Stream
 }
 
-// NewExpansionStrategy 创建扩容策略实例
+// NewExpansionStrategy creates expansion strategy instance
 func NewExpansionStrategy() *ExpansionStrategy {
 	return &ExpansionStrategy{}
 }
@@ -209,7 +209,7 @@ func (ps *PersistenceStrategy) ProcessData(data map[string]interface{}) {
 
 	// 启动异步恢复检查（防止重复启动）
 	if atomic.LoadInt32(&ps.stream.activeRetries) < ps.stream.maxRetryRoutines {
-		go ps.stream.checkAndProcessRecoveryDataOptimized()
+		go ps.stream.checkAndProcessRecoveryData()
 	}
 }
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-// RowNumberFunction 行号函数
+// RowNumberFunction returns row number
 type RowNumberFunction struct {
 	*BaseFunction
 	CurrentRowNumber int64
@@ -12,7 +12,7 @@ type RowNumberFunction struct {
 
 func NewRowNumberFunction() *RowNumberFunction {
 	return &RowNumberFunction{
-		BaseFunction:     NewBaseFunction("row_number", TypeWindow, "窗口函数", "返回当前行号", 0, 0),
+		BaseFunction:     NewBaseFunction("row_number", TypeWindow, "window", "Return current row number", 0, 0),
 		CurrentRowNumber: 0,
 	}
 }
@@ -30,7 +30,7 @@ func (f *RowNumberFunction) Reset() {
 	f.CurrentRowNumber = 0
 }
 
-// WindowStartFunction 窗口开始时间函数
+// WindowStartFunction returns window start time
 type WindowStartFunction struct {
 	*BaseFunction
 	windowStart interface{}
@@ -38,7 +38,7 @@ type WindowStartFunction struct {
 
 func NewWindowStartFunction() *WindowStartFunction {
 	return &WindowStartFunction{
-		BaseFunction: NewBaseFunction("window_start", TypeWindow, "窗口函数", "返回窗口开始时间", 0, 0),
+		BaseFunction: NewBaseFunction("window_start", TypeWindow, "window", "Return window start time", 0, 0),
 	}
 }
 
@@ -53,7 +53,7 @@ func (f *WindowStartFunction) Execute(ctx *FunctionContext, args []interface{}) 
 	return f.windowStart, nil
 }
 
-// 实现AggregatorFunction接口
+// Implement AggregatorFunction interface
 func (f *WindowStartFunction) New() AggregatorFunction {
 	return &WindowStartFunction{
 		BaseFunction: f.BaseFunction,
@@ -61,7 +61,7 @@ func (f *WindowStartFunction) New() AggregatorFunction {
 }
 
 func (f *WindowStartFunction) Add(value interface{}) {
-	// 窗口开始时间通常不需要累积计算
+	// Window start time usually doesn't need accumulative calculation
 	f.windowStart = value
 }
 
@@ -80,7 +80,7 @@ func (f *WindowStartFunction) Clone() AggregatorFunction {
 	}
 }
 
-// WindowEndFunction 窗口结束时间函数
+// WindowEndFunction returns window end time
 type WindowEndFunction struct {
 	*BaseFunction
 	windowEnd interface{}
@@ -88,7 +88,7 @@ type WindowEndFunction struct {
 
 func NewWindowEndFunction() *WindowEndFunction {
 	return &WindowEndFunction{
-		BaseFunction: NewBaseFunction("window_end", TypeWindow, "窗口函数", "返回窗口结束时间", 0, 0),
+		BaseFunction: NewBaseFunction("window_end", TypeWindow, "window", "Return window end time", 0, 0),
 	}
 }
 

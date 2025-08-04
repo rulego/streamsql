@@ -5,14 +5,14 @@ import (
 	"reflect"
 )
 
-// ArrayLengthFunction 返回数组长度
+// ArrayLengthFunction returns array length
 type ArrayLengthFunction struct {
 	*BaseFunction
 }
 
 func NewArrayLengthFunction() *ArrayLengthFunction {
 	return &ArrayLengthFunction{
-		BaseFunction: NewBaseFunction("array_length", TypeMath, "数组函数", "返回数组长度", 1, 1),
+		BaseFunction: NewBaseFunction("array_length", TypeMath, "array", "Return array length", 1, 1),
 	}
 }
 
@@ -29,14 +29,14 @@ func (f *ArrayLengthFunction) Execute(ctx *FunctionContext, args []interface{}) 
 	return v.Len(), nil
 }
 
-// ArrayContainsFunction 检查数组是否包含指定值
+// ArrayContainsFunction checks if array contains specified value
 type ArrayContainsFunction struct {
 	*BaseFunction
 }
 
 func NewArrayContainsFunction() *ArrayContainsFunction {
 	return &ArrayContainsFunction{
-		BaseFunction: NewBaseFunction("array_contains", TypeString, "数组函数", "检查数组是否包含指定值", 2, 2),
+		BaseFunction: NewBaseFunction("array_contains", TypeString, "array", "Check if array contains specified value", 2, 2),
 	}
 }
 
@@ -61,14 +61,14 @@ func (f *ArrayContainsFunction) Execute(ctx *FunctionContext, args []interface{}
 	return false, nil
 }
 
-// ArrayPositionFunction 返回值在数组中的位置
+// ArrayPositionFunction returns position of value in array
 type ArrayPositionFunction struct {
 	*BaseFunction
 }
 
 func NewArrayPositionFunction() *ArrayPositionFunction {
 	return &ArrayPositionFunction{
-		BaseFunction: NewBaseFunction("array_position", TypeMath, "数组函数", "返回值在数组中的位置", 2, 2),
+		BaseFunction: NewBaseFunction("array_position", TypeMath, "array", "Return position of value in array", 2, 2),
 	}
 }
 
@@ -87,13 +87,13 @@ func (f *ArrayPositionFunction) Execute(ctx *FunctionContext, args []interface{}
 
 	for i := 0; i < v.Len(); i++ {
 		if reflect.DeepEqual(v.Index(i).Interface(), value) {
-			return i + 1, nil // 返回1基索引
+			return i + 1, nil // Return 1-based index
 		}
 	}
-	return 0, nil // 未找到返回0
+	return 0, nil // Return 0 if not found
 }
 
-// ArrayRemoveFunction 从数组中移除指定值
+// ArrayRemoveFunction removes specified value from array
 type ArrayRemoveFunction struct {
 	*BaseFunction
 }

@@ -12,14 +12,14 @@ import (
 	"github.com/rulego/streamsql/utils/cast"
 )
 
-// CastFunction 类型转换函数
+// CastFunction performs type conversion
 type CastFunction struct {
 	*BaseFunction
 }
 
 func NewCastFunction() *CastFunction {
 	return &CastFunction{
-		BaseFunction: NewBaseFunction("cast", TypeConversion, "转换函数", "类型转换", 2, 2),
+		BaseFunction: NewBaseFunction("cast", TypeConversion, "conversion", "Type conversion", 2, 2),
 	}
 }
 
@@ -51,14 +51,14 @@ func (f *CastFunction) Execute(ctx *FunctionContext, args []interface{}) (interf
 	}
 }
 
-// Hex2DecFunction 十六进制转十进制函数
+// Hex2DecFunction converts hexadecimal to decimal
 type Hex2DecFunction struct {
 	*BaseFunction
 }
 
 func NewHex2DecFunction() *Hex2DecFunction {
 	return &Hex2DecFunction{
-		BaseFunction: NewBaseFunction("hex2dec", TypeConversion, "转换函数", "十六进制转十进制", 1, 1),
+		BaseFunction: NewBaseFunction("hex2dec", TypeConversion, "conversion", "Convert hexadecimal to decimal", 1, 1),
 	}
 }
 
@@ -77,14 +77,14 @@ func (f *Hex2DecFunction) Execute(ctx *FunctionContext, args []interface{}) (int
 	return val, nil
 }
 
-// Dec2HexFunction 十进制转十六进制函数
+// Dec2HexFunction converts decimal to hexadecimal
 type Dec2HexFunction struct {
 	*BaseFunction
 }
 
 func NewDec2HexFunction() *Dec2HexFunction {
 	return &Dec2HexFunction{
-		BaseFunction: NewBaseFunction("dec2hex", TypeConversion, "转换函数", "十进制转十六进制", 1, 1),
+		BaseFunction: NewBaseFunction("dec2hex", TypeConversion, "conversion", "Convert decimal to hexadecimal", 1, 1),
 	}
 }
 

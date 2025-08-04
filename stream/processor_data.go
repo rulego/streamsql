@@ -14,31 +14,31 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
-// DataProcessor 数据处理器，负责处理数据流
+// DataProcessor data processor responsible for processing data streams
 type DataProcessor struct {
 	stream *Stream
 }
 
-// NewDataProcessor 创建数据处理器
+// NewDataProcessor creates a data processor
 func NewDataProcessor(stream *Stream) *DataProcessor {
 	return &DataProcessor{stream: stream}
 }
 
-// Process 主处理循环
+// Process main processing loop
 func (dp *DataProcessor) Process() {
-	// 初始化聚合器，用于窗口模式
+	// Initialize aggregator for window mode
 	if dp.stream.config.NeedWindow {
 		dp.initializeAggregator()
 		dp.startWindowProcessing()
 	}
 
-	// 创建一个定时器，避免创建多个临时定时器导致资源泄漏
+	// Create a timer to avoid creating multiple temporary timers causing resource leaks
 	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop() // 确保在函数退出时停止定时器
+	defer ticker.Stop() // Ensure timer is stopped when function exits
 
-	// 主处理循环
+	// Main processing loop
 	for {
-		// 使用读锁安全访问dataChan
+		// Safely access dataChan using read lock
 		dp.stream.dataChanMux.RLock()
 		currentDataChan := dp.stream.dataChan
 		dp.stream.dataChanMux.RUnlock()
@@ -46,87 +46,87 @@ func (dp *DataProcessor) Process() {
 		select {
 		case data, ok := <-currentDataChan:
 			if !ok {
-				// 通道已关闭
+				// Channel is closed
 				return
 			}
-			// 应用过滤条件
+			// Apply filter conditions
 			if dp.stream.filter == nil || dp.stream.filter.Evaluate(data) {
 				if dp.stream.config.NeedWindow {
-					// 窗口模式，添加数据到窗口
+					// Window mode, add data to window
 					dp.stream.Window.Add(data)
 				} else {
-					// 非窗口模式，直接处理数据并输出
+					// Non-window mode, process data directly and output
 					dp.processDirectData(data)
 				}
 			}
 		case <-dp.stream.done:
-			// 收到关闭信号
+			// Received close signal
 			return
 		case <-ticker.C:
-			// 定时器触发，什么都不做，只是防止 CPU 空转
+			// Timer triggered, do nothing, just prevent CPU spinning
 		}
 	}
 }
 
-// initializeAggregator 初始化聚合器
+// initializeAggregator initializes the aggregator
 func (dp *DataProcessor) initializeAggregator() {
-	// 转换为新的AggregationField格式
+	// Convert to new AggregationField format
 	aggregationFields := convertToAggregationFields(dp.stream.config.SelectFields, dp.stream.config.FieldAlias)
 	dp.stream.aggregator = aggregator.NewGroupAggregator(dp.stream.config.GroupFields, aggregationFields)
 
-	// 注册表达式计算器
+	// Register expression calculators
 	for field, fieldExpr := range dp.stream.config.FieldExpressions {
 		dp.registerExpressionCalculator(field, fieldExpr)
 	}
 }
 
-// registerExpressionCalculator 注册表达式计算器
+// registerExpressionCalculator registers expression calculator
 func (dp *DataProcessor) registerExpressionCalculator(field string, fieldExpr types.FieldExpression) {
-	// 创建局部变量避免闭包问题
+	// Create local variables to avoid closure issues
 	currentField := field
 	currentFieldExpr := fieldExpr
 
-	// 注册表达式计算器
+	// Register expression calculator
 	dp.stream.aggregator.RegisterExpression(
 		currentField,
 		currentFieldExpr.Expression,
 		currentFieldExpr.Fields,
 		func(data interface{}) (interface{}, error) {
-			// 确保数据是map[string]interface{}类型
-			if dataMap, ok := data.(map[string]interface{}); ok {
-				return dp.evaluateExpressionForAggregation(currentFieldExpr, dataMap)
-			}
-			return nil, fmt.Errorf("unsupported data type: %T, expected map[string]interface{}", data)
-		},
+				// Ensure data is map[string]interface{} type
+				if dataMap, ok := data.(map[string]interface{}); ok {
+					return dp.evaluateExpressionForAggregation(currentFieldExpr, dataMap)
+				}
+				return nil, fmt.Errorf("unsupported data type: %T, expected map[string]interface{}", data)
+			},
 	)
 }
 
-// evaluateExpressionForAggregation 为聚合计算表达式
-// 参数:
-//   - fieldExpr: 字段表达式
-//   - data: 要处理的数据，必须是map[string]interface{}类型
+// evaluateExpressionForAggregation evaluates expression for aggregation
+// Parameters:
+//   - fieldExpr: field expression
+//   - data: data to process, must be map[string]interface{} type
 func (dp *DataProcessor) evaluateExpressionForAggregation(fieldExpr types.FieldExpression, data map[string]interface{}) (interface{}, error) {
-	// 直接使用传入的map数据
+	// Directly use the passed map data
 	dataMap := data
 
-	// 检查表达式是否包含嵌套字段，如果有则直接使用自定义表达式引擎
+	// Check if expression contains nested fields, if so use custom expression engine directly
 	hasNestedFields := strings.Contains(fieldExpr.Expression, ".")
 
 	if hasNestedFields {
 		return dp.evaluateNestedFieldExpression(fieldExpr.Expression, dataMap)
 	}
 
-	// 检查是否为CASE表达式
+	// Check if it's a CASE expression
 	trimmedExpr := strings.TrimSpace(fieldExpr.Expression)
 	upperExpr := strings.ToUpper(trimmedExpr)
 	if strings.HasPrefix(upperExpr, SQLKeywordCase) {
 		return dp.evaluateCaseExpression(fieldExpr.Expression, dataMap)
 	}
 
-	// 使用桥接器计算表达式，支持字符串拼接和IS NULL等语法
+	// Use bridge to evaluate expression, supporting string concatenation and IS NULL syntax
 	bridge := functions.GetExprBridge()
 
-	// 预处理表达式中的IS NULL和LIKE语法
+	// Preprocess IS NULL and LIKE syntax in expression
 	processedExpr := fieldExpr.Expression
 	if bridge.ContainsIsNullOperator(processedExpr) {
 		if processed, err := bridge.PreprocessIsNullExpression(processedExpr); err == nil {
@@ -141,20 +141,20 @@ func (dp *DataProcessor) evaluateExpressionForAggregation(fieldExpr types.FieldE
 
 	result, err := bridge.EvaluateExpression(processedExpr, dataMap)
 	if err != nil {
-		// 如果桥接器失败，回退到原来的表达式引擎
+		// If bridge fails, fallback to original expression engine
 		return dp.fallbackExpressionEvaluation(fieldExpr.Expression, dataMap)
 	}
 
 	return result, nil
 }
 
-// convertToDataMap 将数据转换为map格式
-// convertToDataMap 方法已移除，请使用 github.com/rulego/streamsql/utils/converter.ToDataMap 函数替代
+// convertToDataMap converts data to map format
+// convertToDataMap method has been removed, please use github.com/rulego/streamsql/utils/converter.ToDataMap function instead
 
-// evaluateNestedFieldExpression 计算嵌套字段表达式
+// evaluateNestedFieldExpression evaluates nested field expression
 func (dp *DataProcessor) evaluateNestedFieldExpression(expression string, dataMap map[string]interface{}) (interface{}, error) {
-	// 直接使用自定义表达式引擎处理嵌套字段，支持NULL值
-	// 预处理反引号标识符
+	// Directly use custom expression engine to handle nested fields, supporting NULL values
+	// Preprocess backtick identifiers
 	exprToUse := expression
 	bridge := functions.GetExprBridge()
 	if bridge.ContainsBacktickIdentifiers(exprToUse) {
@@ -167,21 +167,21 @@ func (dp *DataProcessor) evaluateNestedFieldExpression(expression string, dataMa
 		return nil, fmt.Errorf("expression parse failed: %w", parseErr)
 	}
 
-	// 使用支持NULL的计算方法
+	// Use NULL-supporting evaluation method
 	numResult, isNull, err := expr.EvaluateWithNull(dataMap)
 	if err != nil {
 		return nil, fmt.Errorf("expression evaluation failed: %w", err)
 	}
 	if isNull {
-		return nil, nil // 返回nil表示NULL值
+		return nil, nil // Return nil to represent NULL value
 	}
 	return numResult, nil
 }
 
-// evaluateCaseExpression 计算CASE表达式
+// evaluateCaseExpression evaluates CASE expression
 func (dp *DataProcessor) evaluateCaseExpression(expression string, dataMap map[string]interface{}) (interface{}, error) {
-	// CASE表达式使用支持NULL的计算方法
-	// 预处理反引号标识符
+	// CASE expression uses NULL-supporting evaluation method
+	// Preprocess backtick identifiers
 	exprToUse := expression
 	bridge := functions.GetExprBridge()
 	if bridge.ContainsBacktickIdentifiers(exprToUse) {
