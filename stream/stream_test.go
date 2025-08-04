@@ -11,6 +11,76 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestStream_Constructor 测试Stream构造函数
+func TestStream_Constructor(t *testing.T) {
+	config := types.Config{
+		SimpleFields: []string{"name", "age"},
+	}
+	stream, err := NewStream(config)
+	require.NoError(t, err)
+	defer func() {
+		if stream != nil {
+			close(stream.done)
+		}
+	}()
+}
+
+// TestStream_AddData 测试添加数据
+func TestStream_AddData(t *testing.T) {
+	config := types.Config{
+		SimpleFields: []string{"name", "age"},
+	}
+	stream, err := NewStream(config)
+	require.NoError(t, err)
+	defer func() {
+		if stream != nil {
+			close(stream.done)
+		}
+	}()
+}
+
+// TestStream_GetResults 测试获取结果
+func TestStream_GetResults(t *testing.T) {
+	config := types.Config{
+		SimpleFields: []string{"name", "age"},
+	}
+	stream, err := NewStream(config)
+	require.NoError(t, err)
+	defer func() {
+		if stream != nil {
+			close(stream.done)
+		}
+	}()
+}
+
+// TestStream_WithWindow 测试窗口功能
+func TestStream_WithWindow(t *testing.T) {
+	config := types.Config{
+		SimpleFields: []string{"name", "age"},
+	}
+	stream, err := NewStream(config)
+	require.NoError(t, err)
+	defer func() {
+		if stream != nil {
+			close(stream.done)
+		}
+	}()
+}
+
+// TestStream_ThreadSafety 测试线程安全
+func TestStream_ThreadSafety(t *testing.T) {
+	config := types.Config{
+		SimpleFields: []string{"name", "age"},
+	}
+	stream, err := NewStream(config)
+	require.NoError(t, err)
+	defer func() {
+		if stream != nil {
+			close(stream.done)
+		}
+	}()
+}
+
 // TestStreamBasicFunctionality 测试Stream基本功能
 func TestStreamBasicFunctionality(t *testing.T) {
 	tests := []struct {

@@ -1,9 +1,11 @@
 package expr
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestExpressionEvaluation(t *testing.T) {
@@ -463,5 +465,355 @@ func TestParseError(t *testing.T) {
 			_, err := NewExpression(tt.expr)
 			assert.Error(t, err, "Expression parsing should fail")
 		})
+	}
+}
+
+// TestExpressionTokenization 测试表达式分词功能
+func TestExpressionTokenization(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		expected []string
+	}{
+		{"Simple Expression", "a + b", []string{"a", "+", "b"}},
+		{"With Numbers", "a + 123", []string{"a", "+", "123"}},
+		{"With Parentheses", "(a + b) * c", []string{"(", "a", "+", "b", ")", "*", "c"}},
+		{"With Functions", "abs(a)", []string{"abs", "(", "a", ")"}},
+		{"With Decimals", "a + 3.14", []string{"a", "+", "3.14"}},
+		{"With Negative Numbers", "-5 + a", []string{"-5", "+", "a"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tokens, err := tokenize(tt.expr)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, tokens, "Tokenization should match expected")
+		})
+	}
+}
+
+// TestExpressionValidation 测试表达式验证功能
+func TestExpressionValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		expr    string
+		valid   bool
+		errorMsg string
+	}{
+		{"Valid Simple Expression", "a + b", true, ""},
+		{"Valid Complex Expression", "(a + b) * c / d", true, ""},
+		{"Invalid Empty Expression", "", false, "empty expression"},
+		{"Invalid Mismatched Parentheses", "(a + b", false, "mismatched parentheses"},
+		{"Invalid Double Operator", "a + + b", false, "consecutive operators"},
+		{"Invalid Starting Operator", "+ a", false, "expression cannot start with operator"},
+		{"Invalid Ending Operator", "a +", false, "expression cannot end with operator"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateBasicSyntax(tt.expr)
+			if tt.valid {
+				assert.NoError(t, err, "Expression should be valid")
+			} else {
+				assert.Error(t, err, "Expression should be invalid")
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg, "Error message should contain expected text")
+				}
+			}
+		})
+	}
+}
+
+// TestExpressionOperatorPrecedence 测试运算符优先级
+func TestExpressionOperatorPrecedence(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		data     map[string]interface{}
+		expected float64
+	}{
+		{"Addition and Multiplication", "2 + 3 * 4", map[string]interface{}{}, 14}, // 2 + (3 * 4) = 14
+		{"Subtraction and Division", "10 - 8 / 2", map[string]interface{}{}, 6},   // 10 - (8 / 2) = 6
+		{"Power and Multiplication", "2 * 3 ^ 2", map[string]interface{}{}, 18},   // 2 * (3 ^ 2) = 18
+		{"Parentheses Override", "(2 + 3) * 4", map[string]interface{}{}, 20},     // (2 + 3) * 4 = 20
+		{"Complex Expression", "2 + 3 * 4 - 5 / 2", map[string]interface{}{}, 11.5}, // 2 + (3 * 4) - (5 / 2) = 11.5
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expr, err := NewExpression(tt.expr)
+			require.NoError(t, err, "Expression parsing should not fail")
+
+			result, err := expr.Evaluate(tt.data)
+			require.NoError(t, err, "Expression evaluation should not fail")
+			assert.InDelta(t, tt.expected, result, 0.001, "Result should match expected value")
+		})
+	}
+}
+
+// TestExpressionFunctions 测试内置函数
+func TestExpressionFunctions(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		data     map[string]interface{}
+		expected float64
+		wantErr  bool
+	}{
+		{"ABS Positive", "abs(5)", map[string]interface{}{}, 5, false},
+		{"ABS Negative", "abs(-5)", map[string]interface{}{}, 5, false},
+		{"ABS Zero", "abs(0)", map[string]interface{}{}, 0, false},
+		{"SQRT Valid", "sqrt(16)", map[string]interface{}{}, 4, false},
+		{"SQRT Zero", "sqrt(0)", map[string]interface{}{}, 0, false},
+		{"SQRT Negative", "sqrt(-1)", map[string]interface{}{}, 0, true},
+		{"ROUND Positive", "round(3.7)", map[string]interface{}{}, 4, false},
+		{"ROUND Negative", "round(-3.7)", map[string]interface{}{}, -4, false},
+		{"ROUND Half", "round(3.5)", map[string]interface{}{}, 4, false},
+		{"FLOOR Positive", "floor(3.7)", map[string]interface{}{}, 3, false},
+		{"FLOOR Negative", "floor(-3.7)", map[string]interface{}{}, -4, false},
+		{"CEIL Positive", "ceil(3.2)", map[string]interface{}{}, 4, false},
+		{"CEIL Negative", "ceil(-3.2)", map[string]interface{}{}, -3, false},
+		{"MAX Two Values", "max(5, 3)", map[string]interface{}{}, 5, false},
+		{"MIN Two Values", "min(5, 3)", map[string]interface{}{}, 3, false},
+		{"POW Function", "pow(2, 3)", map[string]interface{}{}, 8, false},
+		{"LOG Function", "log(10)", map[string]interface{}{}, math.Log(10), false},
+		{"LOG10 Function", "log10(100)", map[string]interface{}{}, 2, false},
+		{"EXP Function", "exp(1)", map[string]interface{}{}, math.E, false},
+		{"SIN Function", "sin(0)", map[string]interface{}{}, 0, false},
+		{"COS Function", "cos(0)", map[string]interface{}{}, 1, false},
+		{"TAN Function", "tan(0)", map[string]interface{}{}, 0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expr, err := NewExpression(tt.expr)
+			require.NoError(t, err, "Expression parsing should not fail")
+
+			result, err := expr.Evaluate(tt.data)
+			if tt.wantErr {
+				assert.Error(t, err, "Expected error")
+			} else {
+				require.NoError(t, err, "Expression evaluation should not fail")
+				assert.InDelta(t, tt.expected, result, 0.001, "Result should match expected value")
+			}
+		})
+	}
+}
+
+// TestExpressionDataTypeConversion 测试数据类型转换
+func TestExpressionDataTypeConversion(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		data     map[string]interface{}
+		expected float64
+		wantErr  bool
+	}{
+		{"String to Number", "a + 5", map[string]interface{}{"a": "10"}, 15, false},
+		{"Integer to Float", "a + 3.5", map[string]interface{}{"a": 5}, 8.5, false},
+		{"Float to Float", "a + b", map[string]interface{}{"a": 3.14, "b": 2.86}, 6.0, false},
+		{"Boolean True", "a + 1", map[string]interface{}{"a": true}, 2, false},
+		{"Boolean False", "a + 1", map[string]interface{}{"a": false}, 1, false},
+		{"Invalid String", "a + 5", map[string]interface{}{"a": "invalid"}, 0, true},
+		{"Nil Value", "a + 5", map[string]interface{}{"a": nil}, 0, true},
+		{"Complex Type", "a + 5", map[string]interface{}{"a": map[string]interface{}{}}, 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expr, err := NewExpression(tt.expr)
+			require.NoError(t, err, "Expression parsing should not fail")
+
+			result, err := expr.Evaluate(tt.data)
+			if tt.wantErr {
+				assert.Error(t, err, "Expected error")
+			} else {
+				require.NoError(t, err, "Expression evaluation should not fail")
+				assert.InDelta(t, tt.expected, result, 0.001, "Result should match expected value")
+			}
+		})
+	}
+}
+
+// TestExpressionEdgeCases 测试边界情况
+func TestExpressionEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		data     map[string]interface{}
+		expected float64
+		wantErr  bool
+	}{
+		{"Very Large Number", "a + 1", map[string]interface{}{"a": 1e308}, 1e308 + 1, false},
+		{"Very Small Number", "a + 1", map[string]interface{}{"a": 1e-308}, 1, false},
+		{"Infinity", "a + 1", map[string]interface{}{"a": math.Inf(1)}, math.Inf(1), false},
+		{"Negative Infinity", "a + 1", map[string]interface{}{"a": math.Inf(-1)}, math.Inf(-1), false},
+		{"NaN", "a + 1", map[string]interface{}{"a": math.NaN()}, 0, true},
+		{"Division by Zero", "5 / 0", map[string]interface{}{}, 0, true},
+		{"Modulo by Zero", "5 % 0", map[string]interface{}{}, 0, true},
+		{"Zero Power Zero", "0 ^ 0", map[string]interface{}{}, 1, false}, // 0^0 = 1 by convention
+		{"Negative Power", "2 ^ -3", map[string]interface{}{}, 0.125, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expr, err := NewExpression(tt.expr)
+			require.NoError(t, err, "Expression parsing should not fail")
+
+			result, err := expr.Evaluate(tt.data)
+			if tt.wantErr {
+				assert.Error(t, err, "Expected error")
+			} else {
+				require.NoError(t, err, "Expression evaluation should not fail")
+				if math.IsInf(tt.expected, 0) {
+					assert.True(t, math.IsInf(result, 0), "Result should be infinity")
+				} else {
+					assert.InDelta(t, tt.expected, result, 0.001, "Result should match expected value")
+				}
+			}
+		})
+	}
+}
+
+// TestExpressionConcurrency 测试并发安全性
+func TestExpressionConcurrency(t *testing.T) {
+	expr, err := NewExpression("a + b * c")
+	require.NoError(t, err, "Expression parsing should not fail")
+
+	// 并发执行多个计算
+	const numGoroutines = 100
+	results := make(chan float64, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func(index int) {
+			data := map[string]interface{}{
+				"a": float64(index),
+				"b": float64(index * 2),
+				"c": float64(index * 3),
+			}
+			result, err := expr.Evaluate(data)
+			assert.NoError(t, err, "Concurrent evaluation should not fail")
+			results <- result
+		}(i)
+	}
+
+	// 收集结果
+	for i := 0; i < numGoroutines; i++ {
+		result := <-results
+		// 验证结果是合理的（非零且非NaN）
+		assert.False(t, math.IsNaN(result), "Result should not be NaN")
+		assert.True(t, result >= 0, "Result should be non-negative for this test")
+	}
+}
+
+// TestExpressionComplexNesting 测试复杂嵌套表达式
+func TestExpressionComplexNesting(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		data     map[string]interface{}
+		expected float64
+	}{
+		{
+			"Deeply Nested Parentheses",
+			"((a + b) * (c - d)) / ((e + f) * (g - h))",
+			map[string]interface{}{"a": 1, "b": 2, "c": 5, "d": 3, "e": 2, "f": 3, "g": 7, "h": 2},
+			0.24, // ((1+2)*(5-3))/((2+3)*(7-2)) = (3*2)/(5*5) = 6/25 = 0.24
+		},
+		{
+			"Nested Functions",
+			"sqrt(abs(a - b) + pow(c, 2))",
+			map[string]interface{}{"a": 3, "b": 7, "c": 3},
+			3.606, // sqrt(abs(3-7) + pow(3,2)) = sqrt(4 + 9) = sqrt(13) ≈ 3.606
+		},
+		{
+			"Mixed Operations",
+			"a * b + c / d - e % f + pow(g, h)",
+			map[string]interface{}{"a": 2, "b": 3, "c": 8, "d": 2, "e": 7, "f": 3, "g": 2, "h": 3},
+			17, // 2*3 + 8/2 - 7%3 + pow(2,3) = 6 + 4 - 1 + 8 = 17
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expr, err := NewExpression(tt.expr)
+			require.NoError(t, err, "Expression parsing should not fail")
+
+			result, err := expr.Evaluate(tt.data)
+			require.NoError(t, err, "Expression evaluation should not fail")
+			assert.InDelta(t, tt.expected, result, 0.1, "Result should match expected value")
+		})
+	}
+}
+
+// TestExpressionStringHandling 测试字符串处理
+func TestExpressionStringHandling(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		data     map[string]interface{}
+		expected float64
+		wantErr  bool
+	}{
+		{"String Length", "len(name)", map[string]interface{}{"name": "hello"}, 5, false},
+		{"Empty String Length", "len(name)", map[string]interface{}{"name": ""}, 0, false},
+		{"String Comparison Equal", "name == 'test'", map[string]interface{}{"name": "test"}, 1, false},
+		{"String Comparison Not Equal", "name != 'test'", map[string]interface{}{"name": "hello"}, 1, false},
+		{"String to Number Conversion", "val + 10", map[string]interface{}{"val": "5"}, 15, false},
+		{"Invalid String to Number", "val + 10", map[string]interface{}{"val": "abc"}, 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expr, err := NewExpression(tt.expr)
+			require.NoError(t, err, "Expression parsing should not fail")
+
+			result, err := expr.Evaluate(tt.data)
+			if tt.wantErr {
+				assert.Error(t, err, "Expected error")
+			} else {
+				require.NoError(t, err, "Expression evaluation should not fail")
+				assert.InDelta(t, tt.expected, result, 0.001, "Result should match expected value")
+			}
+		})
+	}
+}
+
+// TestExpressionPerformance 测试表达式性能
+func TestExpressionPerformance(t *testing.T) {
+	// 创建一个复杂表达式
+	expr, err := NewExpression("sqrt(pow(a, 2) + pow(b, 2)) + abs(c - d) * (e + f) / (g + 1)")
+	require.NoError(t, err, "Expression parsing should not fail")
+
+	data := map[string]interface{}{
+		"a": 3.0, "b": 4.0, "c": 10.0, "d": 7.0, "e": 2.0, "f": 3.0, "g": 4.0,
+	}
+
+	// 执行多次计算以测试性能
+	const iterations = 10000
+	for i := 0; i < iterations; i++ {
+		_, err := expr.Evaluate(data)
+		assert.NoError(t, err, "Performance test evaluation should not fail")
+	}
+}
+
+// TestExpressionMemoryUsage 测试内存使用
+func TestExpressionMemoryUsage(t *testing.T) {
+	// 创建多个表达式实例
+	const numExpressions = 1000
+	expressions := make([]*Expression, numExpressions)
+
+	for i := 0; i < numExpressions; i++ {
+		expr, err := NewExpression("a + b * c")
+		require.NoError(t, err, "Expression creation should not fail")
+		expressions[i] = expr
+	}
+
+	// 验证所有表达式都能正常工作
+	data := map[string]interface{}{"a": 1, "b": 2, "c": 3}
+	for i, expr := range expressions {
+		result, err := expr.Evaluate(data)
+		assert.NoError(t, err, "Expression %d evaluation should not fail", i)
+		assert.Equal(t, 7.0, result, "Expression %d result should be correct", i)
 	}
 }

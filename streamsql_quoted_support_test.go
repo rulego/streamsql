@@ -23,9 +23,13 @@ type testCase struct {
 // executeTestCase 执行单个测试用例的通用逻辑
 func executeTestCase(t *testing.T, streamsql *Streamsql, tc testCase) {
 	t.Run(tc.name, func(t *testing.T) {
-		err := streamsql.Execute(tc.sql)
+		// 为每个测试用例创建新的Streamsql实例
+		ssql := New()
+		defer ssql.Stop()
+
+		err := ssql.Execute(tc.sql)
 		assert.Nil(t, err)
-		strm := streamsql.stream
+		strm := ssql.stream
 
 		// 创建结果接收通道和互斥锁保护并发访问
 		resultChan := make(chan interface{}, 10)
@@ -91,9 +95,13 @@ func executeTestCase(t *testing.T, streamsql *Streamsql, tc testCase) {
 // executeAggregationTestCase 执行聚合函数测试用例的通用逻辑
 func executeAggregationTestCase(t *testing.T, streamsql *Streamsql, tc testCase) {
 	t.Run(tc.name, func(t *testing.T) {
-		err := streamsql.Execute(tc.sql)
+		// 为每个测试用例创建新的Streamsql实例
+		ssql := New()
+		defer ssql.Stop()
+
+		err := ssql.Execute(tc.sql)
 		assert.Nil(t, err)
-		strm := streamsql.stream
+		strm := ssql.stream
 
 		// 创建结果接收通道
 		resultChan := make(chan interface{}, 10)
@@ -130,9 +138,13 @@ func executeAggregationTestCase(t *testing.T, streamsql *Streamsql, tc testCase)
 // executeFunctionTestCase 执行函数测试用例的通用逻辑
 func executeFunctionTestCase(t *testing.T, streamsql *Streamsql, tc testCase) {
 	t.Run(tc.name, func(t *testing.T) {
-		err := streamsql.Execute(tc.sql)
+		// 为每个测试用例创建新的Streamsql实例
+		ssql := New()
+		defer ssql.Stop()
+
+		err := ssql.Execute(tc.sql)
 		assert.Nil(t, err)
-		strm := streamsql.stream
+		strm := ssql.stream
 
 		// 创建结果接收通道
 		resultChan := make(chan interface{}, 10)

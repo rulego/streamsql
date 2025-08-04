@@ -144,21 +144,22 @@ func NewConfigWithPerformance(perfConfig PerformanceConfig) Config {
 	}
 }
 
-// DefaultPerformanceConfig default performance configuration
+// DefaultPerformanceConfig returns default performance configuration
+// Provides balanced performance settings suitable for most scenarios
 func DefaultPerformanceConfig() PerformanceConfig {
 	return PerformanceConfig{
 		BufferConfig: BufferConfig{
-			DataChannelSize:     10000,
-			ResultChannelSize:   10000,
-			WindowOutputSize:    1000,
-			EnableDynamicResize: true,
-			MaxBufferSize:       100000,
+			DataChannelSize:     1000,
+			ResultChannelSize:   100,
+			WindowOutputSize:    50,
+			EnableDynamicResize: false,
+			MaxBufferSize:       10000,
 			UsageThreshold:      0.8,
 		},
 		OverflowConfig: OverflowConfig{
-			Strategy:      "expand",
-			BlockTimeout:  30 * time.Second,
-			AllowDataLoss: false,
+			Strategy:      "drop",
+			BlockTimeout:  5 * time.Second,
+			AllowDataLoss: true,
 			ExpansionConfig: ExpansionConfig{
 				GrowthFactor:     1.5,
 				MinIncrement:     1000,
@@ -167,13 +168,13 @@ func DefaultPerformanceConfig() PerformanceConfig {
 			},
 		},
 		WorkerConfig: WorkerConfig{
-			SinkPoolSize:     500,
-			SinkWorkerCount:  8,
-			MaxRetryRoutines: 5,
+			SinkPoolSize:     4,
+			SinkWorkerCount:  2,
+			MaxRetryRoutines: 10,
 		},
 		MonitoringConfig: MonitoringConfig{
-			EnableMonitoring:    true,
-			StatsUpdateInterval: 1 * time.Second,
+			EnableMonitoring:    false,
+			StatsUpdateInterval: 30 * time.Second,
 			EnableDetailedStats: false,
 			WarningThresholds: WarningThresholds{
 				DropRateWarning:     10.0,
@@ -185,49 +186,66 @@ func DefaultPerformanceConfig() PerformanceConfig {
 	}
 }
 
-// HighPerformanceConfig high performance configuration preset
+// HighPerformanceConfig returns high performance configuration preset
+// Optimizes throughput performance with large buffers and expansion strategy
 func HighPerformanceConfig() PerformanceConfig {
 	config := DefaultPerformanceConfig()
-	config.BufferConfig.DataChannelSize = 50000
-	config.BufferConfig.ResultChannelSize = 50000
-	config.BufferConfig.WindowOutputSize = 5000
+	config.BufferConfig.DataChannelSize = 5000
+	config.BufferConfig.ResultChannelSize = 500
+	config.BufferConfig.WindowOutputSize = 200
 	config.BufferConfig.MaxBufferSize = 500000
-	config.WorkerConfig.SinkPoolSize = 1000
-	config.WorkerConfig.SinkWorkerCount = 16
+	config.OverflowConfig.Strategy = "expand"
+	config.WorkerConfig.SinkPoolSize = 8
+	config.WorkerConfig.SinkWorkerCount = 4
+	config.MonitoringConfig.EnableMonitoring = true
 	return config
 }
 
-// LowLatencyConfig low latency configuration preset
+// LowLatencyConfig returns low latency configuration preset
+// Optimizes latency performance with smaller buffers and fast response strategy
 func LowLatencyConfig() PerformanceConfig {
 	config := DefaultPerformanceConfig()
-	config.BufferConfig.DataChannelSize = 1000
-	config.BufferConfig.ResultChannelSize = 1000
-	config.BufferConfig.WindowOutputSize = 100
+	config.BufferConfig.DataChannelSize = 100
+	config.BufferConfig.ResultChannelSize = 50
+	config.BufferConfig.WindowOutputSize = 20
 	config.BufferConfig.UsageThreshold = 0.7
-	config.OverflowConfig.Strategy = "drop"
+	config.OverflowConfig.Strategy = "block"
+	config.OverflowConfig.BlockTimeout = 1 * time.Second
 	config.OverflowConfig.AllowDataLoss = true
+	config.MonitoringConfig.EnableMonitoring = true
+	config.MonitoringConfig.StatsUpdateInterval = 1 * time.Second
 	return config
 }
 
-// ZeroDataLossConfig zero data loss configuration preset
+// ZeroDataLossConfig returns zero data loss configuration preset
+// Provides maximum data protection using persistence strategy to prevent data loss
 func ZeroDataLossConfig() PerformanceConfig {
 	config := DefaultPerformanceConfig()
-	config.BufferConfig.DataChannelSize = 20000
-	config.BufferConfig.ResultChannelSize = 20000
+	config.BufferConfig.DataChannelSize = 2000
+	config.BufferConfig.ResultChannelSize = 200
 	config.BufferConfig.WindowOutputSize = 2000
 	config.BufferConfig.EnableDynamicResize = true
-	config.OverflowConfig.Strategy = "block"
+	config.OverflowConfig.Strategy = "persist"
 	config.OverflowConfig.AllowDataLoss = false
-	config.OverflowConfig.BlockTimeout = 0 // no timeout, permanent blocking
+	config.OverflowConfig.PersistenceConfig = &PersistenceConfig{
+		DataDir:       "./data",
+		MaxFileSize:   100 * 1024 * 1024, // 100MB
+		FlushInterval: 5 * time.Second,
+		MaxRetries:    3,
+		RetryInterval: 2 * time.Second,
+	}
 	return config
 }
 
-// PersistencePerformanceConfig persistence configuration preset
+// PersistencePerformanceConfig returns persistence performance configuration preset
+// Provides persistent storage functionality balancing performance and data durability
 func PersistencePerformanceConfig() PerformanceConfig {
 	config := DefaultPerformanceConfig()
+	config.BufferConfig.DataChannelSize = 1500
+	config.BufferConfig.ResultChannelSize = 150
 	config.OverflowConfig.Strategy = "persist"
 	config.OverflowConfig.PersistenceConfig = &PersistenceConfig{
-		DataDir:       "./streamsql_data",
+		DataDir:       "./persistence_data",
 		MaxFileSize:   10 * 1024 * 1024, // 10MB
 		FlushInterval: 5 * time.Second,
 		MaxRetries:    3,

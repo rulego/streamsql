@@ -409,3 +409,164 @@ func TestGetFieldPathDepth(t *testing.T) {
 		})
 	}
 }
+
+// TestGetAllReferencedFields 测试GetAllReferencedFields函数
+func TestGetAllReferencedFields(t *testing.T) {
+	tests := []struct {
+		name      string
+		fieldPaths []string
+		expected  []string
+	}{
+		{
+			name:      "空列表",
+			fieldPaths: []string{},
+			expected:  []string{},
+		},
+		{
+			name:      "单个简单字段",
+			fieldPaths: []string{"name"},
+			expected:  []string{"name"},
+		},
+		{
+			name:      "多个不同顶级字段",
+			fieldPaths: []string{"device.info.name", "sensor.temperature", "data[0].value"},
+			expected:  []string{"device", "sensor", "data"},
+		},
+		{
+			name:      "重复顶级字段",
+			fieldPaths: []string{"user.name", "user.email", "user.profile.age"},
+			expected:  []string{"user"},
+		},
+		{
+			name:      "包含空字符串",
+			fieldPaths: []string{"user.name", "", "device.id"},
+			expected:  []string{"user", "device"},
+		},
+		{
+			name:      "数组和map访问",
+			fieldPaths: []string{"items[0].name", "config['database']", "matrix[1][2]"},
+			expected:  []string{"items", "config", "matrix"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetAllReferencedFields(tt.fieldPaths)
+			// 由于返回的是map的keys，顺序可能不同，所以需要排序比较
+			assert.ElementsMatch(t, tt.expected, result)
+		})
+	}
+}
+
+// TestFieldAccessError 测试FieldAccessError类型
+func TestFieldAccessError(t *testing.T) {
+	err := &FieldAccessError{
+		Path:    "invalid.path[abc]",
+		Message: "invalid bracket content",
+	}
+
+	expected := "field access error for path 'invalid.path[abc]': invalid bracket content"
+	assert.Equal(t, expected, err.Error())
+}
+
+// TestSetNestedFieldEdgeCases 测试SetNestedField函数的边缘情况
+func TestSetNestedFieldEdgeCases(t *testing.T) {
+	tests := []struct {
+		name      string
+		fieldPath string
+		value     interface{}
+		hasError  bool
+		errorMsg  string
+	}{
+		{
+			name:      "空字段路径",
+			fieldPath: "",
+			value:     "test",
+			hasError:  true,
+			errorMsg:  "empty field path",
+		},
+		{
+			name:      "无效字段路径",
+			fieldPath: "field[abc]",
+			value:     "test",
+			hasError:  false, // 会fallback到简单设置
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := make(map[string]interface{})
+			err := SetNestedField(data, tt.fieldPath, tt.value)
+
+			if tt.hasError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestGetNestedFieldEdgeCases 测试GetNestedField函数的边缘情况
+func TestGetNestedFieldEdgeCases(t *testing.T) {
+	tests := []struct {
+		name      string
+		data      interface{}
+		fieldPath string
+		expected  interface{}
+		found     bool
+	}{
+		{
+			name:      "空字段路径",
+			data:      map[string]interface{}{"test": "value"},
+			fieldPath: "",
+			expected:  nil,
+			found:     false,
+		},
+		{
+			name:      "nil数据",
+			data:      nil,
+			fieldPath: "test",
+			expected:  nil,
+			found:     false,
+		},
+		{
+			name: "数组越界访问",
+			data: map[string]interface{}{
+				"items": []interface{}{"a", "b"},
+			},
+			fieldPath: "items[5]",
+			expected:  nil,
+			found:     false,
+		},
+		{
+			name: "负数索引访问",
+			data: map[string]interface{}{
+				"items": []interface{}{"a", "b", "c"},
+			},
+			fieldPath: "items[-1]",
+			expected:  "c",
+			found:     true,
+		},
+		{
+			name: "map中不存在的键",
+			data: map[string]interface{}{
+				"config": map[string]interface{}{"key1": "value1"},
+			},
+			fieldPath: "config['nonexistent']",
+			expected:  nil,
+			found:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, found := GetNestedField(tt.data, tt.fieldPath)
+			assert.Equal(t, tt.expected, result)
+			assert.Equal(t, tt.found, found)
+		})
+	}
+}

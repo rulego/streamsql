@@ -25,7 +25,11 @@ func TestPersistenceManager_BasicOperations(t *testing.T) {
 	// 启动管理器
 	err := pm.Start()
 	require.NoError(t, err)
-	defer pm.Stop()
+	defer func() {
+		if pm != nil {
+			pm.Stop()
+		}
+	}()
 
 	// 测试数据持久化
 	testData := []map[string]interface{}{
@@ -83,13 +87,21 @@ func TestPersistenceManager_DataRecovery(t *testing.T) {
 	// 等待数据刷新到磁盘
 	time.Sleep(3 * time.Second)
 
-	pm1.Stop()
+	if pm1 != nil {
+		pm1.Stop()
+	}
 
 	// 第二阶段：恢复数据
 	pm2 := NewPersistenceManager(tempDir)
 	err = pm2.Start()
 	require.NoError(t, err)
-	defer pm2.Stop()
+	defer func() {
+		if pm2 != nil {
+			if pm2 != nil {
+		pm2.Stop()
+	}
+		}
+	}()
 
 	// 加载并恢复数据
 	err = pm2.LoadAndRecoverData()
@@ -127,7 +139,11 @@ func TestPersistenceManager_SequenceNumbering(t *testing.T) {
 	pm := NewPersistenceManager(tempDir)
 	err := pm.Start()
 	require.NoError(t, err)
-	defer pm.Stop()
+	defer func() {
+		if pm != nil {
+			pm.Stop()
+		}
+	}()
 
 	// 持久化足够的数据以触发序列号递增
 	for i := 0; i < 10; i++ {
@@ -161,7 +177,11 @@ func TestPersistenceManager_FileRotation(t *testing.T) {
 	pm := NewPersistenceManagerWithConfig(tempDir, 100, 50*time.Millisecond)
 	err := pm.Start()
 	require.NoError(t, err)
-	defer pm.Stop()
+	defer func() {
+		if pm != nil {
+			pm.Stop()
+		}
+	}()
 
 	// 持久化足够的数据以触发文件轮转
 	for i := 0; i < 20; i++ {
@@ -192,7 +212,11 @@ func TestPersistenceManager_ConcurrentAccess(t *testing.T) {
 	pm := NewPersistenceManager(tempDir)
 	err := pm.Start()
 	require.NoError(t, err)
-	defer pm.Stop()
+	defer func() {
+		if pm != nil {
+			pm.Stop()
+		}
+	}()
 
 	// 并发持久化数据
 	const numGoroutines = 10
@@ -272,7 +296,11 @@ func TestPersistenceManager_RetryAndDeadLetter(t *testing.T) {
 	if err := pm.Start(); err != nil {
 		t.Fatalf("Failed to start persistence manager: %v", err)
 	}
-	defer pm.Stop()
+	defer func() {
+		if pm != nil {
+			pm.Stop()
+		}
+	}()
 
 	// 测试数据
 	testData := map[string]interface{}{
@@ -389,7 +417,11 @@ func TestPersistenceManager_RecoveryProcessing(t *testing.T) {
 	if err := pm.Start(); err != nil {
 		t.Fatalf("Failed to start persistence manager: %v", err)
 	}
-	defer pm.Stop()
+	defer func() {
+		if pm != nil {
+			pm.Stop()
+		}
+	}()
 
 	// 测试添加数据时的持久化行为
 	testData := map[string]interface{}{
@@ -436,7 +468,11 @@ func TestPersistenceManager_ConcurrentRetry(t *testing.T) {
 	if err := pm.Start(); err != nil {
 		t.Fatalf("Failed to start persistence manager: %v", err)
 	}
-	defer pm.Stop()
+	defer func() {
+		if pm != nil {
+			pm.Stop()
+		}
+	}()
 
 	// 并发测试参数
 	concurrentCount := 50

@@ -89,3 +89,42 @@ func TestFormatTableData(t *testing.T) {
 		FormatTableData(map[string]interface{}{}, nil)
 	}, "空map数据不应该panic")
 }
+
+// TestPrintTableFromSliceEdgeCases 测试边缘情况
+func TestPrintTableFromSliceEdgeCases(t *testing.T) {
+	// 测试字段顺序包含不存在的字段
+	data := []map[string]interface{}{
+		{"a": "1", "b": "2"},
+	}
+	fieldOrder := []string{"nonexistent", "a", "b", "another_nonexistent"}
+	assert.NotPanics(t, func() {
+		PrintTableFromSlice(data, fieldOrder)
+	}, "字段顺序包含不存在字段不应该panic")
+
+	// 测试数据行中某些字段缺失
+	dataWithMissingFields := []map[string]interface{}{
+		{"name": "Alice", "age": 30},
+		{"name": "Bob", "city": "NYC"}, // 缺少age字段
+		{"age": 25, "city": "LA"},     // 缺少name字段
+	}
+	assert.NotPanics(t, func() {
+		PrintTableFromSlice(dataWithMissingFields, nil)
+	}, "数据行字段缺失不应该panic")
+
+	// 测试短字段名（测试最小宽度4的逻辑）
+	shortFieldData := []map[string]interface{}{
+		{"a": "1", "bb": "22", "ccc": "333"},
+	}
+	assert.NotPanics(t, func() {
+		PrintTableFromSlice(shortFieldData, nil)
+	}, "短字段名不应该panic")
+
+	// 测试空值和nil值
+	nilValueData := []map[string]interface{}{
+		{"name": "Alice", "value": nil},
+		{"name": "Bob", "value": ""},
+	}
+	assert.NotPanics(t, func() {
+		PrintTableFromSlice(nilValueData, nil)
+	}, "nil值不应该panic")
+}

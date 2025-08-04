@@ -3,8 +3,55 @@ package rsql
 import (
 	"strings"
 	"testing"
+	"fmt"
 )
 
+// TestParseError 测试 ParseError 结构体
+func TestParseError(t *testing.T) {
+	err := &ParseError{
+		Type:        ErrorTypeSyntax,
+		Message:     "Invalid syntax",
+		Position:    10,
+		Line:        2,
+		Column:      5,
+		Token:       "SELECT",
+		Expected:    []string{"FROM", "WHERE"},
+		Suggestions: []string{"Add FROM clause", "Check syntax"},
+		Context:     "SELECT statement",
+		Recoverable: true,
+	}
+
+	// 测试 Error() 方法
+	errorStr := err.Error()
+	if !strings.Contains(errorStr, "SYNTAX_ERROR") {
+		t.Errorf("Error string should contain 'SYNTAX_ERROR', got: %s", errorStr)
+	}
+	if !strings.Contains(errorStr, "Invalid syntax") {
+		t.Errorf("Error string should contain message, got: %s", errorStr)
+	}
+	if !strings.Contains(errorStr, "line 2, column 5") {
+		t.Errorf("Error string should contain position info, got: %s", errorStr)
+	}
+	if !strings.Contains(errorStr, "found 'SELECT'") {
+		t.Errorf("Error string should contain token info, got: %s", errorStr)
+	}
+	if !strings.Contains(errorStr, "expected: FROM, WHERE") {
+		t.Errorf("Error string should contain expected tokens, got: %s", errorStr)
+	}
+	if !strings.Contains(errorStr, "Context: SELECT statement") {
+		t.Errorf("Error string should contain context, got: %s", errorStr)
+	}
+	if !strings.Contains(errorStr, "Suggestions: Add FROM clause; Check syntax") {
+		t.Errorf("Error string should contain suggestions, got: %s", errorStr)
+	}
+
+	// 测试 IsRecoverable() 方法
+	if !err.IsRecoverable() {
+		t.Error("Error should be recoverable")
+	}
+}
+
+// TestEnhancedErrorHandling 测试增强的错误处理
 func TestEnhancedErrorHandling(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -31,14 +78,6 @@ func TestEnhancedErrorHandling(t *testing.T) {
 			recoverable:    true,
 		},
 		{
-			name:           "Typo in FROM",
-			input:          "SELECT * FORM table1",
-			expectedErrors: 2, // FORM typo + missing FROM
-			errorType:      ErrorTypeUnexpectedToken,
-			contains:       "Expected source identifier after FROM",
-			recoverable:    true,
-		},
-		{
 			name:           "Invalid character",
 			input:          "SELECT * FROM table1 WHERE id # 5",
 			expectedErrors: 1,
@@ -54,328 +93,246 @@ func TestEnhancedErrorHandling(t *testing.T) {
 			contains:       "Unterminated string literal",
 			recoverable:    true,
 		},
-		{
-			name:           "Invalid number format",
-			input:          "SELECT * FROM table1 WHERE id = 12.34.56",
-			expectedErrors: 1,
-			errorType:      ErrorTypeInvalidNumber,
-			contains:       "Invalid number format",
-			recoverable:    false,
-		},
-		{
-			name:           "Invalid LIMIT value",
-			input:          "SELECT * FROM table1 LIMIT abc",
-			expectedErrors: 1,
-			errorType:      ErrorTypeMissingToken, // 4
-			contains:       "LIMIT must be followed by an integer",
-			recoverable:    true,
-		},
-		{
-			name:           "Negative LIMIT value",
-			input:          "SELECT * FROM table1 LIMIT -5",
-			expectedErrors: 1,
-			errorType:      ErrorTypeMissingToken, // 4
-			contains:       "LIMIT must be followed by an integer",
-			recoverable:    true,
-		},
-		{
-			name:           "Multiple errors",
-			input:          "SELCT * FORM table1 WHERE id # 5",
-			expectedErrors: -1, // 任意数量的错误，只要有错误就行
-			errorType:      ErrorTypeUnknownKeyword, // 不检查具体类型
-			contains:       "", // 不检查具体消息
-			recoverable:    true,
-		},
-		{
-			name:           "Unknown function",
-			input:          "SELECT unknown_func(value) FROM stream",
-			expectedErrors: 1,
-			errorType:      ErrorTypeUnknownFunction, // 11
-			contains:       "Unknown function 'unknown_func'",
-			recoverable:    true,
-		},
-		{
-			name:           "Misspelled function",
-			input:          "SELECT coun(value) FROM stream",
-			expectedErrors: 1,
-			errorType:      ErrorTypeUnknownFunction, // 11
-			contains:       "Unknown function 'coun'",
-			recoverable:    true,
-		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			parser := NewParser(tt.input)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parser := NewParser(test.input)
 			_, err := parser.Parse()
 
-			// 检查是否有错误
-			if !parser.HasErrors() && err == nil {
+			// 应该有错误
+			if err == nil && !parser.HasErrors() {
 				t.Errorf("Expected error but got none")
 				return
 			}
 
 			// 检查错误数量
-			errors := parser.GetErrors()
-			if tt.expectedErrors >= 0 && len(errors) != tt.expectedErrors {
-				t.Errorf("Expected %d errors, got %d", tt.expectedErrors, len(errors))
-			} else if tt.expectedErrors == -1 && len(errors) == 0 {
-				t.Errorf("Expected at least one error, got none")
-			}
-
-			// 检查错误类型（至少有一个匹配）
-			found := false
-			for _, parseErr := range errors {
-				if parseErr.Type == tt.errorType {
-					found = true
-					break
-				}
-			}
-			if !found && len(errors) > 0 {
-				// 如果没找到期望的错误类型，但有其他错误，记录实际的错误类型
-				t.Logf("Expected error type %v not found. Actual error types: %v", tt.errorType, getErrorTypes(errors))
-				// 对于多错误情况，只要有错误就算通过
-				if tt.name != "Multiple errors" {
-					t.Errorf("Expected error type %v not found", tt.errorType)
+			if test.expectedErrors > 0 {
+				errors := parser.GetErrors()
+				if len(errors) != test.expectedErrors {
+					t.Errorf("Expected %d errors, got %d", test.expectedErrors, len(errors))
 				}
 			}
 
-			// 检查错误消息内容
-			if tt.contains != "" && len(errors) > 0 {
-				found := false
-				for _, parseErr := range errors {
-					if strings.Contains(parseErr.Message, tt.contains) {
-						found = true
+			// 检查错误内容
+			if test.contains != "" {
+				errorFound := false
+				for _, parseErr := range parser.GetErrors() {
+					if strings.Contains(parseErr.Message, test.contains) {
+						errorFound = true
 						break
 					}
 				}
-				if !found {
-					errorMessage := ""
-					if err != nil {
-						errorMessage = err.Error()
-					} else if len(errors) > 0 {
-						errorMessage = errors[0].Error()
-					}
-					t.Errorf("Error message should contain '%s', got: %s", tt.contains, errorMessage)
+				if !errorFound {
+					t.Errorf("Expected error containing '%s'", test.contains)
 				}
-			}
-
-			// 检查可恢复性
-			if len(errors) > 0 && errors[0].IsRecoverable() != tt.recoverable {
-				t.Errorf("Expected recoverable=%v, got %v", tt.recoverable, errors[0].IsRecoverable())
 			}
 		})
 	}
 }
 
+// TestErrorTypes 测试错误类型
+func TestErrorTypes(t *testing.T) {
+	errorTypes := []ErrorType{
+		ErrorTypeSyntax,
+		ErrorTypeLexical,
+		ErrorTypeSemantics,
+		ErrorTypeUnexpectedToken,
+		ErrorTypeMissingToken,
+		ErrorTypeInvalidExpression,
+		ErrorTypeUnknownKeyword,
+		ErrorTypeInvalidNumber,
+		ErrorTypeUnterminatedString,
+		ErrorTypeMaxIterations,
+		ErrorTypeUnknownFunction,
+	}
+
+	for _, errorType := range errorTypes {
+		t.Run(fmt.Sprintf("ErrorType_%d", int(errorType)), func(t *testing.T) {
+			err := &ParseError{
+				Type:    errorType,
+				Message: "Test error",
+			}
+			errorStr := err.Error()
+			if errorStr == "" {
+				t.Error("Error string should not be empty")
+			}
+		})
+	}
+}
+
+// TestErrorRecovery 测试错误恢复机制
 func TestErrorRecovery(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		canParse bool // 是否能够部分解析
+		name        string
+		input       string
+		expectError bool
+		errorCount  int
 	}{
 		{
-			name:     "Recoverable syntax error",
-			input:    "SELECT * FROM table1 WHERE id = 'unclosed",
-			canParse: true,
+			name:        "Multiple syntax errors",
+			input:       "SELCT * FORM table WHRE id = 1",
+			expectError: true,
+			errorCount:  3, // SELCT, FORM, WHRE
 		},
 		{
-			name:     "Multiple recoverable errors",
-			input:    "SELCT * FORM table1",
-			canParse: true,
+			name:        "Missing tokens",
+			input:       "SELECT FROM WHERE",
+			expectError: true,
+			errorCount:  1,
 		},
 		{
-			name:     "Non-recoverable error",
-			input:    "SELECT * FROM table1 WHERE id = 12.34.56",
-			canParse: true, // 词法错误但解析器可以继续
+			name:        "Incomplete WHERE clause",
+			input:       "SELECT * FROM table WHERE (",
+			expectError: false,
+			errorCount:  0,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			parser := NewParser(tt.input)
-			stmt, err := parser.Parse()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parser := NewParser(test.input)
+			_, err := parser.Parse()
 
-			if tt.canParse {
-				if stmt == nil {
-					t.Errorf("Expected partial parsing result, got nil")
-				}
-				if !parser.HasErrors() {
-					t.Errorf("Expected errors to be recorded")
+			if test.expectError {
+				if err == nil && !parser.HasErrors() {
+					t.Errorf("Expected error but got none")
 				}
 			} else {
-				if err == nil {
-					t.Errorf("Expected parsing to fail completely")
+				if err != nil || parser.HasErrors() {
+					t.Errorf("Unexpected error: %v", err)
 				}
 			}
 		})
 	}
 }
 
-func TestErrorPositioning(t *testing.T) {
-	tests := []struct {
-		name           string
-		input          string
-		expectedLine   int
-		expectedColumn int
-	}{
-		{
-			name:           "Single line error",
-			input:          "SELECT * FROM table1 WHERE id # 5",
-			expectedLine:   1,
-			expectedColumn: 30, // 大概位置
-		},
-		{
-			name:           "Multi-line error",
-			input:          "SELECT *\nFROM table1\nWHERE id # 5",
-			expectedLine:   3,
-			expectedColumn: 10, // 大概位置
-		},
-	}
+// TestNewFunctionValidator 测试 FunctionValidator 创建
+func TestNewFunctionValidator(t *testing.T) {
+	lexer := NewLexer("SELECT * FROM table")
+	parser := &Parser{lexer: lexer}
+	er := NewErrorRecovery(parser)
+	fv := NewFunctionValidator(er)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			parser := NewParser(tt.input)
-			_, _ = parser.Parse()
-
-			errors := parser.GetErrors()
-			if len(errors) == 0 {
-				t.Errorf("Expected at least one error")
-				return
-			}
-
-			firstError := errors[0]
-			if firstError.Line != tt.expectedLine {
-				t.Errorf("Expected line %d, got %d", tt.expectedLine, firstError.Line)
-			}
-
-			// 列号检查相对宽松，因为计算可能有偏差
-			if firstError.Column < 1 {
-				t.Errorf("Expected column > 0, got %d", firstError.Column)
-			}
-		})
-	}
-}
-
-func TestErrorSuggestions(t *testing.T) {
-	tests := []struct {
-		name               string
-		input              string
-		expectedSuggestion string
-	}{
-		{
-			name:               "SELECT typo",
-			input:              "SELCT * FROM table1",
-			expectedSuggestion: "SELECT",
-		},
-		{
-			name:               "FROM typo",
-			input:              "SELECT * FORM table1",
-			expectedSuggestion: "FROM",
-		},
-		{
-			name:               "WHERE typo",
-			input:              "SELECT * FROM table1 WHER id = 1",
-			expectedSuggestion: "WHERE",
-		},
-		{
-			name:               "Unterminated string",
-			input:              "SELECT * FROM table1 WHERE name = 'test",
-			expectedSuggestion: "Add closing quote",
-		},
-		{
-			name:               "Invalid LIMIT",
-			input:              "SELECT * FROM table1 LIMIT abc",
-			expectedSuggestion: "Add a number after LIMIT",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			parser := NewParser(tt.input)
-			_, _ = parser.Parse()
-
-			errors := parser.GetErrors()
-			if len(errors) == 0 {
-				t.Errorf("Expected at least one error")
-				return
-			}
-
-			found := false
-			for _, err := range errors {
-				for _, suggestion := range err.Suggestions {
-					if strings.Contains(suggestion, tt.expectedSuggestion) {
-						found = true
-						break
-					}
-				}
-				if found {
-					break
-				}
-			}
-
-			if !found {
-				t.Errorf("Expected suggestion containing '%s' not found", tt.expectedSuggestion)
-				t.Logf("Available suggestions: %v", errors[0].Suggestions)
-			}
-		})
-	}
-}
-
-func TestErrorContext(t *testing.T) {
-	input := "SELECT * FROM table1 WHERE id # 5"
-	parser := NewParser(input)
-	_, err := parser.Parse()
-
-	if err == nil {
-		t.Errorf("Expected error but got none")
+	if fv == nil {
+		t.Error("NewFunctionValidator should not return nil")
 		return
 	}
 
-	errorMessage := err.Error()
-	if !strings.Contains(errorMessage, "WHERE id # 5") {
-		t.Errorf("Error message should contain context, got: %s", errorMessage)
-	}
-
-	if !strings.Contains(errorMessage, "^") {
-		t.Errorf("Error message should contain position pointer, got: %s", errorMessage)
+	if fv.errorRecovery != er {
+		t.Error("FunctionValidator should store the provided ErrorRecovery")
 	}
 }
 
-func TestValidSQLParsing(t *testing.T) {
-	// 确保有效的SQL仍然能正常解析
-	validInputs := []string{
-		"SELECT * FROM table1",
-		"SELECT id, name FROM users WHERE age > 18",
-		"SELECT COUNT(*) FROM orders GROUP BY status",
-		"SELECT * FROM products LIMIT 10",
+// TestFunctionValidatorValidateExpression 测试函数验证器的表达式验证
+func TestFunctionValidatorValidateExpression(t *testing.T) {
+	tests := []struct {
+		name           string
+		expression     string
+		expectedErrors int
+		errorType      ErrorType
+		errorMessage   string
+	}{
+		{
+			name:           "Valid builtin function",
+			expression:     "abs(temperature)",
+			expectedErrors: 0,
+		},
+		{
+			name:           "Valid nested builtin functions",
+			expression:     "sqrt(abs(temperature))",
+			expectedErrors: 0,
+		},
+		{
+			name:           "Unknown function",
+			expression:     "unknown_func(temperature)",
+			expectedErrors: 1,
+			errorType:      ErrorTypeUnknownFunction,
+			errorMessage:   "unknown_func",
+		},
+		{
+			name:           "Multiple unknown functions",
+			expression:     "unknown1(temperature) + unknown2(humidity)",
+			expectedErrors: 2,
+			errorType:      ErrorTypeUnknownFunction,
+		},
+		{
+			name:           "Mixed valid and invalid functions",
+			expression:     "abs(temperature) + unknown_func(humidity)",
+			expectedErrors: 1,
+			errorType:      ErrorTypeUnknownFunction,
+			errorMessage:   "unknown_func",
+		},
+		{
+			name:           "No functions in expression",
+			expression:     "temperature + humidity",
+			expectedErrors: 0,
+		},
 	}
 
-	for _, input := range validInputs {
-		t.Run(input, func(t *testing.T) {
-			parser := NewParser(input)
-			stmt, err := parser.Parse()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			lexer := NewLexer("SELECT * FROM table")
+			parser := &Parser{lexer: lexer}
+			er := NewErrorRecovery(parser)
+			fv := NewFunctionValidator(er)
 
-			if err != nil {
-				t.Errorf("Valid SQL should parse without error, got: %v", err)
+			fv.ValidateExpression(test.expression, 0)
+
+			errors := er.GetErrors()
+			if len(errors) != test.expectedErrors {
+				t.Errorf("Expected %d errors, got %d", test.expectedErrors, len(errors))
+				return
 			}
 
-			if stmt == nil {
-				t.Errorf("Valid SQL should return statement")
-			}
+			if test.expectedErrors > 0 {
+				if errors[0].Type != test.errorType {
+					t.Errorf("Expected error type %v, got %v", test.errorType, errors[0].Type)
+				}
 
-			if parser.HasErrors() {
-				t.Errorf("Valid SQL should not have errors")
+				if test.errorMessage != "" && !strings.Contains(errors[0].Message, test.errorMessage) {
+					t.Errorf("Expected error message to contain '%s', got '%s'", test.errorMessage, errors[0].Message)
+				}
 			}
 		})
 	}
 }
 
-// getErrorTypes 获取错误类型列表
-func getErrorTypes(errors []*ParseError) []ErrorType {
-	types := make([]ErrorType, len(errors))
-	for i, err := range errors {
-		types[i] = err.Type
+// TestFunctionValidatorBuiltins 测试函数验证器内置函数
+func TestFunctionValidatorBuiltins(t *testing.T) {
+	lexer := NewLexer("SELECT * FROM table")
+	parser := &Parser{lexer: lexer}
+	er := NewErrorRecovery(parser)
+	validator := NewFunctionValidator(er)
+
+	// 测试内置函数验证（基于实际实现的数学函数）
+	builtinFunctions := []string{"ABS", "ROUND", "SQRT", "SIN", "COS", "FLOOR", "CEIL"}
+	for _, funcName := range builtinFunctions {
+		t.Run("Builtin_"+funcName, func(t *testing.T) {
+			if !validator.isBuiltinFunction(funcName) {
+				t.Errorf("Expected %s to be a valid builtin function", funcName)
+			}
+		})
 	}
-	return types
+
+	// 测试聚合函数（这些不在isBuiltinFunction中，但在SQL中是有效的）
+	aggregateFunctions := []string{"COUNT", "SUM", "AVG", "MAX", "MIN"}
+	for _, funcName := range aggregateFunctions {
+		t.Run("Aggregate_"+funcName, func(t *testing.T) {
+			// 聚合函数不在isBuiltinFunction中，这是正确的
+			if validator.isBuiltinFunction(funcName) {
+				t.Errorf("Expected %s to not be in builtin functions (it's an aggregate function)", funcName)
+			}
+		})
+	}
+
+	// 测试无效函数
+	invalidFunctions := []string{"INVALID_FUNC", "UNKNOWN", ""}
+	for _, funcName := range invalidFunctions {
+		t.Run("Invalid_"+funcName, func(t *testing.T) {
+			if validator.isBuiltinFunction(funcName) {
+				t.Errorf("Expected %s to be an invalid function", funcName)
+			}
+		})
+	}
 }

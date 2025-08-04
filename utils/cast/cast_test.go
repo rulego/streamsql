@@ -61,6 +61,127 @@ func TestToInt(t *testing.T) {
 	}
 }
 
+func TestToBoolENumericTypes(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected bool
+		hasError bool
+	}{
+		{"int8_zero", int8(0), false, false},
+		{"int8_nonzero", int8(1), true, false},
+		{"int16_zero", int16(0), false, false},
+		{"int16_nonzero", int16(1), true, false},
+		{"int32_zero", int32(0), false, false},
+		{"int32_nonzero", int32(1), true, false},
+		{"int64_zero", int64(0), false, false},
+		{"int64_nonzero", int64(1), true, false},
+		{"uint_zero", uint(0), false, false},
+		{"uint_nonzero", uint(1), true, false},
+		{"uint8_zero", uint8(0), false, false},
+		{"uint8_nonzero", uint8(1), true, false},
+		{"uint16_zero", uint16(0), false, false},
+		{"uint16_nonzero", uint16(1), true, false},
+		{"uint32_zero", uint32(0), false, false},
+		{"uint32_nonzero", uint32(1), true, false},
+		{"uint64_zero", uint64(0), false, false},
+		{"uint64_nonzero", uint64(1), true, false},
+		{"float32_zero", float32(0.0), false, false},
+		{"float32_nonzero", float32(1.0), true, false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := ToBoolE(test.input)
+			if test.hasError {
+				if err == nil {
+					t.Errorf("Expected error for input %v, but got none", test.input)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error for input %v: %v", test.input, err)
+				}
+				if result != test.expected {
+					t.Errorf("Expected %v for input %v, but got %v", test.expected, test.input, result)
+				}
+			}
+		})
+	}
+}
+
+// TestConvertIntToTime 测试ConvertIntToTime函数
+func TestConvertIntToTime(t *testing.T) {
+	tests := []struct {
+		name      string
+		timestamp int64
+		timeUnit  time.Duration
+		expected  time.Time
+	}{
+		{"seconds", 1609459200, time.Second, time.Unix(1609459200, 0)},
+		{"milliseconds", 1609459200000, time.Millisecond, time.Unix(0, 1609459200000*int64(time.Millisecond))},
+		{"microseconds", 1609459200000000, time.Microsecond, time.Unix(0, 1609459200000000*int64(time.Microsecond))},
+		{"nanoseconds", 1609459200000000000, time.Nanosecond, time.Unix(0, 1609459200000000000)},
+		{"default unit", 1609459200, time.Minute, time.Unix(1609459200, 0)}, // 默认按秒处理
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ConvertIntToTime(tt.timestamp, tt.timeUnit)
+			if !got.Equal(tt.expected) {
+				t.Errorf("ConvertIntToTime() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+// testStringer 实现fmt.Stringer接口
+type testStringer struct {
+	value string
+}
+
+func (ts testStringer) String() string {
+	return ts.value
+}
+
+// TestToStringEComplexTypes 测试ToStringE函数的复杂类型
+func TestToStringEComplexTypes(t *testing.T) {
+
+	// 测试map[interface{}]interface{}类型
+	mapInterfaceInterface := map[interface{}]interface{}{
+		"key1": "value1",
+		123:    "value2",
+	}
+
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected string
+		hasErr   bool
+	}{
+		{"fmt.Stringer", testStringer{"test string"}, "test string", false},
+		{"map[interface{}]interface{}", mapInterfaceInterface, "{\"123\":\"value2\",\"key1\":\"value1\"}", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ToStringE(tt.input)
+			if (err != nil) != tt.hasErr {
+				t.Errorf("ToStringE() error = %v, wantErr %v", err, tt.hasErr)
+			}
+			if !tt.hasErr {
+				// 对于JSON序列化的结果，由于map的顺序不确定，我们检查是否包含关键内容
+				if tt.name == "map[interface{}]interface{}" {
+					if len(got) == 0 || got[0] != '{' || got[len(got)-1] != '}' {
+						t.Errorf("ToStringE() = %v, expected JSON format", got)
+					}
+				} else if got != tt.expected {
+					t.Errorf("ToStringE() = %v, want %v", got, tt.expected)
+				}
+			}
+		})
+	}
+}
+
 func TestToInt64(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -102,12 +223,20 @@ func TestToDurationE(t *testing.T) {
 	tests := []struct {
 		name   string
 		input  interface{}
-		expect time.Duration
+		expected time.Duration
 		hasErr bool
 	}{
 		{"duration", time.Second, time.Second, false},
 		{"int", 1000, 1000, false},
+		{"int8", int8(100), 100, false},
+		{"int16", int16(1000), 1000, false},
+		{"int32", int32(1000), 1000, false},
 		{"int64", int64(1000), 1000, false},
+		{"uint", uint(1000), 1000, false},
+		{"uint8", uint8(100), 100, false},
+		{"uint16", uint16(1000), 1000, false},
+		{"uint32", uint32(1000), 1000, false},
+		{"uint64", uint64(1000), 1000, false},
 		{"string", "1s", time.Second, false},
 		{"invalid string", "abc", 0, true},
 		{"invalid type", []int{1, 2, 3}, 0, true},
@@ -119,8 +248,8 @@ func TestToDurationE(t *testing.T) {
 			if (err != nil) != tt.hasErr {
 				t.Errorf("ToDurationE() error = %v, wantErr %v", err, tt.hasErr)
 			}
-			if !tt.hasErr && dur != tt.expect {
-				t.Errorf("ToDurationE() = %v, want %v", dur, tt.expect)
+			if !tt.hasErr && dur != tt.expected {
+				t.Errorf("ToDurationE() = %v, want %v", dur, tt.expected)
 			}
 		})
 	}

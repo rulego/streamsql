@@ -143,6 +143,12 @@ func (ga *GroupAggregator) isNumericAggregator(aggType AggregateType) bool {
 func (ga *GroupAggregator) Add(data interface{}) error {
 	ga.mu.Lock()
 	defer ga.mu.Unlock()
+	
+	// 检查数据是否为nil
+	if data == nil {
+		return fmt.Errorf("data cannot be nil")
+	}
+	
 	var v reflect.Value
 
 	switch data.(type) {
@@ -153,6 +159,10 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		v = reflect.ValueOf(data)
 		if v.Kind() == reflect.Ptr {
 			v = v.Elem()
+		}
+		// 检查是否为支持的数据类型
+		if v.Kind() != reflect.Struct && v.Kind() != reflect.Map {
+			return fmt.Errorf("unsupported data type: %T, expected struct or map", data)
 		}
 	}
 
@@ -276,6 +286,11 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 
 		aggType := aggField.AggregateType
 
+		// Skip nil values for aggregation
+		if fieldVal == nil {
+			continue
+		}
+		
 		// Dynamically check if numeric conversion is needed
 		if ga.isNumericAggregator(aggType) {
 			// For numeric aggregation functions, try to convert to numeric type

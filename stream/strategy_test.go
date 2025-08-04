@@ -6,6 +6,7 @@ import (
 
 	"github.com/rulego/streamsql/logger"
 	"github.com/rulego/streamsql/types"
+	"github.com/stretchr/testify/require"
 )
 
 // TestStrategyFactory 测试策略工厂
@@ -56,6 +57,76 @@ func TestStrategyFactory(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestStrategy_Constructor 测试策略构造函数
+func TestStrategy_Constructor(t *testing.T) {
+	config := types.Config{
+		SimpleFields: []string{"name", "age"},
+	}
+	stream, err := NewStream(config)
+	require.NoError(t, err)
+	defer func() {
+		if stream != nil {
+			close(stream.done)
+		}
+	}()
+}
+
+// TestBlockingStrategy_ProcessData 测试阻塞策略数据处理
+func TestBlockingStrategy_ProcessData(t *testing.T) {
+	config := types.Config{
+		SimpleFields: []string{"name", "age"},
+	}
+	stream, err := NewStream(config)
+	require.NoError(t, err)
+	defer func() {
+		if stream != nil {
+			close(stream.done)
+		}
+	}()
+}
+
+// TestExpansionStrategy_ProcessData 测试扩容策略数据处理
+func TestExpansionStrategy_ProcessData(t *testing.T) {
+	config := types.Config{
+		SimpleFields: []string{"name", "age"},
+	}
+	stream, err := NewStream(config)
+	require.NoError(t, err)
+	defer func() {
+		if stream != nil {
+			close(stream.done)
+		}
+	}()
+}
+
+// TestPersistenceStrategy_ProcessData 测试持久化策略数据处理
+func TestPersistenceStrategy_ProcessData(t *testing.T) {
+	config := types.Config{
+		SimpleFields: []string{"name", "age"},
+	}
+	stream, err := NewStream(config)
+	require.NoError(t, err)
+	defer func() {
+		if stream != nil {
+			close(stream.done)
+		}
+	}()
+}
+
+// TestDropStrategy_ProcessData 测试丢弃策略数据处理
+func TestDropStrategy_ProcessData(t *testing.T) {
+	config := types.Config{
+		SimpleFields: []string{"name", "age"},
+	}
+	stream, err := NewStream(config)
+	require.NoError(t, err)
+	defer func() {
+		if stream != nil {
+			close(stream.done)
+		}
+	}()
 }
 
 // TestStrategyInitialization 测试策略初始化

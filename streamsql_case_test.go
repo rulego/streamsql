@@ -293,6 +293,7 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 		name     string
 		sql      string
 		testData []map[string]interface{}
+		expected []map[string]interface{} // 期望的结果
 		wantErr  bool
 	}{
 		{
@@ -311,6 +312,12 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 				{"deviceId": "device3", "temperature": 15.0},
 				{"deviceId": "device4", "temperature": 5.0},
 			},
+			expected: []map[string]interface{}{
+				{"deviceId": "device1", "temp_category": "HOT"},
+				{"deviceId": "device2", "temp_category": "WARM"},
+				{"deviceId": "device3", "temp_category": "COOL"},
+				{"deviceId": "device4", "temp_category": "COLD"},
+			},
 			wantErr: false,
 		},
 		{
@@ -327,6 +334,11 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 				{"deviceId": "device2", "status": "inactive"},
 				{"deviceId": "device3", "status": "unknown"},
 			},
+			expected: []map[string]interface{}{
+				{"deviceId": "device1", "status_code": 1.0},
+				{"deviceId": "device2", "status_code": 0.0},
+				{"deviceId": "device3", "status_code": -1.0},
+			},
 			wantErr: false,
 		},
 		{
@@ -342,6 +354,11 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 				{"deviceId": "device1", "temperature": 35.0},
 				{"deviceId": "device2", "temperature": 25.0},
 				{"deviceId": "device3", "temperature": 15.0},
+			},
+			expected: []map[string]interface{}{
+				{"deviceId": "device1", "temperature": 35.0, "adjusted_temp": 42.0},
+				{"deviceId": "device2", "temperature": 25.0, "adjusted_temp": 27.5},
+				{"deviceId": "device3", "temperature": 15.0, "adjusted_temp": 15.0},
 			},
 			wantErr: false,
 		},
@@ -367,13 +384,9 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 			// 如果执行成功，继续测试数据处理
 			strm := streamsql.stream
 
-			// 添加测试数据
-			for _, data := range tt.testData {
-				strm.Emit(data)
-			}
-
-			// 捕获结果
-			resultChan := make(chan interface{}, 10)
+			// 收集所有结果
+			var allResults []map[string]interface{}
+			resultChan := make(chan []map[string]interface{}, 10)
 			strm.AddSink(func(result []map[string]interface{}) {
 				select {
 				case resultChan <- result:
@@ -381,14 +394,93 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 				}
 			})
 
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			// 添加测试数据
+			for _, data := range tt.testData {
+				strm.Emit(data)
+			}
+
+			// 等待并收集结果
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 
-			select {
-			case result := <-resultChan:
-				assert.NotNil(t, result)
-			case <-ctx.Done():
-				// 对于非窗口查询，超时可能是正常的
+			// 收集所有结果
+			for i := 0; i < len(tt.testData); i++ {
+				select {
+				case result := <-resultChan:
+					if len(result) > 0 {
+						allResults = append(allResults, result...)
+					}
+				case <-ctx.Done():
+					t.Logf("Timeout waiting for result %d", i+1)
+					break
+				}
+			}
+
+			// 验证结果数量
+			assert.Equal(t, len(tt.expected), len(allResults), "结果数量不匹配")
+
+			// 验证每个结果的内容（不依赖顺序）
+			expectedMap := make(map[string]map[string]interface{})
+			for _, expected := range tt.expected {
+				deviceId, ok := expected["deviceId"].(string)
+				if ok {
+					expectedMap[deviceId] = expected
+				}
+			}
+
+			// 验证所有期望的设备都出现在结果中
+			for deviceId := range expectedMap {
+				found := false
+				for _, actual := range allResults {
+					if actualDeviceId, ok := actual["deviceId"].(string); ok && actualDeviceId == deviceId {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "期望的设备 %s 未出现在结果中", deviceId)
+			}
+
+			for _, actual := range allResults {
+				deviceId, ok := actual["deviceId"].(string)
+				if !ok {
+					t.Errorf("结果中缺少deviceId字段")
+					continue
+				}
+
+				expected, exists := expectedMap[deviceId]
+				if !exists {
+					t.Errorf("未找到设备 %s 的期望结果", deviceId)
+					continue
+				}
+
+				// 验证每个字段
+				for key, expectedValue := range expected {
+					actualValue, exists := actual[key]
+					assert.True(t, exists, "字段 %s 不存在于结果中", key)
+					if exists {
+						// 对于数值类型，使用近似比较
+						if expectedFloat, ok := expectedValue.(float64); ok {
+							if actualFloat, ok := actualValue.(float64); ok {
+								assert.InDelta(t, expectedFloat, actualFloat, 0.001, "字段 %s 的值不匹配", key)
+							} else {
+								assert.Equal(t, expectedValue, actualValue, "字段 %s 的值不匹配", key)
+							}
+						} else {
+							assert.Equal(t, expectedValue, actualValue, "字段 %s 的值不匹配", key)
+						}
+					}
+				}
+
+				// 验证结果中没有多余的字段（除了deviceId）
+				for key := range actual {
+					if key == "deviceId" {
+						continue
+					}
+					_, exists := expected[key]
+					assert.True(t, exists, "结果中包含未期望的字段 %s", key)
+				}
+
+				t.Logf("设备 %s: 期望=%v, 实际=%v", deviceId, expected, actual)
 			}
 		})
 	}
