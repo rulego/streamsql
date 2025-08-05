@@ -353,6 +353,20 @@ func generateFunctionSuggestions(functionName string) []string {
 	return suggestions
 }
 
+// CreateSemanticError creates semantic error
+func CreateSemanticError(message string, position int) *ParseError {
+	line, column := calculateLineColumn(position)
+	return &ParseError{
+		Type:        ErrorTypeSemantics,
+		Message:     message,
+		Position:    position,
+		Line:        line,
+		Column:      column,
+		Suggestions: []string{"Check semantic rules", "Verify data types and constraints"},
+		Recoverable: true,
+	}
+}
+
 // FormatErrorContext formats error context
 func FormatErrorContext(input string, position int, contextLength int) string {
 	if position < 0 || position >= len(input) {

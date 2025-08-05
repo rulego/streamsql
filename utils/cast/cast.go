@@ -169,9 +169,29 @@ func ToBoolE(value interface{}) (bool, error) {
 	switch v := value.(type) {
 	case bool:
 		return v, nil
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+	case int:
 		return v != 0, nil
-	case float32, float64:
+	case int8:
+		return v != 0, nil
+	case int16:
+		return v != 0, nil
+	case int32:
+		return v != 0, nil
+	case int64:
+		return v != 0, nil
+	case uint:
+		return v != 0, nil
+	case uint8:
+		return v != 0, nil
+	case uint16:
+		return v != 0, nil
+	case uint32:
+		return v != 0, nil
+	case uint64:
+		return v != 0, nil
+	case float32:
+		return v != 0.0, nil
+	case float64:
 		return v != 0.0, nil
 	case string:
 		if b, err := strconv.ParseBool(v); err == nil {

@@ -183,15 +183,15 @@ func (dp *DataProcessor) evaluateNestedFieldExpression(expression string, dataMa
 		return nil, fmt.Errorf("expression parse failed: %w", parseErr)
 	}
 
-	// Use NULL-supporting evaluation method
-	numResult, isNull, err := expr.EvaluateWithNull(dataMap)
+	// Use EvaluateValueWithNull to get actual values (including strings)
+	result, isNull, err := expr.EvaluateValueWithNull(dataMap)
 	if err != nil {
 		return nil, fmt.Errorf("expression evaluation failed: %w", err)
 	}
 	if isNull {
 		return nil, nil // Return nil to represent NULL value
 	}
-	return numResult, nil
+	return result, nil
 }
 
 // evaluateCaseExpression evaluates CASE expression
@@ -210,14 +210,15 @@ func (dp *DataProcessor) evaluateCaseExpression(expression string, dataMap map[s
 		return nil, fmt.Errorf("CASE expression parse failed: %w", parseErr)
 	}
 
-	numResult, isNull, err := expr.EvaluateWithNull(dataMap)
+	// 使用EvaluateValueWithNull来获取实际值（包括字符串）
+	result, isNull, err := expr.EvaluateValueWithNull(dataMap)
 	if err != nil {
 		return nil, fmt.Errorf("CASE expression evaluation failed: %w", err)
 	}
 	if isNull {
 		return nil, nil // 返回nil表示NULL值
 	}
-	return numResult, nil
+	return result, nil
 }
 
 // fallbackExpressionEvaluation 回退表达式计算
@@ -230,20 +231,27 @@ func (dp *DataProcessor) fallbackExpressionEvaluation(expression string, dataMap
 			exprToUse = processed
 		}
 	}
+
+	// 首先尝试使用桥接器处理（支持字符串拼接等）
+	if result, err := bridge.EvaluateExpression(exprToUse, dataMap); err == nil {
+		return result, nil
+	}
+
+	// 如果桥接器失败，回退到自定义表达式引擎
 	expr, parseErr := expr.NewExpression(exprToUse)
 	if parseErr != nil {
 		return nil, fmt.Errorf("expression parse failed: %w", parseErr)
 	}
 
-	// 计算表达式，支持NULL值
-	numResult, isNull, err := expr.EvaluateWithNull(dataMap)
+	// 使用EvaluateValueWithNull获取实际值（包括字符串）
+	result, isNull, err := expr.EvaluateValueWithNull(dataMap)
 	if err != nil {
 		return nil, fmt.Errorf("expression evaluation failed: %w", err)
 	}
 	if isNull {
 		return nil, nil // 返回nil表示NULL值
 	}
-	return numResult, nil
+	return result, nil
 }
 
 // startWindowProcessing 启动窗口处理
@@ -375,8 +383,8 @@ func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]inte
 	var filteredResults []map[string]interface{}
 	// 应用 HAVING 过滤，使用CASE表达式计算器
 	for _, result := range results {
-		// 使用EvaluateWithNull方法以支持NULL值处理
-		havingResult, isNull, err := expression.EvaluateWithNull(result)
+		// 使用EvaluateValueWithNull方法以支持NULL值处理
+		havingResult, isNull, err := expression.EvaluateValueWithNull(result)
 		if err != nil {
 			logger.Error("having filter evaluation error: %v", err)
 			continue
@@ -388,8 +396,20 @@ func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]inte
 		}
 
 		// 对于数值结果，大于0视为true（满足HAVING条件）
-		if havingResult > 0 {
-			filteredResults = append(filteredResults, result)
+		// 对于字符串结果，非空视为true
+		if havingResult != nil {
+			if numResult, ok := havingResult.(float64); ok {
+				if numResult > 0 {
+					filteredResults = append(filteredResults, result)
+				}
+			} else if strResult, ok := havingResult.(string); ok {
+				if strResult != "" {
+					filteredResults = append(filteredResults, result)
+				}
+			} else {
+				// 其他类型，非nil视为true
+				filteredResults = append(filteredResults, result)
+			}
 		}
 	}
 

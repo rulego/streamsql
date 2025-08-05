@@ -95,11 +95,9 @@ func (p *Parser) getTokenTypeName(tokenType TokenType) string {
 func (p *Parser) Parse() (*SelectStatement, error) {
 	stmt := &SelectStatement{}
 
-	// 解析SELECT子句
+	// 解析SELECT子句 - 对明显的语法错误不进行错误恢复
 	if err := p.parseSelect(stmt); err != nil {
-		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
-			return nil, p.createDetailedError(err)
-		}
+		return nil, p.createDetailedError(err)
 	}
 
 	// 解析FROM子句
@@ -194,18 +192,13 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 	// Validate if first token is SELECT
 	firstToken := p.lexer.NextToken()
 	if firstToken.Type != TokenSELECT {
-		// If not SELECT, check for typos
-		if firstToken.Type == TokenIdent {
-			// The error here has been handled by lexer's checkForTypos
-			// Continue parsing, assuming user meant SELECT
-		} else {
-			return CreateSyntaxError(
-				fmt.Sprintf("Expected SELECT, got %s", firstToken.Value),
-				firstToken.Pos,
-				firstToken.Value,
-				[]string{"SELECT"},
-			)
-		}
+		// 直接返回语法错误
+		return CreateSyntaxError(
+			fmt.Sprintf("Expected SELECT, got %s", firstToken.Value),
+			firstToken.Pos,
+			firstToken.Value,
+			[]string{"SELECT"},
+		)
 	}
 	currentToken := p.lexer.NextToken()
 
@@ -309,11 +302,11 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 						}
 					}
 				} else if len(exprStr) > 0 && (currentToken.Type == TokenIdent || currentToken.Type == TokenQuotedIdent) {
-				// 检查前一个字符是否是数字，且前面没有空格
-				if (lastChar[0] >= '0' && lastChar[0] <= '9') && !strings.HasSuffix(exprStr, " ") {
-					shouldAddSpace = false
+					// 检查前一个字符是否是数字，且前面没有空格
+					if (lastChar[0] >= '0' && lastChar[0] <= '9') && !strings.HasSuffix(exprStr, " ") {
+						shouldAddSpace = false
+					}
 				}
-			}
 
 				if shouldAddSpace {
 					expr.WriteString(" ")
@@ -411,11 +404,11 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 			conditions = append(conditions, "NOT")
 		default:
 			// Handle string value quotes
-		if len(conditions) > 0 && conditions[len(conditions)-1] == "'" {
-			conditions[len(conditions)-1] = conditions[len(conditions)-1] + tok.Value
-		} else {
-			conditions = append(conditions, tok.Value)
-		}
+			if len(conditions) > 0 && conditions[len(conditions)-1] == "'" {
+				conditions[len(conditions)-1] = conditions[len(conditions)-1] + tok.Value
+			} else {
+				conditions = append(conditions, tok.Value)
+			}
 		}
 	}
 

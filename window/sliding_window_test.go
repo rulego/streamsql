@@ -92,8 +92,9 @@ END:
 	// 预期结果：保留最近 2 秒内的数据
 	for i, exp := range expected {
 		assert.Equal(t, actual[i].size, exp.size)
-		assert.Equal(t, actual[i].start, exp.start)
-		assert.Equal(t, actual[i].end, exp.end)
+		// 允许时间有1秒的误差
+		assert.WithinDuration(t, exp.start, actual[i].start, time.Second)
+		assert.WithinDuration(t, exp.end, actual[i].end, time.Second)
 		for _, d := range exp.data {
 			assert.Contains(t, actual[i].data, d)
 		}

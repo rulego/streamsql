@@ -125,9 +125,35 @@ func validateBasicSyntax(exprStr string) error {
 		}
 	}
 
+	// 检查表达式开头和结尾的运算符
+	if err := checkExpressionStartEnd(trimmed); err != nil {
+		return err
+	}
+
 	// 检查连续运算符
 	if err := checkConsecutiveOperators(trimmed); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// checkExpressionStartEnd checks if expression starts or ends with an operator
+func checkExpressionStartEnd(expr string) error {
+	operators := []string{"+", "*", "/", "%", "^", "==", "!=", ">=", "<=", ">", "<"}
+
+	// 检查表达式开头（允许负号，因为它是合法的负数表示）
+	for _, op := range operators {
+		if strings.HasPrefix(expr, op) {
+			return fmt.Errorf("expression cannot start with operator")
+		}
+	}
+
+	// 检查表达式结尾
+	for _, op := range operators {
+		if strings.HasSuffix(expr, op) {
+			return fmt.Errorf("expression cannot end with operator")
+		}
 	}
 
 	return nil
@@ -186,6 +212,20 @@ func checkConsecutiveOperators(expr string) error {
 					}
 					if digitPos < len(expr) && expr[digitPos] >= '0' && expr[digitPos] <= '9' {
 						// 这是比较运算符后跟负数，允许通过
+						i = nextPos // 跳过到负号位置
+						continue
+					}
+				}
+
+				// 特殊处理：如果当前是幂运算符(^)，下一个是负号，且负号后跟数字，则允许
+				if currentOp == "^" && nextPos < len(expr) && expr[nextPos] == '-' {
+					// 检查负号后是否跟数字
+					digitPos := nextPos + 1
+					for digitPos < len(expr) && (expr[digitPos] == ' ' || expr[digitPos] == '\t') {
+						digitPos++
+					}
+					if digitPos < len(expr) && expr[digitPos] >= '0' && expr[digitPos] <= '9' {
+						// 这是幂运算符后跟负数，允许通过
 						i = nextPos // 跳过到负号位置
 						continue
 					}
@@ -428,7 +468,7 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
 			fieldName = fieldName[1 : len(fieldName)-1] // Remove backticks
 		}
-		
+
 		// Support nested field access
 		if fieldpath.IsNestedField(fieldName) {
 			if val, found := fieldpath.GetNestedField(data, fieldName); found {
@@ -453,7 +493,31 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 		return 0, fmt.Errorf("field '%s' not found", fieldName)
 
 	case TypeOperator:
-		// Calculate values of left and right sub-expressions
+		// Check if this is a comparison operator
+		if isComparisonOperator(node.Value) {
+			// For comparison operators, use evaluateNodeValue to get original types
+			leftValue, err := evaluateNodeValue(node.Left, data)
+			if err != nil {
+				return 0, err
+			}
+
+			rightValue, err := evaluateNodeValue(node.Right, data)
+			if err != nil {
+				return 0, err
+			}
+
+			// Perform comparison and convert boolean to number
+			result, err := compareValues(leftValue, rightValue, node.Value)
+			if err != nil {
+				return 0, err
+			}
+			if result {
+				return 1.0, nil
+			}
+			return 0.0, nil
+		}
+
+		// For arithmetic operators, calculate numeric values
 		left, err := evaluateNode(node.Left, data)
 		if err != nil {
 			return 0, err
@@ -639,6 +703,107 @@ func evaluateBuiltinFunction(node *ExprNode, data map[string]interface{}) (float
 			return 0, err
 		}
 		return math.Round(arg), nil
+
+	case "pow":
+		if len(node.Args) != 2 {
+			return 0, fmt.Errorf("pow function requires exactly 2 arguments")
+		}
+		base, err := evaluateNode(node.Args[0], data)
+		if err != nil {
+			return 0, err
+		}
+		exponent, err := evaluateNode(node.Args[1], data)
+		if err != nil {
+			return 0, err
+		}
+		return math.Pow(base, exponent), nil
+
+	case "max":
+		if len(node.Args) < 1 {
+			return 0, fmt.Errorf("max function requires at least 1 argument")
+		}
+		maxVal, err := evaluateNode(node.Args[0], data)
+		if err != nil {
+			return 0, err
+		}
+		for i := 1; i < len(node.Args); i++ {
+			arg, err := evaluateNode(node.Args[i], data)
+			if err != nil {
+				return 0, err
+			}
+			if arg > maxVal {
+				maxVal = arg
+			}
+		}
+		return maxVal, nil
+
+	case "min":
+		if len(node.Args) < 1 {
+			return 0, fmt.Errorf("min function requires at least 1 argument")
+		}
+		minVal, err := evaluateNode(node.Args[0], data)
+		if err != nil {
+			return 0, err
+		}
+		for i := 1; i < len(node.Args); i++ {
+			arg, err := evaluateNode(node.Args[i], data)
+			if err != nil {
+				return 0, err
+			}
+			if arg < minVal {
+				minVal = arg
+			}
+		}
+		return minVal, nil
+
+	case "log":
+		if len(node.Args) != 1 {
+			return 0, fmt.Errorf("log function requires exactly 1 argument")
+		}
+		arg, err := evaluateNode(node.Args[0], data)
+		if err != nil {
+			return 0, err
+		}
+		if arg <= 0 {
+			return 0, fmt.Errorf("log of non-positive number")
+		}
+		return math.Log(arg), nil
+
+	case "log10":
+		if len(node.Args) != 1 {
+			return 0, fmt.Errorf("log10 function requires exactly 1 argument")
+		}
+		arg, err := evaluateNode(node.Args[0], data)
+		if err != nil {
+			return 0, err
+		}
+		if arg <= 0 {
+			return 0, fmt.Errorf("log10 of non-positive number")
+		}
+		return math.Log10(arg), nil
+
+	case "exp":
+		if len(node.Args) != 1 {
+			return 0, fmt.Errorf("exp function requires exactly 1 argument")
+		}
+		arg, err := evaluateNode(node.Args[0], data)
+		if err != nil {
+			return 0, err
+		}
+		return math.Exp(arg), nil
+
+	case "len":
+		if len(node.Args) != 1 {
+			return 0, fmt.Errorf("len function requires exactly 1 argument")
+		}
+		// Use evaluateNodeValue to get the original value
+		arg, err := evaluateNodeValue(node.Args[0], data)
+		if err != nil {
+			return 0, err
+		}
+		// Convert to string and get length
+		strVal := fmt.Sprintf("%v", arg)
+		return float64(len(strVal)), nil
 
 	default:
 		return 0, fmt.Errorf("unknown function: %s", node.Value)
@@ -828,7 +993,7 @@ func evaluateNodeValue(node *ExprNode, data map[string]interface{}) (interface{}
 		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
 			fieldName = fieldName[1 : len(fieldName)-1] // Remove backticks
 		}
-		
+
 		// Support nested field access
 		if fieldpath.IsNestedField(fieldName) {
 			if val, found := fieldpath.GetNestedField(data, fieldName); found {
@@ -957,8 +1122,14 @@ func likeMatch(text, pattern string, textIndex, patternIndex int) bool {
 func convertToFloat(val interface{}) (float64, error) {
 	switch v := val.(type) {
 	case float64:
+		if math.IsNaN(v) {
+			return 0, fmt.Errorf("NaN value detected")
+		}
 		return v, nil
 	case float32:
+		if math.IsNaN(float64(v)) {
+			return 0, fmt.Errorf("NaN value detected")
+		}
 		return float64(v), nil
 	case int:
 		return float64(v), nil
@@ -966,8 +1137,20 @@ func convertToFloat(val interface{}) (float64, error) {
 		return float64(v), nil
 	case int64:
 		return float64(v), nil
+	case bool:
+		if v {
+			return 1.0, nil
+		}
+		return 0.0, nil
 	case string:
-		return strconv.ParseFloat(v, 64)
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return 0, err
+		}
+		if math.IsNaN(f) {
+			return 0, fmt.Errorf("NaN value detected")
+		}
+		return f, nil
 	default:
 		return 0, fmt.Errorf("cannot convert %T to float64", val)
 	}
@@ -1920,6 +2103,69 @@ func evaluateCaseExpressionWithNull(node *ExprNode, data map[string]interface{})
 	return 0, true, nil
 }
 
+// evaluateCaseExpressionValueWithNull 计算CASE表达式并返回实际值（支持字符串），支持NULL值
+func evaluateCaseExpressionValueWithNull(node *ExprNode, data map[string]interface{}) (interface{}, bool, error) {
+	if node.Type != TypeCase {
+		return nil, false, fmt.Errorf("node is not a CASE expression")
+	}
+
+	// 处理简单CASE表达式 (CASE expr WHEN value1 THEN result1 ...)
+	if node.CaseExpr != nil {
+		// 计算CASE后面的表达式值
+		caseValue, caseNull, err := evaluateNodeValueWithNull(node.CaseExpr, data)
+		if err != nil {
+			return nil, false, err
+		}
+
+		// 遍历WHEN子句，查找匹配的值
+		for _, whenClause := range node.WhenClauses {
+			conditionValue, condNull, err := evaluateNodeValueWithNull(whenClause.Condition, data)
+			if err != nil {
+				return nil, false, err
+			}
+
+			// 比较值是否相等（考虑NULL值）
+			var isEqual bool
+			if caseNull && condNull {
+				isEqual = true // NULL = NULL
+			} else if caseNull || condNull {
+				isEqual = false // NULL != value
+			} else {
+				isEqual, err = compareValuesForEquality(caseValue, conditionValue)
+				if err != nil {
+					return nil, false, err
+				}
+			}
+
+			if isEqual {
+				return evaluateNodeValueWithNull(whenClause.Result, data)
+			}
+		}
+	} else {
+		// 处理搜索CASE表达式 (CASE WHEN condition1 THEN result1 ...)
+		for _, whenClause := range node.WhenClauses {
+			// 评估WHEN条件
+			conditionResult, err := evaluateBooleanConditionWithNull(whenClause.Condition, data)
+			if err != nil {
+				return nil, false, err
+			}
+
+			// 如果条件为真，返回对应的结果
+			if conditionResult {
+				return evaluateNodeValueWithNull(whenClause.Result, data)
+			}
+		}
+	}
+
+	// 如果没有匹配的WHEN子句，执行ELSE子句
+	if node.ElseExpr != nil {
+		return evaluateNodeValueWithNull(node.ElseExpr, data)
+	}
+
+	// 如果没有ELSE子句，SQL标准是返回NULL
+	return nil, true, nil
+}
+
 // evaluateNodeValueWithNull 计算节点值，返回interface{}以支持不同类型，包含NULL检查
 func evaluateNodeValueWithNull(node *ExprNode, data map[string]interface{}) (interface{}, bool, error) {
 	if node == nil {
@@ -1949,7 +2195,7 @@ func evaluateNodeValueWithNull(node *ExprNode, data map[string]interface{}) (int
 		if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
 			fieldName = fieldName[1 : len(fieldName)-1] // 去掉反引号
 		}
-		
+
 		// 支持嵌套字段访问
 		if fieldpath.IsNestedField(fieldName) {
 			if val, found := fieldpath.GetNestedField(data, fieldName); found {
@@ -1962,6 +2208,10 @@ func evaluateNodeValueWithNull(node *ExprNode, data map[string]interface{}) (int
 			}
 		}
 		return nil, true, nil // 字段不存在视为NULL
+
+	case TypeCase:
+		// 处理CASE表达式，返回实际值
+		return evaluateCaseExpressionValueWithNull(node, data)
 
 	default:
 		// 对于其他类型，回退到数值计算
@@ -2186,4 +2436,14 @@ func (e *Expression) EvaluateWithNull(data map[string]interface{}) (float64, boo
 		return result, false, err
 	}
 	return evaluateNodeWithNull(e.Root, data)
+}
+
+// EvaluateValueWithNull 评估表达式并返回任意类型的值，支持NULL
+func (e *Expression) EvaluateValueWithNull(data map[string]interface{}) (interface{}, bool, error) {
+	if e.useExprLang {
+		// expr-lang不支持NULL，回退到原有逻辑
+		result, err := e.evaluateWithExprLang(data)
+		return result, false, err
+	}
+	return evaluateNodeValueWithNull(e.Root, data)
 }

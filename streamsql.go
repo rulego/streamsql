@@ -18,6 +18,7 @@ package streamsql
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/rulego/streamsql/rsql"
 	"github.com/rulego/streamsql/stream"
@@ -42,6 +43,9 @@ type Streamsql struct {
 
 	// Save original SELECT field order to maintain field order for table output
 	fieldOrder []string
+
+	// Flag to track if Execute has been called
+	executed int32
 }
 
 // New creates a new StreamSQL instance.
@@ -120,9 +124,16 @@ func New(options ...Option) *Streamsql {
 //	    LIMIT 100
 //	`)
 func (s *Streamsql) Execute(sql string) error {
+	// Try to acquire execution lock using CAS operation
+	if !atomic.CompareAndSwapInt32(&s.executed, 0, 1) {
+		return fmt.Errorf("Execute() has already been called, create a new Streamsql instance for different queries")
+	}
+
 	// Parse SQL statement
 	config, condition, err := rsql.Parse(sql)
 	if err != nil {
+		// Reset executed flag on error
+		atomic.StoreInt32(&s.executed, 0)
 		return fmt.Errorf("SQL parsing failed: %w", err)
 	}
 
@@ -150,6 +161,8 @@ func (s *Streamsql) Execute(sql string) error {
 	}
 
 	if err != nil {
+		// Reset executed flag on error
+		atomic.StoreInt32(&s.executed, 0)
 		return fmt.Errorf("failed to create stream processor: %w", err)
 	}
 
@@ -157,11 +170,14 @@ func (s *Streamsql) Execute(sql string) error {
 
 	// Register filter condition
 	if err = s.stream.RegisterFilter(condition); err != nil {
+		// Reset executed flag on error
+		atomic.StoreInt32(&s.executed, 0)
 		return fmt.Errorf("failed to register filter condition: %w", err)
 	}
 
 	// Start stream processing
 	s.stream.Start()
+
 	return nil
 }
 
