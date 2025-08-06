@@ -553,16 +553,16 @@ func (f *RoundFunction) Execute(ctx *FunctionContext, args []interface{}) (inter
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if len(args) == 1 {
 		return math.Round(val), nil
 	}
-	
+
 	precision, err := cast.ToIntE(args[1])
 	if err != nil {
 		return nil, err
 	}
-	
+
 	shift := math.Pow(10, float64(precision))
 	return math.Round(val*shift) / shift, nil
 }
@@ -587,7 +587,7 @@ func (f *SignFunction) Execute(ctx *FunctionContext, args []interface{}) (interf
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if val > 0 {
 		return 1, nil
 	} else if val < 0 {

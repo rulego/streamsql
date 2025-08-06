@@ -146,3 +146,130 @@ func TestFunctionConflictResolution(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 5.5, result)
 }
+
+func TestExprBridgeAdvancedFunctions(t *testing.T) {
+	bridge := NewExprBridge()
+
+	t.Run("String Concatenation Detection", func(t *testing.T) {
+		data := map[string]interface{}{
+			"name": "John",
+			"age":  25,
+		}
+
+		// 测试字符串连接表达式检测
+		isConcat := bridge.isStringConcatenationExpression("name + ' is ' + age", data)
+		assert.True(t, isConcat)
+
+		isConcat = bridge.isStringConcatenationExpression("abs(-5)", data)
+		assert.False(t, isConcat)
+	})
+
+	t.Run("Fallback to Custom Expression", func(t *testing.T) {
+		data := map[string]interface{}{
+			"text": "hello",
+		}
+
+		// 测试回退到自定义表达式处理
+		result, err := bridge.fallbackToCustomExpr("text + ' world'", data)
+		assert.NoError(t, err)
+		assert.Equal(t, "hello world", result)
+	})
+
+	t.Run("String Concatenation Evaluation", func(t *testing.T) {
+		data := map[string]interface{}{
+			"first":  "Hello",
+			"second": "World",
+		}
+
+		// 测试字符串连接求值
+		result, err := bridge.evaluateStringConcatenation("first + ' ' + second", data)
+		assert.NoError(t, err)
+		assert.Equal(t, "Hello World", result)
+	})
+
+	t.Run("Simple Numeric Expression", func(t *testing.T) {
+		data := map[string]interface{}{
+			"x": 10,
+			"y": 5,
+		}
+
+		// 测试简单数值表达式
+		result, err := bridge.evaluateSimpleNumericExpression("x + y", data)
+		assert.NoError(t, err)
+		assert.Equal(t, float64(15), result)
+	})
+
+	t.Run("Function Call Detection", func(t *testing.T) {
+		// 测试函数调用检测
+		assert.True(t, bridge.isFunctionCall("abs(-5)"))
+		assert.True(t, bridge.isFunctionCall("length('hello')"))
+		assert.False(t, bridge.isFunctionCall("x + y"))
+		assert.False(t, bridge.isFunctionCall("simple_variable"))
+	})
+
+	t.Run("Like Expression Preprocessing", func(t *testing.T) {
+		// 测试LIKE表达式预处理
+		processed, err := bridge.PreprocessLikeExpression("name LIKE '%john%'")
+		assert.NoError(t, err)
+		assert.Contains(t, processed, "contains")
+	})
+
+	t.Run("IsNull Expression Preprocessing", func(t *testing.T) {
+		// 测试IS NULL表达式预处理
+		processed, err := bridge.PreprocessIsNullExpression("field IS NULL")
+		assert.NoError(t, err)
+		assert.Contains(t, processed, "== nil")
+	})
+
+	t.Run("Backtick Identifiers", func(t *testing.T) {
+		// 测试反引号标识符检测
+		assert.True(t, bridge.ContainsBacktickIdentifiers("`field_name` = 1"))
+		assert.False(t, bridge.ContainsBacktickIdentifiers("field_name = 1"))
+
+		// 测试反引号标识符预处理
+		processed, err := bridge.PreprocessBacktickIdentifiers("`field_name` = 1")
+		assert.NoError(t, err)
+		assert.Contains(t, processed, "field_name")
+	})
+
+	t.Run("Like Pattern Matching", func(t *testing.T) {
+		// 测试LIKE模式匹配
+		assert.True(t, bridge.matchesLikePattern("hello", "h%"))
+		assert.True(t, bridge.matchesLikePattern("world", "%d"))
+		assert.False(t, bridge.matchesLikePattern("hello", "x%"))
+
+		// 测试递归LIKE匹配
+		assert.True(t, bridge.likeMatch("hello", "h%o", 0, 0))
+		assert.False(t, bridge.likeMatch("hello", "x%", 0, 0))
+	})
+
+	t.Run("Type Conversion", func(t *testing.T) {
+		// 测试类型转换
+		result, err := bridge.toFloat64(10)
+		assert.NoError(t, err)
+		assert.Equal(t, float64(10), result)
+
+		result, err = bridge.toFloat64("10.5")
+		assert.NoError(t, err)
+		assert.Equal(t, float64(10.5), result)
+
+		_, err = bridge.toFloat64("invalid")
+		assert.Error(t, err)
+	})
+
+	t.Run("Expr Lang Function Detection", func(t *testing.T) {
+		// 测试expr-lang函数检测
+		assert.True(t, bridge.IsExprLangFunction("trim"))
+		assert.True(t, bridge.IsExprLangFunction("len"))
+		assert.True(t, bridge.IsExprLangFunction("abs"))
+		assert.False(t, bridge.IsExprLangFunction("nonexistent"))
+	})
+
+	t.Run("Like to Function Conversion", func(t *testing.T) {
+		// 测试LIKE转换为函数调用
+		result := bridge.convertLikeToFunction("name", "%john%")
+		assert.Contains(t, result, "contains")
+		assert.Contains(t, result, "name")
+		assert.Contains(t, result, "john")
+	})
+}

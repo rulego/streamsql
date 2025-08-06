@@ -265,6 +265,9 @@ func (f *FirstValueFunction) Validate(args []interface{}) error {
 }
 
 func (f *FirstValueFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	if err := f.Validate(args); err != nil {
+		return nil, err
+	}
 	return f.firstValue, nil
 }
 

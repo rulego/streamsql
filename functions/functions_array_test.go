@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -42,6 +43,36 @@ func TestArrayFunctions(t *testing.T) {
 			args:     []interface{}{[]interface{}{1, 2, 3}, 4},
 			expected: 0,
 		},
+		{
+			name:     "array_remove basic",
+			funcName: "array_remove",
+			args:     []interface{}{[]interface{}{1, 2, 3, 2}, 2},
+			expected: []interface{}{1, 3},
+		},
+		{
+			name:     "array_distinct basic",
+			funcName: "array_distinct",
+			args:     []interface{}{[]interface{}{1, 2, 2, 3, 1}},
+			expected: []interface{}{1, 2, 3},
+		},
+		{
+			name:     "array_intersect basic",
+			funcName: "array_intersect",
+			args:     []interface{}{[]interface{}{1, 2, 3}, []interface{}{2, 3, 4}},
+			expected: []interface{}{2, 3},
+		},
+		{
+			name:     "array_union basic",
+			funcName: "array_union",
+			args:     []interface{}{[]interface{}{1, 2}, []interface{}{2, 3}},
+			expected: []interface{}{1, 2, 3},
+		},
+		{
+			name:     "array_except basic",
+			funcName: "array_except",
+			args:     []interface{}{[]interface{}{1, 2, 3}, []interface{}{2}},
+			expected: []interface{}{1, 3},
+		},
 	}
 
 	for _, tt := range tests {
@@ -57,7 +88,7 @@ func TestArrayFunctions(t *testing.T) {
 				return
 			}
 
-			if result != tt.expected {
+			if !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("Execute() = %v, want %v", result, tt.expected)
 			}
 		})

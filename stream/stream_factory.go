@@ -71,6 +71,11 @@ func (sf *StreamFactory) createStreamWithUnifiedConfig(config types.Config) (*St
 	var win window.Window
 	var err error
 
+	// Validate performance configuration
+	if err := sf.validatePerformanceConfig(config.PerformanceConfig); err != nil {
+		return nil, fmt.Errorf("invalid performance configuration: %w", err)
+	}
+
 	// Only create window when needed
 	if config.NeedWindow {
 		win, err = sf.createWindow(config)
@@ -174,6 +179,35 @@ func (sf *StreamFactory) setupDataProcessingStrategy(stream *Stream, perfConfig 
 
 	// 设置策略到Stream实例
 	stream.dataStrategy = strategy
+	return nil
+}
+
+// validatePerformanceConfig 验证性能配置参数
+func (sf *StreamFactory) validatePerformanceConfig(config types.PerformanceConfig) error {
+	// 验证缓冲区配置
+	if config.BufferConfig.DataChannelSize < 0 {
+		return fmt.Errorf("DataChannelSize cannot be negative: %d", config.BufferConfig.DataChannelSize)
+	}
+	if config.BufferConfig.ResultChannelSize < 0 {
+		return fmt.Errorf("ResultChannelSize cannot be negative: %d", config.BufferConfig.ResultChannelSize)
+	}
+
+	// 验证工作池配置
+	if config.WorkerConfig.SinkPoolSize < 0 {
+		return fmt.Errorf("SinkPoolSize cannot be negative: %d", config.WorkerConfig.SinkPoolSize)
+	}
+
+	// 验证溢出配置
+	validStrategies := map[string]bool{
+		"drop":    true,
+		"block":   true,
+		"expand":  true,
+		"persist": true,
+	}
+	if config.OverflowConfig.Strategy != "" && !validStrategies[config.OverflowConfig.Strategy] {
+		return fmt.Errorf("invalid overflow strategy: %s", config.OverflowConfig.Strategy)
+	}
+
 	return nil
 }
 
