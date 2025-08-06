@@ -44,7 +44,7 @@ The stream processing pipeline consists of several key components:
 		config         types.Config                 // Stream configuration
 		sinks          []func([]map[string]interface{}) // Result processors
 		resultChan     chan []map[string]interface{} // Result channel
-		persistenceManager *PersistenceManager      // Data persistence
+
 		dataStrategy   DataProcessingStrategy       // Data processing strategy
 	}
 
@@ -176,25 +176,7 @@ Comprehensive performance monitoring:
 	fmt.Printf("Throughput: %.2f records/sec\n", detailed["throughput"])
 	fmt.Printf("Memory Usage: %d bytes\n", detailed["memory_usage"])
 
-# Persistence and Reliability
 
-Optional data persistence for enhanced reliability:
-
-	type PersistenceManager struct {
-		enabled       bool
-		storageType   string        // "memory", "file", "database"
-		batchSize     int           // Persistence batch size
-		flushInterval time.Duration // Automatic flush interval
-		recoveryMode  string        // Recovery strategy
-	}
-	
-	// Enable persistence
-	stream.EnablePersistence(PersistenceConfig{
-		StorageType:   "file",
-		BatchSize:     100,
-		FlushInterval: 5 * time.Second,
-		RecoveryMode:  "automatic",
-	})
 
 # Backpressure Management
 

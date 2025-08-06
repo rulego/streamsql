@@ -85,11 +85,6 @@ func (s *Stream) GetDetailedStats() map[string]interface{} {
 		PerformanceLevel: AssessPerformanceLevel(dataUsage, dropRate),
 	}
 
-	// Add persistence statistics
-	if s.persistenceManager != nil {
-		result["Persistence"] = s.persistenceManager.GetStats()
-	}
-
 	return result
 }
 

@@ -377,7 +377,6 @@ func TestStreamFactory(t *testing.T) {
 		{"CreateStream", func() (*Stream, error) { return factory.CreateStream(config) }},
 		{"CreateHighPerformanceStream", func() (*Stream, error) { return factory.CreateHighPerformanceStream(config) }},
 		{"CreateLowLatencyStream", func() (*Stream, error) { return factory.CreateLowLatencyStream(config) }},
-		{"CreateZeroDataLossStream", func() (*Stream, error) { return factory.CreateZeroDataLossStream(config) }},
 	}
 
 	for _, tt := range tests {
@@ -440,16 +439,6 @@ func TestStreamConstructors(t *testing.T) {
 		}
 	}()
 
-	// 测试零数据丢失Stream
-	zeroLossStream, err := NewStreamWithZeroDataLoss(config)
-	require.NoError(t, err)
-	require.NotNil(t, zeroLossStream)
-	defer func() {
-		if zeroLossStream != nil {
-			close(zeroLossStream.done)
-		}
-	}()
-
 	// 测试自定义性能配置Stream
 	perfConfig := types.PerformanceConfig{
 		WorkerConfig: types.WorkerConfig{
@@ -509,36 +498,6 @@ func TestStreamFilterRegistration(t *testing.T) {
 	// 测试复杂条件
 	err = stream.RegisterFilter("age > 18 && name LIKE '%test%' || `user_id` IS NOT NULL")
 	require.NoError(t, err)
-}
-
-// TestStreamPersistence 测试持久化功能
-func TestStreamPersistence(t *testing.T) {
-	config := types.Config{
-		SimpleFields: []string{"name", "age"},
-		PerformanceConfig: types.PerformanceConfig{
-			OverflowConfig: types.OverflowConfig{
-				PersistenceConfig: &types.PersistenceConfig{
-					DataDir: "./test_persistence",
-				},
-			},
-		},
-	}
-	stream, err := NewStream(config)
-	require.NoError(t, err)
-	defer func() {
-		if stream != nil {
-			close(stream.done)
-		}
-	}()
-
-	// 测试加载和重处理持久化数据
-	err = stream.LoadAndReprocessPersistedData()
-	// 这个可能会失败，因为测试目录可能不存在，这是正常的
-	// require.NoError(t, err)
-
-	// 测试获取持久化统计信息
-	stats := stream.GetPersistenceStats()
-	require.NotNil(t, stats)
 }
 
 // TestStreamAggregationQuery 测试聚合查询功能
@@ -853,58 +812,6 @@ func TestDataChannelExpansion(t *testing.T) {
 	assert.True(t, stats[InputCount] > 0)
 }
 
-// TestRecoveryDataProcessing 测试恢复数据处理功能
-func TestRecoveryDataProcessing(t *testing.T) {
-	tempDir := t.TempDir()
-
-	config := types.Config{
-		SimpleFields: []string{"message", "id"},
-		PerformanceConfig: types.PerformanceConfig{
-			BufferConfig: types.BufferConfig{
-				DataChannelSize:   5, // 小容量便于测试
-				ResultChannelSize: 10,
-			},
-			WorkerConfig: types.WorkerConfig{
-				SinkPoolSize:     2,
-				MaxRetryRoutines: 1,
-			},
-			OverflowConfig: types.OverflowConfig{
-				PersistenceConfig: &types.PersistenceConfig{
-					DataDir:       tempDir,
-					FlushInterval: 100 * time.Millisecond,
-					MaxFileSize:   1024,
-					MaxRetries:    3,
-					RetryInterval: 50 * time.Millisecond,
-				},
-			},
-		},
-	}
-
-	stream, err := NewStream(config)
-	require.NoError(t, err)
-	defer stream.Stop()
-
-	// 启动流
-	stream.Start()
-
-	// 模拟数据处理
-	testData := map[string]interface{}{
-		"message": "recovery_test",
-		"id":      123,
-	}
-
-	// 发送测试数据
-	stream.Emit(testData)
-
-	// 等待数据处理
-	time.Sleep(200 * time.Millisecond)
-
-	// 验证数据处理
-	stats := stream.GetStats()
-	assert.NotNil(t, stats)
-	assert.True(t, stats[InputCount] > 0)
-}
-
 // TestStatsCollectorDetailedFunctions 测试统计收集器的详细功能
 func TestStatsCollectorDetailedFunctions(t *testing.T) {
 	collector := NewStatsCollector()
@@ -975,83 +882,6 @@ func TestResultHandlerGetResultsChan(t *testing.T) {
 	assert.NotNil(t, resultsChan)
 }
 
-// TestPersistenceManagerRecoveryMode 测试持久化管理器的恢复模式功能
-func TestPersistenceManagerRecoveryMode(t *testing.T) {
-	tempDir := t.TempDir()
-
-	pm := NewPersistenceManager(tempDir)
-	require.NotNil(t, pm)
-
-	err := pm.Start()
-	require.NoError(t, err)
-	defer pm.Stop()
-
-	// 初始状态不应该在恢复模式
-	assert.False(t, pm.IsInRecoveryMode())
-
-	// 持久化一些数据
-	testData := map[string]interface{}{
-		"test": "recovery_mode",
-		"id":   456,
-	}
-
-	err = pm.PersistData(testData)
-	require.NoError(t, err)
-
-	// 等待数据写入
-	time.Sleep(200 * time.Millisecond)
-
-	// 停止并重新启动以触发恢复模式
-	pm.Stop()
-	time.Sleep(100 * time.Millisecond)
-
-	err = pm.Start()
-	require.NoError(t, err)
-
-	// 现在应该在恢复模式
-	assert.True(t, pm.IsInRecoveryMode())
-
-	// 获取恢复数据
-	recoveredData, hasData := pm.GetRecoveryData()
-	if hasData {
-		assert.NotNil(t, recoveredData)
-		assert.Equal(t, "recovery_mode", recoveredData["test"])
-	}
-}
-
-// TestPersistenceManagerDeadLetterQueue 测试死信队列功能
-func TestPersistenceManagerDeadLetterQueue(t *testing.T) {
-	tempDir := t.TempDir()
-
-	pm := NewPersistenceManager(tempDir)
-	require.NotNil(t, pm)
-
-	err := pm.Start()
-	require.NoError(t, err)
-	defer pm.Stop()
-
-	// 测试数据
-	testData := map[string]interface{}{
-		"message": "dead_letter_test",
-		"retry":   0,
-	}
-
-	// 移动到死信队列
-	pm.MoveToDeadLetterQueue(testData)
-
-	// 获取死信队列
-	deadLetterQueue := pm.GetDeadLetterQueue()
-	assert.Len(t, deadLetterQueue, 1)
-	if len(deadLetterQueue) > 0 {
-		assert.Equal(t, "dead_letter_test", deadLetterQueue[0].OriginalData.Data["message"])
-	}
-
-	// 清空死信队列
-	pm.ClearDeadLetterQueue()
-	deadLetterQueue = pm.GetDeadLetterQueue()
-	assert.Len(t, deadLetterQueue, 0)
-}
-
 // TestConcurrentDataChannelExpansion 测试并发数据通道扩容
 func TestConcurrentDataChannelExpansion(t *testing.T) {
 	// 创建流
@@ -1094,54 +924,6 @@ func TestConcurrentDataChannelExpansion(t *testing.T) {
 
 	// 验证流仍在正常运行
 	assert.NotNil(t, stream)
-}
-
-// TestStreamOverflowHandling 测试流溢出处理
-func TestStreamOverflowHandling(t *testing.T) {
-	config := types.Config{
-		SimpleFields: []string{"data"},
-		PerformanceConfig: types.PerformanceConfig{
-			BufferConfig: types.BufferConfig{
-				DataChannelSize:   3, // 非常小的容量
-				ResultChannelSize: 3,
-			},
-			WorkerConfig: types.WorkerConfig{
-				SinkPoolSize:     1,
-				MaxRetryRoutines: 1,
-			},
-			OverflowConfig: types.OverflowConfig{
-				Strategy:      "drop",
-				AllowDataLoss: true,
-				PersistenceConfig: &types.PersistenceConfig{
-					DataDir:     "./test_overflow",
-					MaxFileSize: 1024,
-					MaxRetries:  3,
-				},
-			},
-		},
-	}
-	stream, err := NewStream(config)
-	require.NoError(t, err)
-	defer stream.Stop()
-
-	// 启动流
-	stream.Start()
-
-	// 快速发送大量数据以触发溢出
-	for i := 0; i < 100; i++ {
-		data := map[string]interface{}{
-			"data": i,
-		}
-		stream.Emit(data)
-	}
-
-	// 等待处理
-	time.Sleep(500 * time.Millisecond)
-
-	// 验证溢出处理
-	stats := stream.GetStats()
-	assert.NotNil(t, stats)
-	assert.True(t, stats[InputCount] > 0)
 }
 
 // TestExpandDataChannelDirectly 直接测试expandDataChannel函数
@@ -1225,226 +1007,6 @@ func TestExpandDataChannelBelowThreshold(t *testing.T) {
 	// 验证容量没有变化
 	newCap := cap(stream.dataChan)
 	assert.Equal(t, originalCap, newCap, "Channel capacity should not change when below threshold")
-}
-
-// TestCheckAndProcessRecoveryDataDirectly 直接测试checkAndProcessRecoveryData函数
-// 提高checkAndProcessRecoveryData函数的覆盖率
-func TestCheckAndProcessRecoveryDataDirectly(t *testing.T) {
-	tempDir := t.TempDir()
-
-	// 创建持久化管理器
-	pm := NewPersistenceManager(tempDir)
-	require.NotNil(t, pm)
-
-	err := pm.Start()
-	require.NoError(t, err)
-	defer pm.Stop()
-
-	// 创建Stream实例
-	config := types.Config{
-		SimpleFields: []string{"message"},
-		PerformanceConfig: types.PerformanceConfig{
-			BufferConfig: types.BufferConfig{
-				DataChannelSize:   100,
-				ResultChannelSize: 100,
-			},
-			WorkerConfig: types.WorkerConfig{
-				MaxRetryRoutines: 5,
-			},
-		},
-	}
-
-	stream, err := NewStream(config)
-	require.NoError(t, err)
-	defer stream.Stop()
-
-	// 设置持久化管理器
-	stream.persistenceManager = pm
-
-	// 添加一些测试数据到持久化管理器
-	testData := map[string]interface{}{
-		"message": "recovery_test_data",
-		"id":      123,
-	}
-
-	// 持久化数据
-	err = pm.PersistData(testData)
-	require.NoError(t, err)
-
-	// 等待数据写入
-	time.Sleep(200 * time.Millisecond)
-
-	// 停止并重新启动以进入恢复模式
-	pm.Stop()
-	time.Sleep(100 * time.Millisecond)
-	err = pm.Start()
-	require.NoError(t, err)
-
-	// 验证进入恢复模式
-	assert.True(t, pm.IsInRecoveryMode(), "Should be in recovery mode")
-
-	// 启动恢复数据处理
-	go stream.checkAndProcessRecoveryData()
-
-	// 等待恢复处理
-	time.Sleep(500 * time.Millisecond)
-
-	// 验证数据是否被恢复处理
-	select {
-	case recoveredData := <-stream.dataChan:
-		assert.Equal(t, "recovery_test_data", recoveredData["message"])
-	case <-time.After(1 * time.Second):
-		// 可能数据已经被处理完毕，这也是正常的
-		t.Log("No data in channel, recovery might be completed")
-	}
-}
-
-// TestShouldRetryRecoveredDataVariousCases 测试各种重试判断场景
-// 提高ShouldRetryRecoveredData函数覆盖率
-func TestShouldRetryRecoveredDataVariousCases(t *testing.T) {
-	tempDir := t.TempDir()
-
-	pm := NewPersistenceManager(tempDir)
-	require.NotNil(t, pm)
-
-	err := pm.Start()
-	require.NoError(t, err)
-	defer pm.Stop()
-
-	// 设置最大重试次数
-	pm.SetMaxRetryCount(3)
-
-	// 测试用例1: 重试次数未达到限制（float64类型）
-	data1 := map[string]interface{}{
-		"_retry_count": float64(2),
-		"data":         "test1",
-	}
-	assert.True(t, pm.ShouldRetryRecoveredData(data1), "Should allow retry for data with retry count 2")
-
-	// 测试用例2: 重试次数达到限制（float64类型）
-	data2 := map[string]interface{}{
-		"_retry_count": float64(3),
-		"data":         "test2",
-	}
-	assert.False(t, pm.ShouldRetryRecoveredData(data2), "Should deny retry for data with retry count 3")
-
-	// 测试用例3: 重试次数未达到限制（int类型）
-	data3 := map[string]interface{}{
-		"_retry_count": 1,
-		"data":         "test3",
-	}
-	assert.True(t, pm.ShouldRetryRecoveredData(data3), "Should allow retry for data with retry count 1 (int)")
-
-	// 测试用例4: 重试次数达到限制（int类型）
-	data4 := map[string]interface{}{
-		"_retry_count": 3,
-		"data":         "test4",
-	}
-	assert.False(t, pm.ShouldRetryRecoveredData(data4), "Should deny retry for data with retry count 3 (int)")
-
-	// 测试用例5: 没有重试信息的新数据（应该允许重试）
-	data5 := map[string]interface{}{
-		"data": "test5",
-	}
-	assert.True(t, pm.ShouldRetryRecoveredData(data5), "Should allow retry for new data without retry info")
-
-	// 测试用例6: 通过sequence_id查找重试信息
-	testData6 := map[string]interface{}{
-		"data": "test6",
-	}
-	// 先持久化数据以创建sequence_id
-	err = pm.PersistData(testData6)
-	require.NoError(t, err)
-
-	time.Sleep(100 * time.Millisecond)
-
-	// 模拟带sequence_id的恢复数据
-	data6 := map[string]interface{}{
-		"_sequence_id": float64(1),
-		"data":         "test6",
-	}
-	// 这个测试可能需要更复杂的设置，暂时验证函数不会崩溃
-	result := pm.ShouldRetryRecoveredData(data6)
-	assert.IsType(t, true, result, "Function should return boolean")
-}
-
-// TestRetryFailedDataFunction 测试RetryFailedData函数
-// 提高RetryFailedData函数覆盖率
-func TestRetryFailedDataFunction(t *testing.T) {
-	tempDir := t.TempDir()
-
-	pm := NewPersistenceManager(tempDir)
-	require.NotNil(t, pm)
-
-	err := pm.Start()
-	require.NoError(t, err)
-	defer pm.Stop()
-
-	// 持久化一些测试数据
-	testData := map[string]interface{}{
-		"message": "retry_test",
-		"id":      789,
-	}
-
-	err = pm.PersistData(testData)
-	require.NoError(t, err)
-
-	// 等待数据写入
-	time.Sleep(200 * time.Millisecond)
-
-	// 调用重试失败数据函数（使用序列号1和测试原因）
-	err = pm.RetryFailedData(1, "test retry reason")
-	// 这个调用可能会失败，因为序列号可能不在重试映射中，这是正常的
-
-	// 验证函数执行不会崩溃
-	assert.NotNil(t, pm, "PersistenceManager should still be valid after RetryFailedData")
-}
-
-// TestMaxRetryRoutinesLimit 测试最大重试协程数限制
-func TestMaxRetryRoutinesLimit(t *testing.T) {
-	config := types.Config{
-		SimpleFields: []string{"test"},
-		PerformanceConfig: types.PerformanceConfig{
-			WorkerConfig: types.WorkerConfig{
-				MaxRetryRoutines: 1, // 设置很小的限制
-			},
-		},
-	}
-
-	stream, err := NewStream(config)
-	require.NoError(t, err)
-	defer stream.Stop()
-
-	// 模拟已达到最大重试协程数
-	stream.activeRetries = 1
-
-	// 尝试启动恢复处理，应该立即返回
-	originalActiveRetries := stream.activeRetries
-	stream.checkAndProcessRecoveryData()
-	newActiveRetries := stream.activeRetries
-
-	// 验证activeRetries没有增加（因为达到限制）
-	assert.Equal(t, originalActiveRetries, newActiveRetries, "activeRetries should not increase when limit reached")
-}
-
-// TestPersistenceManagerWithNilRecoveryData 测试持久化管理器处理空恢复数据
-func TestPersistenceManagerWithNilRecoveryData(t *testing.T) {
-	config := types.Config{
-		SimpleFields: []string{"test"},
-	}
-
-	stream, err := NewStream(config)
-	require.NoError(t, err)
-	defer stream.Stop()
-
-	// 设置为nil的持久化管理器
-	stream.persistenceManager = nil
-
-	// 调用恢复数据处理，应该立即返回而不崩溃
-	stream.checkAndProcessRecoveryData()
-
-	// 验证函数执行完毕
-	assert.Nil(t, stream.persistenceManager, "PersistenceManager should remain nil")
 }
 
 // TestStreamConfigErrorHandlingEnhanced 测试流配置错误处理增强版
@@ -1728,11 +1290,6 @@ func TestStreamUnifiedConfigIntegration(t *testing.T) {
 			name:                     "低延迟配置",
 			performanceConfig:        types.LowLatencyConfig(),
 			expectedWindowBufferSize: 100,
-		},
-		{
-			name:                     "零数据丢失配置",
-			performanceConfig:        types.ZeroDataLossConfig(),
-			expectedWindowBufferSize: 2000,
 		},
 	}
 
@@ -2106,7 +1663,6 @@ func TestPerformanceConfigurationsEnhanced(t *testing.T) {
 		"Default":         types.DefaultPerformanceConfig(),
 		"HighPerformance": types.HighPerformanceConfig(),
 		"LowLatency":      types.LowLatencyConfig(),
-		"ZeroDataLoss":    types.ZeroDataLossConfig(),
 	}
 
 	for name, perfConfig := range configs {
@@ -2205,27 +1761,6 @@ func TestStreamFactory_CreateLowLatencyStream(t *testing.T) {
 	assert.Equal(t, expectedConfig, stream.config.PerformanceConfig)
 }
 
-// TestStreamFactory_CreateZeroDataLossStream 测试创建零数据丢失流
-func TestStreamFactory_CreateZeroDataLossStream(t *testing.T) {
-	factory := NewStreamFactory()
-	config := types.Config{
-		SimpleFields: []string{"name", "age"},
-	}
-
-	stream, err := factory.CreateZeroDataLossStream(config)
-	require.NoError(t, err)
-	assert.NotNil(t, stream)
-	defer func() {
-		if stream != nil {
-			close(stream.done)
-		}
-	}()
-
-	// 验证零数据丢失配置
-	expectedConfig := types.ZeroDataLossConfig()
-	assert.Equal(t, expectedConfig, stream.config.PerformanceConfig)
-}
-
 // TestStreamFactory_CreateCustomPerformanceStream 测试创建自定义性能配置流
 func TestStreamFactory_CreateCustomPerformanceStream(t *testing.T) {
 	factory := NewStreamFactory()
@@ -2288,62 +1823,6 @@ func TestStreamFactory_CreateStreamWithWindow(t *testing.T) {
 	}()
 }
 
-// TestStreamFactory_CreateStreamWithPersistence 测试创建带持久化的流
-func TestStreamFactory_CreateStreamWithPersistence(t *testing.T) {
-	factory := NewStreamFactory()
-	config := types.Config{
-		SimpleFields: []string{"name", "age"},
-		PerformanceConfig: types.PerformanceConfig{
-			BufferConfig: types.BufferConfig{
-				DataChannelSize:   100,
-				ResultChannelSize: 50,
-			},
-			OverflowConfig: types.OverflowConfig{
-				Strategy: StrategyPersist,
-				PersistenceConfig: &types.PersistenceConfig{
-					DataDir:       "./test_data",
-					MaxFileSize:   1024 * 1024,
-					FlushInterval: 5 * time.Second,
-				},
-			},
-			WorkerConfig: types.WorkerConfig{
-				SinkWorkerCount:  2,
-				SinkPoolSize:     50,
-				MaxRetryRoutines: 1,
-			},
-		},
-	}
-
-	stream, err := factory.CreateStream(config)
-	require.NoError(t, err)
-	assert.NotNil(t, stream)
-	assert.NotNil(t, stream.persistenceManager)
-	defer func() {
-		// 清理测试数据
-		if stream.persistenceManager != nil {
-			stream.persistenceManager.Stop()
-		}
-	}()
-}
-
-// TestStreamFactory_CreateStreamWithInvalidPersistence 测试创建无效持久化配置的流
-func TestStreamFactory_CreateStreamWithInvalidPersistence(t *testing.T) {
-	factory := NewStreamFactory()
-	config := types.Config{
-		SimpleFields: []string{"name", "age"},
-		PerformanceConfig: types.PerformanceConfig{
-			OverflowConfig: types.OverflowConfig{
-				Strategy: StrategyPersist,
-				// 缺少PersistenceConfig
-			},
-		},
-	}
-
-	_, err := factory.CreateStream(config)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "PersistenceConfig is not provided")
-}
-
 // TestStreamFactory_CreateStreamWithInvalidStrategy 测试创建无效策略的流
 func TestStreamFactory_CreateStreamWithInvalidStrategy(t *testing.T) {
 	factory := NewStreamFactory()
@@ -2395,79 +1874,6 @@ func TestStreamFactory_CreateStreamInstance(t *testing.T) {
 	assert.NotNil(t, stream.done)
 	assert.NotNil(t, stream.sinkWorkerPool)
 	assert.Equal(t, config, stream.config)
-}
-
-// TestStreamFactory_SetupDataProcessingStrategy 测试数据处理策略设置
-func TestStreamFactory_SetupDataProcessingStrategy(t *testing.T) {
-	factory := NewStreamFactory()
-	stream := &Stream{}
-
-	tests := []struct {
-		name     string
-		strategy string
-		wantErr  bool
-	}{
-		{"Drop strategy", StrategyDrop, false},
-		{"Block strategy", StrategyBlock, false},
-		{"Expand strategy", StrategyExpand, false},
-		{"Persist strategy", StrategyPersist, false},
-		{"Invalid strategy", "invalid", false}, // 应该使用默认策略
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			perfConfig := types.PerformanceConfig{
-				OverflowConfig: types.OverflowConfig{
-					Strategy: tt.strategy,
-				},
-			}
-
-			err := factory.setupDataProcessingStrategy(stream, perfConfig)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, stream.dataStrategy)
-			}
-		})
-	}
-}
-
-// TestStreamFactory_InitializePersistenceManager 测试持久化管理器初始化
-func TestStreamFactory_InitializePersistenceManager(t *testing.T) {
-	factory := NewStreamFactory()
-	stream := &Stream{}
-
-	// 测试非持久化策略
-	perfConfig := types.PerformanceConfig{
-		OverflowConfig: types.OverflowConfig{
-			Strategy: StrategyDrop,
-		},
-	}
-	err := factory.initializePersistenceManager(stream, perfConfig)
-	assert.NoError(t, err)
-	assert.Nil(t, stream.persistenceManager)
-
-	// 测试持久化策略但缺少配置
-	perfConfig.OverflowConfig.Strategy = StrategyPersist
-	err = factory.initializePersistenceManager(stream, perfConfig)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "PersistenceConfig is not provided")
-
-	// 测试有效的持久化配置
-	perfConfig.OverflowConfig.PersistenceConfig = &types.PersistenceConfig{
-		DataDir:       "./test_data",
-		MaxFileSize:   1024 * 1024,
-		FlushInterval: 5 * time.Second,
-	}
-	err = factory.initializePersistenceManager(stream, perfConfig)
-	assert.NoError(t, err)
-	assert.NotNil(t, stream.persistenceManager)
-
-	// 清理
-	if stream.persistenceManager != nil {
-		stream.persistenceManager.Stop()
-	}
 }
 
 // TestStreamFactory_Performance 测试工厂性能

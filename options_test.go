@@ -114,39 +114,6 @@ func TestWithCustomPerformance(t *testing.T) {
 	})
 }
 
-// TestWithPersistence 测试持久化配置选项
-func TestWithPersistence(t *testing.T) {
-	t.Run("设置持久化模式", func(t *testing.T) {
-		s := New(WithPersistence())
-
-		assert.Equal(t, "custom", s.performanceMode)
-		assert.NotNil(t, s.customConfig)
-		// 验证持久化配置是否正确设置
-		assert.Equal(t, "persist", s.customConfig.OverflowConfig.Strategy)
-	})
-}
-
-// TestWithCustomPersistence 测试自定义持久化配置选项
-func TestWithCustomPersistence(t *testing.T) {
-	t.Run("设置自定义持久化配置", func(t *testing.T) {
-		dataDir := "./test_data"
-		maxFileSize := int64(50 * 1024 * 1024) // 50MB
-		flushInterval := 10 * time.Second
-
-		s := New(WithCustomPersistence(dataDir, maxFileSize, flushInterval))
-
-		assert.Equal(t, "custom", s.performanceMode)
-		assert.NotNil(t, s.customConfig)
-		assert.Equal(t, "persist", s.customConfig.OverflowConfig.Strategy)
-		assert.NotNil(t, s.customConfig.OverflowConfig.PersistenceConfig)
-		assert.Equal(t, dataDir, s.customConfig.OverflowConfig.PersistenceConfig.DataDir)
-		assert.Equal(t, maxFileSize, s.customConfig.OverflowConfig.PersistenceConfig.MaxFileSize)
-		assert.Equal(t, flushInterval, s.customConfig.OverflowConfig.PersistenceConfig.FlushInterval)
-		assert.Equal(t, 3, s.customConfig.OverflowConfig.PersistenceConfig.MaxRetries)
-		assert.Equal(t, 2*time.Second, s.customConfig.OverflowConfig.PersistenceConfig.RetryInterval)
-	})
-}
-
 // TestWithBufferSizes 测试缓冲区大小配置选项
 func TestWithBufferSizes(t *testing.T) {
 	t.Run("设置自定义缓冲区大小", func(t *testing.T) {

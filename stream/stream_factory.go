@@ -54,12 +54,6 @@ func (sf *StreamFactory) CreateLowLatencyStream(config types.Config) (*Stream, e
 	return sf.createStreamWithUnifiedConfig(config)
 }
 
-// CreateZeroDataLossStream creates zero data loss Stream
-func (sf *StreamFactory) CreateZeroDataLossStream(config types.Config) (*Stream, error) {
-	config.PerformanceConfig = types.ZeroDataLossConfig()
-	return sf.createStreamWithUnifiedConfig(config)
-}
-
 // CreateCustomPerformanceStream creates Stream with custom performance configuration
 func (sf *StreamFactory) CreateCustomPerformanceStream(config types.Config, perfConfig types.PerformanceConfig) (*Stream, error) {
 	config.PerformanceConfig = perfConfig
@@ -86,11 +80,6 @@ func (sf *StreamFactory) createStreamWithUnifiedConfig(config types.Config) (*St
 
 	// Create Stream instance
 	stream := sf.createStreamInstance(config, win)
-
-	// Initialize persistence manager
-	if err := sf.initializePersistenceManager(stream, config.PerformanceConfig); err != nil {
-		return nil, err
-	}
 
 	// Setup data processing strategy
 	if err := sf.setupDataProcessingStrategy(stream, config.PerformanceConfig); err != nil {
@@ -135,29 +124,6 @@ func (sf *StreamFactory) createStreamInstance(config types.Config, win window.Wi
 		overflowStrategy: perfConfig.OverflowConfig.Strategy,
 		maxRetryRoutines: int32(perfConfig.WorkerConfig.MaxRetryRoutines),
 	}
-}
-
-// initializePersistenceManager 初始化持久化管理器
-// 当溢出策略设置为持久化时，检查并初始化持久化配置
-func (sf *StreamFactory) initializePersistenceManager(stream *Stream, perfConfig types.PerformanceConfig) error {
-	if perfConfig.OverflowConfig.Strategy == StrategyPersist {
-		if perfConfig.OverflowConfig.PersistenceConfig == nil {
-			return fmt.Errorf("persistence strategy is enabled but PersistenceConfig is not provided. Please configure PersistenceConfig with DataDir, MaxFileSize, and FlushInterval. Example: perfConfig.OverflowConfig.PersistenceConfig = &types.PersistenceConfig{DataDir: \"./data\", MaxFileSize: 10*1024*1024, FlushInterval: 5*time.Second}")
-		}
-		persistConfig := perfConfig.OverflowConfig.PersistenceConfig
-		stream.persistenceManager = NewPersistenceManagerWithConfig(
-			persistConfig.DataDir,
-			persistConfig.MaxFileSize,
-			persistConfig.FlushInterval,
-		)
-		err := stream.persistenceManager.Start()
-		if err != nil {
-			return fmt.Errorf("failed to start persistence manager: %w", err)
-		}
-		// 尝试加载和恢复持久化数据
-		return stream.persistenceManager.LoadAndRecoverData()
-	}
-	return nil
 }
 
 // setupDataProcessingStrategy 设置数据处理策略

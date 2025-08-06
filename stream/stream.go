@@ -46,17 +46,12 @@ const (
 	PerformanceLevelOptimal      = "OPTIMAL"
 )
 
-// Persistence related constants
-const (
-	PersistenceEnabled       = "enabled"
-	PersistenceMessage       = "message"
-	PersistenceNotEnabledMsg = "persistence not enabled"
-	PerformanceConfigKey     = "performanceConfig"
-)
-
 // SQL keyword constants
 const (
 	SQLKeywordCase = "CASE"
+)
+const (
+	PerformanceConfigKey = "performanceConfig"
 )
 
 type Stream struct {
@@ -91,10 +86,9 @@ type Stream struct {
 	dropLogCount    int64 // Count of drops since last log
 
 	// Data loss strategy configuration
-	allowDataDrop      bool                // Whether to allow data loss
-	blockingTimeout    time.Duration       // Blocking timeout duration
-	overflowStrategy   string              // Overflow strategy: "drop", "block", "expand", "persist"
-	persistenceManager *PersistenceManager // Persistence manager
+	allowDataDrop    bool          // Whether to allow data loss
+	blockingTimeout  time.Duration // Blocking timeout duration
+	overflowStrategy string        // Overflow strategy: "drop", "block", "expand", "persist"
 
 	// Data processing strategy using strategy pattern for better extensibility
 	dataStrategy DataProcessingStrategy // Data processing strategy instance
@@ -121,12 +115,6 @@ func NewStreamWithHighPerformance(config types.Config) (*Stream, error) {
 func NewStreamWithLowLatency(config types.Config) (*Stream, error) {
 	factory := NewStreamFactory()
 	return factory.CreateLowLatencyStream(config)
-}
-
-// NewStreamWithZeroDataLoss 创建零数据丢失Stream
-func NewStreamWithZeroDataLoss(config types.Config) (*Stream, error) {
-	factory := NewStreamFactory()
-	return factory.CreateZeroDataLossStream(config)
 }
 
 // NewStreamWithCustomPerformance 创建自定义性能配置的Stream
@@ -233,54 +221,6 @@ func (s *Stream) Stop() {
 			logger.Error("Failed to stop data strategy: %v", err)
 		}
 	}
-
-	// 停止持久化管理器
-	if s.persistenceManager != nil {
-		if err := s.persistenceManager.Stop(); err != nil {
-			logger.Error("Failed to stop persistence manager: %v", err)
-		}
-	}
-}
-
-// LoadAndReprocessPersistedData 加载并重新处理持久化数据
-func (s *Stream) LoadAndReprocessPersistedData() error {
-	if s.persistenceManager == nil {
-		return fmt.Errorf("persistence manager not initialized")
-	}
-
-	// 加载持久化数据
-	err := s.persistenceManager.LoadAndRecoverData()
-	if err != nil {
-		return fmt.Errorf("failed to load persisted data: %w", err)
-	}
-
-	// 检查是否有恢复数据
-	if !s.persistenceManager.IsInRecoveryMode() {
-		logger.Info("No persistent data to recover")
-		return nil
-	}
-
-	logger.Info("Starting persistent data recovery process")
-
-	// 启动恢复处理协程
-	go s.checkAndProcessRecoveryData()
-
-	logger.Info("Persistent data recovery process started")
-	return nil
-}
-
-// GetPersistenceStats 获取持久化统计信息
-func (s *Stream) GetPersistenceStats() map[string]interface{} {
-	if s.persistenceManager == nil {
-		return map[string]interface{}{
-			PersistenceEnabled: false,
-			PersistenceMessage: PersistenceNotEnabledMsg,
-		}
-	}
-
-	stats := s.persistenceManager.GetStats()
-	stats[PersistenceEnabled] = true
-	return stats
 }
 
 // IsAggregationQuery 检查当前流是否为聚合查询

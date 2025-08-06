@@ -803,44 +803,6 @@ func TestStream_GetDetailedStats_ZeroInput(t *testing.T) {
 	assert.Equal(t, PerformanceLevelOptimal, perfLevel)
 }
 
-// TestStream_GetDetailedStats_WithPersistence 测试带持久化的详细统计
-func TestStream_GetDetailedStats_WithPersistence(t *testing.T) {
-	// 创建临时目录用于持久化
-	tempDir := t.TempDir()
-
-	config := types.Config{
-		SimpleFields: []string{"name", "age"},
-		PerformanceConfig: types.PerformanceConfig{
-			OverflowConfig: types.OverflowConfig{
-				Strategy: "persist",
-				PersistenceConfig: &types.PersistenceConfig{
-					DataDir:       tempDir,
-					MaxFileSize:   1024 * 1024, // 1MB
-					FlushInterval: 100 * time.Millisecond,
-				},
-			},
-		},
-	}
-	stream, err := NewStream(config)
-	require.NoError(t, err)
-	defer func() {
-		if stream != nil {
-			if stream.persistenceManager != nil {
-				stream.persistenceManager.Stop()
-			}
-			close(stream.done)
-		}
-	}()
-
-	detailedStats := stream.GetDetailedStats()
-
-	// 验证持久化统计信息存在
-	assert.Contains(t, detailedStats, "Persistence")
-	persistenceStats, ok := detailedStats["Persistence"].(map[string]interface{})
-	assert.True(t, ok)
-	assert.NotNil(t, persistenceStats)
-}
-
 // TestStream_ResetStats 测试重置统计信息
 func TestStream_ResetStats(t *testing.T) {
 	config := types.Config{

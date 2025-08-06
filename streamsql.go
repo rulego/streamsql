@@ -148,8 +148,6 @@ func (s *Streamsql) Execute(sql string) error {
 		streamInstance, err = stream.NewStreamWithHighPerformance(*config)
 	case "low_latency":
 		streamInstance, err = stream.NewStreamWithLowLatency(*config)
-	case "zero_data_loss":
-		streamInstance, err = stream.NewStreamWithZeroDataLoss(*config)
 	case "custom":
 		if s.customConfig != nil {
 			streamInstance, err = stream.NewStreamWithCustomPerformance(*config, *s.customConfig)
