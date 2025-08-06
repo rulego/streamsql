@@ -315,6 +315,12 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 func (ga *GroupAggregator) GetResults() ([]map[string]interface{}, error) {
 	ga.mu.RLock()
 	defer ga.mu.RUnlock()
+	
+	// 如果既没有分组字段又没有聚合字段，返回空结果
+	if len(ga.aggregationFields) == 0 && len(ga.groupFields) == 0 {
+		return []map[string]interface{}{}, nil
+	}
+	
 	result := make([]map[string]interface{}, 0, len(ga.groups))
 	for key, aggregators := range ga.groups {
 		group := make(map[string]interface{})
