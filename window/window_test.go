@@ -645,13 +645,6 @@ func TestWindowWithPerformanceConfig(t *testing.T) {
 			extraParams:        map[string]interface{}{"count": 10},
 		},
 		{
-			name:               "会话窗口-零数据丢失配置",
-			windowType:         TypeSession,
-			performanceConfig:  types.ZeroDataLossConfig(),
-			expectedBufferSize: 200, // 2000 / 10
-			extraParams:        map[string]interface{}{"timeout": "30s"},
-		},
-		{
 			name:               "自定义性能配置",
 			windowType:         TypeTumbling,
 			performanceConfig:  types.PerformanceConfig{BufferConfig: types.BufferConfig{WindowOutputSize: 500}},

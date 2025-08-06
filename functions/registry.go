@@ -183,6 +183,11 @@ func Unregister(name string) bool {
 func RegisterCustomFunction(name string, fnType FunctionType, category, description string,
 	minArgs, maxArgs int, executor func(ctx *FunctionContext, args []interface{}) (interface{}, error)) error {
 
+	// Validate function name
+	if name == "" {
+		return fmt.Errorf("function name cannot be empty")
+	}
+
 	customFunc := &CustomFunction{
 		BaseFunction: NewBaseFunction(name, fnType, category, description, minArgs, maxArgs),
 		executor:     executor,

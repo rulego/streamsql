@@ -28,10 +28,9 @@ import (
 
 // Overflow strategy constants
 const (
-	StrategyDrop    = "drop"    // Drop strategy
-	StrategyBlock   = "block"   // Blocking strategy
-	StrategyExpand  = "expand"  // Dynamic strategy
-	StrategyPersist = "persist" // Persistence strategy (todo: incomplete)
+	StrategyDrop   = "drop"   // Drop strategy
+	StrategyBlock  = "block"  // Blocking strategy
+	StrategyExpand = "expand" // Dynamic strategy
 )
 
 // DataProcessingStrategy data processing strategy interface
@@ -155,95 +154,7 @@ func (es *ExpansionStrategy) Stop() error {
 	return nil
 }
 
-// PersistenceStrategy 持久化策略实现
-type PersistenceStrategy struct {
-	stream *Stream
-}
 
-// NewPersistenceStrategy 创建持久化策略实例
-func NewPersistenceStrategy() *PersistenceStrategy {
-	return &PersistenceStrategy{}
-}
-
-// ProcessData 实现持久化模式数据处理
-func (ps *PersistenceStrategy) ProcessData(data map[string]interface{}) {
-	// 检查是否处于恢复模式，如果是则优先处理恢复数据
-	if ps.stream.persistenceManager != nil && ps.stream.persistenceManager.IsInRecoveryMode() {
-		// 恢复模式下，先尝试处理恢复数据
-		if recoveredData, hasData := ps.stream.persistenceManager.GetRecoveryData(); hasData {
-			// 优先处理恢复的数据
-			if ps.stream.safeSendToDataChan(recoveredData) {
-				// 恢复数据处理成功，现在处理新数据
-				if ps.stream.safeSendToDataChan(data) {
-					return
-				}
-				// 新数据无法处理，持久化（带重试限制）
-				if err := ps.stream.persistenceManager.PersistDataWithRetryLimit(data, 0); err != nil {
-					logger.Error("Failed to persist new data during recovery: %v", err)
-					atomic.AddInt64(&ps.stream.droppedCount, 1)
-				}
-				return
-			} else {
-				// 恢复数据也无法处理，检查重试次数避免无限循环
-				if !ps.stream.persistenceManager.ShouldRetryRecoveredData(recoveredData) {
-					// 超过重试限制，移入死信队列
-					logger.Warn("Recovered data exceeded retry limit, moving to dead letter queue")
-					ps.stream.persistenceManager.MoveToDeadLetterQueue(recoveredData)
-				} else {
-					// 重新持久化恢复数据（增加重试计数）
-					if err := ps.stream.persistenceManager.RePersistRecoveredData(recoveredData); err != nil {
-						logger.Error("Failed to re-persist recovered data: %v", err)
-					}
-				}
-				// 持久化新数据
-				if err := ps.stream.persistenceManager.PersistDataWithRetryLimit(data, 0); err != nil {
-					logger.Error("Failed to persist new data: %v", err)
-					atomic.AddInt64(&ps.stream.droppedCount, 1)
-				}
-				return
-			}
-		}
-	}
-
-	// 正常模式或非恢复模式，首次尝试添加数据
-	if ps.stream.safeSendToDataChan(data) {
-		return
-	}
-
-	// 通道满了，使用持久化（带重试限制）
-	if ps.stream.persistenceManager != nil {
-		if err := ps.stream.persistenceManager.PersistDataWithRetryLimit(data, 0); err != nil {
-			logger.Error("Failed to persist data with persistence: %v", err)
-			atomic.AddInt64(&ps.stream.droppedCount, 1)
-		} else {
-			logger.Debug("Data has been persisted to disk with sequence ordering")
-		}
-	} else {
-		logger.Error("Persistence manager not initialized, data will be lost")
-		atomic.AddInt64(&ps.stream.droppedCount, 1)
-	}
-
-	// 启动异步恢复检查（防止重复启动）
-	if atomic.LoadInt32(&ps.stream.activeRetries) < ps.stream.maxRetryRoutines {
-		go ps.stream.checkAndProcessRecoveryData()
-	}
-}
-
-// GetStrategyName 获取策略名称
-func (ps *PersistenceStrategy) GetStrategyName() string {
-	return StrategyPersist
-}
-
-// Init 初始化持久化策略
-func (ps *PersistenceStrategy) Init(stream *Stream, config types.PerformanceConfig) error {
-	ps.stream = stream
-	return nil
-}
-
-// Stop 停止并清理持久化策略资源
-func (ps *PersistenceStrategy) Stop() error {
-	return nil
-}
 
 // DropStrategy 丢弃策略实现
 type DropStrategy struct {
@@ -379,7 +290,6 @@ func NewStrategyFactory() *StrategyFactory {
 	// 注册内置策略
 	factory.RegisterStrategy(StrategyBlock, func() DataProcessingStrategy { return NewBlockingStrategy() })
 	factory.RegisterStrategy(StrategyExpand, func() DataProcessingStrategy { return NewExpansionStrategy() })
-	factory.RegisterStrategy(StrategyPersist, func() DataProcessingStrategy { return NewPersistenceStrategy() })
 	factory.RegisterStrategy(StrategyDrop, func() DataProcessingStrategy { return NewDropStrategy() })
 
 	return factory

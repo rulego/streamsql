@@ -378,34 +378,6 @@ func TestLowLatencyConfig(t *testing.T) {
 	assert.Equal(t, 1*time.Second, config.MonitoringConfig.StatsUpdateInterval)
 }
 
-// TestZeroDataLossConfig 测试ZeroDataLossConfig函数
-func TestZeroDataLossConfig(t *testing.T) {
-	config := ZeroDataLossConfig()
-
-	// 验证零数据丢失配置
-	assert.Equal(t, 2000, config.BufferConfig.DataChannelSize)
-	assert.Equal(t, 200, config.BufferConfig.ResultChannelSize)
-	assert.Equal(t, "persist", config.OverflowConfig.Strategy)
-	assert.False(t, config.OverflowConfig.AllowDataLoss)
-	assert.NotNil(t, config.OverflowConfig.PersistenceConfig)
-	assert.Equal(t, "./data", config.OverflowConfig.PersistenceConfig.DataDir)
-	assert.Equal(t, int64(100*1024*1024), config.OverflowConfig.PersistenceConfig.MaxFileSize)
-}
-
-// TestPersistencePerformanceConfig 测试PersistencePerformanceConfig函数
-func TestPersistencePerformanceConfig(t *testing.T) {
-	config := PersistencePerformanceConfig()
-
-	// 验证持久化性能配置
-	assert.Equal(t, 1500, config.BufferConfig.DataChannelSize)
-	assert.Equal(t, 150, config.BufferConfig.ResultChannelSize)
-	assert.Equal(t, "persist", config.OverflowConfig.Strategy)
-	assert.NotNil(t, config.OverflowConfig.PersistenceConfig)
-	assert.Equal(t, "./persistence_data", config.OverflowConfig.PersistenceConfig.DataDir)
-	assert.Equal(t, 5*time.Second, config.OverflowConfig.PersistenceConfig.FlushInterval)
-	assert.Equal(t, 3, config.OverflowConfig.PersistenceConfig.MaxRetries)
-}
-
 // TestBufferConfig 测试BufferConfig结构体
 func TestBufferConfig(t *testing.T) {
 	config := BufferConfig{
@@ -423,41 +395,6 @@ func TestBufferConfig(t *testing.T) {
 	assert.True(t, config.EnableDynamicResize)
 	assert.Equal(t, 5000, config.MaxBufferSize)
 	assert.Equal(t, 0.75, config.UsageThreshold)
-}
-
-// TestOverflowConfig 测试OverflowConfig结构体
-func TestOverflowConfig(t *testing.T) {
-	persistenceConfig := &PersistenceConfig{
-		DataDir:       "/tmp/data",
-		MaxFileSize:   1024 * 1024,
-		FlushInterval: 10 * time.Second,
-		MaxRetries:    5,
-		RetryInterval: 2 * time.Second,
-	}
-
-	expansionConfig := ExpansionConfig{
-		GrowthFactor:     2.0,
-		MinIncrement:     100,
-		TriggerThreshold: 0.9,
-		ExpansionTimeout: 30 * time.Second,
-	}
-
-	config := OverflowConfig{
-		Strategy:          "persist",
-		BlockTimeout:      5 * time.Second,
-		AllowDataLoss:     false,
-		PersistenceConfig: persistenceConfig,
-		ExpansionConfig:   expansionConfig,
-	}
-
-	assert.Equal(t, "persist", config.Strategy)
-	assert.Equal(t, 5*time.Second, config.BlockTimeout)
-	assert.False(t, config.AllowDataLoss)
-	assert.NotNil(t, config.PersistenceConfig)
-	assert.Equal(t, "/tmp/data", config.PersistenceConfig.DataDir)
-	assert.Equal(t, int64(1024*1024), config.PersistenceConfig.MaxFileSize)
-	assert.Equal(t, 2.0, config.ExpansionConfig.GrowthFactor)
-	assert.Equal(t, 100, config.ExpansionConfig.MinIncrement)
 }
 
 // TestWorkerConfig 测试WorkerConfig结构体

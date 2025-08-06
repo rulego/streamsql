@@ -295,6 +295,9 @@ func (f *SubstringFunction) Execute(ctx *FunctionContext, args []interface{}) (i
 	}
 
 	strLen := int64(len(str))
+	if start < 0 {
+		start = strLen + start
+	}
 	if start < 0 || start >= strLen {
 		return "", nil
 	}
@@ -306,6 +309,10 @@ func (f *SubstringFunction) Execute(ctx *FunctionContext, args []interface{}) (i
 	length, err := cast.ToInt64E(args[2])
 	if err != nil {
 		return nil, err
+	}
+
+	if length < 0 {
+		return "", nil
 	}
 
 	end := start + length

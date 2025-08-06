@@ -72,32 +72,6 @@ func WithCustomPerformance(config types.PerformanceConfig) Option {
 	}
 }
 
-// WithPersistence uses persistence configuration preset
-func WithPersistence() Option {
-	return func(s *Streamsql) {
-		s.performanceMode = "custom"
-		persistConfig := types.PersistencePerformanceConfig()
-		s.customConfig = &persistConfig
-	}
-}
-
-// WithCustomPersistence uses custom persistence configuration
-func WithCustomPersistence(dataDir string, maxFileSize int64, flushInterval time.Duration) Option {
-	return func(s *Streamsql) {
-		s.performanceMode = "custom"
-		config := types.DefaultPerformanceConfig()
-		config.OverflowConfig.Strategy = "persist"
-		config.OverflowConfig.PersistenceConfig = &types.PersistenceConfig{
-			DataDir:       dataDir,
-			MaxFileSize:   maxFileSize,
-			FlushInterval: flushInterval,
-			MaxRetries:    3,
-			RetryInterval: 2 * time.Second,
-		}
-		s.customConfig = &config
-	}
-}
-
 // WithBufferSizes sets custom buffer sizes
 func WithBufferSizes(dataChannelSize, resultChannelSize, windowOutputSize int) Option {
 	return func(s *Streamsql) {

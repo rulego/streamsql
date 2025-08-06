@@ -54,12 +54,6 @@ func (sf *StreamFactory) CreateLowLatencyStream(config types.Config) (*Stream, e
 	return sf.createStreamWithUnifiedConfig(config)
 }
 
-// CreateZeroDataLossStream creates zero data loss Stream
-func (sf *StreamFactory) CreateZeroDataLossStream(config types.Config) (*Stream, error) {
-	config.PerformanceConfig = types.ZeroDataLossConfig()
-	return sf.createStreamWithUnifiedConfig(config)
-}
-
 // CreateCustomPerformanceStream creates Stream with custom performance configuration
 func (sf *StreamFactory) CreateCustomPerformanceStream(config types.Config, perfConfig types.PerformanceConfig) (*Stream, error) {
 	config.PerformanceConfig = perfConfig
@@ -71,6 +65,11 @@ func (sf *StreamFactory) createStreamWithUnifiedConfig(config types.Config) (*St
 	var win window.Window
 	var err error
 
+	// Validate performance configuration
+	if err := sf.validatePerformanceConfig(config.PerformanceConfig); err != nil {
+		return nil, fmt.Errorf("invalid performance configuration: %w", err)
+	}
+
 	// Only create window when needed
 	if config.NeedWindow {
 		win, err = sf.createWindow(config)
@@ -81,11 +80,6 @@ func (sf *StreamFactory) createStreamWithUnifiedConfig(config types.Config) (*St
 
 	// Create Stream instance
 	stream := sf.createStreamInstance(config, win)
-
-	// Initialize persistence manager
-	if err := sf.initializePersistenceManager(stream, config.PerformanceConfig); err != nil {
-		return nil, err
-	}
 
 	// Setup data processing strategy
 	if err := sf.setupDataProcessingStrategy(stream, config.PerformanceConfig); err != nil {
@@ -132,29 +126,6 @@ func (sf *StreamFactory) createStreamInstance(config types.Config, win window.Wi
 	}
 }
 
-// initializePersistenceManager 初始化持久化管理器
-// 当溢出策略设置为持久化时，检查并初始化持久化配置
-func (sf *StreamFactory) initializePersistenceManager(stream *Stream, perfConfig types.PerformanceConfig) error {
-	if perfConfig.OverflowConfig.Strategy == StrategyPersist {
-		if perfConfig.OverflowConfig.PersistenceConfig == nil {
-			return fmt.Errorf("persistence strategy is enabled but PersistenceConfig is not provided. Please configure PersistenceConfig with DataDir, MaxFileSize, and FlushInterval. Example: perfConfig.OverflowConfig.PersistenceConfig = &types.PersistenceConfig{DataDir: \"./data\", MaxFileSize: 10*1024*1024, FlushInterval: 5*time.Second}")
-		}
-		persistConfig := perfConfig.OverflowConfig.PersistenceConfig
-		stream.persistenceManager = NewPersistenceManagerWithConfig(
-			persistConfig.DataDir,
-			persistConfig.MaxFileSize,
-			persistConfig.FlushInterval,
-		)
-		err := stream.persistenceManager.Start()
-		if err != nil {
-			return fmt.Errorf("failed to start persistence manager: %w", err)
-		}
-		// 尝试加载和恢复持久化数据
-		return stream.persistenceManager.LoadAndRecoverData()
-	}
-	return nil
-}
-
 // setupDataProcessingStrategy 设置数据处理策略
 // 使用策略模式替代函数指针，提供更好的扩展性和可维护性
 func (sf *StreamFactory) setupDataProcessingStrategy(stream *Stream, perfConfig types.PerformanceConfig) error {
@@ -174,6 +145,35 @@ func (sf *StreamFactory) setupDataProcessingStrategy(stream *Stream, perfConfig 
 
 	// 设置策略到Stream实例
 	stream.dataStrategy = strategy
+	return nil
+}
+
+// validatePerformanceConfig 验证性能配置参数
+func (sf *StreamFactory) validatePerformanceConfig(config types.PerformanceConfig) error {
+	// 验证缓冲区配置
+	if config.BufferConfig.DataChannelSize < 0 {
+		return fmt.Errorf("DataChannelSize cannot be negative: %d", config.BufferConfig.DataChannelSize)
+	}
+	if config.BufferConfig.ResultChannelSize < 0 {
+		return fmt.Errorf("ResultChannelSize cannot be negative: %d", config.BufferConfig.ResultChannelSize)
+	}
+
+	// 验证工作池配置
+	if config.WorkerConfig.SinkPoolSize < 0 {
+		return fmt.Errorf("SinkPoolSize cannot be negative: %d", config.WorkerConfig.SinkPoolSize)
+	}
+
+	// 验证溢出配置
+	validStrategies := map[string]bool{
+		"drop":    true,
+		"block":   true,
+		"expand":  true,
+		"persist": true,
+	}
+	if config.OverflowConfig.Strategy != "" && !validStrategies[config.OverflowConfig.Strategy] {
+		return fmt.Errorf("invalid overflow strategy: %s", config.OverflowConfig.Strategy)
+	}
+
 	return nil
 }
 

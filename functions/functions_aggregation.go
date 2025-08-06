@@ -13,7 +13,7 @@ import (
 type SumFunction struct {
 	*BaseFunction
 	value     float64
-	hasValues    bool // Flag to track if there are non-NULL values
+	hasValues bool // Flag to track if there are non-NULL values
 }
 
 func NewSumFunction() *SumFunction {
@@ -372,9 +372,12 @@ func (f *CountFunction) Clone() AggregatorFunction {
 	}
 }
 
-// StdDevFunction 标准差函数
+// StdDevFunction 标准差函数（韦尔福德算法实现）
 type StdDevFunction struct {
 	*BaseFunction
+	count int
+	mean  float64
+	m2    float64 // 平方差的累计值
 }
 
 func NewStdDevFunction() *StdDevFunction {
@@ -388,29 +391,75 @@ func (f *StdDevFunction) Validate(args []interface{}) error {
 }
 
 func (f *StdDevFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	// 批量执行模式，回退到传统算法
 	sum := 0.0
 	count := 0
 	for _, arg := range args {
 		val, err := cast.ToFloat64E(arg)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		sum += val
 		count++
 	}
 	if count == 0 {
-		return nil, fmt.Errorf("no data to calculate standard deviation")
+		return 0.0, nil
 	}
 	mean := sum / float64(count)
 	variance := 0.0
 	for _, arg := range args {
 		val, err := cast.ToFloat64E(arg)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		variance += math.Pow(val-mean, 2)
 	}
 	return math.Sqrt(variance / float64(count)), nil
+}
+
+// 实现AggregatorFunction接口 - 韦尔福德算法
+func (f *StdDevFunction) New() AggregatorFunction {
+	return &StdDevFunction{
+		BaseFunction: f.BaseFunction,
+		count:        0,
+		mean:         0,
+		m2:           0,
+	}
+}
+
+func (f *StdDevFunction) Add(value interface{}) {
+	val, err := cast.ToFloat64E(value)
+	if err != nil {
+		return
+	}
+	f.count++
+	delta := val - f.mean
+	f.mean += delta / float64(f.count)
+	delta2 := val - f.mean
+	f.m2 += delta * delta2
+}
+
+func (f *StdDevFunction) Result() interface{} {
+	if f.count < 1 {
+		return 0.0
+	}
+	variance := f.m2 / float64(f.count)
+	return math.Sqrt(variance)
+}
+
+func (f *StdDevFunction) Reset() {
+	f.count = 0
+	f.mean = 0
+	f.m2 = 0
+}
+
+func (f *StdDevFunction) Clone() AggregatorFunction {
+	return &StdDevFunction{
+		BaseFunction: f.BaseFunction,
+		count:        f.count,
+		mean:         f.mean,
+		m2:           f.m2,
+	}
 }
 
 // MedianFunction 中位数函数
@@ -551,8 +600,11 @@ func (f *LastValueFunction) Validate(args []interface{}) error {
 }
 
 func (f *LastValueFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	if err := f.Validate(args); err != nil {
+		return nil, err
+	}
 	if len(args) == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("function %s requires at least one argument", f.GetName())
 	}
 	// 返回最后一个值
 	return args[len(args)-1], nil
@@ -659,9 +711,12 @@ func (f *MergeAggFunction) Clone() AggregatorFunction {
 	return newFunc
 }
 
-// StdDevSFunction 样本标准差函数
+// StdDevSFunction 样本标准差函数（韦尔福德算法实现）
 type StdDevSFunction struct {
 	*BaseFunction
+	count int
+	mean  float64
+	m2    float64
 }
 
 func NewStdDevSFunction() *StdDevSFunction {
@@ -675,39 +730,75 @@ func (f *StdDevSFunction) Validate(args []interface{}) error {
 }
 
 func (f *StdDevSFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	if len(args) < 2 {
-		return 0.0, nil
-	}
-
-	// 过滤非空值
-	var values []float64
-	for _, arg := range args {
-		if arg != nil {
-			if val, err := cast.ToFloat64E(arg); err == nil {
-				values = append(values, val)
-			}
-		}
-	}
-
-	if len(values) < 2 {
-		return 0.0, nil
-	}
-
-	// 计算平均值
+	// 批量执行模式
 	sum := 0.0
-	for _, v := range values {
-		sum += v
+	count := 0
+	for _, arg := range args {
+		val, err := cast.ToFloat64E(arg)
+		if err != nil {
+			continue
+		}
+		sum += val
+		count++
 	}
-	mean := sum / float64(len(values))
-
-	// 计算样本方差
+	if count <= 1 {
+		return 0.0, nil
+	}
+	mean := sum / float64(count)
 	variance := 0.0
-	for _, v := range values {
-		variance += math.Pow(v-mean, 2)
+	for _, arg := range args {
+		val, err := cast.ToFloat64E(arg)
+		if err != nil {
+			continue
+		}
+		variance += math.Pow(val-mean, 2)
 	}
-	variance = variance / float64(len(values)-1) // 样本标准差使用n-1
+	return math.Sqrt(variance / float64(count-1)), nil
+}
 
-	return math.Sqrt(variance), nil
+// 实现AggregatorFunction接口 - 韦尔福德算法
+func (f *StdDevSFunction) New() AggregatorFunction {
+	return &StdDevSFunction{
+		BaseFunction: f.BaseFunction,
+		count:        0,
+		mean:         0,
+		m2:           0,
+	}
+}
+
+func (f *StdDevSFunction) Add(value interface{}) {
+	val, err := cast.ToFloat64E(value)
+	if err != nil {
+		return
+	}
+	f.count++
+	delta := val - f.mean
+	f.mean += delta / float64(f.count)
+	delta2 := val - f.mean
+	f.m2 += delta * delta2
+}
+
+func (f *StdDevSFunction) Result() interface{} {
+	if f.count < 2 {
+		return 0.0
+	}
+	variance := f.m2 / float64(f.count-1)
+	return math.Sqrt(variance)
+}
+
+func (f *StdDevSFunction) Reset() {
+	f.count = 0
+	f.mean = 0
+	f.m2 = 0
+}
+
+func (f *StdDevSFunction) Clone() AggregatorFunction {
+	return &StdDevSFunction{
+		BaseFunction: f.BaseFunction,
+		count:        f.count,
+		mean:         f.mean,
+		m2:           f.m2,
+	}
 }
 
 // DeduplicateFunction 去重函数
@@ -740,9 +831,12 @@ func (f *DeduplicateFunction) Execute(ctx *FunctionContext, args []interface{}) 
 	return result, nil
 }
 
-// VarFunction 总体方差函数
+// VarFunction 总体方差函数（韦尔福德算法实现）
 type VarFunction struct {
 	*BaseFunction
+	count int
+	mean  float64
+	m2    float64
 }
 
 func NewVarFunction() *VarFunction {
@@ -756,44 +850,82 @@ func (f *VarFunction) Validate(args []interface{}) error {
 }
 
 func (f *VarFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	if len(args) < 1 {
-		return 0.0, nil
-	}
-
-	// 过滤非空值
-	var values []float64
-	for _, arg := range args {
-		if arg != nil {
-			if val, err := cast.ToFloat64E(arg); err == nil {
-				values = append(values, val)
-			}
-		}
-	}
-
-	if len(values) < 1 {
-		return 0.0, nil
-	}
-
-	// 计算平均值
+	// 批量执行模式
 	sum := 0.0
-	for _, v := range values {
-		sum += v
+	count := 0
+	for _, arg := range args {
+		val, err := cast.ToFloat64E(arg)
+		if err != nil {
+			continue
+		}
+		sum += val
+		count++
 	}
-	mean := sum / float64(len(values))
-
-	// 计算总体方差
+	if count == 0 {
+		return 0.0, nil
+	}
+	mean := sum / float64(count)
 	variance := 0.0
-	for _, v := range values {
-		variance += math.Pow(v-mean, 2)
+	for _, arg := range args {
+		val, err := cast.ToFloat64E(arg)
+		if err != nil {
+			continue
+		}
+		variance += math.Pow(val-mean, 2)
 	}
-	variance = variance / float64(len(values)) // 总体方差使用n
-
-	return variance, nil
+	return variance / float64(count), nil
 }
 
-// VarSFunction 样本方差函数
+// 实现AggregatorFunction接口 - 韦尔福德算法
+func (f *VarFunction) New() AggregatorFunction {
+	return &VarFunction{
+		BaseFunction: f.BaseFunction,
+		count:        0,
+		mean:         0,
+		m2:           0,
+	}
+}
+
+func (f *VarFunction) Add(value interface{}) {
+	val, err := cast.ToFloat64E(value)
+	if err != nil {
+		return
+	}
+	f.count++
+	delta := val - f.mean
+	f.mean += delta / float64(f.count)
+	delta2 := val - f.mean
+	f.m2 += delta * delta2
+}
+
+func (f *VarFunction) Result() interface{} {
+	if f.count < 1 {
+		return 0.0
+	}
+	return f.m2 / float64(f.count)
+}
+
+func (f *VarFunction) Reset() {
+	f.count = 0
+	f.mean = 0
+	f.m2 = 0
+}
+
+func (f *VarFunction) Clone() AggregatorFunction {
+	return &VarFunction{
+		BaseFunction: f.BaseFunction,
+		count:        f.count,
+		mean:         f.mean,
+		m2:           f.m2,
+	}
+}
+
+// VarSFunction 样本方差函数（韦尔福德算法实现）
 type VarSFunction struct {
 	*BaseFunction
+	count int
+	mean  float64
+	m2    float64
 }
 
 func NewVarSFunction() *VarSFunction {
@@ -807,39 +939,74 @@ func (f *VarSFunction) Validate(args []interface{}) error {
 }
 
 func (f *VarSFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	if len(args) < 2 {
-		return 0.0, nil
-	}
-
-	// 过滤非空值
-	var values []float64
-	for _, arg := range args {
-		if arg != nil {
-			if val, err := cast.ToFloat64E(arg); err == nil {
-				values = append(values, val)
-			}
-		}
-	}
-
-	if len(values) < 2 {
-		return 0.0, nil
-	}
-
-	// 计算平均值
+	// 批量执行模式
 	sum := 0.0
-	for _, v := range values {
-		sum += v
+	count := 0
+	for _, arg := range args {
+		val, err := cast.ToFloat64E(arg)
+		if err != nil {
+			continue
+		}
+		sum += val
+		count++
 	}
-	mean := sum / float64(len(values))
-
-	// 计算样本方差
+	if count <= 1 {
+		return 0.0, nil
+	}
+	mean := sum / float64(count)
 	variance := 0.0
-	for _, v := range values {
-		variance += math.Pow(v-mean, 2)
+	for _, arg := range args {
+		val, err := cast.ToFloat64E(arg)
+		if err != nil {
+			continue
+		}
+		variance += math.Pow(val-mean, 2)
 	}
-	variance = variance / float64(len(values)-1) // 样本方差使用n-1
+	return variance / float64(count-1), nil
+}
 
-	return variance, nil
+// 实现AggregatorFunction接口 - 韦尔福德算法
+func (f *VarSFunction) New() AggregatorFunction {
+	return &VarSFunction{
+		BaseFunction: f.BaseFunction,
+		count:        0,
+		mean:         0,
+		m2:           0,
+	}
+}
+
+func (f *VarSFunction) Add(value interface{}) {
+	val, err := cast.ToFloat64E(value)
+	if err != nil {
+		return
+	}
+	f.count++
+	delta := val - f.mean
+	f.mean += delta / float64(f.count)
+	delta2 := val - f.mean
+	f.m2 += delta * delta2
+}
+
+func (f *VarSFunction) Result() interface{} {
+	if f.count < 2 {
+		return 0.0
+	}
+	return f.m2 / float64(f.count-1)
+}
+
+func (f *VarSFunction) Reset() {
+	f.count = 0
+	f.mean = 0
+	f.m2 = 0
+}
+
+func (f *VarSFunction) Clone() AggregatorFunction {
+	return &VarSFunction{
+		BaseFunction: f.BaseFunction,
+		count:        f.count,
+		mean:         f.mean,
+		m2:           f.m2,
+	}
 }
 
 // 为StdDevFunction添加AggregatorFunction接口实现

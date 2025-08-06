@@ -83,21 +83,13 @@ type BufferConfig struct {
 
 // OverflowConfig overflow strategy configuration
 type OverflowConfig struct {
-	Strategy          string             `json:"strategy"`          // Overflow strategy: "drop", "block", "expand", "persist"
-	BlockTimeout      time.Duration      `json:"blockTimeout"`      // Block timeout duration
-	AllowDataLoss     bool               `json:"allowDataLoss"`     // Allow data loss
-	PersistenceConfig *PersistenceConfig `json:"persistenceConfig"` // Persistence configuration
-	ExpansionConfig   ExpansionConfig    `json:"expansionConfig"`   // Expansion configuration
+	Strategy        string          `json:"strategy"`        // Overflow strategy: "drop", "block", "expand"
+	BlockTimeout    time.Duration   `json:"blockTimeout"`    // Block timeout duration
+	AllowDataLoss   bool            `json:"allowDataLoss"`   // Allow data loss
+	ExpansionConfig ExpansionConfig `json:"expansionConfig"` // Expansion configuration
 }
 
-// PersistenceConfig persistence configuration
-type PersistenceConfig struct {
-	DataDir       string        `json:"dataDir"`       // Persistence data directory
-	MaxFileSize   int64         `json:"maxFileSize"`   // Maximum file size
-	FlushInterval time.Duration `json:"flushInterval"` // Flush interval
-	MaxRetries    int           `json:"maxRetries"`    // Maximum retry count
-	RetryInterval time.Duration `json:"retryInterval"` // Retry interval
-}
+
 
 // ExpansionConfig expansion configuration
 type ExpansionConfig struct {
@@ -214,42 +206,5 @@ func LowLatencyConfig() PerformanceConfig {
 	config.OverflowConfig.AllowDataLoss = true
 	config.MonitoringConfig.EnableMonitoring = true
 	config.MonitoringConfig.StatsUpdateInterval = 1 * time.Second
-	return config
-}
-
-// ZeroDataLossConfig returns zero data loss configuration preset
-// Provides maximum data protection using persistence strategy to prevent data loss
-func ZeroDataLossConfig() PerformanceConfig {
-	config := DefaultPerformanceConfig()
-	config.BufferConfig.DataChannelSize = 2000
-	config.BufferConfig.ResultChannelSize = 200
-	config.BufferConfig.WindowOutputSize = 2000
-	config.BufferConfig.EnableDynamicResize = true
-	config.OverflowConfig.Strategy = "persist"
-	config.OverflowConfig.AllowDataLoss = false
-	config.OverflowConfig.PersistenceConfig = &PersistenceConfig{
-		DataDir:       "./data",
-		MaxFileSize:   100 * 1024 * 1024, // 100MB
-		FlushInterval: 5 * time.Second,
-		MaxRetries:    3,
-		RetryInterval: 2 * time.Second,
-	}
-	return config
-}
-
-// PersistencePerformanceConfig returns persistence performance configuration preset
-// Provides persistent storage functionality balancing performance and data durability
-func PersistencePerformanceConfig() PerformanceConfig {
-	config := DefaultPerformanceConfig()
-	config.BufferConfig.DataChannelSize = 1500
-	config.BufferConfig.ResultChannelSize = 150
-	config.OverflowConfig.Strategy = "persist"
-	config.OverflowConfig.PersistenceConfig = &PersistenceConfig{
-		DataDir:       "./persistence_data",
-		MaxFileSize:   10 * 1024 * 1024, // 10MB
-		FlushInterval: 5 * time.Second,
-		MaxRetries:    3,
-		RetryInterval: 2 * time.Second,
-	}
 	return config
 }

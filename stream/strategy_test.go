@@ -29,11 +29,6 @@ func TestStrategyFactory(t *testing.T) {
 			expectedType: StrategyExpand,
 		},
 		{
-			name:         "Persistence Strategy",
-			strategyName: StrategyPersist,
-			expectedType: StrategyPersist,
-		},
-		{
 			name:         "Drop Strategy",
 			strategyName: StrategyDrop,
 			expectedType: StrategyDrop,
@@ -102,18 +97,7 @@ func TestExpansionStrategy_ProcessData(t *testing.T) {
 }
 
 // TestPersistenceStrategy_ProcessData 测试持久化策略数据处理
-func TestPersistenceStrategy_ProcessData(t *testing.T) {
-	config := types.Config{
-		SimpleFields: []string{"name", "age"},
-	}
-	stream, err := NewStream(config)
-	require.NoError(t, err)
-	defer func() {
-		if stream != nil {
-			close(stream.done)
-		}
-	}()
-}
+
 
 // TestDropStrategy_ProcessData 测试丢弃策略数据处理
 func TestDropStrategy_ProcessData(t *testing.T) {
@@ -353,7 +337,7 @@ func TestStrategyRegistration(t *testing.T) {
 
 	// 测试内置策略是否已注册
 	registeredStrategies := factory.GetRegisteredStrategies()
-	expectedStrategies := []string{StrategyBlock, StrategyExpand, StrategyPersist, StrategyDrop}
+	expectedStrategies := []string{StrategyBlock, StrategyExpand, StrategyDrop}
 
 	for _, expected := range expectedStrategies {
 		found := false
