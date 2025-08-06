@@ -18,6 +18,7 @@ package stream
 
 import (
 	"sync/atomic"
+	"time"
 
 	"github.com/rulego/streamsql/logger"
 )
@@ -87,7 +88,7 @@ func (s *Stream) sendResultNonBlocking(results []map[string]interface{}) {
 	}
 }
 
-// handleResultChannelBackpressure handles result channel backpressure
+// handleResultChannelBackpressure handles result channel backpressure with log throttling
 func (s *Stream) handleResultChannelBackpressure(results []map[string]interface{}) {
 	chanLen := len(s.resultChan)
 	chanCap := cap(s.resultChan)
@@ -102,16 +103,35 @@ func (s *Stream) handleResultChannelBackpressure(results []map[string]interface{
 			case s.resultChan <- results:
 				atomic.AddInt64(&s.outputCount, 1)
 			default:
-				logger.Warn("Result channel is full, dropping result data")
+				s.logDroppedDataWithThrottling()
 				atomic.AddInt64(&s.droppedCount, 1)
 			}
 		default:
-			logger.Warn("Result channel is full, dropping result data")
+			s.logDroppedDataWithThrottling()
 			atomic.AddInt64(&s.droppedCount, 1)
 		}
 	} else {
-		logger.Warn("Result channel is full, dropping result data")
+		s.logDroppedDataWithThrottling()
 		atomic.AddInt64(&s.droppedCount, 1)
+	}
+}
+
+// logDroppedDataWithThrottling logs dropped data with throttling to avoid spam
+// Logs every 10 seconds or every 1000 drops, whichever comes first
+func (s *Stream) logDroppedDataWithThrottling() {
+	now := time.Now().Unix()
+	lastLogTime := atomic.LoadInt64(&s.lastDropLogTime)
+	dropCount := atomic.AddInt64(&s.dropLogCount, 1)
+
+	// Log if 10 seconds have passed since last log OR if 1000 drops have occurred
+	if now-lastLogTime >= 10 || dropCount >= 1000 {
+		// Try to update the last log time atomically
+		if atomic.CompareAndSwapInt64(&s.lastDropLogTime, lastLogTime, now) {
+			// Reset drop count and log the summary
+			atomic.StoreInt64(&s.dropLogCount, 0)
+			totalDropped := atomic.LoadInt64(&s.droppedCount)
+			logger.Warn("Result channel is full, dropped %d data items in last period (total dropped: %d)", dropCount, totalDropped+1)
+		}
 	}
 }
 

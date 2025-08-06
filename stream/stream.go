@@ -79,11 +79,16 @@ type Stream struct {
 	expanding        int32        // Expansion status flag using atomic operations
 	activeRetries    int32        // Active retry count using atomic operations
 	maxRetryRoutines int32        // Maximum retry goroutine limit
+	stopped          int32        // Stop status flag using atomic operations
 
 	// Performance monitoring metrics
 	inputCount   int64 // Input data count
 	outputCount  int64 // Output result count
 	droppedCount int64 // Dropped data count
+
+	// Log throttling fields for "Result channel is full" messages
+	lastDropLogTime int64 // Last time drop log was printed (unix timestamp)
+	dropLogCount    int64 // Count of drops since last log
 
 	// Data loss strategy configuration
 	allowDataDrop      bool                // Whether to allow data loss
@@ -215,6 +220,11 @@ func (s *Stream) Emit(data map[string]interface{}) {
 
 // Stop 停止流处理
 func (s *Stream) Stop() {
+	// 使用原子操作防止重复停止
+	if !atomic.CompareAndSwapInt32(&s.stopped, 0, 1) {
+		return // 已经停止，直接返回
+	}
+
 	close(s.done)
 
 	// 停止并清理数据处理策略资源
