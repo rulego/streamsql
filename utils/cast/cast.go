@@ -239,6 +239,11 @@ func ToFloat64E(value interface{}) (float64, error) {
 		return float64(v), nil
 	case uint64:
 		return float64(v), nil
+	case bool:
+		if v {
+			return 1.0, nil
+		}
+		return 0.0, nil
 	case string:
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
 			return f, nil

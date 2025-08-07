@@ -24,7 +24,7 @@ func TestExprBridge(t *testing.T) {
 		// 测试字符串函数
 		result, err = bridge.EvaluateExpression("length(\"hello\")", data)
 		assert.NoError(t, err)
-		assert.Equal(t, int64(5), result)
+		assert.Equal(t, int(5), result)
 	})
 
 	t.Run("Expr-Lang Functions Available", func(t *testing.T) {

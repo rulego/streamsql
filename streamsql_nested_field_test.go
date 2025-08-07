@@ -167,7 +167,7 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 			// 验证聚合结果
 			resultSlice, ok := result.([]map[string]interface{})
 			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
-			
+
 			// 聚合查询可能返回空结果，这是正常的
 			if len(resultSlice) > 0 {
 				// 如果有结果，验证结果结构
@@ -275,7 +275,7 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 
 		// 验证结果
 		assert.Greater(t, len(results), 0, "复杂WHERE条件应该返回结果")
-		
+
 		for _, result := range results {
 			resultSlice, ok := result.([]map[string]interface{})
 			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
@@ -284,27 +284,27 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 				// 验证通过过滤的数据确实满足所有条件
 				device, deviceOk := item["device"].(map[string]interface{})
 				assert.True(t, deviceOk, "device字段应该存在且为map类型")
-				
+
 				info, infoOk := device["info"].(map[string]interface{})
 				assert.True(t, infoOk, "device.info字段应该存在且为map类型")
-				
+
 				status, statusOk := info["status"].(string)
 				assert.True(t, statusOk, "device.info.status字段应该存在且为string类型")
 				assert.Equal(t, "active", status, "status应该是active")
-				
+
 				location, locationOk := device["location"].(map[string]interface{})
 				assert.True(t, locationOk, "device.location字段应该存在且为map类型")
-				
+
 				building, buildingOk := location["building"].(string)
 				assert.True(t, buildingOk, "device.location.building字段应该存在且为string类型")
 				assert.Equal(t, "A栋", building, "building应该是A栋")
-				
+
 				sensor, sensorOk := item["sensor"].(map[string]interface{})
 				assert.True(t, sensorOk, "sensor字段应该存在且为map类型")
-				
+
 				data, dataOk := sensor["data"].(map[string]interface{})
 				assert.True(t, dataOk, "sensor.data字段应该存在且为map类型")
-				
+
 				temp, tempOk := data["temperature"].(float64)
 				assert.True(t, tempOk, "sensor.data.temperature字段应该存在且为float64类型")
 				assert.Greater(t, temp, 25.0, "temperature应该大于25")

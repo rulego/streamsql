@@ -117,13 +117,13 @@ func NewStreamWithLowLatency(config types.Config) (*Stream, error) {
 	return factory.CreateLowLatencyStream(config)
 }
 
-// NewStreamWithCustomPerformance 创建自定义性能配置的Stream
+// NewStreamWithCustomPerformance creates Stream with custom performance configuration
 func NewStreamWithCustomPerformance(config types.Config, perfConfig types.PerformanceConfig) (*Stream, error) {
 	factory := NewStreamFactory()
 	return factory.CreateCustomPerformanceStream(config, perfConfig)
 }
 
-// RegisterFilter 注册过滤条件，支持反引号标识符、LIKE语法和IS NULL语法
+// RegisterFilter registers filter condition, supporting backtick identifiers, LIKE syntax and IS NULL syntax
 func (s *Stream) RegisterFilter(conditionStr string) error {
 	if strings.TrimSpace(conditionStr) == "" {
 		return nil
@@ -138,26 +138,26 @@ func (s *Stream) RegisterFilter(conditionStr string) error {
 	return nil
 }
 
-// preprocessFilterCondition 预处理过滤条件
+// preprocessFilterCondition preprocesses filter condition
 func (s *Stream) preprocessFilterCondition(conditionStr string) string {
 	processedCondition := conditionStr
 	bridge := functions.GetExprBridge()
 
-	// 首先预处理反引号标识符，去除反引号
+	// First preprocess backtick identifiers, remove backticks
 	if bridge.ContainsBacktickIdentifiers(conditionStr) {
 		if processed, err := bridge.PreprocessBacktickIdentifiers(conditionStr); err == nil {
 			processedCondition = processed
 		}
 	}
 
-	// 预处理LIKE语法，转换为expr-lang可理解的形式
+	// Preprocess LIKE syntax, convert to expr-lang understandable form
 	if bridge.ContainsLikeOperator(processedCondition) {
 		if processed, err := bridge.PreprocessLikeExpression(processedCondition); err == nil {
 			processedCondition = processed
 		}
 	}
 
-	// 预处理IS NULL和IS NOT NULL语法
+	// Preprocess IS NULL and IS NOT NULL syntax
 	if bridge.ContainsIsNullOperator(processedCondition) {
 		if processed, err := bridge.PreprocessIsNullExpression(processedCondition); err == nil {
 			processedCondition = processed
@@ -167,7 +167,7 @@ func (s *Stream) preprocessFilterCondition(conditionStr string) string {
 	return processedCondition
 }
 
-// convertToAggregationFields 将旧格式的配置转换为新的AggregationField格式
+// convertToAggregationFields converts old format configuration to new AggregationField format
 func convertToAggregationFields(selectFields map[string]aggregator.AggregateType, fieldAlias map[string]string) []aggregator.AggregationField {
 	var fields []aggregator.AggregationField
 
@@ -177,11 +177,11 @@ func convertToAggregationFields(selectFields map[string]aggregator.AggregateType
 			OutputAlias:   outputAlias,
 		}
 
-		// 查找对应的输入字段名
+		// Find corresponding input field name
 		if inputField, exists := fieldAlias[outputAlias]; exists {
 			field.InputField = inputField
 		} else {
-			// 如果没有别名映射，输入字段名等于输出别名
+			// If no alias mapping, input field name equals output alias
 			field.InputField = outputAlias
 		}
 
@@ -192,30 +192,30 @@ func convertToAggregationFields(selectFields map[string]aggregator.AggregateType
 }
 
 func (s *Stream) Start() {
-	// 创建数据处理器并启动
+	// Create data processor and start
 	processor := NewDataProcessor(s)
 	go processor.Process()
 }
 
-// Emit 添加数据到流处理管道
-// 参数:
-//   - data: 要处理的数据，必须是map[string]interface{}类型
+// Emit adds data to stream processing pipeline
+// Parameters:
+//   - data: data to be processed, must be map[string]interface{} type
 func (s *Stream) Emit(data map[string]interface{}) {
 	atomic.AddInt64(&s.inputCount, 1)
-	// 使用策略模式处理数据，提供更好的扩展性
+	// Use strategy pattern to process data, providing better extensibility
 	s.dataStrategy.ProcessData(data)
 }
 
-// Stop 停止流处理
+// Stop stops stream processing
 func (s *Stream) Stop() {
-	// 使用原子操作防止重复停止
+	// Use atomic operation to prevent duplicate stops
 	if !atomic.CompareAndSwapInt32(&s.stopped, 0, 1) {
-		return // 已经停止，直接返回
+		return // Already stopped, return directly
 	}
 
 	close(s.done)
 
-	// 停止并清理数据处理策略资源
+	// Stop and clean up data processing strategy resources
 	if s.dataStrategy != nil {
 		if err := s.dataStrategy.Stop(); err != nil {
 			logger.Error("Failed to stop data strategy: %v", err)
@@ -223,77 +223,77 @@ func (s *Stream) Stop() {
 	}
 }
 
-// IsAggregationQuery 检查当前流是否为聚合查询
+// IsAggregationQuery checks if current stream is an aggregation query
 func (s *Stream) IsAggregationQuery() bool {
 	return s.config.NeedWindow
 }
 
-// ProcessSync 同步处理单条数据，立即返回结果
-// 仅适用于非聚合查询，聚合查询会返回错误
-// 参数:
-//   - data: 要处理的数据，必须是map[string]interface{}类型
+// ProcessSync synchronously processes single data, returns result immediately
+// Only applicable to non-aggregation queries, aggregation queries will return error
+// Parameters:
+//   - data: data to be processed, must be map[string]interface{} type
 //
-// 返回值:
-//   - map[string]interface{}: 处理后的结果数据，如果不匹配过滤条件返回nil
-//   - error: 处理错误，如果是聚合查询会返回错误
+// Returns:
+//   - map[string]interface{}: processed result data, returns nil if doesn't match filter condition
+//   - error: processing error, returns error for aggregation queries
 func (s *Stream) ProcessSync(data map[string]interface{}) (map[string]interface{}, error) {
-	// 检查是否为聚合查询
+	// Check if it's an aggregation query
 	if s.config.NeedWindow {
 		return nil, fmt.Errorf("Synchronous processing is not supported for aggregation queries.")
 	}
 
-	// 应用过滤条件
+	// Apply filter condition
 	if s.filter != nil && !s.filter.Evaluate(data) {
-		return nil, nil // 不匹配过滤条件，返回nil
+		return nil, nil // Doesn't match filter condition, return nil
 	}
 
-	// 直接处理数据并返回结果
+	// Directly process data and return result
 	return s.processDirectDataSync(data)
 }
 
-// processDirectDataSync 同步版本的直接数据处理
-// 参数:
-//   - data: 要处理的数据，必须是map[string]interface{}类型
+// processDirectDataSync synchronous version of direct data processing
+// Parameters:
+//   - data: data to be processed, must be map[string]interface{} type
 //
-// 返回值:
-//   - map[string]interface{}: 处理后的结果数据
-//   - error: 处理错误
+// Returns:
+//   - map[string]interface{}: processed result data
+//   - error: processing error
 func (s *Stream) processDirectDataSync(data map[string]interface{}) (map[string]interface{}, error) {
-	// 直接使用传入的map，无需类型转换
+	// Directly use the passed map, no type conversion needed
 	dataMap := data
 
-	// 创建结果map，预分配合适容量
+	// Create result map, pre-allocate appropriate capacity
 	estimatedSize := len(s.config.FieldExpressions) + len(s.config.SimpleFields)
 	if estimatedSize < 8 {
-		estimatedSize = 8 // 最小容量
+		estimatedSize = 8 // Minimum capacity
 	}
 	result := make(map[string]interface{}, estimatedSize)
 
-	// 处理表达式字段
+	// Process expression fields
 	for fieldName := range s.config.FieldExpressions {
 		s.processExpressionField(fieldName, dataMap, result)
 	}
 
-	// 使用预编译的字段信息处理SimpleFields
+	// Use pre-compiled field information to process SimpleFields
 	if len(s.config.SimpleFields) > 0 {
 		for _, fieldSpec := range s.config.SimpleFields {
 			s.processSimpleField(fieldSpec, dataMap, dataMap, result)
 		}
 	} else if len(s.config.FieldExpressions) == 0 {
-		// 如果没有指定字段且没有表达式字段，保留所有字段
+		// If no fields specified and no expression fields, keep all fields
 		for k, v := range dataMap {
 			result[k] = v
 		}
 	}
 
-	// 增加输出计数
+	// Increment output count
 	atomic.AddInt64(&s.outputCount, 1)
 
-	// 包装结果为数组格式，保持与异步模式的一致性
+	// Wrap result as array format, maintain consistency with async mode
 	results := []map[string]interface{}{result}
 
-	// 触发 AddSink 回调，保持同步和异步模式的一致性
-	// 这样用户可以同时获得同步结果和异步回调
+	// Trigger AddSink callback, maintain consistency between sync and async modes
+	// This way users can get both sync results and async callbacks
 	s.callSinksAsync(results)
 
 	return result, nil

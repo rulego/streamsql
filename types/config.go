@@ -15,9 +15,9 @@ type Config struct {
 	FieldAlias       map[string]string                   `json:"fieldAlias"`
 	SimpleFields     []string                            `json:"simpleFields"`
 	FieldExpressions map[string]FieldExpression          `json:"fieldExpressions"`
-	FieldOrder       []string                            `json:"fieldOrder"`       // Original order of fields in SELECT statement
+	FieldOrder       []string                            `json:"fieldOrder"` // Original order of fields in SELECT statement
 	Where            string                              `json:"where"`
-	Having           string                              `json:"having"` 
+	Having           string                              `json:"having"`
 
 	// Feature switches
 	NeedWindow bool `json:"needWindow"`
@@ -88,8 +88,6 @@ type OverflowConfig struct {
 	AllowDataLoss   bool            `json:"allowDataLoss"`   // Allow data loss
 	ExpansionConfig ExpansionConfig `json:"expansionConfig"` // Expansion configuration
 }
-
-
 
 // ExpansionConfig expansion configuration
 type ExpansionConfig struct {

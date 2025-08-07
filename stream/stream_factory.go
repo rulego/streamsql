@@ -108,7 +108,7 @@ func (sf *StreamFactory) createWindow(config types.Config) (window.Window, error
 	return window.CreateWindow(windowConfig)
 }
 
-// createStreamInstance 创建Stream实例
+// createStreamInstance creates Stream instance
 func (sf *StreamFactory) createStreamInstance(config types.Config, win window.Window) *Stream {
 	perfConfig := config.PerformanceConfig
 	return &Stream{
@@ -126,31 +126,30 @@ func (sf *StreamFactory) createStreamInstance(config types.Config, win window.Wi
 	}
 }
 
-// setupDataProcessingStrategy 设置数据处理策略
-// 使用策略模式替代函数指针，提供更好的扩展性和可维护性
+// setupDataProcessingStrategy sets up data processing strategy
 func (sf *StreamFactory) setupDataProcessingStrategy(stream *Stream, perfConfig types.PerformanceConfig) error {
-	// 创建策略工厂
+	// Create strategy factory
 	strategyFactory := NewStrategyFactory()
 
-	// 根据配置创建对应的策略实例
+	// Create corresponding strategy instance based on configuration
 	strategy, err := strategyFactory.CreateStrategy(perfConfig.OverflowConfig.Strategy)
 	if err != nil {
 		return err
 	}
 
-	// 初始化策略
+	// Initialize strategy
 	if err := strategy.Init(stream, perfConfig); err != nil {
 		return err
 	}
 
-	// 设置策略到Stream实例
+	// Set strategy to Stream instance
 	stream.dataStrategy = strategy
 	return nil
 }
 
-// validatePerformanceConfig 验证性能配置参数
+// validatePerformanceConfig validates performance configuration parameters
 func (sf *StreamFactory) validatePerformanceConfig(config types.PerformanceConfig) error {
-	// 验证缓冲区配置
+	// Validate buffer configuration
 	if config.BufferConfig.DataChannelSize < 0 {
 		return fmt.Errorf("DataChannelSize cannot be negative: %d", config.BufferConfig.DataChannelSize)
 	}
@@ -158,12 +157,12 @@ func (sf *StreamFactory) validatePerformanceConfig(config types.PerformanceConfi
 		return fmt.Errorf("ResultChannelSize cannot be negative: %d", config.BufferConfig.ResultChannelSize)
 	}
 
-	// 验证工作池配置
+	// Validate worker pool configuration
 	if config.WorkerConfig.SinkPoolSize < 0 {
 		return fmt.Errorf("SinkPoolSize cannot be negative: %d", config.WorkerConfig.SinkPoolSize)
 	}
 
-	// 验证溢出配置
+	// Validate overflow configuration
 	validStrategies := map[string]bool{
 		"drop":    true,
 		"block":   true,
@@ -177,7 +176,7 @@ func (sf *StreamFactory) validatePerformanceConfig(config types.PerformanceConfi
 	return nil
 }
 
-// startWorkerRoutines 启动工作协程
+// startWorkerRoutines starts worker goroutines
 func (sf *StreamFactory) startWorkerRoutines(stream *Stream, perfConfig types.PerformanceConfig) {
 	go stream.startSinkWorkerPool(perfConfig.WorkerConfig.SinkWorkerCount)
 	go stream.startResultConsumer()

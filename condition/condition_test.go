@@ -418,9 +418,9 @@ func TestExprCondition_ComplexExpressions(t *testing.T) {
 // TestExprCondition_FunctionErrors 测试函数错误处理
 func TestExprCondition_FunctionErrors(t *testing.T) {
 	tests := []struct {
-		name string
-		expr string
-		data map[string]interface{}
+		name     string
+		expr     string
+		data     map[string]interface{}
 		expected bool
 	}{
 		{"like_match类型错误", "like_match(123, 'pattern')", map[string]interface{}{}, false},
@@ -445,9 +445,9 @@ func TestExprCondition_FunctionErrors(t *testing.T) {
 // TestExprCondition_AdvancedFeatures 测试高级功能
 func TestExprCondition_AdvancedFeatures(t *testing.T) {
 	tests := []struct {
-		name string
-		expr string
-		data map[string]interface{}
+		name     string
+		expr     string
+		data     map[string]interface{}
 		expected bool
 	}{
 		{"复杂逻辑表达式", "(age > 18 && status == 'active') || (vip == true && score > 80)", map[string]interface{}{"age": 20, "status": "active", "vip": false, "score": 75}, true},
@@ -472,9 +472,9 @@ func TestExprCondition_AdvancedFeatures(t *testing.T) {
 // TestExprCondition_EdgeCases 测试边界情况
 func TestExprCondition_EdgeCases(t *testing.T) {
 	tests := []struct {
-		name string
-		expr string
-		data map[string]interface{}
+		name     string
+		expr     string
+		data     map[string]interface{}
 		expected bool
 	}{
 		{"空字符串匹配", "like_match(text, '')", map[string]interface{}{"text": ""}, true},

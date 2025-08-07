@@ -35,7 +35,7 @@ and session windows with efficient memory management and concurrent processing.
 Four distinct window types for different stream processing scenarios:
 
 • Tumbling Windows - Non-overlapping, fixed-size time windows
-• Sliding Windows - Overlapping time windows with configurable slide interval  
+• Sliding Windows - Overlapping time windows with configurable slide interval
 • Counting Windows - Count-based windows that trigger after N records
 • Session Windows - Activity-based windows with configurable timeout
 
@@ -65,14 +65,14 @@ Non-overlapping time-based windows:
 		TsProp: "timestamp",
 	}
 	window, err := NewTumblingWindow(config)
-	
+
 	// Window characteristics:
 	// - Fixed size (e.g., 5 seconds)
 	// - No overlap between windows
 	// - Triggers at regular intervals
 	// - Memory efficient
 	// - Suitable for periodic aggregations
-	
+
 	// Example timeline:
 	// Window 1: [00:00 - 00:05)
 	// Window 2: [00:05 - 00:10)
@@ -92,14 +92,14 @@ Overlapping time-based windows with configurable slide interval:
 		TsProp: "timestamp",
 	}
 	window, err := NewSlidingWindow(config)
-	
+
 	// Window characteristics:
 	// - Fixed size with configurable slide
 	// - Overlapping windows
 	// - More frequent updates
 	// - Higher memory usage
 	// - Suitable for smooth trend analysis
-	
+
 	// Example timeline (30s window, 10s slide):
 	// Window 1: [00:00 - 00:30)
 	// Window 2: [00:10 - 00:40)
@@ -117,14 +117,14 @@ Count-based windows that trigger after a specified number of records:
 		},
 	}
 	window, err := NewCountingWindow(config)
-	
+
 	// Window characteristics:
 	// - Fixed record count
 	// - Time-independent
 	// - Predictable memory usage
 	// - Suitable for batch processing
 	// - Handles variable data rates
-	
+
 	// Example:
 	// Window 1: Records 1-100
 	// Window 2: Records 101-200
@@ -143,14 +143,14 @@ Activity-based windows with configurable session timeout:
 		GroupByKey: "user_id", // Group sessions by user
 	}
 	window, err := NewSessionWindow(config)
-	
+
 	// Window characteristics:
 	// - Variable window size
 	// - Activity-based triggers
 	// - Per-group session tracking
 	// - Automatic session expiration
 	// - Suitable for user behavior analysis
-	
+
 	// Example (5-minute timeout):
 	// User A: [10:00 - 10:15) - 15-minute session
 	// User B: [10:05 - 10:08) - 3-minute session

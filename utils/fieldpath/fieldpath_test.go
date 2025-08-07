@@ -413,39 +413,39 @@ func TestGetFieldPathDepth(t *testing.T) {
 // TestGetAllReferencedFields 测试GetAllReferencedFields函数
 func TestGetAllReferencedFields(t *testing.T) {
 	tests := []struct {
-		name      string
+		name       string
 		fieldPaths []string
-		expected  []string
+		expected   []string
 	}{
 		{
-			name:      "空列表",
+			name:       "空列表",
 			fieldPaths: []string{},
-			expected:  []string{},
+			expected:   []string{},
 		},
 		{
-			name:      "单个简单字段",
+			name:       "单个简单字段",
 			fieldPaths: []string{"name"},
-			expected:  []string{"name"},
+			expected:   []string{"name"},
 		},
 		{
-			name:      "多个不同顶级字段",
+			name:       "多个不同顶级字段",
 			fieldPaths: []string{"device.info.name", "sensor.temperature", "data[0].value"},
-			expected:  []string{"device", "sensor", "data"},
+			expected:   []string{"device", "sensor", "data"},
 		},
 		{
-			name:      "重复顶级字段",
+			name:       "重复顶级字段",
 			fieldPaths: []string{"user.name", "user.email", "user.profile.age"},
-			expected:  []string{"user"},
+			expected:   []string{"user"},
 		},
 		{
-			name:      "包含空字符串",
+			name:       "包含空字符串",
 			fieldPaths: []string{"user.name", "", "device.id"},
-			expected:  []string{"user", "device"},
+			expected:   []string{"user", "device"},
 		},
 		{
-			name:      "数组和map访问",
+			name:       "数组和map访问",
 			fieldPaths: []string{"items[0].name", "config['database']", "matrix[1][2]"},
-			expected:  []string{"items", "config", "matrix"},
+			expected:   []string{"items", "config", "matrix"},
 		},
 	}
 

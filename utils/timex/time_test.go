@@ -62,9 +62,9 @@ func TestAlignTimeToWindow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := AlignTimeToWindow(tt.input, tt.size)
 			if !got.Equal(tt.expected) {
-			t.Errorf("AlignTimeToWindow() = %v, want %v", got, tt.expected)
-		}
-	})
+				t.Errorf("AlignTimeToWindow() = %v, want %v", got, tt.expected)
+			}
+		})
 	}
 }
 
@@ -179,7 +179,7 @@ func TestAlignTimeEdgeCases(t *testing.T) {
 
 	// 测试非常大的时间单位
 	result = AlignTime(testTime, 365*24*time.Hour, false) // 一年
-	expected = testTime.Truncate(365*24*time.Hour)
+	expected = testTime.Truncate(365 * 24 * time.Hour)
 	if !result.Equal(expected) {
 		t.Errorf("AlignTime with year unit failed: expected %v, got %v", expected, result)
 	}

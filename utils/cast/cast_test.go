@@ -221,10 +221,10 @@ func TestToInt64(t *testing.T) {
 
 func TestToDurationE(t *testing.T) {
 	tests := []struct {
-		name   string
-		input  interface{}
+		name     string
+		input    interface{}
 		expected time.Duration
-		hasErr bool
+		hasErr   bool
 	}{
 		{"duration", time.Second, time.Second, false},
 		{"int", 1000, 1000, false},

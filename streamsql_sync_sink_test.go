@@ -293,10 +293,6 @@ func TestEmitSyncPerformance(t *testing.T) {
 	// 等待所有异步回调完成
 	time.Sleep(200 * time.Millisecond)
 
-	t.Logf("处理 %d 条数据耗时: %v", testCount, duration)
-	t.Logf("平均每条数据: %v", duration/time.Duration(testCount))
-	t.Logf("AddSink 触发次数: %d", atomic.LoadInt32(&sinkCallCount))
-
 	// 验证性能和一致性
 	assert.Less(t, duration, 1*time.Second, "性能应该足够好")
 	assert.Equal(t, int32(testCount), atomic.LoadInt32(&sinkCallCount), "所有数据都应触发AddSink")

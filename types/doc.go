@@ -59,7 +59,7 @@ Unified configuration for all window types:
 		TimeUnit   time.Duration          // Time unit
 		GroupByKey string                 // Grouping key
 	}
-	
+
 	// Example configurations
 	// Tumbling window
 	windowConfig := WindowConfig{
@@ -69,7 +69,7 @@ Unified configuration for all window types:
 		},
 		TsProp: "timestamp",
 	}
-	
+
 	// Sliding window
 	windowConfig := WindowConfig{
 		Type: "sliding",
@@ -79,7 +79,7 @@ Unified configuration for all window types:
 		},
 		TsProp: "timestamp",
 	}
-	
+
 	// Counting window
 	windowConfig := WindowConfig{
 		Type: "counting",
@@ -87,7 +87,7 @@ Unified configuration for all window types:
 			"count": 100,
 		},
 	}
-	
+
 	// Session window
 	windowConfig := WindowConfig{
 		Type: "session",
@@ -108,27 +108,27 @@ Comprehensive performance tuning options:
 		FlushInterval    time.Duration // Automatic flush interval
 		HighWaterMark    float64       // Buffer high water mark (0.0-1.0)
 		LowWaterMark     float64       // Buffer low water mark (0.0-1.0)
-		
+
 		// Worker pool configuration
 		WorkerPoolSize   int           // Number of worker goroutines
 		MaxWorkers       int           // Maximum worker limit
 		WorkerIdleTime   time.Duration // Worker idle timeout
-		
+
 		// Overflow handling
 		OverflowStrategy string        // "drop", "block", "spill", "compress"
 		SpillDirectory   string        // Directory for spill files
 		CompressionLevel int           // Compression level (1-9)
-		
+
 		// Memory management
 		MaxMemoryUsage   int64         // Maximum memory usage in bytes
 		GCInterval       time.Duration // Garbage collection interval
 		MemoryThreshold  float64       // Memory usage threshold
-		
+
 		// Monitoring
 		MetricsEnabled   bool          // Enable metrics collection
 		MetricsInterval  time.Duration // Metrics collection interval
 		HealthCheckPort  int           // Health check HTTP port
-		
+
 		// Persistence
 		PersistenceEnabled bool        // Enable data persistence
 		PersistenceType    string      // "memory", "file", "database"
@@ -145,16 +145,16 @@ Advanced field handling and expression support:
 		Expression string   // Expression
 		Fields     []string // Referenced fields
 	}
-	
+
 	type Projection struct {
 		SourceType ProjectionSourceType // Source type (field, expression, aggregate)
 		Source     string               // Source identifier
 		Alias      string               // Output alias
 		DataType   string               // Expected data type
 	}
-	
+
 	type ProjectionSourceType string
-	
+
 	const (
 		ProjectionSourceField      ProjectionSourceType = "field"      // Direct field reference
 		ProjectionSourceExpression ProjectionSourceType = "expression" // Computed expression
@@ -173,7 +173,7 @@ Type-safe data row structures for stream processing:
 		GroupKey  string                 // Grouping key for aggregation
 		WindowID  string                 // Window identifier
 	}
-	
+
 	// Row creation and manipulation
 	func NewRow(data map[string]interface{}) *Row
 	func (r *Row) GetValue(field string) interface{}
@@ -191,7 +191,7 @@ Time-based data structures for window processing:
 		Duration time.Duration // Slot duration
 		ID       string    // Unique slot identifier
 	}
-	
+
 	// Time slot operations
 	func NewTimeSlot(start time.Time, duration time.Duration) *TimeSlot
 	func (ts *TimeSlot) Contains(timestamp time.Time) bool
@@ -213,7 +213,7 @@ Pre-defined configuration templates for common use cases:
 			MetricsEnabled:   true,
 		}
 	}
-	
+
 	// Low Latency Configuration
 	func NewLowLatencyConfig() *PerformanceConfig {
 		return &PerformanceConfig{
@@ -225,7 +225,7 @@ Pre-defined configuration templates for common use cases:
 			MetricsEnabled:   false,
 		}
 	}
-	
+
 	// Zero Data Loss Configuration
 	func NewZeroDataLossConfig() *PerformanceConfig {
 		return &PerformanceConfig{
@@ -262,7 +262,7 @@ Data row operations:
 		"device_id":   "sensor001",
 		"temperature": 25.5,
 	})
-	
+
 	deviceID := row.GetValue("device_id").(string)
 	row.SetValue("processed", true)
 

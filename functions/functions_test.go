@@ -56,7 +56,7 @@ func TestNewMathFunctions(t *testing.T) {
 		delta        float64 // 用于浮点数比较的精度
 	}{
 		// Log function tests
-		{"log valid", "log", []interface{}{math.E}, 1.0, false, "", 1e-10},
+		{"log valid", "log", []interface{}{10.0}, 1.0, false, "", 1e-10},
 		{"log negative", "log", []interface{}{-1}, nil, true, "value must be positive", 0},
 		{"log zero", "log", []interface{}{0}, nil, true, "value must be positive", 0},
 
@@ -182,8 +182,8 @@ func TestFunctionExecution(t *testing.T) {
 		{"concat basic", "concat", []interface{}{"hello", " ", "world"}, "hello world", false},
 		{"concat single", "concat", []interface{}{"hello"}, "hello", false},
 		{"concat numbers", "concat", []interface{}{1, 2, 3}, "123", false},
-		{"length basic", "length", []interface{}{"hello"}, int64(5), false},
-		{"length empty", "length", []interface{}{""}, int64(0), false},
+		{"length basic", "length", []interface{}{"hello"}, int(5), false},
+		{"length empty", "length", []interface{}{""}, int(0), false},
 		{"upper basic", "upper", []interface{}{"hello"}, "HELLO", false},
 		{"upper mixed", "upper", []interface{}{"Hello World"}, "HELLO WORLD", false},
 		{"lower basic", "lower", []interface{}{"HELLO"}, "hello", false},
@@ -637,7 +637,7 @@ func TestStringFunctionsCaseInsensitive(t *testing.T) {
 
 			result, err := fn.Execute(ctx, []interface{}{"hello"})
 			assert.NoError(t, err, "函数 %s 执行不应该出错", name)
-			assert.Equal(t, int64(5), result, "函数 %s 的执行结果应该正确", name)
+			assert.Equal(t, int(5), result, "函数 %s 的执行结果应该正确", name)
 		}
 	})
 
@@ -719,4 +719,103 @@ func TestAggregationFunctionsCaseInsensitive(t *testing.T) {
 			assert.Equal(t, TypeAggregation, fn.GetType(), "函数 %s 应该是聚合函数", name)
 		}
 	})
+}
+
+// TestFunctionAliases 测试函数别名功能
+func TestFunctionAliases(t *testing.T) {
+	// 测试 power 函数的 pow 别名
+	powerFunc, exists := Get("power")
+	if !exists {
+		t.Fatal("power function not found")
+	}
+
+	powFunc, exists := Get("pow")
+	if !exists {
+		t.Fatal("pow alias not found")
+	}
+
+	// 验证别名指向同一个函数实例
+	if powerFunc != powFunc {
+		t.Error("pow alias should point to the same function as power")
+	}
+
+	// 测试 length 函数的 len 别名
+	lengthFunc, exists := Get("length")
+	if !exists {
+		t.Fatal("length function not found")
+	}
+
+	lenFunc, exists := Get("len")
+	if !exists {
+		t.Fatal("len alias not found")
+	}
+
+	// 验证别名指向同一个函数实例
+	if lengthFunc != lenFunc {
+		t.Error("len alias should point to the same function as length")
+	}
+
+	// 测试 ceiling 函数的 ceil 别名
+	ceilingFunc, exists := Get("ceiling")
+	if !exists {
+		t.Fatal("ceiling function not found")
+	}
+
+	ceilFunc, exists := Get("ceil")
+	if !exists {
+		t.Fatal("ceil alias not found")
+	}
+
+	// 验证别名指向同一个函数实例
+	if ceilingFunc != ceilFunc {
+		t.Error("ceil alias should point to the same function as ceiling")
+	}
+
+	// 验证别名列表
+	aliases := powerFunc.GetAliases()
+	if len(aliases) != 1 || aliases[0] != "pow" {
+		t.Errorf("Expected aliases [pow], got %v", aliases)
+	}
+
+	aliases = lengthFunc.GetAliases()
+	if len(aliases) != 1 || aliases[0] != "len" {
+		t.Errorf("Expected aliases [len], got %v", aliases)
+	}
+
+	aliases = ceilingFunc.GetAliases()
+	if len(aliases) != 1 || aliases[0] != "ceil" {
+		t.Errorf("Expected aliases [ceil], got %v", aliases)
+	}
+}
+
+// TestFunctionAliasExecution 测试通过别名执行函数
+func TestFunctionAliasExecution(t *testing.T) {
+	ctx := &FunctionContext{}
+
+	// 测试 pow 别名执行
+	result, err := Execute("pow", ctx, []interface{}{2.0, 3.0})
+	if err != nil {
+		t.Fatalf("pow execution failed: %v", err)
+	}
+	if result != 8.0 {
+		t.Errorf("Expected 8.0, got %v", result)
+	}
+
+	// 测试 len 别名执行
+	result, err = Execute("len", ctx, []interface{}{"hello"})
+	if err != nil {
+		t.Fatalf("len execution failed: %v", err)
+	}
+	if result != 5 {
+		t.Errorf("Expected 5, got %v", result)
+	}
+
+	// 测试 ceil 别名执行
+	result, err = Execute("ceil", ctx, []interface{}{3.2})
+	if err != nil {
+		t.Fatalf("ceil execution failed: %v", err)
+	}
+	if result != 4.0 {
+		t.Errorf("Expected 4.0, got %v", result)
+	}
 }

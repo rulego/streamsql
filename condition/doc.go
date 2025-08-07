@@ -45,7 +45,7 @@ Built-in SQL-compatible functions:
 
 	// LIKE pattern matching
 	like_match(text, pattern) - SQL LIKE operation with % and _ wildcards
-	
+
 	// NULL checking
 	is_null(value) - Check if value is NULL
 	is_not_null(value) - Check if value is not NULL
@@ -58,12 +58,12 @@ Basic condition evaluation:
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	data := map[string]interface{}{
 		"age": 25,
 		"status": "active",
 	}
-	
+
 	result := condition.Evaluate(data) // returns true
 
 LIKE pattern matching:
@@ -81,8 +81,8 @@ NULL checking:
 Complex conditions:
 
 	condition, err := NewExprCondition(`
-		age >= 18 AND 
-		like_match(email, '%@company.com') AND 
+		age >= 18 AND
+		like_match(email, '%@company.com') AND
 		is_not_null(department)
 	`)
 

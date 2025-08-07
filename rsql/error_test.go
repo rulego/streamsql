@@ -1,9 +1,9 @@
 package rsql
 
 import (
+	"fmt"
 	"strings"
 	"testing"
-	"fmt"
 )
 
 // TestParseError 测试 ParseError 结构体
@@ -315,13 +315,13 @@ func TestFunctionValidatorBuiltins(t *testing.T) {
 		})
 	}
 
-	// 测试聚合函数（这些不在isBuiltinFunction中，但在SQL中是有效的）
+	// 测试聚合函数（这些在函数注册系统中是有效的）
 	aggregateFunctions := []string{"COUNT", "SUM", "AVG", "MAX", "MIN"}
 	for _, funcName := range aggregateFunctions {
 		t.Run("Aggregate_"+funcName, func(t *testing.T) {
-			// 聚合函数不在isBuiltinFunction中，这是正确的
-			if validator.isBuiltinFunction(funcName) {
-				t.Errorf("Expected %s to not be in builtin functions (it's an aggregate function)", funcName)
+			// 聚合函数应该在函数注册系统中存在
+			if !validator.isBuiltinFunction(funcName) {
+				t.Errorf("Expected %s to be a valid function (it's registered in the function registry)", funcName)
 			}
 		})
 	}

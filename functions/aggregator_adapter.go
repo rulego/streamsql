@@ -102,7 +102,7 @@ func RegisterAggregatorAdapter(name string) error {
 	return nil
 }
 
-// RegisterAnalyticalAdapter 注册分析函数适配器
+// RegisterAnalyticalAdapter registers analytical function adapter
 func RegisterAnalyticalAdapter(name string) error {
 	adapterMutex.Lock()
 	defer adapterMutex.Unlock()
@@ -117,7 +117,7 @@ func RegisterAnalyticalAdapter(name string) error {
 	return nil
 }
 
-// GetAggregatorAdapter 获取聚合器适配器
+// GetAggregatorAdapter gets aggregator adapter
 func GetAggregatorAdapter(name string) (func() interface{}, bool) {
 	adapterMutex.RLock()
 	defer adapterMutex.RUnlock()
@@ -126,7 +126,7 @@ func GetAggregatorAdapter(name string) (func() interface{}, bool) {
 	return constructor, exists
 }
 
-// GetAnalyticalAdapter 获取分析函数适配器
+// GetAnalyticalAdapter gets analytical function adapter
 func GetAnalyticalAdapter(name string) (func() *AnalyticalAdapter, bool) {
 	adapterMutex.RLock()
 	defer adapterMutex.RUnlock()
@@ -135,14 +135,14 @@ func GetAnalyticalAdapter(name string) (func() *AnalyticalAdapter, bool) {
 	return constructor, exists
 }
 
-// CreateBuiltinAggregatorFromFunctions 从functions模块创建聚合器
+// CreateBuiltinAggregatorFromFunctions creates aggregator from functions module
 func CreateBuiltinAggregatorFromFunctions(aggType string) interface{} {
-	// 首先尝试从适配器注册表获取
+	// First try to get from adapter registry
 	if constructor, exists := GetAggregatorAdapter(aggType); exists {
 		return constructor()
 	}
 
-	// 如果没有找到，尝试直接创建
+	// If not found, try to create directly
 	adapter, err := NewAggregatorAdapter(aggType)
 	if err != nil {
 		return nil
@@ -151,14 +151,14 @@ func CreateBuiltinAggregatorFromFunctions(aggType string) interface{} {
 	return adapter
 }
 
-// CreateAnalyticalFromFunctions 从functions模块创建分析函数
+// CreateAnalyticalFromFunctions creates analytical function from functions module
 func CreateAnalyticalFromFunctions(funcType string) *AnalyticalAdapter {
-	// 首先尝试从适配器注册表获取
+	// First try to get from adapter registry
 	if constructor, exists := GetAnalyticalAdapter(funcType); exists {
 		return constructor()
 	}
 
-	// 如果没有找到，尝试直接创建
+	// If not found, try to create directly
 	adapter, err := NewAnalyticalAdapter(funcType)
 	if err != nil {
 		return nil

@@ -40,7 +40,7 @@ func (f *UnnestFunction) Execute(ctx *FunctionContext, args []interface{}) (inte
 	result := make([]interface{}, v.Len())
 	for i := 0; i < v.Len(); i++ {
 		elem := v.Index(i).Interface()
-		
+
 		// 如果数组元素是对象（map），则展开为列
 		if elemMap, ok := elem.(map[string]interface{}); ok {
 			// 对于对象，我们返回一个特殊的结构来表示需要展开为列

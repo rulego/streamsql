@@ -76,20 +76,12 @@ func (fv *FunctionValidator) extractFunctionCalls(expression string) []FunctionC
 	return functionCalls
 }
 
-// isBuiltinFunction checks if it's a built-in function
+// isBuiltinFunction checks if it's a built-in function using the unified function registry
+// 使用统一的函数注册系统检查函数是否存在
 func (fv *FunctionValidator) isBuiltinFunction(funcName string) bool {
-	builtinFunctions := []string{
-		"abs", "sqrt", "sin", "cos", "tan", "floor", "ceil", "round",
-		"log", "log10", "exp", "pow", "mod",
-	}
-
-	funcLower := strings.ToLower(funcName)
-	for _, builtin := range builtinFunctions {
-		if funcLower == builtin {
-			return true
-		}
-	}
-	return false
+	// 检查函数是否在统一的函数注册系统中
+	_, exists := functions.Get(strings.ToLower(funcName))
+	return exists
 }
 
 // isKeyword checks if it's an SQL keyword

@@ -45,38 +45,38 @@ func TestCountingWindow(t *testing.T) {
 	select {
 	case res := <-resultsChan:
 		assert.Len(t, res, 3)
-		assert.Equal(t, 0, res[0].Data, "第一个元素应该是0")
-		assert.Equal(t, 1, res[1].Data, "第二个元素应该是1")
-		assert.Equal(t, 2, res[2].Data, "第三个元素应该是2")
+		assert.Equal(t, 0, res[0].Data, "First element should be 0")
+		assert.Equal(t, 1, res[1].Data, "Second element should be 1")
+		assert.Equal(t, 2, res[2].Data, "Third element should be 2")
 	case <-time.After(2 * time.Second):
 		t.Error("No results received within timeout")
 	}
-	// 验证窗口状态：添加第4个数据后，第一个窗口已触发，剩余1个数据(值为3)
-	// 继续添加2个数据，应该再次触发
-	cw.Add(4) // 添加第5个数据
-	cw.Add(5) // 添加第6个数据，应该再次触发(3,4,5)
-	
-	// 等待第二次触发
+	// Verify window state: After adding 4th data, first window has triggered, remaining 1 data (value 3)
+	// Continue adding 2 more data, should trigger again
+	cw.Add(4) // Add 5th data
+	cw.Add(5) // Add 6th data, should trigger again (3,4,5)
+
+	// Wait for second trigger
 	select {
 	case res := <-resultsChan:
 		assert.Len(t, res, 3)
-		assert.Equal(t, 3, res[0].Data, "第二批第一个元素应该是3")
-		assert.Equal(t, 4, res[1].Data, "第二批第二个元素应该是4")
-		assert.Equal(t, 5, res[2].Data, "第二批第三个元素应该是5")
+		assert.Equal(t, 3, res[0].Data, "First element of second batch should be 3")
+		assert.Equal(t, 4, res[1].Data, "Second element of second batch should be 4")
+		assert.Equal(t, 5, res[2].Data, "Third element of second batch should be 5")
 	case <-time.After(2 * time.Second):
 		t.Error("No second results received within timeout")
 	}
-	
+
 	// Test case 2: Reset
 	cw.Reset()
-	// Reset后添加数据验证重置是否成功
+	// Add data after reset to verify reset was successful
 	cw.Add(100)
 	cw.Add(101)
 	cw.Add(102)
 	select {
 	case res := <-resultsChan:
 		assert.Len(t, res, 3)
-		assert.Equal(t, 100, res[0].Data, "重置后第一个元素应该是100")
+		assert.Equal(t, 100, res[0].Data, "First element after reset should be 100")
 	case <-time.After(2 * time.Second):
 		t.Error("No results after reset received within timeout")
 	}

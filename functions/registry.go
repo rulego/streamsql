@@ -53,6 +53,8 @@ type Function interface {
 	GetType() FunctionType
 	// GetCategory returns the function category
 	GetCategory() string
+	// GetAliases returns the function aliases
+	GetAliases() []string
 	// Validate validates the arguments
 	Validate(args []interface{}) error
 	// Execute executes the function
@@ -80,6 +82,7 @@ func NewFunctionRegistry() *FunctionRegistry {
 }
 
 // Register registers a function
+// 注册函数及其别名到注册表中
 func (r *FunctionRegistry) Register(fn Function) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -91,7 +94,18 @@ func (r *FunctionRegistry) Register(fn Function) error {
 		return fmt.Errorf("function %s already registered", name)
 	}
 
+	// 注册主函数名
 	r.functions[name] = fn
+
+	// 注册所有别名
+	for _, alias := range fn.GetAliases() {
+		alias = strings.ToLower(alias)
+		if _, exists := r.functions[alias]; exists {
+			return fmt.Errorf("function alias %s already registered", alias)
+		}
+		r.functions[alias] = fn
+	}
+
 	r.categories[fn.GetType()] = append(r.categories[fn.GetType()], fn)
 	// Register aggregator adapter
 	if fn.GetType() == TypeAggregation {
@@ -132,6 +146,7 @@ func (r *FunctionRegistry) ListAll() map[string]Function {
 }
 
 // Unregister removes a function
+// 从注册表中移除函数及其所有别名
 func (r *FunctionRegistry) Unregister(name string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -142,13 +157,19 @@ func (r *FunctionRegistry) Unregister(name string) bool {
 		return false
 	}
 
-	delete(r.functions, name)
+	// 删除主函数名
+	delete(r.functions, strings.ToLower(fn.GetName()))
+
+	// 删除所有别名
+	for _, alias := range fn.GetAliases() {
+		delete(r.functions, strings.ToLower(alias))
+	}
 
 	// Remove from categories
 	fnType := fn.GetType()
 	if funcs, ok := r.categories[fnType]; ok {
 		for i, f := range funcs {
-			if strings.ToLower(f.GetName()) == name {
+			if strings.ToLower(f.GetName()) == strings.ToLower(fn.GetName()) {
 				r.categories[fnType] = append(funcs[:i], funcs[i+1:]...)
 				break
 			}

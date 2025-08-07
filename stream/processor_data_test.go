@@ -48,8 +48,8 @@ func TestDataProcessor_Constructor(t *testing.T) {
 func TestDataProcessor_InitializeAggregator(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature", "humidity"},
-		NeedWindow: true,
-		GroupFields: []string{"device"},
+		NeedWindow:   true,
+		GroupFields:  []string{"device"},
 		SelectFields: map[string]aggregator.AggregateType{
 			"temperature": aggregator.Avg,
 			"humidity":    aggregator.Sum,
@@ -77,8 +77,8 @@ func TestDataProcessor_InitializeAggregator(t *testing.T) {
 func TestDataProcessor_RegisterExpressionCalculator(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature"},
-		NeedWindow: true,
-		GroupFields: []string{"device"},
+		NeedWindow:   true,
+		GroupFields:  []string{"device"},
 		SelectFields: map[string]aggregator.AggregateType{
 			"temperature": aggregator.Avg,
 		},

@@ -39,37 +39,37 @@ type ParseError struct {
 // Error implements the error interface
 func (e *ParseError) Error() string {
 	var builder strings.Builder
-	
+
 	// Basic error information
 	builder.WriteString(fmt.Sprintf("[%s] %s", e.getErrorTypeName(), e.Message))
-	
+
 	// Position information
 	if e.Line > 0 && e.Column > 0 {
 		builder.WriteString(fmt.Sprintf(" at line %d, column %d", e.Line, e.Column))
 	} else if e.Position >= 0 {
 		builder.WriteString(fmt.Sprintf(" at position %d", e.Position))
 	}
-	
+
 	// Current token information
 	if e.Token != "" {
 		builder.WriteString(fmt.Sprintf(" (found '%s')", e.Token))
 	}
-	
+
 	// Expected token
 	if len(e.Expected) > 0 {
 		builder.WriteString(fmt.Sprintf(", expected: %s", strings.Join(e.Expected, ", ")))
 	}
-	
+
 	// Context information
 	if e.Context != "" {
 		builder.WriteString(fmt.Sprintf("\nContext: %s", e.Context))
 	}
-	
+
 	// Suggestions
 	if len(e.Suggestions) > 0 {
 		builder.WriteString(fmt.Sprintf("\nSuggestions: %s", strings.Join(e.Suggestions, "; ")))
 	}
-	
+
 	return builder.String()
 }
 
@@ -165,14 +165,14 @@ func (er *ErrorRecovery) RecoverFromError(errorType ErrorType) bool {
 func (er *ErrorRecovery) skipToNextDelimiter() bool {
 	maxSkip := 10
 	skipped := 0
-	
+
 	for skipped < maxSkip {
 		tok := er.parser.lexer.NextToken()
 		if tok.Type == TokenEOF {
 			return false
 		}
-		if tok.Type == TokenComma || tok.Type == TokenFROM || 
-		   tok.Type == TokenWHERE || tok.Type == TokenGROUP {
+		if tok.Type == TokenComma || tok.Type == TokenFROM ||
+			tok.Type == TokenWHERE || tok.Type == TokenGROUP {
 			return true
 		}
 		skipped++
@@ -276,7 +276,7 @@ func CreateUnknownFunctionError(functionName string, position int) *ParseError {
 func calculateLineColumn(position int) (int, int) {
 	// Simplified implementation, should be calculated based on input text
 	// Returns estimated value based on position
-	line := position/50 + 1  // 假设平均每行50个字符
+	line := position/50 + 1 // Assuming average 50 characters per line
 	column := position%50 + 1
 	return line, column
 }
@@ -284,11 +284,11 @@ func calculateLineColumn(position int) (int, int) {
 // generateSuggestions generates suggestions
 func generateSuggestions(found string, expected []string) []string {
 	suggestions := make([]string, 0)
-	
+
 	if len(expected) > 0 {
 		suggestions = append(suggestions, fmt.Sprintf("Try using '%s' instead of '%s'", expected[0], found))
 	}
-	
+
 	// Generate suggestions based on common error patterns
 	switch strings.ToUpper(found) {
 	case "SELCT":
@@ -302,14 +302,14 @@ func generateSuggestions(found string, expected []string) []string {
 	case "ODER":
 		suggestions = append(suggestions, "Did you mean 'ORDER'?")
 	}
-	
+
 	return suggestions
 }
 
 // generateFunctionSuggestions generates function suggestions
 func generateFunctionSuggestions(functionName string) []string {
 	suggestions := make([]string, 0)
-	
+
 	// Generate suggestions based on common function name misspellings
 	funcLower := strings.ToLower(functionName)
 	switch {
@@ -344,12 +344,12 @@ func generateFunctionSuggestions(functionName string) []string {
 	case strings.Contains(funcLower, "ceil"):
 		suggestions = append(suggestions, "Did you mean 'CEILING' function?")
 	}
-	
+
 	// Generic suggestions
 	suggestions = append(suggestions, "Check if the function name is spelled correctly")
 	suggestions = append(suggestions, "Confirm that the function is registered or is a built-in function")
 	suggestions = append(suggestions, "View the list of available functions")
-	
+
 	return suggestions
 }
 
@@ -372,19 +372,19 @@ func FormatErrorContext(input string, position int, contextLength int) string {
 	if position < 0 || position >= len(input) {
 		return ""
 	}
-	
+
 	start := position - contextLength
 	if start < 0 {
 		start = 0
 	}
-	
+
 	end := position + contextLength
 	if end > len(input) {
 		end = len(input)
 	}
-	
+
 	context := input[start:end]
 	pointer := strings.Repeat(" ", position-start) + "^"
-	
+
 	return fmt.Sprintf("%s\n%s", context, pointer)
 }

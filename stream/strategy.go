@@ -117,63 +117,61 @@ func NewExpansionStrategy() *ExpansionStrategy {
 	return &ExpansionStrategy{}
 }
 
-// ProcessData 实现扩容模式数据处理
+// ProcessData implements expansion mode data processing
 func (es *ExpansionStrategy) ProcessData(data map[string]interface{}) {
-	// 首次尝试添加数据
+	// First attempt to add data
 	if es.stream.safeSendToDataChan(data) {
 		return
 	}
 
-	// 通道满了，动态扩容
+	// Channel is full, dynamically expand
 	es.stream.expandDataChannel()
 
-	// 扩容后重试，重新获取通道引用
+	// Retry after expansion, re-acquire channel reference
 	if es.stream.safeSendToDataChan(data) {
 		logger.Debug("Successfully added data after data channel expansion")
 		return
 	}
 
-	// 如果扩容后仍然满，则阻塞等待
+	// If still full after expansion, block and wait
 	dataChan := es.stream.safeGetDataChan()
 	dataChan <- data
 }
 
-// GetStrategyName 获取策略名称
+// GetStrategyName gets strategy name
 func (es *ExpansionStrategy) GetStrategyName() string {
 	return StrategyExpand
 }
 
-// Init 初始化扩容策略
+// Init initializes expansion strategy
 func (es *ExpansionStrategy) Init(stream *Stream, config types.PerformanceConfig) error {
 	es.stream = stream
 	return nil
 }
 
-// Stop 停止并清理扩容策略资源
+// Stop stops and cleans up expansion strategy resources
 func (es *ExpansionStrategy) Stop() error {
 	return nil
 }
 
-
-
-// DropStrategy 丢弃策略实现
+// DropStrategy drop strategy implementation
 type DropStrategy struct {
 	stream *Stream
 }
 
-// NewDropStrategy 创建丢弃策略实例
+// NewDropStrategy creates drop strategy instance
 func NewDropStrategy() *DropStrategy {
 	return &DropStrategy{}
 }
 
-// ProcessData 实现丢弃模式数据处理
+// ProcessData implements drop mode data processing
 func (ds *DropStrategy) ProcessData(data map[string]interface{}) {
-	// 智能非阻塞添加，分层背压控制
+	// Intelligent non-blocking add with layered backpressure control
 	if ds.stream.safeSendToDataChan(data) {
 		return
 	}
 
-	// 数据通道已满，使用分层背压策略，获取通道状态
+	// Data channel is full, use layered backpressure strategy, get channel status
 	ds.stream.dataChanMux.RLock()
 	chanLen := len(ds.stream.dataChan)
 	chanCap := cap(ds.stream.dataChan)
@@ -182,15 +180,15 @@ func (ds *DropStrategy) ProcessData(data map[string]interface{}) {
 
 	usage := float64(chanLen) / float64(chanCap)
 
-	// 根据通道使用率和缓冲区大小调整策略
+	// Adjust strategy based on channel usage rate and buffer size
 	var waitTime time.Duration
 	var maxRetries int
 
 	switch {
-	case chanCap >= 100000: // 超大缓冲区（基准测试模式）
+	case chanCap >= 100000: // Extra large buffer (benchmark mode)
 		switch {
 		case usage > 0.99:
-			waitTime = 1 * time.Millisecond // 更长等待
+			waitTime = 1 * time.Millisecond // Longer wait
 			maxRetries = 3
 		case usage > 0.95:
 			waitTime = 500 * time.Microsecond
@@ -199,13 +197,13 @@ func (ds *DropStrategy) ProcessData(data map[string]interface{}) {
 			waitTime = 100 * time.Microsecond
 			maxRetries = 1
 		default:
-			// 立即丢弃
+			// Drop immediately
 			logger.Warn("Data channel is full, dropping input data")
 			atomic.AddInt64(&ds.stream.droppedCount, 1)
 			return
 		}
 
-	case chanCap >= 50000: // 高性能模式
+	case chanCap >= 50000: // High performance mode
 		switch {
 		case usage > 0.99:
 			waitTime = 500 * time.Microsecond
@@ -222,7 +220,7 @@ func (ds *DropStrategy) ProcessData(data map[string]interface{}) {
 			return
 		}
 
-	default: // 默认模式
+	default: // Default mode
 		switch {
 		case usage > 0.99:
 			waitTime = 100 * time.Microsecond
@@ -237,18 +235,18 @@ func (ds *DropStrategy) ProcessData(data map[string]interface{}) {
 		}
 	}
 
-	// 多次重试添加数据，使用线程安全的方式
+	// Multiple retries to add data, using thread-safe approach
 	for retry := 0; retry < maxRetries; retry++ {
 		timer := time.NewTimer(waitTime)
 		select {
 		case currentDataChan <- data:
-			// 重试成功
+			// Retry successful
 			timer.Stop()
 			return
 		case <-timer.C:
-			// 超时，继续下一次重试或者丢弃
+			// Timeout, continue to next retry or drop
 			if retry == maxRetries-1 {
-				// 最后一次重试失败，记录丢弃
+				// Last retry failed, record drop
 				logger.Warn("Data channel is full, dropping input data")
 				atomic.AddInt64(&ds.stream.droppedCount, 1)
 			}
@@ -256,38 +254,38 @@ func (ds *DropStrategy) ProcessData(data map[string]interface{}) {
 	}
 }
 
-// GetStrategyName 获取策略名称
+// GetStrategyName gets strategy name
 func (ds *DropStrategy) GetStrategyName() string {
 	return StrategyDrop
 }
 
-// Init 初始化丢弃策略
+// Init initializes drop strategy
 func (ds *DropStrategy) Init(stream *Stream, config types.PerformanceConfig) error {
 	ds.stream = stream
 	return nil
 }
 
-// Stop 停止并清理丢弃策略资源
+// Stop stops and cleans up drop strategy resources
 func (ds *DropStrategy) Stop() error {
 	return nil
 }
 
-// StrategyFactory 策略工厂
-// 使用统一注册机制管理所有策略（内置和自定义）
+// StrategyFactory strategy factory
+// Uses unified registration mechanism to manage all strategies (built-in and custom)
 type StrategyFactory struct {
-	// 注册的策略映射
+	// Registered strategy mapping
 	strategies map[string]func() DataProcessingStrategy
-	mutex      sync.RWMutex // 保护并发访问
+	mutex      sync.RWMutex // Protects concurrent access
 }
 
-// NewStrategyFactory 创建策略工厂实例
-// 自动注册所有内置策略
+// NewStrategyFactory creates strategy factory instance
+// Automatically registers all built-in strategies
 func NewStrategyFactory() *StrategyFactory {
 	factory := &StrategyFactory{
 		strategies: make(map[string]func() DataProcessingStrategy),
 	}
 
-	// 注册内置策略
+	// Register built-in strategies
 	factory.RegisterStrategy(StrategyBlock, func() DataProcessingStrategy { return NewBlockingStrategy() })
 	factory.RegisterStrategy(StrategyExpand, func() DataProcessingStrategy { return NewExpansionStrategy() })
 	factory.RegisterStrategy(StrategyDrop, func() DataProcessingStrategy { return NewDropStrategy() })
@@ -295,28 +293,28 @@ func NewStrategyFactory() *StrategyFactory {
 	return factory
 }
 
-// RegisterStrategy 注册策略到工厂
-// 参数:
-//   - name: 策略名称
-//   - constructor: 策略构造函数
+// RegisterStrategy registers strategy to factory
+// Parameters:
+//   - name: strategy name
+//   - constructor: strategy constructor function
 func (sf *StrategyFactory) RegisterStrategy(name string, constructor func() DataProcessingStrategy) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	sf.strategies[name] = constructor
 }
 
-// UnregisterStrategy 注销策略
-// 参数:
-//   - name: 策略名称
+// UnregisterStrategy unregisters strategy
+// Parameters:
+//   - name: strategy name
 func (sf *StrategyFactory) UnregisterStrategy(name string) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	delete(sf.strategies, name)
 }
 
-// GetRegisteredStrategies 获取所有已注册的策略名称
-// 返回:
-//   - []string: 策略名称列表
+// GetRegisteredStrategies gets all registered strategy names
+// Returns:
+//   - []string: strategy name list
 func (sf *StrategyFactory) GetRegisteredStrategies() []string {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
@@ -328,20 +326,20 @@ func (sf *StrategyFactory) GetRegisteredStrategies() []string {
 	return names
 }
 
-// CreateStrategy 根据策略名称创建对应的策略实例
-// 参数:
-//   - strategyName: 策略名称
+// CreateStrategy creates corresponding strategy instance based on strategy name
+// Parameters:
+//   - strategyName: strategy name
 //
-// 返回:
-//   - DataProcessingStrategy: 策略实例
-//   - error: 错误信息
+// Returns:
+//   - DataProcessingStrategy: strategy instance
+//   - error: error information
 func (sf *StrategyFactory) CreateStrategy(strategyName string) (DataProcessingStrategy, error) {
 	sf.mutex.RLock()
 	constructor, exists := sf.strategies[strategyName]
 	sf.mutex.RUnlock()
 
 	if !exists {
-		// 如果策略不存在，使用默认的丢弃策略
+		// If strategy doesn't exist, use default drop strategy
 		sf.mutex.RLock()
 		defaultConstructor, defaultExists := sf.strategies[StrategyDrop]
 		sf.mutex.RUnlock()
@@ -349,7 +347,7 @@ func (sf *StrategyFactory) CreateStrategy(strategyName string) (DataProcessingSt
 		if defaultExists {
 			return defaultConstructor(), nil
 		}
-		// 如果连默认策略都不存在，返回错误
+		// If even default strategy doesn't exist, return error
 		return nil, fmt.Errorf("strategy '%s' not found and no default strategy available", strategyName)
 	}
 

@@ -105,7 +105,7 @@ func TestPrintTableFromSliceEdgeCases(t *testing.T) {
 	dataWithMissingFields := []map[string]interface{}{
 		{"name": "Alice", "age": 30},
 		{"name": "Bob", "city": "NYC"}, // 缺少age字段
-		{"age": 25, "city": "LA"},     // 缺少name字段
+		{"age": 25, "city": "LA"},      // 缺少name字段
 	}
 	assert.NotPanics(t, func() {
 		PrintTableFromSlice(dataWithMissingFields, nil)

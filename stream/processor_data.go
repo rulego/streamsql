@@ -210,20 +210,20 @@ func (dp *DataProcessor) evaluateCaseExpression(expression string, dataMap map[s
 		return nil, fmt.Errorf("CASE expression parse failed: %w", parseErr)
 	}
 
-	// 使用EvaluateValueWithNull来获取实际值（包括字符串）
+	// Use EvaluateValueWithNull to get actual value (including strings)
 	result, isNull, err := expr.EvaluateValueWithNull(dataMap)
 	if err != nil {
 		return nil, fmt.Errorf("CASE expression evaluation failed: %w", err)
 	}
 	if isNull {
-		return nil, nil // 返回nil表示NULL值
+		return nil, nil // Return nil to indicate NULL value
 	}
 	return result, nil
 }
 
-// fallbackExpressionEvaluation 回退表达式计算
+// fallbackExpressionEvaluation fallback expression evaluation
 func (dp *DataProcessor) fallbackExpressionEvaluation(expression string, dataMap map[string]interface{}) (interface{}, error) {
-	// 预处理反引号标识符
+	// Preprocess backtick identifiers
 	exprToUse := expression
 	bridge := functions.GetExprBridge()
 	if bridge.ContainsBacktickIdentifiers(exprToUse) {
@@ -232,34 +232,34 @@ func (dp *DataProcessor) fallbackExpressionEvaluation(expression string, dataMap
 		}
 	}
 
-	// 首先尝试使用桥接器处理（支持字符串拼接等）
+	// First try using bridge processor (supports string concatenation etc.)
 	if result, err := bridge.EvaluateExpression(exprToUse, dataMap); err == nil {
 		return result, nil
 	}
 
-	// 如果桥接器失败，回退到自定义表达式引擎
+	// If bridge fails, fallback to custom expression engine
 	expr, parseErr := expr.NewExpression(exprToUse)
 	if parseErr != nil {
 		return nil, fmt.Errorf("expression parse failed: %w", parseErr)
 	}
 
-	// 使用EvaluateValueWithNull获取实际值（包括字符串）
+	// Use EvaluateValueWithNull to get actual value (including strings)
 	result, isNull, err := expr.EvaluateValueWithNull(dataMap)
 	if err != nil {
 		return nil, fmt.Errorf("expression evaluation failed: %w", err)
 	}
 	if isNull {
-		return nil, nil // 返回nil表示NULL值
+		return nil, nil // Return nil to indicate NULL value
 	}
 	return result, nil
 }
 
-// startWindowProcessing 启动窗口处理
+// startWindowProcessing starts window processing
 func (dp *DataProcessor) startWindowProcessing() {
-	// 启动窗口处理协程
+	// Start window processing goroutine
 	dp.stream.Window.Start()
 
-	// 处理窗口模式
+	// Process window mode
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -273,9 +273,9 @@ func (dp *DataProcessor) startWindowProcessing() {
 	}()
 }
 
-// processWindowBatch 处理窗口批数据
+// processWindowBatch processes window batch data
 func (dp *DataProcessor) processWindowBatch(batch []types.Row) {
-	// 处理窗口批数据
+	// Process window batch data
 	for _, item := range batch {
 		if err := dp.stream.aggregator.Put(WindowStartField, item.Slot.WindowStart()); err != nil {
 			logger.Error("failed to put window start: %v", err)
@@ -288,45 +288,45 @@ func (dp *DataProcessor) processWindowBatch(batch []types.Row) {
 		}
 	}
 
-	// 获取并发送聚合结果
+	// Get and send aggregation results
 	if results, err := dp.stream.aggregator.GetResults(); err == nil {
 		dp.processAggregationResults(results)
 		dp.stream.aggregator.Reset()
 	}
 }
 
-// processAggregationResults 处理聚合结果
+// processAggregationResults processes aggregation results
 func (dp *DataProcessor) processAggregationResults(results []map[string]interface{}) {
 	var finalResults []map[string]interface{}
 
-	// 处理DISTINCT
+	// Process DISTINCT
 	if dp.stream.config.Distinct {
 		finalResults = dp.applyDistinct(results)
 	} else {
 		finalResults = results
 	}
 
-	// 应用 HAVING 过滤条件
+	// Apply HAVING filter condition
 	if dp.stream.config.Having != "" {
 		finalResults = dp.applyHavingFilter(finalResults)
 	}
 
-	// 应用 LIMIT 限制
+	// Apply LIMIT restriction
 	if dp.stream.config.Limit > 0 && len(finalResults) > dp.stream.config.Limit {
 		finalResults = finalResults[:dp.stream.config.Limit]
 	}
 
-	// 发送结果到结果通道和 Sink 函数
+	// Send results to result channel and Sink functions
 	if len(finalResults) > 0 {
-		// 非阻塞发送到结果通道
+		// Non-blocking send to result channel
 		dp.stream.sendResultNonBlocking(finalResults)
 
-		// 异步调用所有sinks
+		// Asynchronously call all sinks
 		dp.stream.callSinksAsync(finalResults)
 	}
 }
 
-// applyDistinct 应用DISTINCT去重
+// applyDistinct applies DISTINCT deduplication
 func (dp *DataProcessor) applyDistinct(results []map[string]interface{}) []map[string]interface{} {
 	seenResults := make(map[string]bool)
 	var finalResults []map[string]interface{}
@@ -347,9 +347,9 @@ func (dp *DataProcessor) applyDistinct(results []map[string]interface{}) []map[s
 	return finalResults
 }
 
-// applyHavingFilter 应用HAVING过滤
+// applyHavingFilter applies HAVING filter
 func (dp *DataProcessor) applyHavingFilter(results []map[string]interface{}) []map[string]interface{} {
-	// 检查HAVING条件是否包含CASE表达式
+	// Check if HAVING condition contains CASE expression
 	hasCaseExpression := strings.Contains(strings.ToUpper(dp.stream.config.Having), SQLKeywordCase)
 
 	var filteredResults []map[string]interface{}
@@ -363,10 +363,10 @@ func (dp *DataProcessor) applyHavingFilter(results []map[string]interface{}) []m
 	return filteredResults
 }
 
-// applyHavingWithCaseExpression 使用CASE表达式应用HAVING过滤
+// applyHavingWithCaseExpression applies HAVING filter using CASE expression
 func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]interface{}) []map[string]interface{} {
-	// HAVING条件包含CASE表达式，使用我们的表达式解析器
-	// 预处理反引号标识符
+	// HAVING condition contains CASE expression, use our expression parser
+	// Preprocess backtick identifiers
 	exprToUse := dp.stream.config.Having
 	bridge := functions.GetExprBridge()
 	if bridge.ContainsBacktickIdentifiers(exprToUse) {
@@ -381,22 +381,22 @@ func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]inte
 	}
 
 	var filteredResults []map[string]interface{}
-	// 应用 HAVING 过滤，使用CASE表达式计算器
+	// Apply HAVING filter using CASE expression calculator
 	for _, result := range results {
-		// 使用EvaluateValueWithNull方法以支持NULL值处理
+		// Use EvaluateValueWithNull method to support NULL value processing
 		havingResult, isNull, err := expression.EvaluateValueWithNull(result)
 		if err != nil {
 			logger.Error("having filter evaluation error: %v", err)
 			continue
 		}
 
-		// 如果结果是NULL，则不满足条件（SQL标准行为）
+		// If result is NULL, condition is not satisfied (SQL standard behavior)
 		if isNull {
 			continue
 		}
 
-		// 对于数值结果，大于0视为true（满足HAVING条件）
-		// 对于字符串结果，非空视为true
+		// For numeric results, greater than 0 is considered true (satisfies HAVING condition)
+		// For string results, non-empty is considered true
 		if havingResult != nil {
 			if numResult, ok := havingResult.(float64); ok {
 				if numResult > 0 {
@@ -407,7 +407,7 @@ func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]inte
 					filteredResults = append(filteredResults, result)
 				}
 			} else {
-				// 其他类型，非nil视为true
+				// Other types, non-nil is considered true
 				filteredResults = append(filteredResults, result)
 			}
 		}
@@ -416,10 +416,10 @@ func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]inte
 	return filteredResults
 }
 
-// applyHavingWithCondition 使用条件表达式应用HAVING过滤
+// applyHavingWithCondition applies HAVING filter using condition expression
 func (dp *DataProcessor) applyHavingWithCondition(results []map[string]interface{}) []map[string]interface{} {
-	// HAVING条件不包含CASE表达式，使用原有的expr-lang处理
-	// 预处理HAVING条件中的LIKE语法，转换为expr-lang可理解的形式
+	// HAVING condition doesn't contain CASE expression, use original expr-lang processing
+	// Preprocess LIKE syntax in HAVING condition, convert to expr-lang understandable form
 	processedHaving := dp.stream.config.Having
 	bridge := functions.GetExprBridge()
 	if bridge.ContainsLikeOperator(dp.stream.config.Having) {
@@ -428,14 +428,14 @@ func (dp *DataProcessor) applyHavingWithCondition(results []map[string]interface
 		}
 	}
 
-	// 预处理HAVING条件中的IS NULL语法
+	// Preprocess IS NULL syntax in HAVING condition
 	if bridge.ContainsIsNullOperator(processedHaving) {
 		if processed, err := bridge.PreprocessIsNullExpression(processedHaving); err == nil {
 			processedHaving = processed
 		}
 	}
 
-	// 创建 HAVING 条件
+	// Create HAVING condition
 	havingFilter, err := condition.NewExprCondition(processedHaving)
 	if err != nil {
 		logger.Error("having filter error: %v", err)
@@ -443,7 +443,7 @@ func (dp *DataProcessor) applyHavingWithCondition(results []map[string]interface
 	}
 
 	var filteredResults []map[string]interface{}
-	// 应用 HAVING 过滤
+	// Apply HAVING filter
 	for _, result := range results {
 		if havingFilter.Evaluate(result) {
 			filteredResults = append(filteredResults, result)
@@ -453,43 +453,43 @@ func (dp *DataProcessor) applyHavingWithCondition(results []map[string]interface
 	return filteredResults
 }
 
-// processDirectData 直接处理非窗口数据
-// 参数:
-//   - data: 要处理的数据，必须是map[string]interface{}类型
+// processDirectData directly processes non-window data
+// Parameters:
+//   - data: data to be processed, must be map[string]interface{} type
 func (dp *DataProcessor) processDirectData(data map[string]interface{}) {
-	// 直接使用传入的map数据
+	// Directly use the passed map data
 	dataMap := data
 
-	// 创建结果map，预分配合适容量
+	// Create result map, pre-allocate appropriate capacity
 	estimatedSize := len(dp.stream.config.FieldExpressions) + len(dp.stream.config.SimpleFields)
 	if estimatedSize < 8 {
-		estimatedSize = 8 // 最小容量
+		estimatedSize = 8 // Minimum capacity
 	}
 	result := make(map[string]interface{}, estimatedSize)
 
-	// 处理表达式字段（使用预编译信息）
+	// Process expression fields (using pre-compiled information)
 	for fieldName := range dp.stream.config.FieldExpressions {
 		dp.stream.processExpressionField(fieldName, dataMap, result)
 	}
 
-	// 使用预编译的字段信息处理SimpleFields
+	// Use pre-compiled field information to process SimpleFields
 	if len(dp.stream.config.SimpleFields) > 0 {
 		for _, fieldSpec := range dp.stream.config.SimpleFields {
 			dp.stream.processSimpleField(fieldSpec, dataMap, dataMap, result)
 		}
 	} else if len(dp.stream.config.FieldExpressions) == 0 {
-		// 如果没有指定字段且没有表达式字段，保留所有字段
+		// If no fields specified and no expression fields, keep all fields
 		for k, v := range dataMap {
 			result[k] = v
 		}
 	}
 
-	// 将结果包装为数组
+	// Wrap result as array
 	results := []map[string]interface{}{result}
 
-	// 非阻塞发送结果到resultChan
+	// Non-blocking send result to resultChan
 	dp.stream.sendResultNonBlocking(results)
 
-	// 异步调用所有sinks，避免阻塞
+	// Asynchronously call all sinks, avoid blocking
 	dp.stream.callSinksAsync(results)
 }

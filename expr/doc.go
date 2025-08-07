@@ -67,7 +67,7 @@ Function call expression:
 CASE expression for conditional logic:
 
 	expr, err := NewExpression(`
-		CASE 
+		CASE
 			WHEN temperature > 30 THEN 'hot'
 			WHEN temperature > 20 THEN 'warm'
 			ELSE 'cold'
@@ -79,14 +79,14 @@ CASE expression for conditional logic:
 
 The expression parser follows standard mathematical precedence rules:
 
-	1. Parentheses (highest)
-	2. Power (^)
-	3. Multiplication, Division, Modulo (*, /, %)
-	4. Addition, Subtraction (+, -)
-	5. Comparison (>, <, >=, <=, LIKE, IS)
-	6. Equality (=, ==, !=, <>)
-	7. Logical AND
-	8. Logical OR (lowest)
+ 1. Parentheses (highest)
+ 2. Power (^)
+ 3. Multiplication, Division, Modulo (*, /, %)
+ 4. Addition, Subtraction (+, -)
+ 5. Comparison (>, <, >=, <=, LIKE, IS)
+ 6. Equality (=, ==, !=, <>)
+ 7. Logical AND
+ 8. Logical OR (lowest)
 
 # Error Handling
 

@@ -11,7 +11,8 @@ type BaseFunction struct {
 	category    string
 	description string
 	minArgs     int
-	maxArgs     int // -1 means unlimited
+	maxArgs     int      // -1 means unlimited
+	aliases     []string // function aliases
 }
 
 // NewBaseFunction creates a new base function
@@ -23,6 +24,20 @@ func NewBaseFunction(name string, fnType FunctionType, category, description str
 		description: description,
 		minArgs:     minArgs,
 		maxArgs:     maxArgs,
+		aliases:     []string{},
+	}
+}
+
+// NewBaseFunctionWithAliases creates base function with aliases
+func NewBaseFunctionWithAliases(name string, fnType FunctionType, category, description string, minArgs, maxArgs int, aliases []string) *BaseFunction {
+	return &BaseFunction{
+		name:        name,
+		fnType:      fnType,
+		category:    category,
+		description: description,
+		minArgs:     minArgs,
+		maxArgs:     maxArgs,
+		aliases:     aliases,
 	}
 }
 
@@ -40,6 +55,11 @@ func (bf *BaseFunction) GetCategory() string {
 
 func (bf *BaseFunction) GetDescription() string {
 	return bf.description
+}
+
+// GetAliases returns function alias list
+func (bf *BaseFunction) GetAliases() []string {
+	return bf.aliases
 }
 
 // ValidateArgCount validates the number of arguments

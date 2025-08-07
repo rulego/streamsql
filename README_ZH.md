@@ -9,7 +9,7 @@
 
 **StreamSQL** 是一款轻量级的、基于 SQL 的物联网边缘流处理引擎。它能够高效地处理和分析无界数据流。
 
-类似: [Apache Flink](https://flink.apache.org/) 和 [ekuiper](https://ekuiper.org/)
+📖 **[官方文档](https://rulego.cc/pages/streamsql-overview/)** | 类似: [Apache Flink](https://flink.apache.org/)
 
 ## 功能特性
 

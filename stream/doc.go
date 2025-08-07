@@ -57,19 +57,19 @@ Configurable performance profiles for different scenarios:
 	// - Larger buffer sizes
 	// - Batch processing optimization
 	stream := NewStreamWithHighPerformance(config)
-	
+
 	// Low Latency Mode
 	// - Optimized for minimal processing delay
 	// - Smaller buffer sizes
 	// - Immediate processing
 	stream := NewStreamWithLowLatency(config)
-	
+
 	// Zero Data Loss Mode
 	// - Guaranteed data persistence
 	// - Synchronous processing
 	// - Enhanced error recovery
 	stream := NewStreamWithZeroDataLoss(config)
-	
+
 	// Custom Performance Mode
 	// - User-defined performance parameters
 	customConfig := &PerformanceConfig{
@@ -84,35 +84,35 @@ Configurable performance profiles for different scenarios:
 
 Multi-stage processing pipeline with optimized data flow:
 
-	1. Data Ingestion
-	   ├── Input validation and type checking
-	   ├── Timestamp extraction and normalization
-	   └── Initial data transformation
-	
-	2. Filtering (WHERE clause)
-	   ├── Field-based filtering
-	   ├── Expression evaluation
-	   └── Early data rejection
-	
-	3. Window Processing
-	   ├── Window assignment
-	   ├── Data buffering
-	   └── Window trigger management
-	
-	4. Aggregation
-	   ├── Group-by processing
-	   ├── Aggregate function execution
-	   └── Incremental computation
-	
-	5. Post-Aggregation Filtering (HAVING clause)
-	   ├── Aggregate result filtering
-	   ├── Complex condition evaluation
-	   └── Final result validation
-	
-	6. Result Generation
-	   ├── Field projection
-	   ├── Alias application
-	   └── Output formatting
+ 1. Data Ingestion
+    ├── Input validation and type checking
+    ├── Timestamp extraction and normalization
+    └── Initial data transformation
+
+ 2. Filtering (WHERE clause)
+    ├── Field-based filtering
+    ├── Expression evaluation
+    └── Early data rejection
+
+ 3. Window Processing
+    ├── Window assignment
+    ├── Data buffering
+    └── Window trigger management
+
+ 4. Aggregation
+    ├── Group-by processing
+    ├── Aggregate function execution
+    └── Incremental computation
+
+ 5. Post-Aggregation Filtering (HAVING clause)
+    ├── Aggregate result filtering
+    ├── Complex condition evaluation
+    └── Final result validation
+
+ 6. Result Generation
+    ├── Field projection
+    ├── Alias application
+    └── Output formatting
 
 # Window Integration
 
@@ -125,7 +125,7 @@ Seamless integration with all window types:
 			"size": "5s",
 		},
 	}
-	
+
 	// Sliding Windows - Overlapping time-based windows
 	config.WindowConfig = WindowConfig{
 		Type: "sliding",
@@ -134,7 +134,7 @@ Seamless integration with all window types:
 			"slide": "10s",
 		},
 	}
-	
+
 	// Counting Windows - Count-based windows
 	config.WindowConfig = WindowConfig{
 		Type: "counting",
@@ -142,7 +142,7 @@ Seamless integration with all window types:
 			"count": 100,
 		},
 	}
-	
+
 	// Session Windows - Activity-based windows
 	config.WindowConfig = WindowConfig{
 		Type: "session",
@@ -166,17 +166,15 @@ Comprehensive performance monitoring:
 		memoryUsage       int64     // Memory consumption
 		bufferUtilization float64   // Buffer usage percentage
 	}
-	
+
 	// Get basic statistics
 	stats := stream.GetStats()
 	fmt.Printf("Processed: %d, Errors: %d\n", stats["processed"], stats["errors"])
-	
+
 	// Get detailed performance metrics
 	detailed := stream.GetDetailedStats()
 	fmt.Printf("Throughput: %.2f records/sec\n", detailed["throughput"])
 	fmt.Printf("Memory Usage: %d bytes\n", detailed["memory_usage"])
-
-
 
 # Backpressure Management
 
@@ -189,7 +187,7 @@ Intelligent handling of system overload:
 		OverflowStrategySpill    = "spill"    // Spill to disk
 		OverflowStrategyCompress = "compress" // Compress data
 	)
-	
+
 	// Configure backpressure handling
 	config.PerformanceConfig.OverflowStrategy = OverflowStrategySpill
 	config.PerformanceConfig.BufferSize = 10000
@@ -204,15 +202,15 @@ Basic stream processing:
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	// Register result handler
 	stream.AddSink(func(results []map[string]interface{}) {
 		fmt.Printf("Results: %v\n", results)
 	})
-	
+
 	// Start processing
 	stream.Start()
-	
+
 	// Send data
 	stream.Emit(map[string]interface{}{
 		"device_id":   "sensor001",
@@ -224,15 +222,15 @@ High-performance stream processing:
 
 	// Create high-performance stream
 	stream, err := NewStreamWithHighPerformance(config)
-	
+
 	// Configure for maximum throughput
 	stream.SetBufferSize(50000)
 	stream.SetBatchSize(1000)
 	stream.SetWorkerPoolSize(8)
-	
+
 	// Enable metrics monitoring
 	stream.EnableMetrics(true)
-	
+
 	// Process data in batches
 	for _, batch := range dataBatches {
 		stream.EmitBatch(batch)

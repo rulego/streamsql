@@ -668,7 +668,7 @@ func TestGroupAggregatorDataTypes(t *testing.T) {
 				{"group": "B", "value": "test"},
 			},
 			expectedKey: "count",
-			expectedVal: 0.0, // Count聚合器可能只计算数值
+			expectedVal: 2.0, // Count聚合器计算所有非空值
 		},
 		{
 			name:    "Boolean Count",
@@ -680,7 +680,7 @@ func TestGroupAggregatorDataTypes(t *testing.T) {
 				{"group": "B", "value": false},
 			},
 			expectedKey: "count",
-			expectedVal: 0.0, // Count聚合器可能只计算数值
+			expectedVal: 3.0, // Count聚合器计算所有非空值
 		},
 		{
 			name:    "Mixed Types Count",
@@ -692,7 +692,7 @@ func TestGroupAggregatorDataTypes(t *testing.T) {
 				{"group": "B", "value": 456},
 			},
 			expectedKey: "count",
-			expectedVal: 1.0, // 只有123是数值
+			expectedVal: 3.0, // Count聚合器计算所有非空值
 		},
 	}
 

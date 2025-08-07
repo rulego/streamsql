@@ -53,13 +53,13 @@ Extensive collection of built-in functions across all categories:
 	SQRT(x)         - Square root
 	POWER(x, y)     - Power operation
 	ROUND(x, d)     - Round to decimal places
-	
+
 	// String functions
 	UPPER(str)      - Convert to uppercase
 	LOWER(str)      - Convert to lowercase
 	LENGTH(str)     - String length
 	SUBSTRING(str, start, len) - Extract substring
-	
+
 	// Aggregation functions
 	SUM(field)      - Sum of values
 	AVG(field)      - Average of values
@@ -83,19 +83,19 @@ Simple API for registering custom functions:
 			return (f - 32) * 5 / 9, nil
 		},
 	)
-	
+
 	// Register an aggregation function
 	type CustomSumFunction struct {
 		*BaseFunction
 		sum float64
 	}
-	
+
 	func (f *CustomSumFunction) Add(value interface{}) {
 		if v, ok := value.(float64); ok {
 			f.sum += v
 		}
 	}
-	
+
 	func (f *CustomSumFunction) Result() interface{} {
 		return f.sum
 	}
@@ -110,7 +110,7 @@ The package defines several interfaces for different function types:
 		GetType() FunctionType
 		Execute(ctx *FunctionContext, args []interface{}) (interface{}, error)
 	}
-	
+
 	// Aggregation function interface
 	type AggregatorFunction interface {
 		Function
@@ -120,7 +120,7 @@ The package defines several interfaces for different function types:
 		Reset()
 		Clone() AggregatorFunction
 	}
-	
+
 	// Analytical function interface
 	type AnalyticalFunction interface {
 		AggregatorFunction
@@ -134,7 +134,7 @@ Automatic adaptation between function types and aggregator modules:
 	type AggregatorAdapter struct {
 		function AggregatorFunction
 	}
-	
+
 	// AnalyticalAdapter - Adapts analytical functions
 	type AnalyticalAdapter struct {
 		function AnalyticalFunction

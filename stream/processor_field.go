@@ -105,7 +105,7 @@ func (s *Stream) compileExpressionInfo() {
 			originalExpr: fieldExpr.Expression,
 		}
 
-		// 预处理表达式
+		// Preprocess expression
 		processedExpr := fieldExpr.Expression
 		if bridge.ContainsIsNullOperator(processedExpr) {
 			if processed, err := bridge.PreprocessIsNullExpression(processedExpr); err == nil {
@@ -119,12 +119,12 @@ func (s *Stream) compileExpressionInfo() {
 		}
 		exprInfo.processedExpr = processedExpr
 
-		// 预判断表达式特征
+		// Pre-judge expression characteristics
 		exprInfo.isFunctionCall = strings.Contains(fieldExpr.Expression, "(") && strings.Contains(fieldExpr.Expression, ")")
 		exprInfo.hasNestedFields = !exprInfo.isFunctionCall && strings.Contains(fieldExpr.Expression, ".")
 		exprInfo.needsBacktickPreprocess = bridge.ContainsBacktickIdentifiers(fieldExpr.Expression)
 
-		// 预编译表达式对象（仅对非函数调用的表达式）
+		// Pre-compile expression object (only for non-function call expressions)
 		if !exprInfo.isFunctionCall {
 			exprToCompile := fieldExpr.Expression
 			if exprInfo.needsBacktickPreprocess {
@@ -141,11 +141,11 @@ func (s *Stream) compileExpressionInfo() {
 	}
 }
 
-// processExpressionField 处理表达式字段
+// processExpressionField processes expression field
 func (s *Stream) processExpressionField(fieldName string, dataMap map[string]interface{}, result map[string]interface{}) {
 	exprInfo := s.compiledExprInfo[fieldName]
 	if exprInfo == nil {
-		// 回退到原逻辑（安全性保证）
+		// Fallback to original logic
 		s.processExpressionFieldFallback(fieldName, dataMap, result)
 		return
 	}
@@ -154,7 +154,7 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]int
 	bridge := functions.GetExprBridge()
 
 	if exprInfo.isFunctionCall {
-		// 对于函数调用，使用桥接器处理
+		// For function calls, use bridge processor
 		exprResult, err := bridge.EvaluateExpression(exprInfo.processedExpr, dataMap)
 		if err != nil {
 			logger.Error("Function call evaluation failed for field %s: %v", fieldName, err)
@@ -163,9 +163,9 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]int
 		}
 		evalResult = exprResult
 	} else if exprInfo.hasNestedFields {
-		// 使用预编译的表达式对象
+		// Use pre-compiled expression object
 		if exprInfo.compiledExpr != nil {
-			// 使用EvaluateValueWithNull获取实际值（包括字符串）
+			// Use EvaluateValueWithNull to get actual value (including strings)
 			exprResult, isNull, err := exprInfo.compiledExpr.EvaluateValueWithNull(dataMap)
 			if err != nil {
 				logger.Error("Expression evaluation failed for field %s: %v", fieldName, err)
@@ -178,17 +178,17 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]int
 				evalResult = exprResult
 			}
 		} else {
-			// 回退到动态编译
+			// Fallback to dynamic compilation
 			s.processExpressionFieldFallback(fieldName, dataMap, result)
 			return
 		}
 	} else {
-		// 尝试使用桥接器处理其他表达式
+		// Try using bridge processor for other expressions
 		exprResult, err := bridge.EvaluateExpression(exprInfo.processedExpr, dataMap)
 		if err != nil {
-			// 如果桥接器失败，使用预编译的表达式对象
+			// If bridge fails, use pre-compiled expression object
 			if exprInfo.compiledExpr != nil {
-				// 使用EvaluateValueWithNull获取实际值（包括字符串）
+				// Use EvaluateValueWithNull to get actual value (including strings)
 				exprResult, isNull, evalErr := exprInfo.compiledExpr.EvaluateValueWithNull(dataMap)
 				if evalErr != nil {
 					logger.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
@@ -201,7 +201,7 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]int
 					evalResult = exprResult
 				}
 			} else {
-				// 回退到动态编译
+				// Fallback to dynamic compilation
 				s.processExpressionFieldFallback(fieldName, dataMap, result)
 				return
 			}
@@ -213,7 +213,7 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]int
 	result[fieldName] = evalResult
 }
 
-// processExpressionFieldFallback 表达式字段处理的回退逻辑
+// processExpressionFieldFallback fallback logic for expression field processing
 func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[string]interface{}, result map[string]interface{}) {
 	fieldExpr, exists := s.config.FieldExpressions[fieldName]
 	if !exists {
@@ -221,10 +221,10 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 		return
 	}
 
-	// 使用桥接器计算表达式，支持IS NULL等语法
+	// Use bridge to calculate expression, supports IS NULL and other syntax
 	bridge := functions.GetExprBridge()
 
-	// 预处理表达式中的IS NULL和LIKE语法
+	// Preprocess IS NULL and LIKE syntax in expression
 	processedExpr := fieldExpr.Expression
 	if bridge.ContainsIsNullOperator(processedExpr) {
 		if processed, err := bridge.PreprocessIsNullExpression(processedExpr); err == nil {
@@ -237,10 +237,10 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 		}
 	}
 
-	// 检查表达式是否是函数调用（包含括号）
+	// Check if expression is a function call (contains parentheses)
 	isFunctionCall := strings.Contains(fieldExpr.Expression, "(") && strings.Contains(fieldExpr.Expression, ")")
 
-	// 检查表达式是否包含嵌套字段（但排除函数调用中的点号）
+	// Check if expression contains nested fields (but exclude dots in function calls)
 	hasNestedFields := false
 	if !isFunctionCall && strings.Contains(fieldExpr.Expression, ".") {
 		hasNestedFields = true
@@ -249,7 +249,7 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 	var evalResult interface{}
 
 	if isFunctionCall {
-		// 对于函数调用，优先使用桥接器处理
+		// For function calls, prioritize bridge processor
 		exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
 		if err != nil {
 			logger.Error("Function call evaluation failed for field %s: %v", fieldName, err)
@@ -258,7 +258,7 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 		}
 		evalResult = exprResult
 	} else if hasNestedFields {
-		// 检测到嵌套字段（非函数调用），使用自定义表达式引擎
+		// Detected nested fields (non-function call), use custom expression engine
 		exprToUse := fieldExpr.Expression
 		if bridge.ContainsBacktickIdentifiers(exprToUse) {
 			if processed, err := bridge.PreprocessBacktickIdentifiers(exprToUse); err == nil {
@@ -272,7 +272,7 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 			return
 		}
 
-		// 使用EvaluateValueWithNull获取实际值（包括字符串）
+		// Use EvaluateValueWithNull to get actual value (including strings)
 		exprResult, isNull, err := expression.EvaluateValueWithNull(dataMap)
 		if err != nil {
 			logger.Error("Expression evaluation failed for field %s: %v", fieldName, err)
@@ -285,10 +285,10 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 			evalResult = exprResult
 		}
 	} else {
-		// 尝试使用桥接器处理其他表达式
+		// Try using bridge processor for other expressions
 		exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
 		if err != nil {
-			// 如果桥接器失败，回退到原来的表达式引擎
+			// If bridge fails, fallback to original expression engine
 			exprToUse := fieldExpr.Expression
 			if bridge.ContainsBacktickIdentifiers(exprToUse) {
 				if processed, err := bridge.PreprocessBacktickIdentifiers(exprToUse); err == nil {
@@ -302,7 +302,7 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 				return
 			}
 
-			// 使用EvaluateValueWithNull获取实际值（包括字符串）
+			// Use EvaluateValueWithNull to get actual value (including strings)
 			exprResult, isNull, evalErr := expression.EvaluateValueWithNull(dataMap)
 			if evalErr != nil {
 				logger.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
@@ -322,17 +322,17 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 	result[fieldName] = evalResult
 }
 
-// processSimpleField 处理简单字段
+// processSimpleField processes simple field
 func (s *Stream) processSimpleField(fieldSpec string, dataMap map[string]interface{}, data interface{}, result map[string]interface{}) {
 	info := s.compiledFieldInfo[fieldSpec]
 	if info == nil {
-		// 如果没有预编译信息，回退到原逻辑（安全性保证）
+		// If no pre-compiled info, fallback to original logic (safety guarantee)
 		s.processSingleFieldFallback(fieldSpec, dataMap, data, result)
 		return
 	}
 
 	if info.isSelectAll {
-		// SELECT *：批量复制所有字段，跳过表达式字段
+		// SELECT *: batch copy all fields, skip expression fields
 		for k, v := range dataMap {
 			if _, isExpression := s.config.FieldExpressions[k]; !isExpression {
 				result[k] = v
@@ -341,16 +341,16 @@ func (s *Stream) processSimpleField(fieldSpec string, dataMap map[string]interfa
 		return
 	}
 
-	// 跳过已经通过表达式字段处理的字段
+	// Skip fields already processed by expression fields
 	if _, isExpression := s.config.FieldExpressions[info.outputName]; isExpression {
 		return
 	}
 
 	if info.isStringLiteral {
-		// 字符串字面量处理：使用预编译的字符串值
+		// String literal processing: use pre-compiled string value
 		result[info.alias] = info.stringValue
 	} else if info.isFunctionCall {
-		// 执行函数调用
+		// Execute function call
 		if funcResult, err := s.executeFunction(info.fieldName, dataMap); err == nil {
 			result[info.outputName] = funcResult
 		} else {
@@ -358,7 +358,7 @@ func (s *Stream) processSimpleField(fieldSpec string, dataMap map[string]interfa
 			result[info.outputName] = nil
 		}
 	} else {
-		// 普通字段处理
+		// Ordinary field processing
 		var value interface{}
 		var exists bool
 
@@ -376,13 +376,13 @@ func (s *Stream) processSimpleField(fieldSpec string, dataMap map[string]interfa
 	}
 }
 
-// processSingleFieldFallback 回退处理单个字段（当预编译信息缺失时）
+// processSingleFieldFallback fallback processing for single field (when pre-compiled info is missing)
 func (s *Stream) processSingleFieldFallback(fieldSpec string, dataMap map[string]interface{}, data interface{}, result map[string]interface{}) {
-	// 处理SELECT *的特殊情况
+	// Handle special case of SELECT *
 	if fieldSpec == "*" {
-		// SELECT *：返回所有字段，但跳过已经通过表达式字段处理的字段
+		// SELECT *: return all fields, but skip fields already processed by expression fields
 		for k, v := range dataMap {
-			// 如果该字段已经通过表达式字段处理，则跳过，保持表达式计算结果
+			// If field already processed by expression field, skip, maintain expression calculation result
 			if _, isExpression := s.config.FieldExpressions[k]; !isExpression {
 				result[k] = v
 			}
@@ -390,7 +390,7 @@ func (s *Stream) processSingleFieldFallback(fieldSpec string, dataMap map[string
 		return
 	}
 
-	// 处理别名
+	// Handle alias
 	parts := strings.Split(fieldSpec, ":")
 	fieldName := parts[0]
 	outputName := fieldName
@@ -398,14 +398,14 @@ func (s *Stream) processSingleFieldFallback(fieldSpec string, dataMap map[string
 		outputName = parts[1]
 	}
 
-	// 跳过已经通过表达式字段处理的字段
+	// Skip fields already processed by expression fields
 	if _, isExpression := s.config.FieldExpressions[outputName]; isExpression {
 		return
 	}
 
-	// 检查是否是函数调用
+	// Check if it's a function call
 	if strings.Contains(fieldName, "(") && strings.Contains(fieldName, ")") {
-		// 执行函数调用
+		// Execute function call
 		if funcResult, err := s.executeFunction(fieldName, dataMap); err == nil {
 			result[outputName] = funcResult
 		} else {
@@ -413,7 +413,7 @@ func (s *Stream) processSingleFieldFallback(fieldSpec string, dataMap map[string
 			result[outputName] = nil
 		}
 	} else {
-		// 普通字段 - 支持嵌套字段
+		// Ordinary field - supports nested fields
 		var value interface{}
 		var exists bool
 
@@ -431,30 +431,30 @@ func (s *Stream) processSingleFieldFallback(fieldSpec string, dataMap map[string
 	}
 }
 
-// executeFunction 执行函数调用
+// executeFunction executes function call
 func (s *Stream) executeFunction(funcExpr string, data map[string]interface{}) (interface{}, error) {
-	// 检查是否是自定义函数
+	// Check if it's a custom function
 	funcName := extractFunctionName(funcExpr)
 	if funcName != "" {
-		// 直接使用函数系统
+		// Use function system directly
 		fn, exists := functions.Get(funcName)
 		if exists {
-			// 解析参数
+			// Parse parameters
 			args, err := s.parseFunctionArgs(funcExpr, data)
 			if err != nil {
 				return nil, err
 			}
 
-			// 创建函数上下文
+			// Create function context
 			ctx := &functions.FunctionContext{Data: data}
 
-			// 执行函数
+			// Execute function
 			return fn.Execute(ctx, args)
 		}
 	}
 
-	// 对于复杂的嵌套函数调用，直接使用ExprBridge
-	// 这样可以避免Expression.Evaluate的float64类型限制
+	// For complex nested function calls, use ExprBridge directly
+	// This avoids the float64 type limitation of Expression.Evaluate
 	bridge := functions.GetExprBridge()
 	result, err := bridge.EvaluateExpression(funcExpr, data)
 	if err != nil {
@@ -464,7 +464,7 @@ func (s *Stream) executeFunction(funcExpr string, data map[string]interface{}) (
 	return result, nil
 }
 
-// extractFunctionName 从表达式中提取函数名
+// extractFunctionName extracts function name from expression
 func extractFunctionName(expr string) string {
 	parenIndex := strings.Index(expr, "(")
 	if parenIndex == -1 {
@@ -477,9 +477,9 @@ func extractFunctionName(expr string) string {
 	return funcName
 }
 
-// parseFunctionArgs 解析函数参数，支持嵌套函数调用
+// parseFunctionArgs parses function arguments, supports nested function calls
 func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]interface{}) ([]interface{}, error) {
-	// 提取括号内的参数
+	// Extract parameters within parentheses
 	start := strings.Index(funcExpr, "(")
 	end := strings.LastIndex(funcExpr, ")")
 	if start == -1 || end == -1 || end <= start {
@@ -491,7 +491,7 @@ func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]interface{})
 		return []interface{}{}, nil
 	}
 
-	// 智能分割参数，处理嵌套函数和引号
+	// Smart split arguments, handle nested functions and quotes
 	argParts, err := s.smartSplitArgs(argsStr)
 	if err != nil {
 		return nil, err
@@ -502,23 +502,23 @@ func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]interface{})
 	for i, arg := range argParts {
 		arg = strings.TrimSpace(arg)
 
-		// 如果参数是字符串常量（用引号包围）
+		// If parameter is string constant (enclosed in quotes)
 		if strings.HasPrefix(arg, "'") && strings.HasSuffix(arg, "'") {
 			args[i] = strings.Trim(arg, "'")
 		} else if strings.HasPrefix(arg, "\"") && strings.HasSuffix(arg, "\"") {
 			args[i] = strings.Trim(arg, "\"")
 		} else if strings.Contains(arg, "(") {
-			// 如果参数包含函数调用，递归执行
+			// If parameter contains function call, execute recursively
 			result, err := s.executeFunction(arg, data)
 			if err != nil {
 				return nil, fmt.Errorf("failed to execute nested function '%s': %v", arg, err)
 			}
 			args[i] = result
 		} else if value, exists := data[arg]; exists {
-			// 如果是数据字段
+			// If it's a data field
 			args[i] = value
 		} else {
-			// 尝试解析为数字
+			// Try to parse as number
 			if val, err := strconv.ParseFloat(arg, 64); err == nil {
 				args[i] = val
 			} else {
@@ -530,7 +530,7 @@ func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]interface{})
 	return args, nil
 }
 
-// smartSplitArgs 智能分割参数，考虑括号嵌套和引号
+// smartSplitArgs intelligently splits arguments, considering bracket nesting and quotes
 func (s *Stream) smartSplitArgs(argsStr string) ([]string, error) {
 	var args []string
 	var current strings.Builder
@@ -572,7 +572,7 @@ func (s *Stream) smartSplitArgs(argsStr string) ([]string, error) {
 			current.WriteByte(ch)
 		case ',':
 			if !inQuotes && parenDepth == 0 {
-				// 找到参数分隔符
+				// Found parameter separator
 				args = append(args, strings.TrimSpace(current.String()))
 				current.Reset()
 			} else {
@@ -583,7 +583,7 @@ func (s *Stream) smartSplitArgs(argsStr string) ([]string, error) {
 		}
 	}
 
-	// 添加最后一个参数
+	// Add the last parameter
 	if current.Len() > 0 {
 		args = append(args, strings.TrimSpace(current.String()))
 	}

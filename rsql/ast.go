@@ -45,7 +45,7 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		return nil, "", fmt.Errorf("missing FROM clause")
 	}
 
-	// 解析窗口配置
+	// Parse window configuration
 	windowType := window.TypeTumbling
 	if strings.ToUpper(s.Window.Type) == "TUMBLINGWINDOW" {
 		windowType = window.TypeTumbling
@@ -124,7 +124,7 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 	// Extract field order information
 	fieldOrder := extractFieldOrder(s.Fields)
 
-	// 构建Stream配置
+	// Build Stream configuration
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
 			Type:       windowType,
@@ -158,7 +158,7 @@ func isAggregationFunction(expr string) bool {
 
 	// Check if it's a registered function
 	if fn, exists := functions.Get(funcName); exists {
-		// 根据函数类型判断是否需要聚合处理
+		// Determine if aggregation processing is needed based on function type
 		switch fn.GetType() {
 		case functions.TypeAggregation:
 			// Aggregation function needs aggregation processing
@@ -194,7 +194,7 @@ func isAggregationFunction(expr string) bool {
 // Returns field names list in order of appearance in SELECT statement
 func extractFieldOrder(fields []Field) []string {
 	var fieldOrder []string
-	
+
 	for _, field := range fields {
 		// If has alias, use alias as field name
 		if field.Alias != "" {
@@ -211,7 +211,7 @@ func extractFieldOrder(fields []Field) []string {
 			}
 		}
 	}
-	
+
 	return fieldOrder
 }
 func extractGroupFields(s *SelectStatement) []string {
@@ -302,20 +302,20 @@ func ParseAggregateTypeWithExpression(exprStr string) (aggType aggregator.Aggreg
 	// Extract function name
 	funcName := extractFunctionName(exprStr)
 	if funcName == "" {
-		// 检查是否是字符串字面量
+		// Check if it's a string literal
 		trimmed := strings.TrimSpace(exprStr)
 		if (strings.HasPrefix(trimmed, "'") && strings.HasSuffix(trimmed, "'")) ||
 			(strings.HasPrefix(trimmed, "\"") && strings.HasSuffix(trimmed, "\"")) {
-			// 字符串字面量：使用去掉引号的内容作为字段名
+			// String literal: use content without quotes as field name
 			fieldName := trimmed[1 : len(trimmed)-1]
 			return "expression", fieldName, exprStr, nil
 		}
-		
-		// 如果不是函数调用，但包含运算符或关键字，可能是表达式
+
+		// If not a function call but contains operators or keywords, it might be an expression
 		if strings.ContainsAny(exprStr, "+-*/<>=!&|") ||
 			strings.Contains(strings.ToUpper(exprStr), "AND") ||
 			strings.Contains(strings.ToUpper(exprStr), "OR") {
-			// 作为表达式处理
+			// Handle as expression
 			if parsedExpr, err := expr.NewExpression(exprStr); err == nil {
 				allFields = parsedExpr.GetFields()
 			}
@@ -358,8 +358,8 @@ func ParseAggregateTypeWithExpression(exprStr string) (aggType aggregator.Aggreg
 		return "expression", name, fullExpression, allFields
 
 	default:
-		// 其他类型的函数不使用聚合
-		// 这些函数将在非窗口模式下直接处理
+		// Other types of functions don't use aggregation
+		// These functions will be handled directly in non-window mode
 		return "", "", "", nil
 	}
 }
@@ -387,7 +387,7 @@ func extractFunctionName(expr string) string {
 func extractAllFunctions(expr string) []string {
 	var funcNames []string
 
-	// 简单的函数名匹配
+	// Simple function name matching
 	i := 0
 	for i < len(expr) {
 		// Find function name pattern
@@ -431,7 +431,7 @@ func extractAggFieldWithExpression(exprStr string, funcName string) (fieldName s
 		return "", "", nil
 	}
 
-	// 提取括号内的表达式
+	// Extract expression within parentheses
 	fieldExpr := strings.TrimSpace(exprStr[start:end])
 
 	// Special handling for count(*) case
@@ -473,20 +473,20 @@ func extractAggFieldWithExpression(exprStr string, funcName string) (fieldName s
 			}
 		}
 		if len(fields) > 0 {
-			// 对于CONCAT函数，保存完整的函数调用作为表达式
+			// For CONCAT function, save complete function call as expression
 			return fields[0], funcName + "(" + fieldExpr + ")", fields
 		}
 		// If no field found, return empty field name but keep expression
 		return "", funcName + "(" + fieldExpr + ")", nil
 	}
 
-	// 使用表达式引擎解析
+	// Use expression engine to parse
 	parsedExpr, err := expr.NewExpression(fieldExpr)
 	if err != nil {
-		// 如果表达式解析失败，尝试手动解析参数
-		// 这主要用于处理多参数函数如distance(x1, y1, x2, y2)
+		// If expression parsing fails, try manual parameter parsing
+		// This is mainly used to handle multi-parameter functions like distance(x1, y1, x2, y2)
 		if strings.Contains(fieldExpr, ",") {
-			// 分割参数
+			// Split parameters
 			params := strings.Split(fieldExpr, ",")
 			var fields []string
 			for _, param := range params {
@@ -517,7 +517,6 @@ func extractAggFieldWithExpression(exprStr string, funcName string) (fieldName s
 	// If multiple fields, use first field name as main field
 	if len(allFields) > 0 {
 		// Record complete expression and all fields
-		logger.Debug("复杂表达式 '%s' 包含多个字段: %v", fieldExpr, allFields)
 		return allFields[0], expression, allFields
 	}
 
@@ -541,7 +540,7 @@ func parseSmartParameters(paramsStr string) []string {
 				quoteChar = ch
 				current.WriteByte(ch)
 			} else if ch == ',' {
-				// 参数分隔符
+				// Parameter separator
 				params = append(params, current.String())
 				current.Reset()
 			} else {
@@ -556,7 +555,7 @@ func parseSmartParameters(paramsStr string) []string {
 		}
 	}
 
-	// 添加最后一个参数
+	// Add the last parameter
 	if current.Len() > 0 {
 		params = append(params, current.String())
 	}
@@ -675,7 +674,7 @@ func buildSelectFieldsWithExpressions(fields []Field) (
 					fieldMap[alias] = alias
 				}
 
-				// 如果存在表达式，保存表达式信息
+				// If expression exists, save expression information
 				if expression != "" {
 					expressions[alias] = types.FieldExpression{
 						Field:      n,
@@ -692,7 +691,7 @@ func buildSelectFieldsWithExpressions(fields []Field) (
 				selectFields[n] = t
 				fieldMap[n] = n
 
-				// 如果存在表达式，保存表达式信息
+				// If expression exists, save expression information
 				if expression != "" {
 					expressions[n] = types.FieldExpression{
 						Field:      n,

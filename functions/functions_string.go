@@ -2,6 +2,7 @@ package functions
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -42,7 +43,7 @@ type LengthFunction struct {
 
 func NewLengthFunction() *LengthFunction {
 	return &LengthFunction{
-		BaseFunction: NewBaseFunction("length", TypeString, "string", "Get string length", 1, 1),
+		BaseFunction: NewBaseFunctionWithAliases("length", TypeString, "string", "Get length of string or array", 1, 1, []string{"len"}),
 	}
 }
 
@@ -50,12 +51,30 @@ func (f *LengthFunction) Validate(args []interface{}) error {
 	return f.ValidateArgCount(args)
 }
 
+// Execute calculates the length of a string or array.
+// Supports strings, arrays, slices, etc., using Go's standard len() function.
 func (f *LengthFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	str, err := cast.ToStringE(args[0])
-	if err != nil {
-		return nil, err
+	arg := args[0]
+
+	v := reflect.ValueOf(arg)
+	var length int
+	switch v.Kind() {
+	case reflect.String:
+		length = len(v.String())
+	case reflect.Array, reflect.Slice:
+		length = v.Len()
+	case reflect.Map:
+		length = v.Len()
+	case reflect.Chan:
+		length = v.Len()
+	default:
+		str, err := cast.ToStringE(arg)
+		if err != nil {
+			return nil, fmt.Errorf("unsupported type for len function: %T", arg)
+		}
+		length = len(str)
 	}
-	return int64(len(str)), nil
+	return length, nil
 }
 
 // UpperFunction converts string to uppercase
