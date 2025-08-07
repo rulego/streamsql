@@ -2,10 +2,11 @@ package functions
 
 import (
 	"fmt"
-	"github.com/rulego/streamsql/utils/cast"
 	"math"
 	"math/rand"
 	"time"
+
+	"github.com/rulego/streamsql/utils/cast"
 )
 
 // AbsFunction calculates absolute value
@@ -270,7 +271,7 @@ type CeilingFunction struct {
 
 func NewCeilingFunction() *CeilingFunction {
 	return &CeilingFunction{
-		BaseFunction: NewBaseFunction("ceiling", TypeMath, "数学函数", "向上取整", 1, 1),
+		BaseFunction: NewBaseFunctionWithAliases("ceiling", TypeMath, "数学函数", "向上取整", 1, 1, []string{"ceil"}),
 	}
 }
 
@@ -404,14 +405,14 @@ func (f *LnFunction) Execute(ctx *FunctionContext, args []interface{}) (interfac
 	return math.Log(val), nil
 }
 
-// LogFunction 自然对数函数 (log的别名)
+// LogFunction 以10为底的对数函数 (log的别名)
 type LogFunction struct {
 	*BaseFunction
 }
 
 func NewLogFunction() *LogFunction {
 	return &LogFunction{
-		BaseFunction: NewBaseFunction("log", TypeMath, "数学函数", "计算自然对数", 1, 1),
+		BaseFunction: NewBaseFunction("log", TypeMath, "数学函数", "计算以10为底的对数", 1, 1),
 	}
 }
 
@@ -427,7 +428,7 @@ func (f *LogFunction) Execute(ctx *FunctionContext, args []interface{}) (interfa
 	if val <= 0 {
 		return nil, fmt.Errorf("log: value must be positive")
 	}
-	return math.Log(val), nil
+	return math.Log10(val), nil
 }
 
 // Log10Function 以10为底的对数函数
@@ -695,7 +696,7 @@ type PowerFunction struct {
 
 func NewPowerFunction() *PowerFunction {
 	return &PowerFunction{
-		BaseFunction: NewBaseFunction("power", TypeMath, "数学函数", "计算x的y次幂", 2, 2),
+		BaseFunction: NewBaseFunctionWithAliases("power", TypeMath, "数学函数", "计算x的y次幂", 2, 2, []string{"pow"}),
 	}
 }
 
