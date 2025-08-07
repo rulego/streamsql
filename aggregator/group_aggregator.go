@@ -291,8 +291,13 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 			continue
 		}
 
-		// Dynamically check if numeric conversion is needed
-		if ga.isNumericAggregator(aggType) {
+		// Special handling for Count aggregator - it can handle any type
+		if aggType == Count {
+			// Count can handle any non-null value
+			if groupAgg, exists := ga.groups[key][outputAlias]; exists {
+				groupAgg.Add(fieldVal)
+			}
+		} else if ga.isNumericAggregator(aggType) {
 			// For numeric aggregation functions, try to convert to numeric type
 			if numVal, err := cast.ToFloat64E(fieldVal); err == nil {
 				if groupAgg, exists := ga.groups[key][outputAlias]; exists {
