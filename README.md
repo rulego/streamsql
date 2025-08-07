@@ -9,7 +9,7 @@ English| [简体中文](README_ZH.md)
 
 **StreamSQL** is a lightweight, SQL-based stream processing engine for IoT edge, enabling efficient data processing and analysis on unbounded streams.
 
-Similar to: [Apache Flink](https://flink.apache.org/) and [ekuiper](https://ekuiper.org/)
+📖 **[Documentation](https://rulego.cc/en/pages/streamsql-overview/)** | Similar to: [Apache Flink](https://flink.apache.org/)
 
 ## Features
 
