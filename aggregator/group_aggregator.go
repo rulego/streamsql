@@ -143,12 +143,12 @@ func (ga *GroupAggregator) isNumericAggregator(aggType AggregateType) bool {
 func (ga *GroupAggregator) Add(data interface{}) error {
 	ga.mu.Lock()
 	defer ga.mu.Unlock()
-	
+
 	// 检查数据是否为nil
 	if data == nil {
 		return fmt.Errorf("data cannot be nil")
 	}
-	
+
 	var v reflect.Value
 
 	switch data.(type) {
@@ -290,7 +290,7 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		if fieldVal == nil {
 			continue
 		}
-		
+
 		// Dynamically check if numeric conversion is needed
 		if ga.isNumericAggregator(aggType) {
 			// For numeric aggregation functions, try to convert to numeric type
@@ -315,12 +315,12 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 func (ga *GroupAggregator) GetResults() ([]map[string]interface{}, error) {
 	ga.mu.RLock()
 	defer ga.mu.RUnlock()
-	
+
 	// 如果既没有分组字段又没有聚合字段，返回空结果
 	if len(ga.aggregationFields) == 0 && len(ga.groupFields) == 0 {
 		return []map[string]interface{}{}, nil
 	}
-	
+
 	result := make([]map[string]interface{}, 0, len(ga.groups))
 	for key, aggregators := range ga.groups {
 		group := make(map[string]interface{})

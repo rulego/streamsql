@@ -434,7 +434,7 @@ func (f *NthValueFunction) Validate(args []interface{}) error {
 	if err := f.ValidateArgCount(args); err != nil {
 		return err
 	}
-	
+
 	// 验证N值
 	n := 1
 	if nVal, ok := args[1].(int); ok {
@@ -444,14 +444,14 @@ func (f *NthValueFunction) Validate(args []interface{}) error {
 	} else {
 		return fmt.Errorf("nth_value n must be an integer")
 	}
-	
+
 	if n <= 0 {
 		return fmt.Errorf("nth_value n must be positive, got %d", n)
 	}
-	
+
 	// 设置n值
 	f.n = n
-	
+
 	return nil
 }
 

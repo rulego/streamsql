@@ -38,17 +38,17 @@ Supported aggregation functions (re-exported from functions package):
 	Sum, Count, Avg, Max, Min
 	StdDev, StdDevS, Var, VarS
 	Median, Percentile
-	
+
 	// Collection aggregations
 	Collect, LastValue, MergeAgg
 	Deduplicate
-	
+
 	// Window aggregations
 	WindowStart, WindowEnd
-	
+
 	// Analytical functions
 	Lag, Latest, ChangedCol, HadChanged
-	
+
 	// Custom expressions
 	Expression
 
@@ -63,7 +63,7 @@ Main aggregation interfaces:
 		Reset()
 		RegisterExpression(field, expression string, fields []string, evaluator func(data interface{}) (interface{}, error))
 	}
-	
+
 	type AggregatorFunction interface {
 		New() AggregatorFunction
 		Add(value interface{})
@@ -90,10 +90,10 @@ Basic group aggregation:
 		{InputField: "humidity", AggregateType: Max, OutputAlias: "max_humidity"},
 		{InputField: "device_id", AggregateType: Count, OutputAlias: "device_count"},
 	}
-	
+
 	// Create group aggregator
 	aggregator := NewGroupAggregator([]string{"location"}, aggFields)
-	
+
 	// Add data
 	data := map[string]interface{}{
 		"location": "room1",
@@ -102,7 +102,7 @@ Basic group aggregation:
 		"device_id": "sensor001",
 	}
 	aggregator.Add(data)
-	
+
 	// Get results
 	results, err := aggregator.GetResults()
 
@@ -126,7 +126,7 @@ Multiple group aggregation:
 		[]string{"location", "device_type"},
 		aggFields,
 	)
-	
+
 	// Results will be grouped by both location and device_type
 	results, err := aggregator.GetResults()
 
@@ -138,7 +138,7 @@ Create built-in aggregation functions:
 	sumAgg := CreateBuiltinAggregator(Sum)
 	avgAgg := CreateBuiltinAggregator(Avg)
 	countAgg := CreateBuiltinAggregator(Count)
-	
+
 	// Use aggregator
 	sumAgg.Add(10)
 	sumAgg.Add(20)

@@ -98,7 +98,6 @@ func TestExpansionStrategy_ProcessData(t *testing.T) {
 
 // TestPersistenceStrategy_ProcessData 测试持久化策略数据处理
 
-
 // TestDropStrategy_ProcessData 测试丢弃策略数据处理
 func TestDropStrategy_ProcessData(t *testing.T) {
 	config := types.Config{

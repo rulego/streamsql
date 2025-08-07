@@ -450,7 +450,6 @@ func TestLikeFunctionEquivalence(t *testing.T) {
 
 		// 验证LIKE查询返回了预期的结果
 		assert.Equal(t, 2, len(results), "LIKE查询应该返回2个匹配'sensor%'的结果")
-		t.Logf("LIKE查询成功返回%d个结果", len(results))
 
 		// 验证返回的结果确实是以'sensor'开头的
 		for i, result := range results {

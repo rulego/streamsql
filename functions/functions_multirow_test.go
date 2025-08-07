@@ -11,7 +11,7 @@ func TestIsUnnestResult(t *testing.T) {
 	if IsUnnestResult(normalSlice) {
 		t.Errorf("IsUnnestResult should return false for normal slice")
 	}
-	
+
 	// 测试unnest结果
 	unnestSlice := []interface{}{
 		map[string]interface{}{
@@ -25,7 +25,7 @@ func TestIsUnnestResult(t *testing.T) {
 	if !IsUnnestResult(unnestSlice) {
 		t.Errorf("IsUnnestResult should return true for unnest slice")
 	}
-	
+
 	// 测试混合结果
 	mixedSlice := []interface{}{
 		"normal",
@@ -40,7 +40,7 @@ func TestIsUnnestResult(t *testing.T) {
 	if !IsUnnestResult(mixedSlice) {
 		t.Errorf("IsUnnestResult should return true for mixed slice")
 	}
-	
+
 	// 测试非切片类型
 	if IsUnnestResult("not a slice") {
 		t.Errorf("IsUnnestResult should return false for non-slice")
@@ -59,7 +59,7 @@ func TestProcessUnnestResult(t *testing.T) {
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("ProcessUnnestResult normal slice = %v, want %v", result, expected)
 	}
-	
+
 	// 测试处理对象数组
 	objectSlice := []interface{}{
 		map[string]interface{}{
@@ -85,7 +85,7 @@ func TestProcessUnnestResult(t *testing.T) {
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("ProcessUnnestResult object slice = %v, want %v", result, expected)
 	}
-	
+
 	// 测试混合数组
 	mixedSlice := []interface{}{
 		"normal",
@@ -107,7 +107,7 @@ func TestProcessUnnestResult(t *testing.T) {
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("ProcessUnnestResult mixed slice = %v, want %v", result, expected)
 	}
-	
+
 	// 测试非切片类型
 	result = ProcessUnnestResult("not a slice")
 	if result != nil {

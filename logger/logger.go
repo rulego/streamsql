@@ -95,39 +95,39 @@ type defaultLogger struct {
 func NewLogger(level Level, output io.Writer) Logger {
 	return &defaultLogger{
 		level:  level,
-		logger: log.New(output, "", 0), // 使用自定义格式，不使用标准库的前缀
+		logger: log.New(output, "", 0), // Use custom format, not standard library prefix
 	}
 }
 
-// Debug 记录调试级别的日志
+// Debug records debug level logs
 func (l *defaultLogger) Debug(format string, args ...interface{}) {
 	if l.level <= DEBUG {
 		l.log(DEBUG, format, args...)
 	}
 }
 
-// Info 记录信息级别的日志
+// Info records info level logs
 func (l *defaultLogger) Info(format string, args ...interface{}) {
 	if l.level <= INFO {
 		l.log(INFO, format, args...)
 	}
 }
 
-// Warn 记录警告级别的日志
+// Warn records warning level logs
 func (l *defaultLogger) Warn(format string, args ...interface{}) {
 	if l.level <= WARN {
 		l.log(WARN, format, args...)
 	}
 }
 
-// Error 记录错误级别的日志
+// Error records error level logs
 func (l *defaultLogger) Error(format string, args ...interface{}) {
 	if l.level <= ERROR {
 		l.log(ERROR, format, args...)
 	}
 }
 
-// SetLevel 设置日志级别
+// SetLevel sets the log level
 func (l *defaultLogger) SetLevel(level Level) {
 	l.level = level
 }
@@ -171,8 +171,6 @@ func SetDefault(logger Logger) {
 func GetDefault() Logger {
 	return defaultInstance
 }
-
-// 便捷的全局日志方法
 
 // Debug uses the default logger to record debug information
 func Debug(format string, args ...interface{}) {

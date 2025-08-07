@@ -107,8 +107,6 @@ func TestCustomMathFunctions(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("测试超时")
 	}
-
-	fmt.Println("✅ 自定义数学函数测试通过")
 }
 
 // TestCustomStringFunctions 测试自定义字符串函数
@@ -206,8 +204,6 @@ func TestCustomStringFunctions(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("测试超时")
 	}
-
-	fmt.Println("✅ 自定义字符串函数测试通过")
 }
 
 // TestCustomConversionFunctions 测试自定义转换函数
@@ -280,8 +276,6 @@ func TestCustomConversionFunctions(t *testing.T) {
 	result, err = bytesFunc.Execute(ctx, []interface{}{1073741824}) // 1GB
 	assert.NoError(t, err)
 	assert.Equal(t, "1.00 GB", result)
-
-	fmt.Println("✅ 自定义转换函数测试通过")
 }
 
 // TestCustomAggregateFunctions 测试自定义聚合函数
@@ -360,8 +354,6 @@ func TestCustomAggregateFunctions(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("测试超时")
 	}
-
-	fmt.Println("✅ 自定义聚合函数测试通过")
 }
 
 // GeometricMeanFunction 几何平均数函数
@@ -517,8 +509,6 @@ func TestFunctionManagement(t *testing.T) {
 	// 验证函数已被注销
 	_, exists = functions.Get("test_func")
 	assert.False(t, exists)
-
-	fmt.Println("✅ 函数管理功能测试通过")
 }
 
 // TestCustomFunctionWithAggregation 测试自定义函数与聚合函数结合使用
@@ -598,8 +588,6 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("测试超时")
 	}
-
-	fmt.Println("✅ 自定义函数与聚合函数结合使用测试通过")
 }
 
 // TestDebugCustomFunctions 调试自定义函数问题
@@ -645,15 +633,8 @@ func TestDebugCustomFunctions(t *testing.T) {
 	stmt, err := parser.Parse()
 	assert.NoError(t, err)
 
-	config, _, err := stmt.ToStreamConfig()
+	_, _, err = stmt.ToStreamConfig()
 	assert.NoError(t, err)
-
-	fmt.Printf("SQL Config - SelectFields: %v\n", config.SelectFields)
-	fmt.Printf("SQL Config - FieldAlias: %v\n", config.FieldAlias)
-	fmt.Printf("SQL Config - FieldExpressions: %v\n", config.FieldExpressions)
-	fmt.Printf("SQL Config - NeedWindow: %v\n", config.NeedWindow)
-
-	fmt.Println("✅ 调试测试完成")
 }
 
 // TestDebugMultiParameterFunction 测试多参数自定义函数
@@ -683,10 +664,6 @@ func TestDebugMultiParameterFunction(t *testing.T) {
 	expr, err := expr.NewExpression("distance(x1, y1, x2, y2)")
 	assert.NoError(t, err)
 
-	// 获取表达式字段
-	fields := expr.GetFields()
-	fmt.Printf("Distance expression fields: %v\n", fields)
-
 	// 测试表达式计算
 	data := map[string]interface{}{
 		"x1": 0.0,
@@ -696,7 +673,6 @@ func TestDebugMultiParameterFunction(t *testing.T) {
 	}
 	result, err := expr.Evaluate(data)
 	assert.NoError(t, err)
-	fmt.Printf("Distance expression result: %v\n", result)
 	assert.Equal(t, 5.0, result)
 
 	// 测试SQL解析
@@ -704,73 +680,6 @@ func TestDebugMultiParameterFunction(t *testing.T) {
 	stmt, err := parser.Parse()
 	assert.NoError(t, err)
 
-	config, _, err := stmt.ToStreamConfig()
+	_, _, err = stmt.ToStreamConfig()
 	assert.NoError(t, err)
-
-	fmt.Printf("Distance SQL Config - SelectFields: %v\n", config.SelectFields)
-	fmt.Printf("Distance SQL Config - FieldAlias: %v\n", config.FieldAlias)
-	fmt.Printf("Distance SQL Config - FieldExpressions: %v\n", config.FieldExpressions)
-
-	fmt.Println("✅ 多参数函数调试测试完成")
-}
-
-// TestDebugSQLParsing 调试SQL解析过程
-func TestDebugSQLParsing(t *testing.T) {
-	// 注册距离计算函数
-	err := functions.RegisterCustomFunction(
-		"distance",
-		functions.TypeMath,
-		"几何数学",
-		"计算两点间距离",
-		4, 4,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-			x1 := cast.ToFloat64(args[0])
-			y1 := cast.ToFloat64(args[1])
-			x2 := cast.ToFloat64(args[2])
-			y2 := cast.ToFloat64(args[3])
-			distance := math.Sqrt(math.Pow(x2-x1, 2) + math.Pow(y2-y1, 2))
-			return distance, nil
-		},
-	)
-	assert.NoError(t, err)
-	defer functions.Unregister("distance")
-
-	// 测试不同的SQL形式
-	testCases := []string{
-		"SELECT distance(x1, y1, x2, y2) as calc_distance FROM stream",
-		"SELECT AVG(distance(x1, y1, x2, y2)) as avg_distance FROM stream",
-		"SELECT AVG(distance(x1, y1, x2, y2)) as avg_distance FROM stream GROUP BY device, TumblingWindow('1s')",
-	}
-
-	for i, sql := range testCases {
-		fmt.Printf("\n=== 测试SQL %d: %s ===\n", i+1, sql)
-
-		parser := rsql.NewParser(sql)
-		stmt, err := parser.Parse()
-		if err != nil {
-			fmt.Printf("SQL解析错误: %v\n", err)
-			continue
-		}
-
-		// 打印解析结果
-		fmt.Printf("解析到的字段数量: %d\n", len(stmt.Fields))
-		for j, field := range stmt.Fields {
-			fmt.Printf("字段 %d: Expression='%s', Alias='%s'\n", j, field.Expression, field.Alias)
-		}
-
-		config, condition, err := stmt.ToStreamConfig()
-		if err != nil {
-			fmt.Printf("转换配置错误: %v\n", err)
-			continue
-		}
-
-		fmt.Printf("转换后配置:\n")
-		fmt.Printf("  SelectFields: %v\n", config.SelectFields)
-		fmt.Printf("  FieldAlias: %v\n", config.FieldAlias)
-		fmt.Printf("  FieldExpressions: %v\n", config.FieldExpressions)
-		fmt.Printf("  NeedWindow: %v\n", config.NeedWindow)
-		fmt.Printf("  Condition: %s\n", condition)
-	}
-
-	fmt.Println("✅ SQL解析调试测试完成")
 }

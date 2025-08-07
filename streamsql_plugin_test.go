@@ -12,7 +12,6 @@ import (
 
 // TestPluginStyleCustomFunctions 测试插件式自定义函数
 func TestPluginStyleCustomFunctions(t *testing.T) {
-	fmt.Println("🔌 测试插件式自定义函数系统")
 
 	// 动态注册新函数（运行时注册，无需修改SQL解析代码）
 
@@ -74,11 +73,9 @@ func TestPluginStyleCustomFunctions(t *testing.T) {
 	// 测试3：数学函数在聚合中使用（需要窗口）
 	testMathFunctionsInAggregate(t)
 
-	fmt.Println("✅ 插件式自定义函数测试完成")
 }
 
 func testStringFunctionsOnly(t *testing.T) {
-	fmt.Println("\n📝 测试纯字符串函数（直接处理模式）...")
 
 	streamsql := New()
 	defer streamsql.Stop()
@@ -117,14 +114,12 @@ func testStringFunctionsOnly(t *testing.T) {
 		assert.Equal(t, "E001", item["employee_id"])
 		assert.Equal(t, "138****5678", item["masked_phone"]) // 脱敏后的手机号
 
-		fmt.Printf("  📊 字符串函数结果: %v\n", item)
 	case <-time.After(2 * time.Second):
 		t.Fatal("字符串函数测试超时")
 	}
 }
 
 func testConversionFunctionsOnly(t *testing.T) {
-	fmt.Println("\n🔄 测试转换函数（直接处理模式）...")
 
 	streamsql := New()
 	defer streamsql.Stop()
@@ -169,7 +164,6 @@ func testConversionFunctionsOnly(t *testing.T) {
 }
 
 func testMathFunctionsInAggregate(t *testing.T) {
-	fmt.Println("\n📈 测试数学函数在聚合中使用（窗口模式）...")
 
 	streamsql := New()
 	defer streamsql.Stop()
@@ -227,7 +221,6 @@ func testMathFunctionsInAggregate(t *testing.T) {
 		expectedAvg := (8000*3/100 + 12000*4/100) / 2 // (240 + 480) / 2 = 360
 		assert.InEpsilon(t, expectedAvg, avgCommission, 0.01)
 
-		fmt.Printf("  📊 聚合数学函数结果: %v\n", item)
 	case <-time.After(3 * time.Second):
 		t.Fatal("聚合数学函数测试超时")
 	}
@@ -235,8 +228,6 @@ func testMathFunctionsInAggregate(t *testing.T) {
 
 // TestRuntimeFunctionManagement 测试运行时函数管理
 func TestRuntimeFunctionManagement(t *testing.T) {
-	fmt.Println("\n🔧 测试运行时函数管理...")
-
 	// 动态注册函数
 	err := functions.RegisterCustomFunction(
 		"temp_function",
@@ -289,14 +280,10 @@ func TestRuntimeFunctionManagement(t *testing.T) {
 	// 验证函数已注销
 	_, exists = functions.Get("temp_function")
 	assert.False(t, exists)
-
-	fmt.Println("✅ 运行时函数管理测试完成")
 }
 
 // TestFunctionPluginDiscovery 测试函数插件发现机制
 func TestFunctionPluginDiscovery(t *testing.T) {
-	fmt.Println("\n🔍 测试函数插件发现机制...")
-
 	// 注册不同类型的函数
 	functions.RegisterCustomFunction("plugin_math", functions.TypeMath, "插件", "数学插件", 1, 1,
 		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
@@ -330,14 +317,10 @@ func TestFunctionPluginDiscovery(t *testing.T) {
 	assert.Contains(t, allFunctions, "plugin_math")
 	assert.Contains(t, allFunctions, "plugin_string")
 
-	//fmt.Println(fmt.Sprintf("发现的函数总数: %d", len(allFunctions)))
-	fmt.Println("✅ 函数插件发现机制测试完成")
 }
 
 // TestCompleteSQLIntegration 测试完整的SQL集成
 func TestCompleteSQLIntegration(t *testing.T) {
-	fmt.Println("\n🎯 测试完整SQL集成...")
-
 	// 注册完全新的业务函数
 	err := functions.RegisterCustomFunction(
 		"business_metric",
@@ -406,6 +389,4 @@ func TestCompleteSQLIntegration(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("完整SQL集成测试超时")
 	}
-
-	fmt.Println("✅ 完整SQL集成测试完成")
 }

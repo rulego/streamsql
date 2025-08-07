@@ -93,7 +93,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			assert.Equal(t, "SENSOR01", item["upper_device"])
 			assert.Equal(t, "room_a", item["lower_location"])
 			assert.Equal(t, "sensor01-ROOM_A", item["combined"])
-			assert.Equal(t, int64(8), item["device_len"])
+			assert.Equal(t, 8, item["device_len"])
 		case <-ctx.Done():
 			t.Fatal("测试超时，未收到结果")
 		}
@@ -622,7 +622,6 @@ func TestNestedFunctionSupport(t *testing.T) {
 					// 平均值应该是 (20.567 + 25.234 + 30.123) / 3 = 25.308
 					// round(25.308, 2) = 25.31
 					assert.InEpsilon(t, 25.31, val, 0.01)
-					t.Logf("round(avg()) test passed: %v", val)
 				} else {
 					t.Errorf("rounded_avg is not a float64: %v (type: %T)", roundedAvg, roundedAvg)
 				}
@@ -677,10 +676,6 @@ func TestNestedFunctionSupport(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			t.Logf("Result item: %+v", item)
-			for key, value := range item {
-				t.Logf("  %s: %v (type: %T)", key, value, value)
-			}
 
 			assert.Equal(t, "sensor1", item["device"])
 
@@ -710,7 +705,6 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 		// 执行包含 round(avg(abs(temperature)), 1) 的查询
 		query := "SELECT device, round(avg(abs(temperature)), 1) as complex_result FROM stream GROUP BY device, TumblingWindow('1s')"
-		t.Logf("Executing query: %s", query)
 		err := streamsql.Execute(query)
 		assert.Nil(t, err)
 
@@ -746,7 +740,6 @@ func TestNestedFunctionSupport(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			t.Logf("Result item: %+v", item)
 			for key, value := range item {
 				t.Logf("  %s: %v (type: %T)", key, value, value)
 			}
@@ -760,7 +753,6 @@ func TestNestedFunctionSupport(t *testing.T) {
 				} else if val, ok := complexResult.(float64); ok {
 					// 期望值：avg(20.567, 25.234, 30.123) = 25.308, round(25.308, 1) = 25.3
 					assert.InEpsilon(t, 25.3, val, 0.01)
-					t.Logf("round(avg(abs())) test passed: %v", val)
 				} else {
 					t.Errorf("complex_result is not a float64: %v (type: %T)", complexResult, complexResult)
 				}
@@ -783,7 +775,6 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		defer streamsql.Stop()
 
 		query := "SELECT device, upper(concat('temp_', round(temperature, 1))) as formatted_temp FROM stream"
-		t.Logf("Executing query: %s", query)
 		err := streamsql.Execute(query)
 		assert.Nil(t, err)
 
@@ -887,7 +878,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			t.Logf("Result: %+v", item)
+			//t.Logf("Result: %+v", item)
 
 			// 验证执行顺序：sqrt(16) -> 4, round(4, 2) -> 4.00, abs(4.00) -> 4.00
 			assert.Equal(t, float64(4), item["processed_temp"])
@@ -939,7 +930,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			t.Logf("Result: %+v", item)
+			//t.Logf("Result: %+v", item)
 
 			// 验证执行顺序：avg(20.567, 25.234, 30.123) -> 25.308, round(25.308, 1) -> 25.3, max(25.3) -> 25.3
 			assert.InEpsilon(t, 25.3, item["max_rounded_avg"], 0.01)
@@ -979,7 +970,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			t.Logf("Result: %+v", item)
+			//t.Logf("Result: %+v", item)
 
 			// 验证执行顺序：date_add('2023-12-25 15:30:45', 1, 'years') -> '2024-12-25 15:30:45', year('2024-12-25 15:30:45') -> 2024
 			assert.Equal(t, float64(2024), item["next_year"])

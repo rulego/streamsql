@@ -43,7 +43,7 @@ Standard SQL clauses with streaming extensions:
 	HAVING aggregate_condition
 	ORDER BY field1 ASC, field2 DESC
 	LIMIT 100
-	
+
 	// Window functions
 	TumblingWindow('5s')           - Non-overlapping time windows
 	SlidingWindow('30s', '10s')    - Overlapping time windows
@@ -73,10 +73,10 @@ Recursive descent parser with error recovery:
 		currentToken  Token
 		input         string
 	}
-	
+
 	// Main parsing entry point
 	func (p *Parser) Parse() (*SelectStatement, error)
-	
+
 	// Clause-specific parsers
 	func (p *Parser) parseSelect(stmt *SelectStatement) error
 	func (p *Parser) parseFrom(stmt *SelectStatement) error
@@ -96,7 +96,7 @@ Comprehensive error detection and recovery:
 		Context   string
 		ErrorType ErrorType
 	}
-	
+
 	// Error recovery strategies
 	type ErrorRecovery struct {
 		errors   []*ParseError
@@ -112,7 +112,7 @@ Integration with function registry for validation:
 	type FunctionValidator struct {
 		functionRegistry map[string]FunctionInfo
 	}
-	
+
 	// Validation methods
 	func (fv *FunctionValidator) ValidateFunction(name string, args []Expression) error
 	func (fv *FunctionValidator) ValidateAggregateFunction(name string, context AggregateContext) error
@@ -133,13 +133,13 @@ StreamSQL AST representation:
 		Limit     int
 		Having    string
 	}
-	
+
 	type Field struct {
 		Expression string
 		Alias      string
 		AggType    string
 	}
-	
+
 	type WindowDefinition struct {
 		Type     string
 		Params   []interface{}
@@ -156,7 +156,7 @@ Basic SQL parsing:
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	// Convert to stream configuration
 	config, condition, err := stmt.ToStreamConfig()
 
@@ -198,8 +198,6 @@ Transformation from AST to stream processing configuration:
 		Distinct         bool
 		Limit            int
 	}
-
-
 
 # Integration
 

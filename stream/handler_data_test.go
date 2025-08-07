@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDataHandler_NewDataHandler 测试数据处理器创建
+// TestDataHandler_NewDataHandler tests data handler creation
 func TestDataHandler_Constructor(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -44,7 +44,7 @@ func TestDataHandler_Constructor(t *testing.T) {
 	assert.Equal(t, stream, handler.stream)
 }
 
-// TestStream_SafeGetDataChan 测试安全获取数据通道
+// TestStream_SafeGetDataChan tests safe data channel retrieval
 func TestStream_SafeGetDataChan(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -57,19 +57,19 @@ func TestStream_SafeGetDataChan(t *testing.T) {
 		}
 	}()
 
-	// 测试正常获取
+	// Test normal retrieval
 	dataChan := stream.safeGetDataChan()
 	assert.NotNil(t, dataChan)
 	assert.Equal(t, 1000, cap(dataChan))
 }
 
-// TestStream_SafeSendToDataChan 测试安全发送数据到通道
+// TestStream_SafeSendToDataChan tests safe data sending to channel
 func TestStream_SafeSendToDataChan_Duplicate(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
 		PerformanceConfig: types.PerformanceConfig{
 			BufferConfig: types.BufferConfig{
-				DataChannelSize: 2, // 使用小容量便于测试
+				DataChannelSize: 2, // Use small capacity for testing
 			},
 		},
 	}
@@ -81,29 +81,29 @@ func TestStream_SafeSendToDataChan_Duplicate(t *testing.T) {
 		}
 	}()
 
-	// 测试成功发送
+	// Test successful send
 	data1 := map[string]interface{}{"test": "value1"}
 	success := stream.safeSendToDataChan(data1)
 	assert.True(t, success)
 
-	// 测试再次发送
+	// Test send again
 	data2 := map[string]interface{}{"test": "value2"}
 	success = stream.safeSendToDataChan(data2)
 	assert.True(t, success)
 
-	// 填满缓冲区后测试发送失败
+	// Test send failure after buffer is full
 	data3 := map[string]interface{}{"test": "value3"}
 	success = stream.safeSendToDataChan(data3)
-	assert.False(t, success) // 应该失败，因为缓冲区已满
+	assert.False(t, success) // Should fail because buffer is full
 }
 
-// TestStream_SafeSendToDataChan_Concurrent 测试并发安全发送
+// TestStream_SafeSendToDataChan_Concurrent tests concurrent safe data sending
 func TestStream_SafeSendToDataChan_Concurrent(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
 		PerformanceConfig: types.PerformanceConfig{
 			BufferConfig: types.BufferConfig{
-				DataChannelSize: 10, // 小缓冲区用于测试
+				DataChannelSize: 10, // Small buffer for testing
 			},
 		},
 	}
@@ -115,7 +115,7 @@ func TestStream_SafeSendToDataChan_Concurrent(t *testing.T) {
 		}
 	}()
 
-	// 启动消费者协程
+	// Start consumer goroutine
 	go func() {
 		for {
 			select {

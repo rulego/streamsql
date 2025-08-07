@@ -324,7 +324,7 @@ type CountFunction struct {
 
 func NewCountFunction() *CountFunction {
 	return &CountFunction{
-		BaseFunction: NewBaseFunction("count", TypeAggregation, "聚合函数", "计算数值个数", 1, -1),
+		BaseFunction: NewBaseFunction("count", TypeAggregation, "聚合函数", "计算数值个数", 0, -1),
 	}
 }
 

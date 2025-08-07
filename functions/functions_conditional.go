@@ -190,7 +190,7 @@ func (f *CaseWhenFunction) Validate(args []interface{}) error {
 	if len(args) < 2 {
 		return fmt.Errorf("case_when requires at least 2 arguments")
 	}
-	
+
 	// 参数必须是偶数个（条件-值对）或奇数个（最后一个是默认值）
 	if len(args)%2 == 0 {
 		// 偶数个参数，必须都是条件-值对
@@ -203,7 +203,7 @@ func (f *CaseWhenFunction) Validate(args []interface{}) error {
 			// 条件应该是布尔值或可以转换为布尔值的表达式
 		}
 	}
-	
+
 	return nil
 }
 
@@ -211,12 +211,12 @@ func (f *CaseWhenFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}
-	
+
 	// 处理条件-值对
 	for i := 0; i < len(args)-1; i += 2 {
 		condition := args[i]
 		value := args[i+1]
-		
+
 		// 将条件转换为布尔值
 		condBool, err := cast.ToBoolE(condition)
 		if err != nil {
@@ -238,17 +238,17 @@ func (f *CaseWhenFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 				}
 			}
 		}
-		
+
 		if condBool {
 			return value, nil
 		}
 	}
-	
+
 	// 如果没有条件匹配，返回默认值（如果有）
 	if len(args)%2 == 1 {
 		return args[len(args)-1], nil
 	}
-	
+
 	// 没有默认值，返回 nil
 	return nil, nil
 }

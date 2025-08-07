@@ -157,9 +157,9 @@ func TestStreamBasicFunctionality(t *testing.T) {
 			},
 			filter: "device == 'aa' && temperature > 10",
 			testData: []map[string]interface{}{
-				map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60},
-				map[string]interface{}{"device": "aa", "temperature": 30.0, "humidity": 55},
-				map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70},
+				{"device": "aa", "temperature": 25.0, "humidity": 60},
+				{"device": "aa", "temperature": 30.0, "humidity": 55},
+				{"device": "bb", "temperature": 22.0, "humidity": 70},
 			},
 			expectedDevice: "aa",
 			expectedTemp:   27.5,
@@ -181,11 +181,11 @@ func TestStreamBasicFunctionality(t *testing.T) {
 			},
 			filter: "device == 'aa'",
 			testData: []map[string]interface{}{
-				map[string]interface{}{"device": "aa", "temperature": 25.0},
-				map[string]interface{}{"device": "aa", "humidity": 60},
-				map[string]interface{}{"device": "aa", "temperature": 30.0},
-				map[string]interface{}{"device": "aa", "humidity": 55},
-				map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70},
+				{"device": "aa", "temperature": 25.0},
+				{"device": "aa", "humidity": 60},
+				{"device": "aa", "temperature": 30.0},
+				{"device": "aa", "humidity": 55},
+				{"device": "bb", "temperature": 22.0, "humidity": 70},
 			},
 			expectedDevice: "aa",
 			expectedTemp:   27.5,
@@ -272,9 +272,9 @@ func TestStreamWithoutFilter(t *testing.T) {
 	strm.Start()
 
 	testData := []map[string]interface{}{
-		map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60},
-		map[string]interface{}{"device": "aa", "temperature": 30.0, "humidity": 55},
-		map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70},
+		{"device": "aa", "temperature": 25.0, "humidity": 60},
+		{"device": "aa", "temperature": 30.0, "humidity": 55},
+		{"device": "bb", "temperature": 22.0, "humidity": 70},
 	}
 
 	for _, data := range testData {
@@ -1321,7 +1321,6 @@ func TestStreamUnifiedConfigIntegration(t *testing.T) {
 
 			// 验证窗口创建成功
 			assert.NotNil(t, s.Window, "窗口应该被创建")
-			t.Logf("窗口已创建，类型: %T", s.Window)
 		})
 	}
 }
@@ -1513,8 +1512,6 @@ func TestStreamUnifiedConfigCompatibility(t *testing.T) {
 	expectedDefaultSize := types.DefaultPerformanceConfig().BufferConfig.DataChannelSize
 	assert.Equal(t, expectedDefaultSize, cap(s2.dataChan), "默认配置的数据通道大小不匹配")
 
-	t.Logf("高性能配置数据通道大小: %d", cap(s1.dataChan))
-	t.Logf("默认配置数据通道大小: %d", cap(s2.dataChan))
 }
 
 // TestStatsManagerEnhanced 测试统计管理器增强版
@@ -1684,11 +1681,11 @@ func TestPerformanceConfigurationsEnhanced(t *testing.T) {
 			// 验证工作池配置
 			assert.Equal(t, perfConfig.WorkerConfig.SinkPoolSize, cap(stream.sinkWorkerPool))
 
-			t.Logf("%s配置: 数据通道=%d, 结果通道=%d, Sink池=%d",
-				name,
-				cap(stream.dataChan),
-				cap(stream.resultChan),
-				cap(stream.sinkWorkerPool))
+			//t.Logf("%s配置: 数据通道=%d, 结果通道=%d, Sink池=%d",
+			//	name,
+			//	cap(stream.dataChan),
+			//	cap(stream.resultChan),
+			//	cap(stream.sinkWorkerPool))
 		})
 	}
 }

@@ -9,16 +9,16 @@ import (
 )
 
 func TestAggregatorFunctionInterface(t *testing.T) {
-	// 测试Sum聚合函数
+	// Test Sum aggregation function
 	sumFunc := NewSumFunction()
 
-	// 测试创建新实例
+	// Test creating new instance
 	aggInstance := sumFunc.New()
 	if aggInstance == nil {
 		t.Fatal("Failed to create new aggregator instance")
 	}
 
-	// 测试增量计算
+	// Test incremental calculation
 	aggInstance.Add(10.0)
 	aggInstance.Add(20.0)
 	aggInstance.Add(30.0)
@@ -28,14 +28,14 @@ func TestAggregatorFunctionInterface(t *testing.T) {
 		t.Errorf("Expected 60.0, got %v", result)
 	}
 
-	// 测试重置
+	// Test reset
 	aggInstance.Reset()
 	result = aggInstance.Result()
 	if result != nil {
 		t.Errorf("Expected nil after reset (SQL standard: SUM with no rows returns NULL), got %v", result)
 	}
 
-	// 测试克隆
+	// Test clone
 	aggInstance.Add(15.0)
 	cloned := aggInstance.Clone()
 	cloned.Add(25.0)
@@ -52,14 +52,14 @@ func TestAggregatorFunctionInterface(t *testing.T) {
 }
 
 func TestAnalyticalFunctionInterface(t *testing.T) {
-	// 测试Lag分析函数
+	// Test Lag analytical function
 	lagFunc := NewLagFunction()
 
 	ctx := &FunctionContext{
 		Data: make(map[string]interface{}),
 	}
 
-	// 测试第一个值（应该返回默认值nil）
+	// Test first value (should return default value nil)
 	result, err := lagFunc.Execute(ctx, []interface{}{10})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -68,7 +68,7 @@ func TestAnalyticalFunctionInterface(t *testing.T) {
 		t.Errorf("Expected nil for first value, got %v", result)
 	}
 
-	// 测试第二个值（应该返回第一个值）
+	// Test second value (should return first value)
 	result, err = lagFunc.Execute(ctx, []interface{}{20})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -77,13 +77,13 @@ func TestAnalyticalFunctionInterface(t *testing.T) {
 		t.Errorf("Expected 10, got %v", result)
 	}
 
-	// 测试克隆
+	// Test clone
 	cloned := lagFunc.Clone()
 	if cloned == nil {
 		t.Fatal("Failed to clone analytical function")
 	}
 
-	// 测试重置
+	// Test reset
 	lagFunc.Reset()
 	result, err = lagFunc.Execute(ctx, []interface{}{30})
 	if err != nil {
@@ -95,7 +95,7 @@ func TestAnalyticalFunctionInterface(t *testing.T) {
 }
 
 func TestCreateAggregator(t *testing.T) {
-	// 测试创建已注册的聚合器
+	// Test creating registered aggregator
 	aggFunc, err := CreateAggregator("sum")
 	if err != nil {
 		t.Fatalf("Failed to create sum aggregator: %v", err)
@@ -104,7 +104,7 @@ func TestCreateAggregator(t *testing.T) {
 		t.Fatal("Created aggregator is nil")
 	}
 
-	// 测试创建不存在的聚合器
+	// Test creating non-existent aggregator
 	_, err = CreateAggregator("nonexistent")
 	if err == nil {
 		t.Error("Expected error for nonexistent aggregator")
@@ -112,7 +112,7 @@ func TestCreateAggregator(t *testing.T) {
 }
 
 func TestCreateAnalytical(t *testing.T) {
-	// 测试创建已注册的分析函数
+	// Test creating registered analytical function
 	analFunc, err := CreateAnalytical("lag")
 	if err != nil {
 		t.Fatalf("Failed to create lag analytical function: %v", err)
@@ -121,7 +121,7 @@ func TestCreateAnalytical(t *testing.T) {
 		t.Fatal("Created analytical function is nil")
 	}
 
-	// 测试创建不存在的分析函数
+	// Test creating non-existent analytical function
 	_, err = CreateAnalytical("nonexistent")
 	if err == nil {
 		t.Error("Expected error for nonexistent analytical function")

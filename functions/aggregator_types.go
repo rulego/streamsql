@@ -81,30 +81,30 @@ var (
 	legacyRegistryMutex      sync.RWMutex
 )
 
-// RegisterLegacyAggregator 注册传统聚合器到全局注册表
+// RegisterLegacyAggregator registers legacy aggregator to global registry
 func RegisterLegacyAggregator(name string, constructor func() LegacyAggregatorFunction) {
 	legacyRegistryMutex.Lock()
 	defer legacyRegistryMutex.Unlock()
 	legacyAggregatorRegistry[name] = constructor
 }
 
-// CreateLegacyAggregator 创建传统聚合器，优先使用functions模块
+// CreateLegacyAggregator creates legacy aggregator, prioritizing functions module
 func CreateLegacyAggregator(aggType AggregateType) LegacyAggregatorFunction {
-	// 首先尝试从functions模块创建聚合器
+	// First try to create aggregator from functions module
 	if aggFunc := CreateBuiltinAggregatorFromFunctions(string(aggType)); aggFunc != nil {
 		if adapter, ok := aggFunc.(*AggregatorAdapter); ok {
 			return &FunctionAggregatorWrapper{adapter: adapter}
 		}
 	}
 
-	// 尝试从functions模块创建分析函数聚合器
+	// Try to create analytical function aggregator from functions module
 	if analFunc := CreateAnalyticalAggregatorFromFunctions(string(aggType)); analFunc != nil {
 		if adapter, ok := analFunc.(*AnalyticalAggregatorAdapter); ok {
 			return &AnalyticalAggregatorWrapper{adapter: adapter}
 		}
 	}
 
-	// 检查自定义注册表
+	// Check custom registry
 	legacyRegistryMutex.RLock()
 	constructor, exists := legacyAggregatorRegistry[string(aggType)]
 	legacyRegistryMutex.RUnlock()
@@ -112,11 +112,11 @@ func CreateLegacyAggregator(aggType AggregateType) LegacyAggregatorFunction {
 		return constructor()
 	}
 
-	// 如果都没有找到，抛出错误
+	// If none found, throw error
 	panic("unsupported aggregator type: " + aggType)
 }
 
-// FunctionAggregatorWrapper 包装functions模块的聚合器，使其兼容原有接口
+// FunctionAggregatorWrapper wraps functions module aggregator to make it compatible with original interface
 type FunctionAggregatorWrapper struct {
 	adapter *AggregatorAdapter
 }
@@ -134,9 +134,9 @@ func (w *FunctionAggregatorWrapper) Result() interface{} {
 	return w.adapter.Result()
 }
 
-// 实现ContextAggregator接口，支持窗口函数的context机制
+// Implements ContextAggregator interface, supports context mechanism for window functions
 func (w *FunctionAggregatorWrapper) GetContextKey() string {
-	// 检查底层函数是否是窗口函数
+	// Check if underlying function is a window function
 	if w.adapter != nil {
 		switch w.adapter.GetFunctionName() {
 		case "window_start":
@@ -148,7 +148,7 @@ func (w *FunctionAggregatorWrapper) GetContextKey() string {
 	return ""
 }
 
-// AnalyticalAggregatorWrapper 包装functions模块的分析函数聚合器，使其兼容原有接口
+// AnalyticalAggregatorWrapper wraps functions module analytical function aggregator to make it compatible with original interface
 type AnalyticalAggregatorWrapper struct {
 	adapter *AnalyticalAggregatorAdapter
 }

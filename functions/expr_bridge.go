@@ -12,35 +12,35 @@ import (
 	"github.com/rulego/streamsql/utils/cast"
 )
 
-// ExprBridge 桥接 StreamSQL 函数系统与 expr-lang/expr
+// ExprBridge bridges StreamSQL function system with expr-lang/expr
 type ExprBridge struct {
 	streamSQLFunctions map[string]Function
 	exprProgram        *vm.Program
 	exprEnv            map[string]interface{}
-	mutex              sync.RWMutex // 添加读写锁保护并发访问
+	mutex              sync.RWMutex // Add read-write lock to protect concurrent access
 }
 
-// NewExprBridge 创建新的表达式桥接器
+// NewExprBridge creates new expression bridge
 func NewExprBridge() *ExprBridge {
 	return &ExprBridge{
-		streamSQLFunctions: make(map[string]Function), // 初始化为空，动态获取
+		streamSQLFunctions: make(map[string]Function), // Initialize as empty, dynamically get
 		exprEnv:            make(map[string]interface{}),
 	}
 }
 
-// RegisterStreamSQLFunctionsToExpr 将StreamSQL函数注册到expr环境中
+// RegisterStreamSQLFunctionsToExpr registers StreamSQL functions to expr environment
 func (bridge *ExprBridge) RegisterStreamSQLFunctionsToExpr() []expr.Option {
 	bridge.mutex.Lock()
 	defer bridge.mutex.Unlock()
 
 	options := make([]expr.Option, 0)
 
-	// 动态获取所有当前注册的函数
+	// Dynamically get all currently registered functions
 	allFunctions := ListAll()
 
-	// 将所有StreamSQL函数注册到expr环境
+	// Register all StreamSQL functions to expr environment
 	for name, fn := range allFunctions {
-		// 为了避免闭包问题，使用立即执行函数
+		// To avoid closure issues, use immediately executed function
 		function := fn
 
 		wrappedFunc := func(function Function) func(params ...interface{}) (interface{}, error) {
@@ -52,10 +52,10 @@ func (bridge *ExprBridge) RegisterStreamSQLFunctionsToExpr() []expr.Option {
 			}
 		}(function)
 
-		// 添加函数到expr环境
+		// Add function to expr environment
 		bridge.exprEnv[name] = wrappedFunc
 
-		// 注册函数类型信息
+		// Register function type information
 		options = append(options, expr.Function(
 			name,
 			wrappedFunc,
@@ -65,49 +65,49 @@ func (bridge *ExprBridge) RegisterStreamSQLFunctionsToExpr() []expr.Option {
 	return options
 }
 
-// CreateEnhancedExprEnvironment 创建增强的expr执行环境
+// CreateEnhancedExprEnvironment creates enhanced expr execution environment
 func (bridge *ExprBridge) CreateEnhancedExprEnvironment(data map[string]interface{}) map[string]interface{} {
 	bridge.mutex.RLock()
 	defer bridge.mutex.RUnlock()
 
-	// 合并数据和函数环境
+	// Merge data and function environment
 	env := make(map[string]interface{})
 
-	// 添加用户数据
+	// Add user data
 	for k, v := range data {
 		env[k] = v
 	}
 
-	// 动态获取所有当前注册的函数
+	// Dynamically get all currently registered functions
 	allFunctions := ListAll()
 
-	// 添加所有StreamSQL函数
+	// Add all StreamSQL functions
 	for name, fn := range allFunctions {
-		// 确保闭包捕获正确的函数实例
+		// Ensure closure captures correct function instance
 		function := fn
 
 		wrappedFunc := func(function Function) func(params ...interface{}) (interface{}, error) {
 			return func(params ...interface{}) (interface{}, error) {
 				ctx := &FunctionContext{
-					Data: data, // 使用当前数据上下文
+					Data: data, // Use current data context
 				}
 				return function.Execute(ctx, params)
 			}
 		}(function)
 
-		// 注册小写版本
+		// Register lowercase version
 		env[name] = wrappedFunc
-		// 注册大写版本
+		// Register uppercase version
 		env[strings.ToUpper(name)] = wrappedFunc
 	}
 
-	// 添加一些便捷的数学函数别名，避免与内置冲突
+	// Add some convenient math function aliases to avoid conflicts with built-ins
 	env["streamsql_abs"] = env["abs"]
 	env["streamsql_sqrt"] = env["sqrt"]
 	env["streamsql_min"] = env["min"]
 	env["streamsql_max"] = env["max"]
 
-	// 添加自定义的LIKE匹配函数
+	// Add custom LIKE matching function
 	env["like_match"] = func(text, pattern string) bool {
 		return bridge.matchesLikePattern(text, pattern)
 	}

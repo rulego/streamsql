@@ -8,10 +8,10 @@ import (
 
 func TestFunctionValidationIntegration(t *testing.T) {
 	tests := []struct {
-		name           string
-		sql            string
-		expectError    bool
-		errorContains  string
+		name          string
+		sql           string
+		expectError   bool
+		errorContains string
 	}{
 		{
 			name:        "Valid builtin function in SELECT",
@@ -69,7 +69,7 @@ func TestFunctionValidationIntegration(t *testing.T) {
 func TestFunctionValidationWithCustomFunctions(t *testing.T) {
 	// 测试自定义函数注册后的验证
 	sql := "SELECT custom_func(temperature) FROM stream"
-	
+
 	// 在没有注册自定义函数时应该报错
 	ssql := New()
 	err := ssql.Execute(sql)
