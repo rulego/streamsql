@@ -5,6 +5,132 @@ import (
 	"testing"
 )
 
+func TestUnnestFunction(t *testing.T) {
+	fn := NewUnnestFunction()
+	ctx := &FunctionContext{}
+
+	// 测试基本unnest功能
+	args := []interface{}{[]interface{}{"a", "b", "c"}}
+	result, err := fn.Execute(ctx, args)
+	if err != nil {
+		t.Errorf("UnnestFunction should not return error: %v", err)
+	}
+	expected := []interface{}{"a", "b", "c"}
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("UnnestFunction = %v, want %v", result, expected)
+	}
+
+	// 测试对象数组unnest
+	args = []interface{}{
+		[]interface{}{
+			map[string]interface{}{"name": "Alice", "age": 25},
+			map[string]interface{}{"name": "Bob", "age": 30},
+		},
+	}
+	result, err = fn.Execute(ctx, args)
+	if err != nil {
+		t.Errorf("UnnestFunction should not return error: %v", err)
+	}
+	expected = []interface{}{
+		map[string]interface{}{
+			"__unnest_object__": true,
+			"__data__":          map[string]interface{}{"name": "Alice", "age": 25},
+		},
+		map[string]interface{}{
+			"__unnest_object__": true,
+			"__data__":          map[string]interface{}{"name": "Bob", "age": 30},
+		},
+	}
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("UnnestFunction = %v, want %v", result, expected)
+	}
+
+	// 测试空数组
+	args = []interface{}{[]interface{}{}}
+	result, err = fn.Execute(ctx, args)
+	if err != nil {
+		t.Errorf("UnnestFunction should not return error for empty array: %v", err)
+	}
+	if len(result.([]interface{})) != 0 {
+		t.Errorf("UnnestFunction should return empty array for empty input")
+	}
+
+	// 测试nil参数
+	args = []interface{}{nil}
+	result, err = fn.Execute(ctx, args)
+	if err != nil {
+		t.Errorf("UnnestFunction should not return error for nil: %v", err)
+	}
+	if len(result.([]interface{})) != 0 {
+		t.Errorf("UnnestFunction should return empty array for nil input")
+	}
+
+	// 测试错误参数数量
+	args = []interface{}{}
+	err = fn.Validate(args)
+	if err == nil {
+		t.Errorf("UnnestFunction should return error for no arguments")
+	}
+
+	// 测试非数组参数
+	args = []interface{}{"not an array"}
+	_, err = fn.Execute(ctx, args)
+	if err == nil {
+		t.Errorf("UnnestFunction should return error for non-array argument")
+	}
+
+	// 测试数组类型
+	args = []interface{}{[3]string{"x", "y", "z"}}
+	result, err = fn.Execute(ctx, args)
+	if err != nil {
+		t.Errorf("UnnestFunction should handle arrays: %v", err)
+	}
+	expected = []interface{}{"x", "y", "z"}
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("UnnestFunction array = %v, want %v", result, expected)
+	}
+}
+
+// TestUnnestFunctionCreation 测试UnnestFunction创建
+func TestUnnestFunctionCreation(t *testing.T) {
+	fn := NewUnnestFunction()
+	if fn == nil {
+		t.Error("NewUnnestFunction should not return nil")
+	}
+
+	if fn.GetName() != "unnest" {
+		t.Errorf("Expected name 'unnest', got %s", fn.GetName())
+	}
+
+	// Test argument validation through Validate method
+	err := fn.Validate([]interface{}{"test"})
+	if err != nil {
+		t.Errorf("Validate should accept 1 argument: %v", err)
+	}
+
+	err = fn.Validate([]interface{}{})
+	if err == nil {
+		t.Error("Validate should reject 0 arguments")
+	}
+
+	err = fn.Validate([]interface{}{"arg1", "arg2"})
+	if err == nil {
+		t.Error("Validate should reject 2 arguments")
+	}
+
+	if fn.GetType() == "" {
+		t.Error("Function type should not be empty")
+	}
+
+	if fn.GetCategory() == "" {
+		t.Error("Function category should not be empty")
+	}
+
+	if fn.GetDescription() == "" {
+		t.Error("Function description should not be empty")
+	}
+}
+
 func TestIsUnnestResult(t *testing.T) {
 	// 测试非unnest结果
 	normalSlice := []interface{}{"a", "b", "c"}
