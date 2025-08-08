@@ -273,3 +273,99 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 		assert.Contains(t, result, "john")
 	})
 }
+
+// TestExprBridgeComplexExpressions 测试复杂表达式处理
+func TestExprBridgeComplexExpressions(t *testing.T) {
+	bridge := NewExprBridge()
+
+	tests := []struct {
+		name       string
+		expression string
+		data       map[string]interface{}
+		expected   interface{}
+		wantErr    bool
+	}{
+		{
+			name:       "math_and_string",
+			expression: "length('test')",
+			data:       map[string]interface{}{},
+			expected:   4,
+			wantErr:    false,
+		},
+		{
+			name:       "nested_function_calls",
+			expression: "abs(sqrt(16) - 5)",
+			data:       map[string]interface{}{},
+			expected:   float64(1),
+			wantErr:    false,
+		},
+		{
+			name:       "array_operations",
+			expression: "array_length([1, 2, 3, 4])",
+			data:       map[string]interface{}{},
+			expected:   4,
+			wantErr:    false,
+		},
+		{
+			name:       "string_with_variables",
+			expression: "upper(name)",
+			data:       map[string]interface{}{"name": "john"},
+			expected:   "JOHN",
+			wantErr:    false,
+		},
+		{
+			name:       "conditional_expression",
+			expression: "age > 18 ? 'adult' : 'minor'",
+			data:       map[string]interface{}{"age": 25},
+			expected:   "adult",
+			wantErr:    false,
+		},
+		{
+			name:       "complex_math",
+			expression: "power(2, 3) + mod(10, 3)",
+			data:       map[string]interface{}{},
+			expected:   float64(9),
+			wantErr:    false,
+		},
+		{
+			name:       "array_contains_check",
+			expression: "array_contains([1, 2, 3], 2)",
+			data:       map[string]interface{}{},
+			expected:   true,
+			wantErr:    false,
+		},
+		{
+			name:       "string_concatenation",
+			expression: "concat(first_name, ' ', last_name)",
+			data:       map[string]interface{}{"first_name": "John", "last_name": "Doe"},
+			expected:   "John Doe",
+			wantErr:    false,
+		},
+		{
+			name:       "invalid_function",
+			expression: "nonexistent_function(1)",
+			data:       map[string]interface{}{},
+			expected:   nil,
+			wantErr:    true,
+		},
+		{
+			name:       "invalid_syntax",
+			expression: "length(",
+			data:       map[string]interface{}{},
+			expected:   nil,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := bridge.EvaluateExpression(tt.expression, tt.data)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

@@ -128,3 +128,363 @@ func TestNewStringFunctions(t *testing.T) {
 		})
 	}
 }
+
+// TestStringFunctionValidation 测试字符串函数的参数验证
+func TestStringFunctionValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		function Function
+		args     []interface{}
+		wantErr  bool
+	}{
+		{
+			name:     "concat no args",
+			function: NewConcatFunction(),
+			args:     []interface{}{},
+			wantErr:  true,
+		},
+		{
+			name:     "concat valid args",
+			function: NewConcatFunction(),
+			args:     []interface{}{"hello", "world"},
+			wantErr:  false,
+		},
+		{
+			name:     "length no args",
+			function: NewLengthFunction(),
+			args:     []interface{}{},
+			wantErr:  true,
+		},
+		{
+			name:     "length too many args",
+			function: NewLengthFunction(),
+			args:     []interface{}{"hello", "world"},
+			wantErr:  true,
+		},
+		{
+			name:     "length valid args",
+			function: NewLengthFunction(),
+			args:     []interface{}{"hello"},
+			wantErr:  false,
+		},
+		{
+			name:     "upper no args",
+			function: NewUpperFunction(),
+			args:     []interface{}{},
+			wantErr:  true,
+		},
+		{
+			name:     "upper valid args",
+			function: NewUpperFunction(),
+			args:     []interface{}{"hello"},
+			wantErr:  false,
+		},
+		{
+			name:     "endswith no args",
+			function: NewEndswithFunction(),
+			args:     []interface{}{},
+			wantErr:  true,
+		},
+		{
+			name:     "endswith one arg",
+			function: NewEndswithFunction(),
+			args:     []interface{}{"hello"},
+			wantErr:  true,
+		},
+		{
+			name:     "endswith valid args",
+			function: NewEndswithFunction(),
+			args:     []interface{}{"hello", "lo"},
+			wantErr:  false,
+		},
+		{
+			name:     "substring no args",
+			function: NewSubstringFunction(),
+			args:     []interface{}{},
+			wantErr:  true,
+		},
+		{
+			name:     "substring one arg",
+			function: NewSubstringFunction(),
+			args:     []interface{}{"hello"},
+			wantErr:  true,
+		},
+		{
+			name:     "substring valid args",
+			function: NewSubstringFunction(),
+			args:     []interface{}{"hello", 1},
+			wantErr:  false,
+		},
+		{
+			name:     "replace no args",
+			function: NewReplaceFunction(),
+			args:     []interface{}{},
+			wantErr:  true,
+		},
+		{
+			name:     "replace two args",
+			function: NewReplaceFunction(),
+			args:     []interface{}{"hello", "world"},
+			wantErr:  true,
+		},
+		{
+			name:     "replace valid args",
+			function: NewReplaceFunction(),
+			args:     []interface{}{"hello", "l", "x"},
+			wantErr:  false,
+		},
+		{
+			name:     "regexp_matches no args",
+			function: NewRegexpMatchesFunction(),
+			args:     []interface{}{},
+			wantErr:  true,
+		},
+		{
+			name:     "regexp_matches valid args",
+			function: NewRegexpMatchesFunction(),
+			args:     []interface{}{"hello123", "[0-9]+"},
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.function.Validate(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestStringFunctionErrors 测试字符串函数的错误处理
+func TestStringFunctionErrors(t *testing.T) {
+	tests := []struct {
+		name     string
+		function Function
+		args     []interface{}
+		wantErr  bool
+	}{
+		{
+			name:     "concat non-string input",
+			function: NewConcatFunction(),
+			args:     []interface{}{123, 456},
+			wantErr:  false,
+		},
+		{
+			name:     "length non-string input",
+			function: NewLengthFunction(),
+			args:     []interface{}{123},
+			wantErr:  false,
+		},
+		{
+			name:     "upper non-string input",
+			function: NewUpperFunction(),
+			args:     []interface{}{123},
+			wantErr:  false,
+		},
+		{
+			name:     "endswith non-string input",
+			function: NewEndswithFunction(),
+			args:     []interface{}{123, "3"},
+			wantErr:  false,
+		},
+		{
+			name:     "substring non-string input",
+			function: NewSubstringFunction(),
+			args:     []interface{}{123, 1, 2},
+			wantErr:  false,
+		},
+		{
+			name:     "substring non-numeric start",
+			function: NewSubstringFunction(),
+			args:     []interface{}{"hello", "world"},
+			wantErr:  true,
+		},
+		{
+			name:     "replace non-string input",
+			function: NewReplaceFunction(),
+			args:     []interface{}{123, "2", "X"},
+			wantErr:  false,
+		},
+		{
+			name:     "regexp_matches invalid pattern",
+			function: NewRegexpMatchesFunction(),
+			args:     []interface{}{"hello", "[invalid"},
+			wantErr:  true,
+		},
+		{
+			name:     "regexp_replace invalid pattern",
+			function: NewRegexpReplaceFunction(),
+			args:     []interface{}{"hello", "[invalid", "x"},
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := tt.function.Execute(&FunctionContext{}, tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestStringFunctionEdgeCases 测试字符串函数的边界情况
+func TestStringFunctionEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		function Function
+		args     []interface{}
+		expected interface{}
+		wantErr  bool
+	}{
+		{
+			name:     "concat empty strings",
+			function: NewConcatFunction(),
+			args:     []interface{}{"", ""},
+			expected: "",
+			wantErr:  false,
+		},
+		{
+			name:     "length empty string",
+			function: NewLengthFunction(),
+			args:     []interface{}{""},
+			expected: 0,
+			wantErr:  false,
+		},
+		{
+			name:     "upper empty string",
+			function: NewUpperFunction(),
+			args:     []interface{}{""},
+			expected: "",
+			wantErr:  false,
+		},
+		{
+			name:     "lower empty string",
+			function: NewLowerFunction(),
+			args:     []interface{}{""},
+			expected: "",
+			wantErr:  false,
+		},
+		{
+			name:     "trim empty string",
+			function: NewTrimFunction(),
+			args:     []interface{}{""},
+			expected: "",
+			wantErr:  false,
+		},
+		{
+			name:     "substring negative start",
+			function: NewSubstringFunction(),
+			args:     []interface{}{"hello", -1, 5},
+			expected: "o",
+			wantErr:  false,
+		},
+		{
+			name:     "lpad zero length",
+			function: NewLpadFunction(),
+			args:     []interface{}{"hello", 0},
+			expected: "hello",
+			wantErr:  false,
+		},
+		{
+			name:     "split empty delimiter",
+			function: NewSplitFunction(),
+			args:     []interface{}{"hello", ""},
+			expected: []string{"h", "e", "l", "l", "o"},
+			wantErr:  false,
+		},
+		// 新增测试用例
+		{
+			name:     "length array",
+			function: NewLengthFunction(),
+			args:     []interface{}{[]string{"a", "b", "c"}},
+			expected: 3,
+			wantErr:  false,
+		},
+		{
+			name:     "length map",
+			function: NewLengthFunction(),
+			args:     []interface{}{map[string]int{"a": 1, "b": 2}},
+			expected: 2,
+			wantErr:  false,
+		},
+
+		{
+			name:     "lpad custom char",
+			function: NewLpadFunction(),
+			args:     []interface{}{"test", int64(8), "*"},
+			expected: "****test",
+			wantErr:  false,
+		},
+		{
+			name:     "rpad custom char",
+			function: NewRpadFunction(),
+			args:     []interface{}{"test", int64(8), "*"},
+			expected: "test****",
+			wantErr:  false,
+		},
+		{
+			name:     "regexp_matches invalid pattern",
+			function: NewRegexpMatchesFunction(),
+			args:     []interface{}{"hello", "["},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
+			name:     "regexp_replace invalid pattern",
+			function: NewRegexpReplaceFunction(),
+			args:     []interface{}{"hello", "[", "x"},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
+			name:     "regexp_substring invalid pattern",
+			function: NewRegexpSubstringFunction(),
+			args:     []interface{}{"hello", "["},
+			expected: nil,
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := tt.function.Execute(&FunctionContext{}, tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				// 特殊处理 split 函数的结果比较
+				if tt.name == "split empty delimiter" {
+					expectedSlice, ok := tt.expected.([]string)
+					if !ok {
+						t.Errorf("Expected result is not []string")
+						return
+					}
+					// split函数返回的是[]string类型
+					actualSlice, ok := result.([]string)
+					if !ok {
+						t.Errorf("Actual result is not []string")
+						return
+					}
+					if len(expectedSlice) != len(actualSlice) {
+						t.Errorf("Execute() = %v, want %v", result, tt.expected)
+						return
+					}
+					for i, expected := range expectedSlice {
+						if actualSlice[i] != expected {
+							t.Errorf("Execute() = %v, want %v", result, tt.expected)
+							return
+						}
+					}
+				} else if result != tt.expected {
+					t.Errorf("Execute() = %v, want %v", result, tt.expected)
+				}
+			}
+		})
+	}
+}

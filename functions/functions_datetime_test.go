@@ -179,6 +179,261 @@ func TestDateTimeFunctions(t *testing.T) {
 	}
 }
 
+// TestDateTimeFunctionValidation 测试日期时间函数的参数验证
+func TestDateTimeFunctionValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		function Function
+		args     []interface{}
+		wantErr  bool
+	}{
+		{
+			name:     "now no args",
+			function: NewNowFunction(),
+			args:     []interface{}{},
+			wantErr:  false,
+		},
+		{
+			name:     "now too many args",
+			function: NewNowFunction(),
+			args:     []interface{}{"extra"},
+			wantErr:  true,
+		},
+		{
+			name:     "current_time no args",
+			function: NewCurrentTimeFunction(),
+			args:     []interface{}{},
+			wantErr:  false,
+		},
+		{
+			name:     "current_date no args",
+			function: NewCurrentDateFunction(),
+			args:     []interface{}{},
+			wantErr:  false,
+		},
+		{
+			name:     "date_format no args",
+			function: NewDateFormatFunction(),
+			args:     []interface{}{},
+			wantErr:  true,
+		},
+		{
+			name:     "date_format one arg",
+			function: NewDateFormatFunction(),
+			args:     []interface{}{"2023-12-25"},
+			wantErr:  true,
+		},
+		{
+			name:     "date_format valid args",
+			function: NewDateFormatFunction(),
+			args:     []interface{}{"2023-12-25", "YYYY-MM-DD"},
+			wantErr:  false,
+		},
+		{
+			name:     "date_add no args",
+			function: NewDateAddFunction(),
+			args:     []interface{}{},
+			wantErr:  true,
+		},
+		{
+			name:     "date_add two args",
+			function: NewDateAddFunction(),
+			args:     []interface{}{"2023-12-25", 7},
+			wantErr:  true,
+		},
+		{
+			name:     "date_add valid args",
+			function: NewDateAddFunction(),
+			args:     []interface{}{"2023-12-25", 7, "days"},
+			wantErr:  false,
+		},
+		{
+			name:     "year no args",
+			function: NewYearFunction(),
+			args:     []interface{}{},
+			wantErr:  true,
+		},
+		{
+			name:     "year valid args",
+			function: NewYearFunction(),
+			args:     []interface{}{"2023-12-25"},
+			wantErr:  false,
+		},
+		{
+			name:     "extract no args",
+			function: NewExtractFunction(),
+			args:     []interface{}{},
+			wantErr:  true,
+		},
+		{
+			name:     "extract one arg",
+			function: NewExtractFunction(),
+			args:     []interface{}{"year"},
+			wantErr:  true,
+		},
+		{
+			name:     "extract valid args",
+			function: NewExtractFunction(),
+			args:     []interface{}{"year", "2023-12-25"},
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.function.Validate(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestDateTimeFunctionErrors 测试日期时间函数的错误处理
+func TestDateTimeFunctionErrors(t *testing.T) {
+	tests := []struct {
+		name     string
+		function Function
+		args     []interface{}
+		wantErr  bool
+	}{
+		{
+			name:     "date_format invalid date",
+			function: NewDateFormatFunction(),
+			args:     []interface{}{"invalid-date", "YYYY-MM-DD"},
+			wantErr:  true,
+		},
+		{
+			name:     "date_add invalid date",
+			function: NewDateAddFunction(),
+			args:     []interface{}{"invalid-date", 7, "days"},
+			wantErr:  true,
+		},
+		{
+			name:     "date_add invalid unit",
+			function: NewDateAddFunction(),
+			args:     []interface{}{"2023-12-25", 7, "invalid-unit"},
+			wantErr:  true,
+		},
+		{
+			name:     "year invalid date",
+			function: NewYearFunction(),
+			args:     []interface{}{"invalid-date"},
+			wantErr:  true,
+		},
+		{
+			name:     "extract invalid unit",
+			function: NewExtractFunction(),
+			args:     []interface{}{"invalid-unit", "2023-12-25"},
+			wantErr:  true,
+		},
+		{
+			name:     "extract invalid date",
+			function: NewExtractFunction(),
+			args:     []interface{}{"year", "invalid-date"},
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := tt.function.Execute(&FunctionContext{}, tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestDateTimeFunctionEdgeCases 测试日期时间函数的边界情况
+func TestDateTimeFunctionEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		function Function
+		args     []interface{}
+		expected interface{}
+		wantErr  bool
+	}{
+		{
+			name:     "now function",
+			function: NewNowFunction(),
+			args:     []interface{}{},
+			expected: nil, // 不检查具体值，只检查不出错
+			wantErr:  false,
+		},
+		{
+			name:     "current_time function",
+			function: NewCurrentTimeFunction(),
+			args:     []interface{}{},
+			expected: nil, // 不检查具体值，只检查不出错
+			wantErr:  false,
+		},
+		{
+			name:     "current_date function",
+			function: NewCurrentDateFunction(),
+			args:     []interface{}{},
+			expected: nil, // 不检查具体值，只检查不出错
+			wantErr:  false,
+		},
+		{
+			name:     "unix_timestamp with valid date",
+			function: NewUnixTimestampFunction(),
+			args:     []interface{}{"2023-01-01 00:00:00"},
+			expected: nil, // 不检查具体值，只检查不出错
+			wantErr:  false,
+		},
+		// 新增边界情况测试
+		{
+			name:     "date_format empty string",
+			function: NewDateFormatFunction(),
+			args:     []interface{}{"", "YYYY-MM-DD"},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
+			name:     "date_add zero days",
+			function: NewDateAddFunction(),
+			args:     []interface{}{"2023-12-25", 0, "days"},
+			expected: "2023-12-25 00:00:00",
+			wantErr:  false,
+		},
+		{
+			name:     "date_diff same date",
+			function: NewDateDiffFunction(),
+			args:     []interface{}{"2023-12-25", "2023-12-25", "days"},
+			expected: int64(0),
+			wantErr:  false,
+		},
+		{
+			name:     "dayofyear function",
+			function: NewDayOfYearFunction(),
+			args:     []interface{}{"2023-12-25"},
+			expected: 359,
+			wantErr:  false,
+		},
+		{
+			name:     "weekofyear function",
+			function: NewWeekOfYearFunction(),
+			args:     []interface{}{"2023-12-25"},
+			expected: 52,
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := tt.function.Execute(&FunctionContext{}, tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && tt.expected != nil && result != tt.expected {
+				t.Errorf("Execute() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestDateTimeRegistration(t *testing.T) {
 	// 测试函数是否正确注册
 	dateTimeFunctions := []string{
@@ -199,6 +454,9 @@ func TestDateTimeRegistration(t *testing.T) {
 		"dayofweek",
 		"dayofyear",
 		"weekofyear",
+		"now",
+		"current_time",
+		"current_date",
 	}
 
 	for _, funcName := range dateTimeFunctions {

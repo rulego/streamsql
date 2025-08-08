@@ -117,7 +117,7 @@ func (f *ArrayRemoveFunction) Execute(ctx *FunctionContext, args []interface{}) 
 		return nil, fmt.Errorf("array_remove requires array input")
 	}
 
-	var result []interface{}
+	result := make([]interface{}, 0) // 初始化为空切片而不是nil切片
 	for i := 0; i < v.Len(); i++ {
 		elem := v.Index(i).Interface()
 		if !reflect.DeepEqual(elem, value) {
@@ -151,7 +151,7 @@ func (f *ArrayDistinctFunction) Execute(ctx *FunctionContext, args []interface{}
 	}
 
 	seen := make(map[interface{}]bool)
-	var result []interface{}
+	result := make([]interface{}, 0) // 初始化为空切片而不是nil切片
 
 	for i := 0; i < v.Len(); i++ {
 		elem := v.Index(i).Interface()
@@ -200,7 +200,7 @@ func (f *ArrayIntersectFunction) Execute(ctx *FunctionContext, args []interface{
 
 	// 找交集
 	seen := make(map[interface{}]bool)
-	var result []interface{}
+	result := make([]interface{}, 0) // 初始化为空切片而不是nil切片
 
 	for i := 0; i < v1.Len(); i++ {
 		elem := v1.Index(i).Interface()
@@ -242,7 +242,7 @@ func (f *ArrayUnionFunction) Execute(ctx *FunctionContext, args []interface{}) (
 	}
 
 	seen := make(map[interface{}]bool)
-	var result []interface{}
+	result := make([]interface{}, 0) // 初始化为空切片而不是nil切片
 
 	// 添加第一个数组的元素
 	for i := 0; i < v1.Len(); i++ {
@@ -301,7 +301,7 @@ func (f *ArrayExceptFunction) Execute(ctx *FunctionContext, args []interface{}) 
 
 	// 找差集
 	seen := make(map[interface{}]bool)
-	var result []interface{}
+	result := make([]interface{}, 0) // 初始化为空切片而不是nil切片
 
 	for i := 0; i < v1.Len(); i++ {
 		elem := v1.Index(i).Interface()

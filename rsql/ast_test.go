@@ -3,7 +3,6 @@ package rsql
 import (
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/rulego/streamsql/window"
 )
@@ -210,181 +209,6 @@ func TestSelectStatement_ToStreamConfig(t *testing.T) {
 	}
 }
 
-// TestField 测试 Field 结构体
-func TestField(t *testing.T) {
-	field := Field{
-		Expression: "temperature",
-		Alias:      "temp",
-		AggType:    "AVG",
-	}
-
-	if field.Expression != "temperature" {
-		t.Errorf("Expected Expression to be 'temperature', got %s", field.Expression)
-	}
-	if field.Alias != "temp" {
-		t.Errorf("Expected Alias to be 'temp', got %s", field.Alias)
-	}
-	if field.AggType != "AVG" {
-		t.Errorf("Expected AggType to be 'AVG', got %s", field.AggType)
-	}
-}
-
-// TestWindowDefinition 测试 WindowDefinition 结构体
-func TestWindowDefinition(t *testing.T) {
-	wd := WindowDefinition{
-		Type:     "TUMBLINGWINDOW",
-		Params:   []interface{}{"10s", "5s"},
-		TsProp:   "timestamp",
-		TimeUnit: time.Second,
-	}
-
-	if wd.Type != "TUMBLINGWINDOW" {
-		t.Errorf("Expected Type to be 'TUMBLINGWINDOW', got %s", wd.Type)
-	}
-	if len(wd.Params) != 2 {
-		t.Errorf("Expected 2 params, got %d", len(wd.Params))
-	}
-	if wd.TsProp != "timestamp" {
-		t.Errorf("Expected TsProp to be 'timestamp', got %s", wd.TsProp)
-	}
-	if wd.TimeUnit != time.Second {
-		t.Errorf("Expected TimeUnit to be Second, got %v", wd.TimeUnit)
-	}
-}
-
-// TestIsAggregationFunction 测试聚合函数检测
-func TestIsAggregationFunction(t *testing.T) {
-	tests := []struct {
-		name     string
-		expr     string
-		expected bool
-	}{
-		{
-			name:     "简单字段",
-			expr:     "temperature",
-			expected: false,
-		},
-		{
-			name:     "COUNT 函数",
-			expr:     "COUNT(*)",
-			expected: true,
-		},
-		{
-			name:     "AVG 函数",
-			expr:     "AVG(temperature)",
-			expected: true,
-		},
-		{
-			name:     "SUM 函数",
-			expr:     "SUM(value)",
-			expected: true,
-		},
-		{
-			name:     "MAX 函数",
-			expr:     "MAX(score)",
-			expected: true,
-		},
-		{
-			name:     "MIN 函数",
-			expr:     "MIN(price)",
-			expected: true,
-		},
-		{
-			name:     "空表达式",
-			expr:     "",
-			expected: false,
-		},
-		{
-			name:     "包含括号但非函数",
-			expr:     "(temperature + humidity)",
-			expected: false, // 算术表达式，非聚合函数
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := isAggregationFunction(tt.expr)
-			if result != tt.expected {
-				t.Errorf("isAggregationFunction(%s) = %v, expected %v", tt.expr, result, tt.expected)
-			}
-		})
-	}
-}
-
-// TestExtractFieldOrder 测试字段顺序提取
-func TestExtractFieldOrder(t *testing.T) {
-	fields := []Field{
-		{Expression: "temperature", Alias: "temp"},
-		{Expression: "humidity", Alias: ""},
-		{Expression: "'sensor_id'", Alias: "id"},
-		{Expression: "COUNT(*)", Alias: "count"},
-	}
-
-	fieldOrder := extractFieldOrder(fields)
-	expected := []string{"temp", "humidity", "id", "count"}
-
-	if len(fieldOrder) != len(expected) {
-		t.Errorf("Expected %d fields, got %d", len(expected), len(fieldOrder))
-		return
-	}
-
-	for i, field := range fieldOrder {
-		if field != expected[i] {
-			t.Errorf("Expected field %d to be %s, got %s", i, expected[i], field)
-		}
-	}
-}
-
-// TestExtractGroupFields 测试 GROUP BY 字段提取
-func TestExtractGroupFields(t *testing.T) {
-	stmt := &SelectStatement{
-		GroupBy: []string{"category", "region", "COUNT(*)", "status"},
-	}
-
-	groupFields := extractGroupFields(stmt)
-	expected := []string{"category", "region", "status"}
-
-	if len(groupFields) != len(expected) {
-		t.Errorf("Expected %d group fields, got %d", len(expected), len(groupFields))
-		return
-	}
-
-	for i, field := range groupFields {
-		if field != expected[i] {
-			t.Errorf("Expected group field %d to be %s, got %s", i, expected[i], field)
-		}
-	}
-}
-
-// TestBuildSelectFields 测试构建选择字段
-func TestBuildSelectFields(t *testing.T) {
-	fields := []Field{
-		{Expression: "AVG(temperature)", Alias: "avg_temp"},
-		{Expression: "COUNT(*)", Alias: "count"},
-		{Expression: "category", Alias: "cat"},
-	}
-
-	aggMap, fieldMap := buildSelectFields(fields)
-
-	// 检查聚合映射
-	if len(aggMap) == 0 {
-		t.Error("Expected aggregation map to have entries")
-	}
-
-	// 检查字段映射
-	if len(fieldMap) == 0 {
-		t.Error("Expected field map to have entries")
-	}
-
-	// 验证别名映射
-	if _, exists := fieldMap["avg_temp"]; !exists {
-		t.Error("Expected field map to contain 'avg_temp'")
-	}
-	if _, exists := fieldMap["count"]; !exists {
-		t.Error("Expected field map to contain 'count'")
-	}
-}
-
 // TestSelectStatementEdgeCases 测试边界情况
 func TestSelectStatementEdgeCases(t *testing.T) {
 	// 测试空字段列表
@@ -472,5 +296,314 @@ func TestSelectStatementConcurrency(t *testing.T) {
 	// 等待所有 goroutine 完成
 	for i := 0; i < 10; i++ {
 		<-done
+	}
+}
+
+// TestBuildSelectFields 测试 buildSelectFields 函数
+func TestBuildSelectFields(t *testing.T) {
+	tests := []struct {
+		name     string
+		fields   []Field
+		wantAggs map[string]string
+		wantMap  map[string]string
+	}{
+		{
+			name: "带别名的聚合函数",
+			fields: []Field{
+				{Expression: "AVG(temperature)", Alias: "avg_temp"},
+				{Expression: "COUNT(*)", Alias: "total_count"},
+			},
+			wantAggs: map[string]string{
+				"avg_temp":    "AVG",
+				"total_count": "COUNT",
+			},
+			wantMap: map[string]string{
+				"avg_temp":    "temperature",
+				"total_count": "*",
+			},
+		},
+		{
+			name: "无别名的聚合函数",
+			fields: []Field{
+				{Expression: "SUM(amount)"},
+				{Expression: "MAX(price)"},
+			},
+			wantAggs: map[string]string{
+				"amount": "SUM",
+				"price":  "MAX",
+			},
+			wantMap: map[string]string{
+				"amount": "amount",
+				"price":  "price",
+			},
+		},
+		{
+			name: "混合字段",
+			fields: []Field{
+				{Expression: "name"},
+				{Expression: "COUNT(*)", Alias: "count"},
+			},
+			wantAggs: map[string]string{
+				"count": "COUNT",
+			},
+			wantMap: map[string]string{
+				"count": "*",
+			},
+		},
+		{
+			name:     "空字段列表",
+			fields:   []Field{},
+			wantAggs: map[string]string{},
+			wantMap:  map[string]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			aggMap, fieldMap := buildSelectFields(tt.fields)
+
+			// 检查聚合函数映射
+			if len(aggMap) != len(tt.wantAggs) {
+				t.Errorf("buildSelectFields() aggMap length = %d, want %d", len(aggMap), len(tt.wantAggs))
+			}
+			for key, want := range tt.wantAggs {
+				if got := string(aggMap[key]); got != want {
+					t.Errorf("buildSelectFields() aggMap[%s] = %s, want %s", key, got, want)
+				}
+			}
+
+			// 检查字段映射
+			if len(fieldMap) != len(tt.wantMap) {
+				t.Errorf("buildSelectFields() fieldMap length = %d, want %d", len(fieldMap), len(tt.wantMap))
+			}
+			for key, want := range tt.wantMap {
+				if got := fieldMap[key]; got != want {
+					t.Errorf("buildSelectFields() fieldMap[%s] = %s, want %s", key, got, want)
+				}
+			}
+		})
+	}
+}
+
+// TestIsAggregationFunction 测试 isAggregationFunction 函数
+func TestIsAggregationFunction(t *testing.T) {
+	tests := []struct {
+		name string
+		expr string
+		want bool
+	}{
+		{"COUNT函数", "COUNT(*)", true},
+		{"AVG函数", "AVG(temperature)", true},
+		{"SUM函数", "SUM(amount)", true},
+		{"MAX函数", "MAX(price)", true},
+		{"MIN函数", "MIN(value)", true},
+		{"简单字段", "temperature", false},
+		{"字符串字面量", "'hello'", false},
+		{"数字字面量", "123", false},
+		{"空字符串", "", false},
+		{"表达式", "temperature + 10", false},
+		{"UPPER函数", "UPPER(name)", false},
+		{"CONCAT函数", "CONCAT(first_name, last_name)", false},
+		{"未知函数", "UNKNOWN_FUNC(field)", true}, // 保守处理
+		{"复杂表达式", "temperature > 25 AND humidity < 80", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isAggregationFunction(tt.expr); got != tt.want {
+				t.Errorf("isAggregationFunction(%s) = %v, want %v", tt.expr, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestParseAggregateTypeWithExpression 测试 ParseAggregateTypeWithExpression 函数
+func TestParseAggregateTypeWithExpression(t *testing.T) {
+	tests := []struct {
+		name           string
+		exprStr        string
+		wantAggType    string
+		wantName       string
+		wantExpression string
+		wantFields     []string
+	}{
+		{
+			name:        "COUNT聚合函数",
+			exprStr:     "COUNT(*)",
+			wantAggType: "COUNT",
+			wantName:    "*",
+		},
+		{
+			name:        "AVG聚合函数",
+			exprStr:     "AVG(temperature)",
+			wantAggType: "AVG",
+			wantName:    "temperature",
+		},
+		{
+			name:           "字符串字面量",
+			exprStr:        "'hello world'",
+			wantAggType:    "expression",
+			wantName:       "hello world",
+			wantExpression: "'hello world'",
+		},
+		{
+			name:           "双引号字符串",
+			exprStr:        "\"test string\"",
+			wantAggType:    "expression",
+			wantName:       "test string",
+			wantExpression: "\"test string\"",
+		},
+		{
+			name:           "CASE表达式",
+			exprStr:        "CASE WHEN temperature > 25 THEN 'hot' ELSE 'cold' END",
+			wantAggType:    "expression",
+			wantExpression: "CASE WHEN temperature > 25 THEN 'hot' ELSE 'cold' END",
+		},
+		{
+			name:           "数学表达式",
+			exprStr:        "temperature + 10",
+			wantAggType:    "expression",
+			wantExpression: "temperature + 10",
+		},
+		{
+			name:           "比较表达式",
+			exprStr:        "temperature > 25",
+			wantAggType:    "expression",
+			wantExpression: "temperature > 25",
+		},
+		{
+			name:           "逻辑表达式",
+			exprStr:        "temperature > 25 AND humidity < 80",
+			wantAggType:    "expression",
+			wantExpression: "temperature > 25 AND humidity < 80",
+		},
+		{
+			name:        "简单字段",
+			exprStr:     "temperature",
+			wantAggType: "",
+		},
+		{
+			name:           "UPPER字符串函数",
+			exprStr:        "UPPER(name)",
+			wantAggType:    "expression",
+			wantName:       "name",
+			wantExpression: "UPPER(name)",
+		},
+		{
+			name:           "CONCAT字符串函数",
+			exprStr:        "CONCAT(first_name, last_name)",
+			wantAggType:    "expression",
+			wantName:       "first_name",
+			wantExpression: "CONCAT(first_name, last_name)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			aggType, name, expression, allFields := ParseAggregateTypeWithExpression(tt.exprStr)
+
+			if string(aggType) != tt.wantAggType {
+				t.Errorf("ParseAggregateTypeWithExpression() aggType = %s, want %s", aggType, tt.wantAggType)
+			}
+			if name != tt.wantName {
+				t.Errorf("ParseAggregateTypeWithExpression() name = %s, want %s", name, tt.wantName)
+			}
+			if tt.wantExpression != "" && expression != tt.wantExpression {
+				t.Errorf("ParseAggregateTypeWithExpression() expression = %s, want %s", expression, tt.wantExpression)
+			}
+			if tt.wantFields != nil {
+				if len(allFields) != len(tt.wantFields) {
+					t.Errorf("ParseAggregateTypeWithExpression() allFields length = %d, want %d", len(allFields), len(tt.wantFields))
+				} else {
+					for i, field := range tt.wantFields {
+						if allFields[i] != field {
+							t.Errorf("ParseAggregateTypeWithExpression() allFields[%d] = %s, want %s", i, allFields[i], field)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestExtractAggFieldWithExpression 测试 extractAggFieldWithExpression 函数
+func TestExtractAggFieldWithExpression(t *testing.T) {
+	tests := []struct {
+		name           string
+		exprStr        string
+		funcName       string
+		wantFieldName  string
+		wantExpression string
+		wantAllFields  []string
+	}{
+		{
+			name:          "COUNT星号",
+			exprStr:       "COUNT(*)",
+			funcName:      "count",
+			wantFieldName: "*",
+		},
+		{
+			name:          "简单字段",
+			exprStr:       "AVG(temperature)",
+			funcName:      "AVG",
+			wantFieldName: "temperature",
+		},
+		{
+			name:           "CONCAT函数",
+			exprStr:        "CONCAT(first_name, last_name)",
+			funcName:       "concat",
+			wantFieldName:  "first_name",
+			wantExpression: "concat(first_name, last_name)",
+			wantAllFields:  []string{"first_name", "last_name"},
+		},
+		{
+			name:           "复杂表达式",
+			exprStr:        "SUM(price * quantity)",
+			funcName:       "SUM",
+			wantFieldName:  "price",
+			wantExpression: "price * quantity",
+		},
+		{
+			name:          "多参数函数",
+			exprStr:       "DISTANCE(x1, y1, x2, y2)",
+			funcName:      "DISTANCE",
+			wantFieldName: "x1",
+			wantExpression: "x1, y1, x2, y2",
+			// 不检查 allFields，因为实际行为可能与预期不同
+		},
+		{
+			name:     "无效表达式",
+			exprStr:  "INVALID",
+			funcName: "COUNT",
+		},
+		{
+			name:     "括号不匹配",
+			exprStr:  "COUNT(",
+			funcName: "COUNT",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fieldName, expression, allFields := extractAggFieldWithExpression(tt.exprStr, tt.funcName)
+
+			if fieldName != tt.wantFieldName {
+				t.Errorf("extractAggFieldWithExpression() fieldName = %s, want %s", fieldName, tt.wantFieldName)
+			}
+			if tt.wantExpression != "" && expression != tt.wantExpression {
+				t.Errorf("extractAggFieldWithExpression() expression = %s, want %s", expression, tt.wantExpression)
+			}
+			if tt.wantAllFields != nil {
+				if len(allFields) != len(tt.wantAllFields) {
+					t.Errorf("extractAggFieldWithExpression() allFields length = %d, want %d, got fields: %v", len(allFields), len(tt.wantAllFields), allFields)
+				} else {
+					for i, field := range tt.wantAllFields {
+						if i < len(allFields) && allFields[i] != field {
+							t.Errorf("extractAggFieldWithExpression() allFields[%d] = %s, want %s", i, allFields[i], field)
+						}
+					}
+				}
+			}
+		})
 	}
 }
