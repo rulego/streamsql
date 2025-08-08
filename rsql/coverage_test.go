@@ -234,12 +234,16 @@ func TestExpectToken(t *testing.T) {
 		t.Errorf("Expected SELECT token, got %v", tok.Type)
 	}
 
-	// 测试错误情况 - 使用一个不会触发无限递归的情况
-	parser2 := NewParser("FROM table")
-	// 直接测试getTokenTypeName函数而不是expectToken
-	result := parser2.getTokenTypeName(TokenSELECT)
+	// 直接测试getTokenTypeName函数
+	result := parser.getTokenTypeName(TokenSELECT)
 	if result != "SELECT" {
 		t.Errorf("Expected 'SELECT', got %v", result)
+	}
+
+	// 测试getTokenTypeName的其他分支
+	result2 := parser.getTokenTypeName(TokenType(999))
+	if result2 != "unknown" {
+		t.Errorf("Expected 'unknown', got %v", result2)
 	}
 }
 
@@ -370,8 +374,6 @@ func TestHandleLimitToken(t *testing.T) {
 	// 测试正常情况
 	parser := NewParser("10")
 	stmt := &SelectStatement{}
-
-	// 模拟LIMIT token
 	limitToken := Token{Type: TokenLIMIT, Value: "LIMIT"}
 
 	err := parser.handleLimitToken(stmt, limitToken)
@@ -385,11 +387,33 @@ func TestHandleLimitToken(t *testing.T) {
 	// 测试无效LIMIT值
 	parser2 := NewParser("invalid")
 	stmt2 := &SelectStatement{}
-	invalidToken := Token{Type: TokenLIMIT, Value: "LIMIT"}
-
-	err = parser2.handleLimitToken(stmt2, invalidToken)
+	err = parser2.handleLimitToken(stmt2, limitToken)
 	if err == nil {
 		t.Error("Expected error for invalid limit value")
+	}
+
+	// 测试负数LIMIT值
+	parser3 := NewParser("-5")
+	stmt3 := &SelectStatement{}
+	err = parser3.handleLimitToken(stmt3, limitToken)
+	if err == nil {
+		t.Error("Expected error for negative limit value")
+	}
+
+	// 测试减号后跟非数字
+	parser4 := NewParser("- abc")
+	stmt4 := &SelectStatement{}
+	err = parser4.handleLimitToken(stmt4, limitToken)
+	if err == nil {
+		t.Error("Expected error for minus followed by non-number")
+	}
+
+	// 测试减号后跟数字（负数情况）
+	parser5 := NewParser("- 10")
+	stmt5 := &SelectStatement{}
+	err = parser5.handleLimitToken(stmt5, limitToken)
+	if err == nil {
+		t.Error("Expected error for negative number")
 	}
 }
 
@@ -411,6 +435,140 @@ func TestReadString(t *testing.T) {
 	result2 := lexer2.readString()
 	if result2 != "unclosed string" {
 		t.Errorf("Expected partial string, got %v", result2)
+	}
+}
+
+// TestParseLimit 测试解析LIMIT子句函数
+func TestParseLimit(t *testing.T) {
+	// 测试正常LIMIT
+	parser := NewParser("SELECT * FROM table LIMIT 10")
+	stmt := &SelectStatement{}
+	err := parser.parseLimit(stmt)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if stmt.Limit != 10 {
+		t.Errorf("Expected limit 10, got %v", stmt.Limit)
+	}
+
+	// 测试没有LIMIT子句
+	parser2 := NewParser("SELECT * FROM table")
+	stmt2 := &SelectStatement{}
+	err = parser2.parseLimit(stmt2)
+	if err != nil {
+		t.Errorf("Expected no error for missing LIMIT, got %v", err)
+	}
+	if stmt2.Limit != 0 {
+		t.Errorf("Expected limit 0, got %v", stmt2.Limit)
+	}
+
+	// 测试LIMIT后没有数字
+	parser3 := NewParser("SELECT * FROM table LIMIT")
+	stmt3 := &SelectStatement{}
+	err = parser3.parseLimit(stmt3)
+	if err == nil {
+		t.Error("Expected error for LIMIT without number")
+	}
+
+	// 测试LIMIT后跟无效值
+	parser4 := NewParser("SELECT * FROM table LIMIT abc")
+	stmt4 := &SelectStatement{}
+	err = parser4.parseLimit(stmt4)
+	if err == nil {
+		t.Error("Expected error for invalid LIMIT value")
+	}
+
+	// 测试LIMIT负数
+	parser5 := NewParser("SELECT * FROM table LIMIT -5")
+	stmt5 := &SelectStatement{}
+	err = parser5.parseLimit(stmt5)
+	if err == nil {
+		t.Error("Expected error for negative LIMIT")
+	}
+
+	// 测试已设置LIMIT的情况
+	parser6 := NewParser("SELECT * FROM table LIMIT 20")
+	stmt6 := &SelectStatement{Limit: 15}
+	err = parser6.parseLimit(stmt6)
+	if err != nil {
+		t.Errorf("Expected no error when limit already set, got %v", err)
+	}
+	if stmt6.Limit != 15 {
+		t.Errorf("Expected limit to remain 15, got %v", stmt6.Limit)
+	}
+}
+
+// TestParseHaving 测试解析HAVING子句函数
+func TestParseHaving(t *testing.T) {
+	// 测试正常HAVING子句
+	parser := NewParser("SELECT COUNT(*) FROM table GROUP BY id HAVING COUNT(*) > 5")
+	stmt := &SelectStatement{}
+	err := parser.parseHaving(stmt)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	// 测试没有HAVING子句
+	parser2 := NewParser("SELECT * FROM table")
+	stmt2 := &SelectStatement{}
+	err = parser2.parseHaving(stmt2)
+	if err != nil {
+		t.Errorf("Expected no error for missing HAVING, got %v", err)
+	}
+
+	// 测试HAVING子句中的各种条件
+	parser3 := NewParser("HAVING field = 'value' AND count > 10 OR status LIKE 'active%'")
+	stmt3 := &SelectStatement{}
+	err = parser3.parseHaving(stmt3)
+	if err != nil {
+		t.Errorf("Expected no error for complex HAVING, got %v", err)
+	}
+
+	// 测试HAVING后遇到LIMIT
+	parser4 := NewParser("HAVING count > 5 LIMIT 10")
+	stmt4 := &SelectStatement{}
+	err = parser4.parseHaving(stmt4)
+	if err != nil {
+		t.Errorf("Expected no error when HAVING followed by LIMIT, got %v", err)
+	}
+
+	// 测试HAVING后遇到WITH
+	parser5 := NewParser("HAVING count > 5 WITH TUMBLING")
+	stmt5 := &SelectStatement{}
+	err = parser5.parseHaving(stmt5)
+	if err != nil {
+		t.Errorf("Expected no error when HAVING followed by WITH, got %v", err)
+	}
+}
+
+// TestParseWithErrorRecovery 测试Parse函数的错误恢复
+func TestParseWithErrorRecovery(t *testing.T) {
+	// 测试基本的错误情况
+	parser := NewParser("SELECT * FROM table WHERE id = 1")
+	stmt, err := parser.Parse()
+	if err != nil {
+		t.Errorf("Unexpected error for valid syntax: %v", err)
+	}
+	if stmt == nil {
+		t.Error("Expected statement for valid syntax")
+	}
+
+	// 测试错误恢复后的继续解析
+	parser2 := NewParser("SELECT * FROM table GROUP BY field")
+	stmt2, err := parser2.Parse()
+	// 这应该是有效的语法
+	if err != nil {
+		t.Errorf("Unexpected error for valid GROUP BY: %v", err)
+	}
+	if stmt2 == nil {
+		t.Error("Expected statement for valid syntax")
+	}
+
+	// 测试完全无效的语法
+	parser3 := NewParser("COMPLETELY INVALID SYNTAX")
+	_, err = parser3.Parse()
+	if err == nil {
+		t.Error("Expected error for completely invalid syntax")
 	}
 }
 

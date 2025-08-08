@@ -789,6 +789,92 @@ func TestFunctionAliases(t *testing.T) {
 }
 
 // TestFunctionAliasExecution 测试通过别名执行函数
+// TestExecuteFunction 测试Execute函数的各种场景
+func TestExecuteFunction(t *testing.T) {
+	ctx := &FunctionContext{
+		Data: map[string]interface{}{
+			"x": 10,
+			"y": 20,
+		},
+	}
+
+	// 测试正常执行
+	result, err := Execute("abs", ctx, []interface{}{-5})
+	assert.NoError(t, err)
+	assert.Equal(t, 5.0, result)
+
+	// 测试函数不存在
+	result, err = Execute("nonexistent_function", ctx, []interface{}{1})
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "function nonexistent_function not found")
+
+	// 测试参数验证失败
+	result, err = Execute("abs", ctx, []interface{}{})
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "validation failed")
+
+	// 测试参数过多
+	result, err = Execute("abs", ctx, []interface{}{1, 2, 3})
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "validation failed")
+}
+
+// TestCustomFunctionValidate 测试CustomFunction的Validate方法
+func TestCustomFunctionValidate(t *testing.T) {
+	// 注册一个自定义函数
+	err := RegisterCustomFunction("test_custom", TypeMath, "test", "test function", 1, 2,
+		func(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+			return args[0], nil
+		})
+	assert.NoError(t, err)
+
+	// 获取自定义函数
+	fn, exists := Get("test_custom")
+	assert.True(t, exists)
+
+	// 测试参数数量正确
+	err = fn.Validate([]interface{}{1})
+	assert.NoError(t, err)
+
+	err = fn.Validate([]interface{}{1, 2})
+	assert.NoError(t, err)
+
+	// 测试参数数量不足
+	err = fn.Validate([]interface{}{})
+	assert.Error(t, err)
+
+	// 测试参数数量过多
+	err = fn.Validate([]interface{}{1, 2, 3})
+	assert.Error(t, err)
+
+	// 清理
+	Unregister("test_custom")
+}
+
+// TestRegisterCustomFunctionErrors 测试RegisterCustomFunction的错误情况
+func TestRegisterCustomFunctionErrors(t *testing.T) {
+	// 测试空函数名
+	err := RegisterCustomFunction("", TypeMath, "test", "test function", 1, 2,
+		func(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+			return nil, nil
+		})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "function name cannot be empty")
+
+	// 测试正常注册
+	err = RegisterCustomFunction("valid_custom", TypeMath, "test", "test function", 1, 2,
+		func(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+			return args[0], nil
+		})
+	assert.NoError(t, err)
+
+	// 清理
+	Unregister("valid_custom")
+}
+
 func TestFunctionAliasExecution(t *testing.T) {
 	ctx := &FunctionContext{}
 

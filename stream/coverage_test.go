@@ -507,6 +507,311 @@ func TestStream_ComplexFieldProcessing(t *testing.T) {
 	assert.Equal(t, "warm", result["case_expression"])
 }
 
+// TestStream_Stop 测试Stop函数的各种场景
+func TestStream_Stop(t *testing.T) {
+	config := types.Config{
+		SimpleFields: []string{"device", "temperature"},
+	}
+	stream, err := NewStream(config)
+	require.NoError(t, err)
+
+	// 测试正常停止
+	stream.Stop()
+
+	// 测试重复停止（应该不会有问题）
+	stream.Stop()
+	stream.Stop()
+
+	// 测试dataStrategy为nil的情况
+	stream2, err := NewStream(config)
+	require.NoError(t, err)
+	stream2.dataStrategy = nil
+	stream2.Stop()
+}
+
+// TestStream_ProcessSync 测试ProcessSync函数的各种场景
+func TestStream_ProcessSync(t *testing.T) {
+	// 测试聚合查询的错误情况
+	aggConfig := types.Config{
+		SimpleFields: []string{"device", "temperature"},
+		NeedWindow:   true,
+		GroupFields:  []string{"device"},
+		SelectFields: map[string]aggregator.AggregateType{
+			"temperature": aggregator.Avg,
+		},
+		WindowConfig: types.WindowConfig{
+			Type:   "tumbling",
+			Params: map[string]interface{}{"size": 1 * time.Second},
+		},
+	}
+	aggStream, err := NewStream(aggConfig)
+	require.NoError(t, err)
+	defer aggStream.Stop()
+
+	data := map[string]interface{}{
+		"device":      "sensor1",
+		"temperature": 25.0,
+	}
+
+	// 聚合查询应该返回错误
+	result, err := aggStream.ProcessSync(data)
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "Synchronous processing is not supported for aggregation queries")
+
+	// 测试非聚合查询的正常情况
+	nonAggConfig := types.Config{
+		SimpleFields: []string{"device", "temperature"},
+	}
+	nonAggStream, err := NewStream(nonAggConfig)
+	require.NoError(t, err)
+	defer nonAggStream.Stop()
+
+	// 正常处理
+	result, err = nonAggStream.ProcessSync(data)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "sensor1", result["device"])
+	assert.Equal(t, 25.0, result["temperature"])
+
+	// 测试带过滤器的情况
+	filterStream, err := NewStream(nonAggConfig)
+	require.NoError(t, err)
+	defer filterStream.Stop()
+
+	err = filterStream.RegisterFilter("temperature > 30")
+	require.NoError(t, err)
+
+	// 不匹配过滤条件
+	result, err = filterStream.ProcessSync(data)
+	assert.NoError(t, err)
+	assert.Nil(t, result)
+
+	// 匹配过滤条件
+	highTempData := map[string]interface{}{
+		"device":      "sensor2",
+		"temperature": 35.0,
+	}
+	result, err = filterStream.ProcessSync(highTempData)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "sensor2", result["device"])
+	assert.Equal(t, 35.0, result["temperature"])
+}
+
+// TestStream_ProcessDirectDataSync 测试processDirectDataSync函数的各种场景
+func TestStream_ProcessDirectDataSync(t *testing.T) {
+	// 测试表达式字段处理
+	exprConfig := types.Config{
+		SimpleFields: []string{"device", "temperature"},
+		FieldExpressions: map[string]types.FieldExpression{
+			"temp_fahrenheit": {
+				Expression: "temperature * 1.8 + 32",
+				Fields:     []string{"temperature"},
+			},
+		},
+	}
+	exprStream, err := NewStream(exprConfig)
+	require.NoError(t, err)
+	defer exprStream.Stop()
+
+	data := map[string]interface{}{
+		"device":      "sensor1",
+		"temperature": 25.0,
+	}
+
+	result, err := exprStream.processDirectDataSync(data)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "sensor1", result["device"])
+	assert.Equal(t, 25.0, result["temperature"])
+	assert.Equal(t, 77.0, result["temp_fahrenheit"])
+
+	// 测试没有字段配置的情况（保留所有字段）
+	allFieldsConfig := types.Config{}
+	allFieldsStream, err := NewStream(allFieldsConfig)
+	require.NoError(t, err)
+	defer allFieldsStream.Stop()
+
+	result, err = allFieldsStream.processDirectDataSync(data)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "sensor1", result["device"])
+	assert.Equal(t, 25.0, result["temperature"])
+
+	// 测试只有表达式字段的情况
+	onlyExprConfig := types.Config{
+		FieldExpressions: map[string]types.FieldExpression{
+			"temp_fahrenheit": {
+				Expression: "temperature * 1.8 + 32",
+				Fields:     []string{"temperature"},
+			},
+		},
+	}
+	onlyExprStream, err := NewStream(onlyExprConfig)
+	require.NoError(t, err)
+	defer onlyExprStream.Stop()
+
+	result, err = onlyExprStream.processDirectDataSync(data)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, 77.0, result["temp_fahrenheit"])
+	// 原始字段不应该在结果中
+	_, exists := result["device"]
+	assert.False(t, exists)
+	_, exists = result["temperature"]
+	assert.False(t, exists)
+}
+
+// TestStreamFactory_SetupDataProcessingStrategy 测试setupDataProcessingStrategy函数
+func TestStreamFactory_SetupDataProcessingStrategy(t *testing.T) {
+	factory := NewStreamFactory()
+
+	// 测试有效策略
+	stream := &Stream{}
+	perfConfig := types.PerformanceConfig{
+		OverflowConfig: types.OverflowConfig{
+			Strategy: "drop",
+		},
+	}
+
+	err := factory.setupDataProcessingStrategy(stream, perfConfig)
+	assert.NoError(t, err)
+	assert.NotNil(t, stream.dataStrategy)
+
+	// 测试无效策略（会使用默认的drop策略）
+	stream2 := &Stream{}
+	perfConfig2 := types.PerformanceConfig{
+		OverflowConfig: types.OverflowConfig{
+			Strategy: "invalid_strategy",
+		},
+	}
+
+	err2 := factory.setupDataProcessingStrategy(stream2, perfConfig2)
+	assert.NoError(t, err2) // 不应该出错，会使用默认策略
+	assert.NotNil(t, stream2.dataStrategy)
+
+	// 测试block策略
+	stream3 := &Stream{}
+	perfConfig3 := types.PerformanceConfig{
+		OverflowConfig: types.OverflowConfig{
+			Strategy: "block",
+		},
+	}
+
+	err3 := factory.setupDataProcessingStrategy(stream3, perfConfig3)
+	assert.NoError(t, err3)
+	assert.NotNil(t, stream3.dataStrategy)
+
+	// 测试expand策略
+	stream4 := &Stream{}
+	perfConfig4 := types.PerformanceConfig{
+		OverflowConfig: types.OverflowConfig{
+			Strategy: "expand",
+		},
+	}
+
+	err4 := factory.setupDataProcessingStrategy(stream4, perfConfig4)
+	assert.NoError(t, err4)
+	assert.NotNil(t, stream4.dataStrategy)
+}
+
+// TestStreamFactory_ValidatePerformanceConfig 测试validatePerformanceConfig函数
+func TestStreamFactory_ValidatePerformanceConfig(t *testing.T) {
+	factory := NewStreamFactory()
+
+	// 测试有效配置
+	validConfig := types.PerformanceConfig{
+		BufferConfig: types.BufferConfig{
+			DataChannelSize:   100,
+			ResultChannelSize: 50,
+		},
+		WorkerConfig: types.WorkerConfig{
+			SinkPoolSize: 10,
+		},
+		OverflowConfig: types.OverflowConfig{
+			Strategy: "drop",
+		},
+	}
+
+	err := factory.validatePerformanceConfig(validConfig)
+	assert.NoError(t, err)
+
+	// 测试负数DataChannelSize
+	invalidConfig1 := types.PerformanceConfig{
+		BufferConfig: types.BufferConfig{
+			DataChannelSize:   -1,
+			ResultChannelSize: 50,
+		},
+	}
+
+	err1 := factory.validatePerformanceConfig(invalidConfig1)
+	assert.Error(t, err1)
+	assert.Contains(t, err1.Error(), "DataChannelSize cannot be negative")
+
+	// 测试负数ResultChannelSize
+	invalidConfig2 := types.PerformanceConfig{
+		BufferConfig: types.BufferConfig{
+			DataChannelSize:   100,
+			ResultChannelSize: -1,
+		},
+	}
+
+	err2 := factory.validatePerformanceConfig(invalidConfig2)
+	assert.Error(t, err2)
+	assert.Contains(t, err2.Error(), "ResultChannelSize cannot be negative")
+
+	// 测试负数SinkPoolSize
+	invalidConfig3 := types.PerformanceConfig{
+		BufferConfig: types.BufferConfig{
+			DataChannelSize:   100,
+			ResultChannelSize: 50,
+		},
+		WorkerConfig: types.WorkerConfig{
+			SinkPoolSize: -1,
+		},
+	}
+
+	err3 := factory.validatePerformanceConfig(invalidConfig3)
+	assert.Error(t, err3)
+	assert.Contains(t, err3.Error(), "SinkPoolSize cannot be negative")
+
+	// 测试无效溢出策略
+	invalidConfig4 := types.PerformanceConfig{
+		BufferConfig: types.BufferConfig{
+			DataChannelSize:   100,
+			ResultChannelSize: 50,
+		},
+		WorkerConfig: types.WorkerConfig{
+			SinkPoolSize: 10,
+		},
+		OverflowConfig: types.OverflowConfig{
+			Strategy: "invalid",
+		},
+	}
+
+	err4 := factory.validatePerformanceConfig(invalidConfig4)
+	assert.Error(t, err4)
+	assert.Contains(t, err4.Error(), "invalid overflow strategy")
+
+	// 测试空策略（应该有效）
+	emptyStrategyConfig := types.PerformanceConfig{
+		BufferConfig: types.BufferConfig{
+			DataChannelSize:   100,
+			ResultChannelSize: 50,
+		},
+		WorkerConfig: types.WorkerConfig{
+			SinkPoolSize: 10,
+		},
+		OverflowConfig: types.OverflowConfig{
+			Strategy: "",
+		},
+	}
+
+	err5 := factory.validatePerformanceConfig(emptyStrategyConfig)
+	assert.NoError(t, err5)
+}
+
 // TestStream_ErrorHandling 测试错误处理场景
 func TestStream_ErrorHandling(t *testing.T) {
 	config := types.Config{
