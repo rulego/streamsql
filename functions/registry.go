@@ -92,6 +92,11 @@ func (r *FunctionRegistry) Register(fn Function) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	// Check if function is nil
+	if fn == nil {
+		return fmt.Errorf("function cannot be nil")
+	}
+
 	name := strings.ToLower(fn.GetName())
 
 	// Check if function already exists
@@ -203,6 +208,15 @@ func ListAll() map[string]Function {
 
 func Unregister(name string) bool {
 	return globalRegistry.Unregister(name)
+}
+
+// Validate validates if a function exists in the registry
+func Validate(name string) error {
+	_, exists := Get(name)
+	if !exists {
+		return fmt.Errorf("function '%s' not found", name)
+	}
+	return nil
 }
 
 // RegisterCustomFunction registers a custom function

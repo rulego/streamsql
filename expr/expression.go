@@ -2,6 +2,7 @@ package expr
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -209,6 +210,7 @@ func (e *Expression) evaluateWithExprLang(data map[string]interface{}) (float64,
 }
 
 // GetFields gets all fields referenced in the expression
+// Returns fields in sorted order to ensure consistent results
 func (e *Expression) GetFields() []string {
 	if e.useExprLang {
 		// For expr-lang expressions, need to parse field references
@@ -223,10 +225,14 @@ func (e *Expression) GetFields() []string {
 	for field := range fields {
 		result = append(result, field)
 	}
+	
+	// Sort fields to ensure consistent order
+	sort.Strings(result)
 	return result
 }
 
 // extractFieldsFromExprLang extracts field references from expr-lang expression (simplified version)
+// Returns fields in sorted order to ensure consistent results
 func extractFieldsFromExprLang(expression string) []string {
 	// This is a simplified implementation, should use AST parsing in practice
 	// Temporarily use regex or simple string parsing
@@ -247,6 +253,9 @@ func extractFieldsFromExprLang(expression string) []string {
 	for field := range fields {
 		result = append(result, field)
 	}
+	
+	// Sort fields to ensure consistent order
+	sort.Strings(result)
 	return result
 }
 
