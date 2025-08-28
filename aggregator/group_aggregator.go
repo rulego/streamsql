@@ -329,8 +329,11 @@ func (ga *GroupAggregator) GetResults() ([]map[string]interface{}, error) {
 	ga.mu.RLock()
 	defer ga.mu.RUnlock()
 
-	// 如果既没有分组字段又没有聚合字段，返回空结果
+	// 如果既没有分组字段又没有聚合字段，但有数据被添加过，返回一个空的结果行
 	if len(ga.aggregationFields) == 0 && len(ga.groupFields) == 0 {
+		if len(ga.groups) > 0 {
+			return []map[string]interface{}{{}}, nil
+		}
 		return []map[string]interface{}{}, nil
 	}
 

@@ -10,24 +10,67 @@ import (
 	"github.com/rulego/streamsql/functions"
 )
 
+// Configuration constants for post-aggregation processing
+const (
+	// PlaceholderPrefix defines the prefix for aggregation field placeholders
+	PlaceholderPrefix = "__"
+	// PlaceholderSuffix defines the suffix for aggregation field placeholders
+	PlaceholderSuffix = "__"
+	// HashMultiplier is used for generating unique hash values for function calls
+	HashMultiplier = 31
+	// MaxFunctionNameLength defines the maximum allowed length for function names
+	MaxFunctionNameLength = 100
+	// MaxExpressionDepth defines the maximum nesting depth for expression parsing
+	MaxExpressionDepth = 50
+)
+
+var (
+	// funcCallRegex is a compiled regex for function calls, cached for performance
+	funcCallRegex = regexp.MustCompile(`(?i)([a-z_]+)\s*\(`)
+	// placeholderRegex is a compiled regex for placeholder detection
+	placeholderRegex = regexp.MustCompile(`^` + regexp.QuoteMeta(PlaceholderPrefix) + `.*` + regexp.QuoteMeta(PlaceholderSuffix) + `$`)
+)
+
 // PostAggregationExpression represents an expression that needs to be evaluated after aggregation
 type PostAggregationExpression struct {
-	OutputField       string   // 输出字段名
-	Expression        string   // 表达式模板，如 "__first_value_0__ - __last_value_1__"
-	RequiredAggFields []string // 依赖的聚合字段，如 ["__first_value_0__", "__last_value_1__"]
-	OriginalExpr      string   // 原始表达式，用于调试
+	OutputField       string                    // 输出字段名
+	Expression        string                    // 表达式模板，如 "__first_value_0__ - __last_value_1__"
+	RequiredAggFields []string                  // 依赖的聚合字段，如 ["__first_value_0__", "__last_value_1__"]
+	OriginalExpr      string                    // 原始表达式，用于调试
+	processor         *PostAggregationProcessor // 处理器引用
+}
+
+// Evaluate 评估后聚合表达式
+func (pae *PostAggregationExpression) Evaluate(data map[string]interface{}) (interface{}, error) {
+	if pae == nil {
+		return nil, fmt.Errorf("post-aggregation expression is nil")
+	}
+	if pae.processor == nil {
+		return nil, fmt.Errorf("post-aggregation processor not initialized")
+	}
+	if strings.TrimSpace(pae.Expression) == "" {
+		return nil, fmt.Errorf("expression cannot be empty")
+	}
+	if data == nil {
+		return nil, fmt.Errorf("evaluation data cannot be nil")
+	}
+	return pae.processor.evaluateExpression(pae.Expression, data)
 }
 
 // PostAggregationProcessor handles expressions that contain aggregation functions
 type PostAggregationProcessor struct {
 	expressions []PostAggregationExpression
 	mu          sync.RWMutex
+	exprBridge  *functions.ExprBridge
+	fieldsCache map[string][]string
 }
 
 // NewPostAggregationProcessor creates a new post-aggregation processor
 func NewPostAggregationProcessor() *PostAggregationProcessor {
 	return &PostAggregationProcessor{
 		expressions: make([]PostAggregationExpression, 0),
+		exprBridge:  functions.GetExprBridge(),
+		fieldsCache: make(map[string][]string),
 	}
 }
 
@@ -36,12 +79,15 @@ func (p *PostAggregationProcessor) AddExpression(outputField, originalExpr strin
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.expressions = append(p.expressions, PostAggregationExpression{
+	expr := PostAggregationExpression{
 		OutputField:       outputField,
 		Expression:        exprTemplate,
 		RequiredAggFields: aggFields,
 		OriginalExpr:      originalExpr,
-	})
+		processor:         p,
+	}
+	p.expressions = append(p.expressions, expr)
+	p.fieldsCache[outputField] = aggFields
 }
 
 // ProcessResults processes aggregation results and evaluates post-aggregation expressions
@@ -53,74 +99,78 @@ func (p *PostAggregationProcessor) ProcessResults(results []map[string]interface
 		return results, nil
 	}
 
-	// Process each result row
-	for i, result := range results {
-		// Collect all fields used by expressions for cleanup
-		fieldsToCleanup := make(map[string]bool)
+	// Pre-allocate cleanup fields map to avoid repeated allocations
+	fieldsToCleanup := make(map[string]bool, len(p.expressions)*2)
 
-		for _, expr := range p.expressions {
-			// Check if all required aggregation fields are present
-			allPresent := true
-			var missingFields []string
-			for _, field := range expr.RequiredAggFields {
-				if _, exists := result[field]; !exists {
-					allPresent = false
-					missingFields = append(missingFields, field)
-				}
-			}
+	// Collect all placeholder fields that need cleanup
+	for j := range p.expressions {
+		expr := &p.expressions[j]
+		p.markPlaceholderFields(expr.RequiredAggFields, fieldsToCleanup)
+	}
+
+	// Process each result row
+	for i := range results {
+		result := results[i]
+
+		for j := range p.expressions {
+			expr := &p.expressions[j]
+			// Fast path: check required fields presence
+			allPresent := p.checkRequiredFields(result, expr.RequiredAggFields)
 
 			if !allPresent {
-				// Log missing fields for debugging (can be removed in production)
-				// fmt.Printf("Missing fields for expression %s -> %s: %v\n", expr.OriginalExpr, expr.OutputField, missingFields)
-				// Set to nil if not all required fields are present
 				result[expr.OutputField] = nil
 				continue
 			}
 
-			// Evaluate the expression using the aggregated values
-			exprResult, err := p.evaluateExpression(expr.Expression, result)
+			// Evaluate expression
+			exprResult, err := p.evaluateExpressionFast(expr.Expression, result)
 			if err != nil {
 				result[expr.OutputField] = nil
 			} else {
 				result[expr.OutputField] = exprResult
 			}
-
-			// Mark fields for cleanup (only if expression was successful)
-			if err == nil {
-				for _, field := range expr.RequiredAggFields {
-					if strings.HasPrefix(field, "__") && strings.HasSuffix(field, "__") {
-						fieldsToCleanup[field] = true
-					}
-				}
-			}
 		}
 
-		// Clean up intermediate aggregation fields after all expressions are processed
+		// Batch cleanup of placeholder fields
 		for field := range fieldsToCleanup {
 			delete(result, field)
 		}
-
-		results[i] = result
 	}
 
 	return results, nil
 }
 
-// evaluateExpression evaluates an expression using aggregated values
-func (p *PostAggregationProcessor) evaluateExpression(expression string, data map[string]interface{}) (interface{}, error) {
+// checkRequiredFields checks if all required fields are present in the result
+func (p *PostAggregationProcessor) checkRequiredFields(result map[string]interface{}, requiredFields []string) bool {
+	for _, field := range requiredFields {
+		if _, exists := result[field]; !exists {
+			return false
+		}
+	}
+	return true
+}
 
-	// Use the function bridge to evaluate the expression
-	bridge := functions.GetExprBridge()
-	result, err := bridge.EvaluateExpression(expression, data)
+// markPlaceholderFields marks placeholder fields for cleanup
+func (p *PostAggregationProcessor) markPlaceholderFields(requiredFields []string, fieldsToCleanup map[string]bool) {
+	for _, field := range requiredFields {
+		if placeholderRegex.MatchString(field) {
+			fieldsToCleanup[field] = true
+		}
+	}
+}
+
+// evaluateExpressionFast evaluates an expression using cached bridge
+func (p *PostAggregationProcessor) evaluateExpressionFast(expression string, data map[string]interface{}) (interface{}, error) {
+	result, err := p.exprBridge.EvaluateExpression(expression, data)
 	if err != nil {
 		return nil, err
 	}
+	return p.unwrapNestedSlices(result), nil
+}
 
-	// Unwrap nested slices that might be returned by expr library
-	// This handles cases where expr returns []interface{}([]interface{}(nil)) instead of nil
-	result = p.unwrapNestedSlices(result)
-
-	return result, nil
+// evaluateExpression evaluates an expression using aggregated values
+func (p *PostAggregationProcessor) evaluateExpression(expression string, data map[string]interface{}) (interface{}, error) {
+	return p.evaluateExpressionFast(expression, data)
 }
 
 // unwrapNestedSlices recursively unwraps nested empty slices to get the actual value
@@ -149,6 +199,16 @@ func (p *PostAggregationProcessor) unwrapNestedSlices(value interface{}) interfa
 
 // ParseComplexAggregationExpression parses expressions containing multiple aggregation functions
 // Returns the list of required aggregation fields and the expression template
+// 该函数将包含聚合函数的复杂表达式分解为：
+// 1. 后聚合表达式模板（聚合函数被占位符替换）
+// 2. 需要预先计算的聚合字段信息列表
+// 3. 错误信息（如果解析失败）
+//
+// 示例：
+//
+//	输入: "SUM(price) + AVG(quantity) * 2"
+//	输出: 表达式模板 "__SUM_123__ + __AVG_456__ * 2"
+//	      聚合字段 [{FieldName: "__SUM_123__", FunctionName: "SUM", Arguments: ["price"]}, ...]
 func ParseComplexAggregationExpression(expr string) (aggFields []AggregationFieldInfo, exprTemplate string, err error) {
 	exprTemplate = expr
 
@@ -163,20 +223,28 @@ func parseNestedFunctions(expr string, aggFields []AggregationFieldInfo) ([]Aggr
 	return parseNestedFunctionsWithDepth(expr, aggFields, 0)
 }
 
+// findFunctionCalls 查找表达式中的所有函数调用
+func findFunctionCalls(expr string) [][]int {
+	return funcCallRegex.FindAllStringSubmatchIndex(expr, -1)
+}
+
+// generatePlaceholder 为函数调用生成唯一占位符
+func generatePlaceholder(funcName, fullFuncCall string) string {
+	callHash := uint32(0)
+	for i := 0; i < len(fullFuncCall); i++ {
+		callHash = callHash*HashMultiplier + uint32(fullFuncCall[i])
+	}
+	return PlaceholderPrefix + funcName + "_" + strconv.FormatUint(uint64(callHash), 10) + PlaceholderSuffix
+}
+
 // parseNestedFunctionsWithDepth 递归解析嵌套函数调用，支持深度控制
 func parseNestedFunctionsWithDepth(expr string, aggFields []AggregationFieldInfo, depth int) ([]AggregationFieldInfo, string) {
-	// 对于复杂聚合表达式，我们需要特殊处理：
-	// - 最外层的聚合函数应该保留在表达式模板中（用于后聚合）
-	// - 内层的聚合函数应该被替换为占位符（用于预聚合）
+	if depth > MaxExpressionDepth {
+		return aggFields, expr
+	}
 
-	// 首先检查是否是最外层的单一聚合函数调用
 	isTopLevelSingleAggregation := (depth == 0 && isTopLevelAggregationFunction(expr))
-
-	// 匹配函数调用，支持大小写不敏感
-	pattern := regexp.MustCompile(`(?i)([a-z_]+)\s*\(`)
-
-	// 找到所有函数调用的起始位置
-	matches := pattern.FindAllStringSubmatchIndex(expr, -1)
+	matches := findFunctionCalls(expr)
 	if len(matches) == 0 {
 		return aggFields, expr
 	}
@@ -187,96 +255,46 @@ func parseNestedFunctionsWithDepth(expr string, aggFields []AggregationFieldInfo
 		funcStart := match[0]
 		funcName := strings.ToLower(expr[match[2]:match[3]])
 
-		// 找到匹配的右括号
-		parenStart := match[3] // '(' 的位置
+		parenStart := match[3]
 		parenEnd := findMatchingParen(expr, parenStart)
 		if parenEnd == -1 {
-			continue // 无效的函数调用，跳过
+			continue
 		}
 
 		fullFuncCall := expr[funcStart : parenEnd+1]
 		funcParam := expr[parenStart+1 : parenEnd]
 
-		// 检查是否是聚合函数
 		if fn, exists := functions.Get(funcName); exists {
-			// 只处理真正的聚合、分析和窗口函数
 			switch fn.GetType() {
 			case functions.TypeAggregation, functions.TypeAnalytical, functions.TypeWindow:
-				// 如果是最外层的单一聚合函数，跳过替换，但仍需要递归处理其参数
-				// 注意：由于我们是从右到左处理，i == 0 才是最外层的函数
 				if isTopLevelSingleAggregation && i == 0 {
-
-					// 递归处理函数参数
 					innerAggFields, processedParam := parseNestedFunctionsWithDepth(funcParam, aggFields, depth+1)
 					aggFields = innerAggFields
-
-					// 重构表达式，保持外层函数但使用处理过的参数
 					expr = expr[:parenStart+1] + processedParam + expr[parenEnd:]
-
 					continue
 				}
-				// 生成唯一占位符
-				callHash := 0
-				for _, c := range fullFuncCall {
-					callHash = callHash*31 + int(c)
-				}
-				if callHash < 0 {
-					callHash = -callHash
-				}
-				placeholder := fmt.Sprintf("__%s_%d__", funcName, callHash)
 
-				// 解析函数参数
+				placeholder := generatePlaceholder(funcName, fullFuncCall)
 				inputField := funcParam
 
-				// 对于包含逗号的参数，需要判断是否为多参数函数
-				// 使用函数接口来判断而不是硬编码函数名
-				if strings.Contains(funcParam, ",") {
-					// 检查函数的最大参数数量来判断是否需要多参数处理
-					needsMultiParamHandling := false
-					if fn, exists := functions.Get(funcName); exists {
-						minArgs := fn.GetMinArgs()
-
-						// 对于聚合函数，主要看最小参数数量
-						// 如果最小参数数量大于1，则肯定需要多参数处理
-						// 如果最小参数数量为1，则通常是单参数函数，即使参数中包含逗号也应视为单个表达式
-						if minArgs > 1 {
-							needsMultiParamHandling = true
-						}
-						// 特殊情况：某些分析函数虽然minArgs为1，但确实需要多参数处理
-						// 这些函数通常有特定的参数模式，可以通过函数名或其他特征识别
-						// 但大多数聚合函数（max, min, sum, avg等）都是单参数的
-
+				if strings.Contains(funcParam, ",") && fn.GetMinArgs() > 1 {
+					if commaIdx := strings.Index(funcParam, ","); commaIdx > 0 {
+						inputField = strings.TrimSpace(funcParam[:commaIdx])
 					}
-
-					if needsMultiParamHandling {
-						// 对于真正的多参数函数，使用第一个参数作为输入字段
-						params := strings.Split(funcParam, ",")
-						if len(params) > 0 {
-							inputField = strings.TrimSpace(params[0])
-						}
-					}
-					// 否则保持完整的参数表达式（对于单参数函数，即使参数中包含逗号）
 				}
 
-				// 添加到聚合字段列表
-				fieldInfo := AggregationFieldInfo{
+				aggFields = append(aggFields, AggregationFieldInfo{
 					FuncName:    funcName,
 					InputField:  inputField,
 					Placeholder: placeholder,
 					AggType:     AggregateType(funcName),
 					FullCall:    fullFuncCall,
-				}
-				aggFields = append(aggFields, fieldInfo)
+				})
 
-				// 替换表达式中的聚合函数调用
 				expr = expr[:funcStart] + placeholder + expr[parenEnd+1:]
 			default:
-				// 对于非聚合函数（如数学函数round），递归处理其参数
-				// 但保持函数本身不变
 				innerAggFields, processedParam := parseNestedFunctionsWithDepth(funcParam, aggFields, depth+1)
 				aggFields = innerAggFields
-
-				// 重构表达式，保持函数但使用处理过的参数
 				expr = expr[:parenStart+1] + processedParam + expr[parenEnd:]
 			}
 		}
@@ -375,6 +393,25 @@ func NewEnhancedGroupAggregator(groupFields []string, aggregationFields []Aggreg
 
 // AddPostAggregationExpression adds an expression that needs post-aggregation processing
 func (ega *EnhancedGroupAggregator) AddPostAggregationExpression(outputField, originalExpr string, requiredFields []AggregationFieldInfo) error {
+	// Validate input parameters
+	if strings.TrimSpace(originalExpr) == "" {
+		return fmt.Errorf("expression cannot be empty")
+	}
+
+	// Check for malformed expressions (basic validation)
+	if strings.Count(originalExpr, "(") != strings.Count(originalExpr, ")") {
+		return fmt.Errorf("malformed expression: mismatched parentheses")
+	}
+
+	// Validate required fields contain valid function names
+	for _, field := range requiredFields {
+		if field.FuncName != "" {
+			if _, exists := functions.Get(field.FuncName); !exists {
+				return fmt.Errorf("invalid function name: %s", field.FuncName)
+			}
+		}
+	}
+
 	// Add individual aggregation fields to the base aggregator (only if not already exists)
 	for _, field := range requiredFields {
 
@@ -401,34 +438,34 @@ func (ega *EnhancedGroupAggregator) AddPostAggregationExpression(outputField, or
 		}
 
 		// Check if input field is an expression (contains function calls)
-        isInputExpression := strings.Contains(field.InputField, "(") && strings.Contains(field.InputField, ")")
+		isInputExpression := strings.Contains(field.InputField, "(") && strings.Contains(field.InputField, ")")
 
-        // If input expression itself contains aggregation calls, skip creating an aggregator for this field
-        // Use dynamic function registry instead of hardcoded list
-        containsAggCall := func(s string) bool {
-            lower := strings.ToLower(s)
-            // Extract potential function names from the expression
-            for i := 0; i < len(lower); i++ {
-                if lower[i] >= 'a' && lower[i] <= 'z' {
-                    // Find the end of the function name
-                    j := i
-                    for j < len(lower) && (lower[j] >= 'a' && lower[j] <= 'z' || lower[j] == '_') {
-                        j++
-                    }
-                    // Check if it's followed by '(' and is an aggregator function
-                    if j < len(lower) && lower[j] == '(' {
-                        funcName := lower[i:j]
-                        if functions.IsAggregatorFunction(funcName) {
-                            return true
-                        }
-                    }
-                    i = j
-                } else {
-                    i++
-                }
-            }
-            return false
-        }
+		// If input expression itself contains aggregation calls, skip creating an aggregator for this field
+		// Use dynamic function registry instead of hardcoded list
+		containsAggCall := func(s string) bool {
+			lower := strings.ToLower(s)
+			// Extract potential function names from the expression
+			for i := 0; i < len(lower); i++ {
+				if lower[i] >= 'a' && lower[i] <= 'z' {
+					// Find the end of the function name
+					j := i
+					for j < len(lower) && (lower[j] >= 'a' && lower[j] <= 'z' || lower[j] == '_') {
+						j++
+					}
+					// Check if it's followed by '(' and is an aggregator function
+					if j < len(lower) && lower[j] == '(' {
+						funcName := lower[i:j]
+						if functions.IsAggregatorFunction(funcName) {
+							return true
+						}
+					}
+					i = j
+				} else {
+					i++
+				}
+			}
+			return false
+		}
 
 		// Check if expression is already registered
 		hasExpressionRegistered := false
@@ -596,16 +633,84 @@ func (ega *EnhancedGroupAggregator) createParameterizedAggregator(field Aggregat
 
 // hasMultipleTopLevelArgs returns true if the function call has more than one top-level argument
 func hasMultipleTopLevelArgs(funcCall string) bool {
+	// Check if this is a function call with parentheses (starts with identifier followed by parentheses)
 	start := strings.Index(funcCall, "(")
 	end := strings.LastIndex(funcCall, ")")
-	if start == -1 || end == -1 || end <= start+1 {
+
+	var params string
+	var isDirectArgList bool
+
+	// Only treat as function call if it starts with an identifier and has matching parentheses
+	if start > 0 && end != -1 && end > start && end == len(funcCall)-1 {
+		// Check if everything before the first '(' is a valid identifier (function name)
+		funcName := strings.TrimSpace(funcCall[:start])
+		if isValidIdentifier(funcName) {
+			// Function call format: func(args) - extract only the arguments inside parentheses
+			params = funcCall[start+1 : end]
+			isDirectArgList = false
+		} else {
+			// Direct argument list format: arg1, arg2
+			params = strings.TrimSpace(funcCall)
+			isDirectArgList = true
+		}
+	} else {
+		// Direct argument list format: arg1, arg2
+		params = strings.TrimSpace(funcCall)
+		if params == "" {
+			return false
+		}
+		isDirectArgList = true
+	}
+
+	params = strings.TrimSpace(params)
+	if params == "" {
 		return false
 	}
-	params := funcCall[start+1 : end]
+
+	// For direct argument lists, special case: if the entire params is wrapped in parentheses
+	// and has no top-level commas, it's a single complex argument
+	if isDirectArgList && strings.HasPrefix(params, "(") && strings.HasSuffix(params, ")") {
+		// Check if this is a complete parenthesized expression
+		level := 0
+		for i, ch := range params {
+			if ch == '(' {
+				level++
+			} else if ch == ')' {
+				level--
+				if level == 0 && i == len(params)-1 {
+					// This is a single complete parenthesized expression
+					return false
+				}
+			}
+		}
+	}
+
 	level := 0
-	count := 1
+	count := 0
+	inString := false
+	stringChar := byte(0)
+
 	for i := 0; i < len(params); i++ {
-		switch params[i] {
+		ch := params[i]
+
+		// Handle string literals
+		if !inString && (ch == '\'' || ch == '"') {
+			inString = true
+			stringChar = ch
+			continue
+		}
+		if inString && ch == stringChar {
+			inString = false
+			stringChar = 0
+			continue
+		}
+
+		// Skip processing if inside string
+		if inString {
+			continue
+		}
+
+		switch ch {
 		case '(':
 			level++
 		case ')':
@@ -618,8 +723,42 @@ func hasMultipleTopLevelArgs(funcCall string) bool {
 			}
 		}
 	}
-	return count > 1
+
+	// If we found any commas at top level, we have multiple arguments
+	return count > 0
 }
+
+// isValidIdentifier checks if a string is a valid identifier (function name)
+func isValidIdentifier(s string) bool {
+	if len(s) == 0 || len(s) > MaxFunctionNameLength {
+		return false
+	}
+
+	// First character must be letter or underscore
+	if !isValidIdentifierStart(s[0]) {
+		return false
+	}
+
+	// Remaining characters must be letters, digits, or underscores
+	for i := 1; i < len(s); i++ {
+		if !isValidIdentifierChar(s[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isValidIdentifierStart checks if a character can be used as the start of an identifier
+func isValidIdentifierStart(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+}
+
+// isValidIdentifierChar checks if a character can be used in an identifier
+func isValidIdentifierChar(c byte) bool {
+	return isValidIdentifierStart(c) || (c >= '0' && c <= '9')
+}
+
 
 // parseFunctionCall parses a function call string and returns the arguments
 func (ega *EnhancedGroupAggregator) parseFunctionCall(funcCall string) ([]interface{}, error) {

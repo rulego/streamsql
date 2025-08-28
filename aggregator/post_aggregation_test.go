@@ -58,6 +58,131 @@ func TestParseComplexAggregationExpression(t *testing.T) {
 	}
 }
 
+// TestExtractOutermostFunctionNameEdgeCases 测试extractOutermostFunctionName函数的边界情况
+func TestExtractOutermostFunctionNameEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		expected string
+	}{
+		{
+			name:     "Function with spaces",
+			expr:     " SUM ( value ) ",
+			expected: "SUM",
+		},
+		{
+			name:     "Lowercase function",
+			expr:     "count(id)",
+			expected: "count",
+		},
+		{
+			name:     "No parentheses",
+			expr:     "SUM",
+			expected: "",
+		},
+		{
+			name:     "Empty string",
+			expr:     "",
+			expected: "",
+		},
+		{
+			name:     "Only parentheses",
+			expr:     "()",
+			expected: "",
+		},
+		{
+			name:     "Function with underscore",
+			expr:     "MY_FUNC(value)",
+			expected: "MY_FUNC",
+		},
+		{
+			name:     "Function with numbers",
+			expr:     "FUNC123(value)",
+			expected: "FUNC123",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractOutermostFunctionName(tt.expr)
+			if result != tt.expected {
+				t.Errorf("extractOutermostFunctionName(%q) = %q, want %q", tt.expr, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestAddPostAggregationExpressionErrorCases 测试AddPostAggregationExpression函数的错误情况
+func TestAddPostAggregationExpressionErrorCases(t *testing.T) {
+	groupFields := []string{"category"}
+	aggFields := []AggregationField{
+		{InputField: "value", AggregateType: Sum, OutputAlias: "sum_value"},
+	}
+	agg := NewEnhancedGroupAggregator(groupFields, aggFields)
+
+	tests := []struct {
+		name           string
+		alias          string
+		expr           string
+		requiredFields []AggregationFieldInfo
+		expectError    bool
+	}{
+		{
+			name:  "Invalid function name",
+			alias: "invalid_func",
+			expr:  "INVALID_FUNC(value)",
+			requiredFields: []AggregationFieldInfo{
+				{FuncName: "invalid", InputField: "value", AggType: Sum},
+			},
+			expectError: true,
+		},
+		{
+			name:           "Empty expression",
+			alias:          "empty",
+			expr:           "",
+			requiredFields: []AggregationFieldInfo{},
+			expectError:    true,
+		},
+		{
+			name:  "Malformed expression",
+			alias: "malformed",
+			expr:  "SUM(value",
+			requiredFields: []AggregationFieldInfo{
+				{FuncName: "SUM", InputField: "value", AggType: Sum},
+			},
+			expectError: true,
+		},
+		{
+			name:  "Valid expression",
+			alias: "valid",
+			expr:  "SUM(value)",
+			requiredFields: []AggregationFieldInfo{
+				{FuncName: "SUM", InputField: "value", AggType: Sum},
+			},
+			expectError: false,
+		},
+		{
+			name:  "Complex valid expression",
+			alias: "complex",
+			expr:  "SUM(value) + AVG(price)",
+			requiredFields: []AggregationFieldInfo{
+				{FuncName: "SUM", InputField: "value", AggType: Sum},
+				{FuncName: "AVG", InputField: "price", AggType: Avg},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := agg.AddPostAggregationExpression(tt.alias, tt.expr, tt.requiredFields)
+			if (err != nil) != tt.expectError {
+				t.Errorf("AddPostAggregationExpression() error = %v, expectError %v", err, tt.expectError)
+			}
+		})
+	}
+}
+
 // TestIsTopLevelAggregationFunction 测试顶级聚合函数检测
 func TestIsTopLevelAggregationFunction(t *testing.T) {
 	tests := []struct {
@@ -216,6 +341,32 @@ func TestPostAggregationProcessor(t *testing.T) {
 	// 中间字段应该被清理
 	assert.NotContains(t, processedResults[0], "__sum_0__")
 	assert.NotContains(t, processedResults[0], "__count_1__")
+}
+
+// TestPostAggregationProcessor_ProcessResults 测试后聚合处理器的ProcessResults方法
+func TestPostAggregationProcessor_ProcessResults(t *testing.T) {
+	processor := NewPostAggregationProcessor()
+	groupFields := []string{"category"}
+	aggFields := []AggregationField{
+		{InputField: "value", AggregateType: Sum, OutputAlias: "sum_value"},
+	}
+	agg := NewEnhancedGroupAggregator(groupFields, aggFields)
+	require.NotNil(t, agg)
+
+	// 测试空结果
+	emptyResults := []map[string]interface{}{}
+	processedEmpty, err := processor.ProcessResults(emptyResults)
+	assert.NoError(t, err)
+	assert.Empty(t, processedEmpty)
+
+	// 测试有数据的结果
+	results := []map[string]interface{}{
+		{"category": "A", "sum_value": 100},
+		{"category": "B", "sum_value": 200},
+	}
+	processedResults, err := processor.ProcessResults(results)
+	assert.NoError(t, err)
+	assert.Len(t, processedResults, 2)
 }
 
 // TestEnhancedGroupAggregatorAddPostAggregationExpression 测试添加后聚合表达式
@@ -385,8 +536,6 @@ func TestParseFunctionCall(t *testing.T) {
 		})
 	}
 }
-
-
 
 // mockAggregatorFunction 实现AggregatorFunction接口用于测试
 type mockAggregatorFunction struct {
@@ -580,34 +729,33 @@ func (m *mockAggregatorFunctionWithConfig) GetType() functions.FunctionType {
 	return m.mockAggregatorFunction.GetType()
 }
 
-
 // TestWindowFunctionWrapper 测试WindowFunctionWrapper的所有方法
 func TestWindowFunctionWrapper(t *testing.T) {
 	// 创建一个mock的AggregatorFunction
 	mockAgg := &mockAggregatorFunction{result: 42.0}
-	
+
 	// 创建WindowFunctionWrapper
 	wrapper := &WindowFunctionWrapper{aggFunc: mockAgg}
-	
+
 	// 测试New方法
 	newWrapper := wrapper.New()
 	assert.NotNil(t, newWrapper)
 	assert.IsType(t, &WindowFunctionWrapper{}, newWrapper)
-	
+
 	// 测试Add方法
 	wrapper.Add(10.0)
 	assert.Len(t, mockAgg.values, 1)
 	assert.Equal(t, 10.0, mockAgg.values[0])
-	
+
 	// 测试Result方法
 	result := wrapper.Result()
 	assert.Equal(t, 42.0, result)
-	
+
 	// 测试Reset方法
 	wrapper.Reset()
 	assert.Nil(t, mockAgg.values)
 	assert.Nil(t, mockAgg.result)
-	
+
 	// 测试Clone方法
 	clonedWrapper := wrapper.Clone()
 	assert.NotNil(t, clonedWrapper)
@@ -712,7 +860,7 @@ func TestPostAggregationComplexScenarios(t *testing.T) {
 		if category, ok := result["category"]; ok {
 			assert.Contains(t, result, "sum_value")
 			assert.Contains(t, result, "count_value")
-			
+
 			// 验证基本的数据类型
 			if category == "A" || category == "B" {
 				assert.NotNil(t, result["sum_value"])
@@ -721,5 +869,127 @@ func TestPostAggregationComplexScenarios(t *testing.T) {
 				// 只验证基础聚合字段存在即可
 			}
 		}
+	}
+}
+
+// TestPerformanceOptimizations 测试性能优化相关功能
+func TestPerformanceOptimizations(t *testing.T) {
+	t.Run("测试checkRequiredFields方法", func(t *testing.T) {
+		processor := NewPostAggregationProcessor()
+		requiredFields := []string{"__sum_amount_placeholder_123__", "__avg_price_placeholder_456__"}
+		processor.AddExpression("test_expr", "sum(amount) + avg(price)", requiredFields, "__sum_amount_placeholder_123__ + __avg_price_placeholder_456__")
+
+		result := map[string]interface{}{
+			"__sum_amount_placeholder_123__": 100.0,
+			"__avg_price_placeholder_456__":  50.0,
+		}
+
+		// 测试所有字段都存在的情况
+		allPresent := processor.checkRequiredFields(result, requiredFields)
+		assert.True(t, allPresent)
+
+		// 测试缺少字段的情况
+		incompleteResult := map[string]interface{}{
+			"__sum_amount_placeholder_123__": 100.0,
+		}
+		allPresent = processor.checkRequiredFields(incompleteResult, requiredFields)
+		assert.False(t, allPresent)
+	})
+
+	t.Run("测试evaluateExpressionFast方法", func(t *testing.T) {
+		processor := NewPostAggregationProcessor()
+		requiredFields := []string{"__sum_amount_placeholder_123__"}
+		processor.AddExpression("test_expr", "sum(amount) * 2", requiredFields, "__sum_amount_placeholder_123__ * 2")
+
+		result := map[string]interface{}{
+			"__sum_amount_placeholder_123__": 100.0,
+		}
+
+		value, err := processor.evaluateExpressionFast("__sum_amount_placeholder_123__ * 2", result)
+		assert.NoError(t, err)
+		assert.Equal(t, 200.0, value)
+	})
+
+	t.Run("测试markPlaceholderFields方法", func(t *testing.T) {
+		processor := NewPostAggregationProcessor()
+		requiredFields := []string{"__sum_amount_placeholder_123__", "__avg_price_placeholder_456__"}
+		fieldsToCleanup := make(map[string]bool)
+
+		processor.markPlaceholderFields(requiredFields, fieldsToCleanup)
+		assert.True(t, fieldsToCleanup["__sum_amount_placeholder_123__"])
+		assert.True(t, fieldsToCleanup["__avg_price_placeholder_456__"])
+	})
+
+	t.Run("测试fieldsCache缓存功能", func(t *testing.T) {
+		processor := NewPostAggregationProcessor()
+		
+		// 添加表达式，测试缓存
+		requiredFields := []string{"__sum_amount_placeholder_123__"}
+		processor.AddExpression("expr1", "sum(amount)", requiredFields, "__sum_amount_placeholder_123__")
+		processor.AddExpression("expr2", "sum(amount)", requiredFields, "__sum_amount_placeholder_123__")
+
+		// 验证缓存中有对应的字段信息
+		assert.NotEmpty(t, processor.fieldsCache)
+		assert.Contains(t, processor.fieldsCache, "expr1")
+		assert.Contains(t, processor.fieldsCache, "expr2")
+	})
+
+	t.Run("测试正则表达式缓存", func(t *testing.T) {
+		// 验证全局正则表达式已编译
+		assert.NotNil(t, funcCallRegex)
+		assert.NotNil(t, placeholderRegex)
+
+		// 测试funcCallRegex
+		matches := funcCallRegex.FindAllStringSubmatchIndex("sum(amount)", -1)
+		assert.NotEmpty(t, matches)
+
+		// 测试placeholderRegex
+		placeholderMatches := placeholderRegex.FindAllStringSubmatch("__sum_amount_placeholder_123__", -1)
+		assert.NotEmpty(t, placeholderMatches)
+	})
+}
+
+// TestProcessResultsPerformance 测试ProcessResults方法的性能优化
+func TestProcessResultsPerformance(t *testing.T) {
+	processor := NewPostAggregationProcessor()
+	
+	// 添加多个表达式
+	processor.AddExpression("calc1", "sum(amount) * 2", []string{"__sum_amount_placeholder_123__"}, "__sum_amount_placeholder_123__ * 2")
+	processor.AddExpression("calc2", "avg(price) + 10", []string{"__avg_price_placeholder_456__"}, "__avg_price_placeholder_456__ + 10")
+	processor.AddExpression("calc3", "max(value) - min(value)", []string{"__max_value_placeholder_789__", "__min_value_placeholder_012__"}, "__max_value_placeholder_789__ - __min_value_placeholder_012__")
+
+	// 创建大量测试数据
+	results := make([]map[string]interface{}, 100)
+	for i := 0; i < 100; i++ {
+		results[i] = map[string]interface{}{
+			"__sum_amount_placeholder_123__": float64(i * 10),
+			"__avg_price_placeholder_456__":  float64(i * 5),
+			"__max_value_placeholder_789__":  float64(i * 20),
+			"__min_value_placeholder_012__":  float64(i),
+		}
+	}
+
+	// 处理结果并验证
+	processedResults, err := processor.ProcessResults(results)
+	assert.NoError(t, err)
+	assert.Len(t, processedResults, 100)
+
+	// 验证第一个结果
+	assert.Equal(t, 0.0, processedResults[0]["calc1"]) // 0 * 2 = 0
+	assert.Equal(t, 10.0, processedResults[0]["calc2"]) // 0 + 10 = 10
+	assert.Equal(t, 0.0, processedResults[0]["calc3"]) // 0 - 0 = 0
+
+	// 验证最后一个结果
+	lastIdx := len(processedResults) - 1
+	assert.Equal(t, 1980.0, processedResults[lastIdx]["calc1"]) // 99*10*2 = 1980
+	assert.Equal(t, 505.0, processedResults[lastIdx]["calc2"]) // 99*5+10 = 505
+	assert.Equal(t, 1881.0, processedResults[lastIdx]["calc3"]) // 99*20-99 = 1881
+
+	// 验证占位符字段已被清理
+	for _, result := range processedResults {
+		assert.NotContains(t, result, "__sum_amount_placeholder_123__")
+		assert.NotContains(t, result, "__avg_price_placeholder_456__")
+		assert.NotContains(t, result, "__max_value_placeholder_789__")
+		assert.NotContains(t, result, "__min_value_placeholder_012__")
 	}
 }
