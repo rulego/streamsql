@@ -63,6 +63,61 @@ func TestParseSmartParameters(t *testing.T) {
 	}
 }
 
+// TestExpectTokenSuccess 测试expectToken函数成功情况
+func TestExpectTokenSuccess(t *testing.T) {
+	lexer := NewLexer("SELECT")
+	parser := &Parser{lexer: lexer, errorRecovery: NewErrorRecovery(&Parser{})}
+	
+	token, err := parser.expectToken(TokenSELECT, "test context")
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	if token.Type != TokenSELECT {
+		t.Errorf("Expected TokenSELECT, got %v", token.Type)
+	}
+}
+
+// TestExpectTokenFailure 测试expectToken函数失败情况
+func TestExpectTokenFailure(t *testing.T) {
+	lexer := NewLexer("FROM")
+	parser := &Parser{lexer: lexer}
+	parser.errorRecovery = NewErrorRecovery(parser)
+	
+	token, err := parser.expectToken(TokenSELECT, "test context")
+	if err == nil {
+		t.Error("Expected error, got none")
+	}
+	if token.Type == TokenSELECT {
+		t.Error("Should not return expected token type on error")
+	}
+}
+
+// TestExpectTokenWithRecovery 测试expectToken函数错误恢复情况
+func TestExpectTokenWithRecovery(t *testing.T) {
+	lexer := NewLexer("FROM SELECT")
+	parser := &Parser{lexer: lexer}
+	parser.errorRecovery = NewErrorRecovery(parser)
+	
+	// 第一次调用应该失败
+	_, err := parser.expectToken(TokenSELECT, "test context")
+	if err == nil {
+		t.Error("Expected error on first call")
+	}
+}
+
+// TestParseWithMultipleErrors 测试Parse函数处理多个错误的情况
+func TestParseWithMultipleErrors(t *testing.T) {
+	// 创建一个有多个语法错误的查询
+	parser := NewParser("SELECT FROM WHERE GROUP")
+	stmt, err := parser.Parse()
+	if err == nil {
+		t.Error("Expected error for malformed query")
+	}
+	if stmt == nil {
+		t.Error("Expected partial statement even with errors")
+	}
+}
+
 // TestIsIdentifier 测试标识符验证函数
 func TestIsIdentifier(t *testing.T) {
 	tests := []struct {

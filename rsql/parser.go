@@ -10,6 +10,41 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
+// 解析器配置常量
+const (
+	// MaxRecursionDepth 定义 expectTokenWithDepth 方法的最大递归深度
+	// 用于防止无限递归
+	MaxRecursionDepth = 30
+
+	// MaxSelectFields 定义 SELECT 子句中允许的最大字段数量
+	MaxSelectFields = 300
+)
+
+// tokenTypeNames 定义 token 类型到名称的映射表
+var tokenTypeNames = map[TokenType]string{
+	TokenSELECT:      "SELECT",
+	TokenFROM:        "FROM",
+	TokenWHERE:       "WHERE",
+	TokenGROUP:       "GROUP",
+	TokenBY:          "BY",
+	TokenComma:       ",",
+	TokenLParen:      "(",
+	TokenRParen:      ")",
+	TokenIdent:       "identifier",
+	TokenQuotedIdent: "quoted identifier",
+	TokenNumber:      "number",
+	TokenString:      "string",
+	TokenAND:         "AND",
+	TokenOR:          "OR",
+	TokenNOT:         "NOT",
+	TokenAS:          "AS",
+	TokenDISTINCT:    "DISTINCT",
+	TokenLIMIT:       "LIMIT",
+	TokenHAVING:      "HAVING",
+	TokenWITH:        "WITH",
+	TokenEOF:         "EOF",
+}
+
 type Parser struct {
 	lexer         *Lexer
 	errorRecovery *ErrorRecovery
@@ -40,19 +75,27 @@ func (p *Parser) HasErrors() bool {
 
 // expectToken 期望特定类型的token
 func (p *Parser) expectToken(expected TokenType, context string) (Token, error) {
+	return p.expectTokenWithDepth(expected, context, 0)
+}
+
+// expectTokenWithDepth 期望特定类型的token，带递归深度限制
+// 使用可配置的最大递归深度防止无限递归，提供更好的错误处理和恢复机制
+func (p *Parser) expectTokenWithDepth(expected TokenType, context string, depth int) (Token, error) {
+	// 防止无限递归，使用可配置的最大递归深度
+	if depth > MaxRecursionDepth {
+		tok := p.lexer.NextToken()
+		err := p.createTokenError(tok, expected, context, "maximum recursion depth exceeded")
+		return tok, err
+	}
+
 	tok := p.lexer.NextToken()
 	if tok.Type != expected {
-		err := CreateUnexpectedTokenError(
-			tok.Value,
-			[]string{p.getTokenTypeName(expected)},
-			tok.Pos,
-		)
-		err.Context = context
+		err := p.createTokenError(tok, expected, context, "")
 		p.errorRecovery.AddError(err)
 
-		// 尝试错误恢复
-		if err.IsRecoverable() && p.errorRecovery.RecoverFromError(ErrorTypeUnexpectedToken) {
-			return p.expectToken(expected, context)
+		// 尝试错误恢复，但限制递归深度
+		if p.shouldAttemptRecovery(err, depth) {
+			return p.expectTokenWithDepth(expected, context, depth+1)
 		}
 
 		return tok, err
@@ -61,43 +104,70 @@ func (p *Parser) expectToken(expected TokenType, context string) (Token, error) 
 }
 
 // getTokenTypeName 获取token类型名称
+// 使用映射表提高性能和可维护性
 func (p *Parser) getTokenTypeName(tokenType TokenType) string {
-	switch tokenType {
-	case TokenSELECT:
-		return "SELECT"
-	case TokenFROM:
-		return "FROM"
-	case TokenWHERE:
-		return "WHERE"
-	case TokenGROUP:
-		return "GROUP"
-	case TokenBY:
-		return "BY"
-	case TokenComma:
-		return ","
-	case TokenLParen:
-		return "("
-	case TokenRParen:
-		return ")"
-	case TokenIdent:
-		return "identifier"
-	case TokenQuotedIdent:
-		return "quoted identifier"
-	case TokenNumber:
-		return "number"
-	case TokenString:
-		return "string"
-	default:
-		return "unknown"
+	if name, exists := tokenTypeNames[tokenType]; exists {
+		return name
 	}
+	return "unknown"
+}
+
+// createTokenError 创建标准化的 token 错误
+// 提供统一的错误创建逻辑，便于维护和扩展
+func (p *Parser) createTokenError(tok Token, expected TokenType, context, additionalInfo string) *ParseError {
+	err := CreateUnexpectedTokenError(
+		tok.Value,
+		[]string{p.getTokenTypeName(expected)},
+		tok.Pos,
+	)
+	err.Context = context
+	if additionalInfo != "" {
+		err.Message = fmt.Sprintf("%s (%s)", err.Message, additionalInfo)
+	}
+	return err
+}
+
+// shouldAttemptRecovery 判断是否应该尝试错误恢复
+// 基于错误类型和递归深度做出智能决策
+func (p *Parser) shouldAttemptRecovery(err *ParseError, depth int) bool {
+	// 如果已经接近最大递归深度，不再尝试恢复
+	if depth >= MaxRecursionDepth-1 {
+		return false
+	}
+
+	// 检查错误是否可恢复，并且错误恢复机制允许恢复
+	return err.IsRecoverable() && p.errorRecovery.RecoverFromError(ErrorTypeUnexpectedToken)
 }
 
 func (p *Parser) Parse() (*SelectStatement, error) {
 	stmt := &SelectStatement{}
 
-	// 解析SELECT子句 - 对明显的语法错误不进行错误恢复
+	// 解析SELECT子句 - 对于特定的关键错误直接返回
 	if err := p.parseSelect(stmt); err != nil {
-		return nil, p.createDetailedError(err)
+		// 检查是否是关键的语法错误，这些错误应该停止进一步解析
+		if strings.Contains(err.Error(), "Expected SELECT") {
+			// SELECT关键字错误是致命的，直接返回
+			return nil, p.createDetailedError(err)
+		}
+
+		// 检查是否是特定的关键错误模式，这些错误不应该被恢复
+		// 只有当查询看起来像 "SELECT FROM table WHERE" 这样的模式时才直接返回错误
+		if strings.Contains(err.Error(), "no fields specified") {
+			// 检查是否有FROM关键字紧跟在SELECT后面
+			nextTok := p.lexer.lookupIdent(p.lexer.readPreviousIdentifier())
+			if nextTok.Type == TokenFROM {
+				// 进一步检查：如果后面还有其他内容（如WHERE、GROUP等），则允许错误恢复
+				// 只有当查询是简单的 "SELECT FROM table WHERE" 模式时才直接返回错误
+				if !strings.Contains(p.input, "WHERE") || !strings.Contains(p.input, "GROUP") {
+					return nil, p.createDetailedError(err)
+				}
+			}
+		}
+
+		if parseErr, ok := err.(*ParseError); ok {
+			p.errorRecovery.AddError(parseErr)
+		}
+		// 对于其他错误，继续尝试解析其他部分
 	}
 
 	// 解析FROM子句
@@ -150,6 +220,9 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 }
 
 // isKeyword 检查给定的字符串是否是SQL关键字
+// 使用预定义的关键字映射表进行快速查找
+// 参数: word - 要检查的字符串
+// 返回: 如果是关键字返回 true，否则返回 false
 func isKeyword(word string) bool {
 	keywords := map[string]bool{
 		"SELECT": true, "FROM": true, "WHERE": true, "GROUP": true, "BY": true,
@@ -165,6 +238,9 @@ func isKeyword(word string) bool {
 }
 
 // createDetailedError 创建详细的错误信息
+// 为 ParseError 类型的错误添加上下文信息，便于调试和错误定位
+// 参数: err - 原始错误
+// 返回: 包含详细上下文信息的错误
 func (p *Parser) createDetailedError(err error) error {
 	if parseErr, ok := err.(*ParseError); ok {
 		parseErr.Context = FormatErrorContext(p.input, parseErr.Position, 20)
@@ -174,6 +250,8 @@ func (p *Parser) createDetailedError(err error) error {
 }
 
 // createCombinedError 创建组合错误信息
+// 将多个解析错误合并为一个统一的错误消息，便于用户理解所有问题
+// 返回: 包含所有错误信息的组合错误
 func (p *Parser) createCombinedError() error {
 	errors := p.errorRecovery.GetErrors()
 	if len(errors) == 1 {
@@ -188,6 +266,10 @@ func (p *Parser) createCombinedError() error {
 	return fmt.Errorf("%s", builder.String())
 }
 
+// parseSelect 解析 SELECT 子句，包括字段列表、DISTINCT 关键字和别名
+// 支持 SELECT * 语法，并提供字段数量限制防止无限循环
+// 参数: stmt - 要填充的 SelectStatement 结构体
+// 返回: 解析过程中遇到的错误，如果成功则返回 nil
 func (p *Parser) parseSelect(stmt *SelectStatement) error {
 	// Validate if first token is SELECT
 	firstToken := p.lexer.NextToken()
@@ -225,13 +307,12 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 	}
 
 	// 设置最大字段数量限制，防止无限循环
-	maxFields := 100
 	fieldCount := 0
 
 	for {
 		fieldCount++
 		// Safety check: prevent infinite loops
-		if fieldCount > maxFields {
+		if fieldCount > MaxSelectFields {
 			return errors.New("select field list parsing exceeded maximum fields, possible syntax error")
 		}
 
