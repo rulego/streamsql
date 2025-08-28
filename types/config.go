@@ -9,15 +9,16 @@ import (
 // Config stream processing configuration
 type Config struct {
 	// SQL processing related configuration
-	WindowConfig     WindowConfig                        `json:"windowConfig"`
-	GroupFields      []string                            `json:"groupFields"`
-	SelectFields     map[string]aggregator.AggregateType `json:"selectFields"`
-	FieldAlias       map[string]string                   `json:"fieldAlias"`
-	SimpleFields     []string                            `json:"simpleFields"`
-	FieldExpressions map[string]FieldExpression          `json:"fieldExpressions"`
-	FieldOrder       []string                            `json:"fieldOrder"` // Original order of fields in SELECT statement
-	Where            string                              `json:"where"`
-	Having           string                              `json:"having"`
+	WindowConfig       WindowConfig                        `json:"windowConfig"`
+	GroupFields        []string                            `json:"groupFields"`
+	SelectFields       map[string]aggregator.AggregateType `json:"selectFields"`
+	FieldAlias         map[string]string                   `json:"fieldAlias"`
+	SimpleFields       []string                            `json:"simpleFields"`
+	FieldExpressions   map[string]FieldExpression          `json:"fieldExpressions"`
+	PostAggExpressions []PostAggregationExpression         `json:"postAggExpressions"` // Post-aggregation expressions
+	FieldOrder         []string                            `json:"fieldOrder"`         // Original order of fields in SELECT statement
+	Where              string                              `json:"where"`
+	Having             string                              `json:"having"`
 
 	// Feature switches
 	NeedWindow bool `json:"needWindow"`
@@ -45,6 +46,23 @@ type FieldExpression struct {
 	Field      string   `json:"field"`      // original field name
 	Expression string   `json:"expression"` // complete expression
 	Fields     []string `json:"fields"`     // all fields referenced in expression
+}
+
+// PostAggregationExpression represents an expression that needs to be evaluated after aggregation
+type PostAggregationExpression struct {
+	OutputField        string                 `json:"outputField"`        // 输出字段名
+	OriginalExpr       string                 `json:"originalExpr"`       // 原始表达式
+	ExpressionTemplate string                 `json:"expressionTemplate"` // 表达式模板
+	RequiredFields     []AggregationFieldInfo `json:"requiredFields"`     // 依赖的聚合字段
+}
+
+// AggregationFieldInfo holds information about an aggregation function in an expression
+type AggregationFieldInfo struct {
+	FuncName    string                   `json:"funcName"`    // 函数名，如 "first_value"
+	InputField  string                   `json:"inputField"`  // 输入字段，如 "displayNum"
+	Placeholder string                   `json:"placeholder"` // 占位符，如 "__first_value_0__"
+	AggType     aggregator.AggregateType `json:"aggType"`     // 聚合类型
+	FullCall    string                   `json:"fullCall"`    // 完整函数调用，如 "NTH_VALUE(value, 2)"
 }
 
 // ProjectionSourceType projection source type

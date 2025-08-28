@@ -185,7 +185,7 @@ func (p *Parser) createCombinedError() error {
 	for i, err := range errors {
 		builder.WriteString(fmt.Sprintf("%d. %s\n", i+1, err.Error()))
 	}
-	return fmt.Errorf(builder.String())
+	return fmt.Errorf("%s", builder.String())
 }
 
 func (p *Parser) parseSelect(stmt *SelectStatement) error {

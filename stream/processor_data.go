@@ -88,12 +88,50 @@ func (dp *DataProcessor) Process() {
 func (dp *DataProcessor) initializeAggregator() {
 	// Convert to new AggregationField format
 	aggregationFields := convertToAggregationFields(dp.stream.config.SelectFields, dp.stream.config.FieldAlias)
-	dp.stream.aggregator = aggregator.NewGroupAggregator(dp.stream.config.GroupFields, aggregationFields)
+
+	// Check if we have post-aggregation expressions
+	if len(dp.stream.config.PostAggExpressions) > 0 {
+		// Use enhanced aggregator for post-aggregation support
+		enhancedAgg := aggregator.NewEnhancedGroupAggregator(dp.stream.config.GroupFields, aggregationFields)
+
+		// Add post-aggregation expressions
+		for _, postExpr := range dp.stream.config.PostAggExpressions {
+			err := enhancedAgg.AddPostAggregationExpression(
+				postExpr.OutputField,
+				postExpr.OriginalExpr,
+				convertToAggregationFieldInfos(postExpr.RequiredFields),
+			)
+			if err != nil {
+				// Log error but continue
+				fmt.Printf("Error adding post-aggregation expression %s: %v\n", postExpr.OriginalExpr, err)
+			}
+		}
+
+		dp.stream.aggregator = enhancedAgg
+	} else {
+		// Use regular aggregator
+		dp.stream.aggregator = aggregator.NewGroupAggregator(dp.stream.config.GroupFields, aggregationFields)
+	}
 
 	// Register expression calculators
 	for field, fieldExpr := range dp.stream.config.FieldExpressions {
 		dp.registerExpressionCalculator(field, fieldExpr)
 	}
+}
+
+// convertToAggregationFieldInfos converts types.AggregationFieldInfo to aggregator.AggregationFieldInfo
+func convertToAggregationFieldInfos(fields []types.AggregationFieldInfo) []aggregator.AggregationFieldInfo {
+	result := make([]aggregator.AggregationFieldInfo, len(fields))
+	for i, field := range fields {
+		result[i] = aggregator.AggregationFieldInfo{
+			FuncName:    field.FuncName,
+			InputField:  field.InputField,
+			Placeholder: field.Placeholder,
+			AggType:     field.AggType,
+			FullCall:    field.FullCall, // 保持FullCall字段
+		}
+	}
+	return result
 }
 
 // registerExpressionCalculator registers expression calculator

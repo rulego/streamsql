@@ -640,7 +640,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 		// 执行包含 avg(round(temperature, 2)) 的查询
 		query := "SELECT device, avg(round(temperature, 2)) as avg_rounded FROM stream GROUP BY device, TumblingWindow('1s')"
-		t.Logf("Executing query: %s", query)
+
 		err := streamsql.Execute(query)
 		assert.Nil(t, err)
 
@@ -686,7 +686,6 @@ func TestNestedFunctionSupport(t *testing.T) {
 				} else if val, ok := avgRounded.(float64); ok {
 					// 期望值：avg(20.57, 25.23, 30.12) = (20.57 + 25.23 + 30.12) / 3 = 25.31
 					assert.InEpsilon(t, 25.31, val, 0.01)
-					t.Logf("avg(round()) test passed: %v", val)
 				} else {
 					t.Errorf("avg_rounded is not a float64: %v (type: %T)", avgRounded, avgRounded)
 				}
@@ -740,9 +739,6 @@ func TestNestedFunctionSupport(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			for key, value := range item {
-				t.Logf("  %s: %v (type: %T)", key, value, value)
-			}
 
 			assert.Equal(t, "sensor1", item["device"])
 
@@ -798,7 +794,6 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			t.Logf("Result: %+v", item)
 
 			// 验证执行顺序：round(25.67, 1) -> 25.7, concat('temp_', '25.7') -> 'temp_25.7', upper('temp_25.7') -> 'TEMP_25.7'
 			assert.Equal(t, "TEMP_25.7", item["formatted_temp"])
@@ -814,7 +809,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		defer streamsql.Stop()
 
 		query := "SELECT device, round(len(upper(device)), 0) as device_length FROM stream"
-		t.Logf("Executing query: %s", query)
+
 		err := streamsql.Execute(query)
 		assert.Nil(t, err)
 
@@ -838,7 +833,6 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			t.Logf("Result: %+v", item)
 
 			// 验证执行顺序：upper('sensor1') -> 'SENSOR1', len('SENSOR1') -> 7, round(7, 0) -> 7
 			assert.Equal(t, float64(7), item["device_length"])
@@ -854,7 +848,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		defer streamsql.Stop()
 
 		query := "SELECT device, abs(round(sqrt(temperature), 2)) as processed_temp FROM stream"
-		t.Logf("Executing query: %s", query)
+
 		err := streamsql.Execute(query)
 		assert.Nil(t, err)
 
@@ -878,8 +872,6 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			//t.Logf("Result: %+v", item)
-
 			// 验证执行顺序：sqrt(16) -> 4, round(4, 2) -> 4.00, abs(4.00) -> 4.00
 			assert.Equal(t, float64(4), item["processed_temp"])
 		case <-ctx.Done():
@@ -887,56 +879,40 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		}
 	})
 
-	// 测试6: 复杂的聚合函数嵌套
+	// 测试6: 复杂的聚合函数嵌套 - 应该报错
 	t.Run("ComplexAggregationNesting", func(t *testing.T) {
-		// 测试 max(round(avg(temperature), 1))
+		// 测试 max(round(avg(temperature), 1)) - 这是嵌套聚合函数，应该报错
 		streamsql := New()
 		defer streamsql.Stop()
 
 		query := "SELECT device, max(round(avg(temperature), 1)) as max_rounded_avg FROM stream GROUP BY device, TumblingWindow('1s')"
-		t.Logf("Executing query: %s", query)
 		err := streamsql.Execute(query)
-		assert.Nil(t, err)
+		// 应该返回嵌套聚合函数错误
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "aggregate function calls cannot be nested")
+	})
 
-		strm := streamsql.stream
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
-			resultChan <- result
-		})
+	// 测试7: 其他类型的嵌套聚合函数检测
+	t.Run("NestedAggregationDetection", func(t *testing.T) {
+		streamsql := New()
+		defer streamsql.Stop()
 
-		// 添加测试数据
-		testData := []map[string]interface{}{
-			{"device": "sensor1", "temperature": 20.567},
-			{"device": "sensor1", "temperature": 25.234},
-			{"device": "sensor1", "temperature": 30.123},
-		}
+		// 测试 sum(count(*)) - 聚合函数嵌套聚合函数
+		query1 := "SELECT sum(count(*)) as nested_agg FROM stream GROUP BY device, TumblingWindow('1s')"
+		err1 := streamsql.Execute(query1)
+		assert.NotNil(t, err1)
+		assert.Contains(t, err1.Error(), "aggregate function calls cannot be nested")
 
-		for _, data := range testData {
-			strm.Emit(data)
-		}
+		// 测试 avg(min(temperature)) - 聚合函数嵌套聚合函数
+		query2 := "SELECT avg(min(temperature)) as nested_agg FROM stream GROUP BY device, TumblingWindow('1s')"
+		err2 := streamsql.Execute(query2)
+		assert.NotNil(t, err2)
+		assert.Contains(t, err2.Error(), "aggregate function calls cannot be nested")
 
-		// 等待窗口初始化
-		time.Sleep(1 * time.Second)
-		strm.Window.Trigger()
-
-		// 等待结果
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-
-		select {
-		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
-			require.True(t, ok)
-			assert.Len(t, resultSlice, 1)
-
-			item := resultSlice[0]
-			//t.Logf("Result: %+v", item)
-
-			// 验证执行顺序：avg(20.567, 25.234, 30.123) -> 25.308, round(25.308, 1) -> 25.3, max(25.3) -> 25.3
-			assert.InEpsilon(t, 25.3, item["max_rounded_avg"], 0.01)
-		case <-ctx.Done():
-			t.Fatal("测试超时")
-		}
+		// 测试 round(avg(temperature), 1) - 正常函数嵌套聚合函数，应该正常
+		query3 := "SELECT round(avg(temperature), 1) as normal_nesting FROM stream GROUP BY device, TumblingWindow('1s')"
+		err3 := streamsql.Execute(query3)
+		assert.Nil(t, err3) // 这种嵌套应该是允许的
 	})
 
 	// 测试7: 日期时间函数嵌套
@@ -946,7 +922,6 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		defer streamsql.Stop()
 
 		query := "SELECT device, year(date_add(created_at, 1, 'years')) as next_year FROM stream"
-		t.Logf("Executing query: %s", query)
 		err := streamsql.Execute(query)
 		assert.Nil(t, err)
 
@@ -970,7 +945,6 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			//t.Logf("Result: %+v", item)
 
 			// 验证执行顺序：date_add('2023-12-25 15:30:45', 1, 'years') -> '2024-12-25 15:30:45', year('2024-12-25 15:30:45') -> 2024
 			assert.Equal(t, float64(2024), item["next_year"])
@@ -986,7 +960,6 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		defer streamsql.Stop()
 
 		query := "SELECT device, sqrt(len(invalid_field)) as error_result FROM stream"
-		t.Logf("Executing query: %s", query)
 		err := streamsql.Execute(query)
 		assert.Nil(t, err)
 
@@ -1010,7 +983,6 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			t.Logf("Error handling result: %+v", item)
 
 			// 验证错误处理：invalid_field不存在，应该返回nil或默认值
 			_, exists := item["error_result"]

@@ -653,7 +653,11 @@ func TestBuildSelectFieldsWithExpressions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			aggMap, fieldMap, expressions := buildSelectFieldsWithExpressions(tt.fields)
+			aggMap, fieldMap, expressions, _, err := buildSelectFieldsWithExpressions(tt.fields)
+		if err != nil {
+			t.Errorf("buildSelectFieldsWithExpressions() error = %v", err)
+			return
+		}
 			tt.checkFunc(t, aggMap, fieldMap, expressions)
 		})
 	}

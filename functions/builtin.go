@@ -83,6 +83,7 @@ func registerBuiltinFunctions() {
 	_ = Register(NewMedianAggregatorFunction())
 	_ = Register(NewPercentileFunction())
 	_ = Register(NewCollectFunction())
+	_ = Register(NewFirstValueFunction())
 	_ = Register(NewLastValueFunction())
 	_ = Register(NewMergeAggFunction())
 	_ = Register(NewStdDevSAggregatorFunction())
@@ -91,8 +92,9 @@ func registerBuiltinFunctions() {
 	_ = Register(NewVarSAggregatorFunction())
 
 	// Window functions
+	_ = Register(NewWindowStartFunction())
+	_ = Register(NewWindowEndFunction())
 	_ = Register(NewRowNumberFunction())
-	_ = Register(NewFirstValueFunction())
 	_ = Register(NewLeadFunction())
 	_ = Register(NewNthValueFunction())
 
@@ -101,10 +103,6 @@ func registerBuiltinFunctions() {
 	_ = Register(NewLatestFunction())
 	_ = Register(NewChangedColFunction())
 	_ = Register(NewHadChangedFunction())
-
-	// Window functions
-	_ = Register(NewWindowStartFunction())
-	_ = Register(NewWindowEndFunction())
 
 	// Expression functions
 	_ = Register(NewExpressionFunction())

@@ -62,6 +62,16 @@ func (bf *BaseFunction) GetAliases() []string {
 	return bf.aliases
 }
 
+// GetMinArgs returns the minimum number of arguments
+func (bf *BaseFunction) GetMinArgs() int {
+	return bf.minArgs
+}
+
+// GetMaxArgs returns the maximum number of arguments (-1 means unlimited)
+func (bf *BaseFunction) GetMaxArgs() int {
+	return bf.maxArgs
+}
+
 // ValidateArgCount validates the number of arguments
 func (bf *BaseFunction) ValidateArgCount(args []interface{}) error {
 	argCount := len(args)

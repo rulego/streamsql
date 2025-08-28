@@ -550,6 +550,11 @@ func (f *RoundFunction) Validate(args []interface{}) error {
 }
 
 func (f *RoundFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	// 检查第一个参数是否为nil
+	if args[0] == nil {
+		return nil, nil
+	}
+
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -557,6 +562,11 @@ func (f *RoundFunction) Execute(ctx *FunctionContext, args []interface{}) (inter
 
 	if len(args) == 1 {
 		return math.Round(val), nil
+	}
+
+	// 检查第二个参数是否为nil（如果存在）
+	if args[1] == nil {
+		return nil, nil
 	}
 
 	precision, err := cast.ToIntE(args[1])

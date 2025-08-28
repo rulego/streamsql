@@ -54,10 +54,15 @@ func (bridge *ExprBridge) RegisterStreamSQLFunctionsToExpr() []expr.Option {
 
 		// Add function to expr environment
 		bridge.exprEnv[name] = wrappedFunc
+		bridge.exprEnv[strings.ToUpper(name)] = wrappedFunc
 
-		// Register function type information
+		// Register function type information for both lowercase and uppercase
 		options = append(options, expr.Function(
 			name,
+			wrappedFunc,
+		))
+		options = append(options, expr.Function(
+			strings.ToUpper(name),
 			wrappedFunc,
 		))
 	}
@@ -143,7 +148,7 @@ func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression str
 	// 启用一些有用的expr功能
 	options = append(options,
 		expr.AllowUndefinedVariables(), // 允许未定义变量
-		expr.AsBool(),                  // 期望布尔结果（可根据需要调整）
+		// 移除 expr.AsBool() 以允许返回任意类型的值
 	)
 
 	return expr.Compile(expression, options...)

@@ -133,7 +133,7 @@ func TestCreateLegacyAggregatorPanic(t *testing.T) {
 func TestFunctionAggregatorWrapper(t *testing.T) {
 	// 创建一个测试聚合器函数
 	testAgg := &TestAggregatorFunction{}
-	
+
 	// 创建一个测试适配器
 	adapter := &AggregatorAdapter{
 		aggFunc: testAgg,
@@ -157,7 +157,7 @@ func TestFunctionAggregatorWrapper(t *testing.T) {
 func TestAnalyticalAggregatorWrapper(t *testing.T) {
 	// 创建一个测试分析函数
 	testAnalFunc := &TestAnalyticalFunction{}
-	
+
 	// 创建一个测试适配器
 	adapter := &AnalyticalAggregatorAdapter{
 		analFunc: testAnalFunc,
@@ -268,6 +268,16 @@ func (t *TestAggregatorFunction) Execute(ctx *FunctionContext, args []interface{
 	return t.Result(), nil
 }
 
+// GetMinArgs 返回最小参数数量
+func (t *TestAggregatorFunction) GetMinArgs() int {
+	return 1
+}
+
+// GetMaxArgs 返回最大参数数量
+func (t *TestAggregatorFunction) GetMaxArgs() int {
+	return 1
+}
+
 // TestAnalyticalFunction 测试用的分析函数实现
 type TestAnalyticalFunction struct {
 	values []interface{}
@@ -335,4 +345,14 @@ func (t *TestAnalyticalFunction) Validate(args []interface{}) error {
 // Execute 执行函数
 func (t *TestAnalyticalFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	return t.Result(), nil
+}
+
+// GetMinArgs 返回最小参数数量
+func (t *TestAnalyticalFunction) GetMinArgs() int {
+	return 1
+}
+
+// GetMaxArgs 返回最大参数数量
+func (t *TestAnalyticalFunction) GetMaxArgs() int {
+	return 1
 }

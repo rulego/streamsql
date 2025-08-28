@@ -38,7 +38,7 @@ type WindowStartFunction struct {
 
 func NewWindowStartFunction() *WindowStartFunction {
 	return &WindowStartFunction{
-		BaseFunction: NewBaseFunction("window_start", TypeWindow, "window", "Return window start time", 0, 0),
+		BaseFunction: NewBaseFunction("window_start", TypeWindow, "窗口函数", "返回窗口开始时间", 0, 0),
 	}
 }
 
@@ -88,7 +88,7 @@ type WindowEndFunction struct {
 
 func NewWindowEndFunction() *WindowEndFunction {
 	return &WindowEndFunction{
-		BaseFunction: NewBaseFunction("window_end", TypeWindow, "window", "Return window end time", 0, 0),
+		BaseFunction: NewBaseFunction("window_end", TypeWindow, "窗口函数", "返回窗口结束时间", 0, 0),
 	}
 }
 
@@ -246,63 +246,6 @@ func (f *ExpressionAggregatorFunction) Clone() AggregatorFunction {
 	}
 }
 
-// FirstValueFunction 返回窗口中第一个值
-type FirstValueFunction struct {
-	*BaseFunction
-	firstValue interface{}
-	hasValue   bool
-}
-
-func NewFirstValueFunction() *FirstValueFunction {
-	return &FirstValueFunction{
-		BaseFunction: NewBaseFunction("first_value", TypeWindow, "窗口函数", "返回窗口中第一个值", 1, 1),
-		hasValue:     false,
-	}
-}
-
-func (f *FirstValueFunction) Validate(args []interface{}) error {
-	return f.ValidateArgCount(args)
-}
-
-func (f *FirstValueFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	if err := f.Validate(args); err != nil {
-		return nil, err
-	}
-	return f.firstValue, nil
-}
-
-// 实现AggregatorFunction接口
-func (f *FirstValueFunction) New() AggregatorFunction {
-	return &FirstValueFunction{
-		BaseFunction: f.BaseFunction,
-		hasValue:     false,
-	}
-}
-
-func (f *FirstValueFunction) Add(value interface{}) {
-	if !f.hasValue {
-		f.firstValue = value
-		f.hasValue = true
-	}
-}
-
-func (f *FirstValueFunction) Result() interface{} {
-	return f.firstValue
-}
-
-func (f *FirstValueFunction) Reset() {
-	f.firstValue = nil
-	f.hasValue = false
-}
-
-func (f *FirstValueFunction) Clone() AggregatorFunction {
-	return &FirstValueFunction{
-		BaseFunction: f.BaseFunction,
-		firstValue:   f.firstValue,
-		hasValue:     f.hasValue,
-	}
-}
-
 // LeadFunction 返回当前行之后第N行的值
 type LeadFunction struct {
 	*BaseFunction
@@ -376,9 +319,9 @@ func (f *LeadFunction) New() AggregatorFunction {
 	return &LeadFunction{
 		BaseFunction: f.BaseFunction,
 		values:       make([]interface{}, 0),
-		offset:       f.offset,
-		defaultValue: f.defaultValue,
-		hasDefault:   f.hasDefault,
+		offset:       f.offset,       // 保持offset参数
+		defaultValue: f.defaultValue, // 保持默认值
+		hasDefault:   f.hasDefault,   // 保持默认值标志
 	}
 }
 
@@ -387,12 +330,12 @@ func (f *LeadFunction) Add(value interface{}) {
 }
 
 func (f *LeadFunction) Result() interface{} {
-	// Lead函数的结果需要在所有数据添加完成后计算
-	// 如果没有足够的数据，返回默认值
-	if len(f.values) == 0 && f.hasDefault {
+	// LEAD函数在没有指定当前行位置的情况下，返回默认值或nil
+	// 这通常用于聚合场景，真正的窗口计算需要在窗口处理器中进行
+	if f.hasDefault {
 		return f.defaultValue
 	}
-	// 这里简化实现，返回nil
+
 	return nil
 }
 
@@ -413,6 +356,41 @@ func (f *LeadFunction) Clone() AggregatorFunction {
 	}
 	copy(clone.values, f.values)
 	return clone
+}
+
+// Init implements ParameterizedFunction interface
+func (f *LeadFunction) Init(args []interface{}) error {
+	if len(args) < 2 {
+		// LEAD with default offset = 1
+		f.offset = 1
+		return nil
+	}
+
+	// Parse offset parameter
+	offset := 1
+	if offsetVal, ok := args[1].(int); ok {
+		offset = offsetVal
+	} else if offsetVal, ok := args[1].(int64); ok {
+		offset = int(offsetVal)
+	} else if offsetVal, ok := args[1].(float64); ok {
+		offset = int(offsetVal)
+	} else {
+		return fmt.Errorf("lead offset must be an integer, got %T", args[1])
+	}
+
+	if offset < 0 {
+		return fmt.Errorf("lead offset must be non-negative, got %d", offset)
+	}
+
+	f.offset = offset
+
+	// Parse default value if provided
+	if len(args) >= 3 {
+		f.defaultValue = args[2]
+		f.hasDefault = true
+	}
+
+	return nil
 }
 
 // NthValueFunction 返回窗口中第N个值
@@ -484,11 +462,13 @@ func (f *NthValueFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 
 // 实现AggregatorFunction接口
 func (f *NthValueFunction) New() AggregatorFunction {
-	return &NthValueFunction{
+	newInstance := &NthValueFunction{
 		BaseFunction: f.BaseFunction,
 		values:       make([]interface{}, 0),
-		n:            f.n,
+		n:            f.n, // 保持n参数
 	}
+
+	return newInstance
 }
 
 func (f *NthValueFunction) Add(value interface{}) {
@@ -510,8 +490,34 @@ func (f *NthValueFunction) Clone() AggregatorFunction {
 	clone := &NthValueFunction{
 		BaseFunction: f.BaseFunction,
 		values:       make([]interface{}, len(f.values)),
-		n:            f.n,
+		n:            f.n, // 保持n参数
 	}
 	copy(clone.values, f.values)
 	return clone
+}
+
+// Init implements ParameterizedFunction interface
+func (f *NthValueFunction) Init(args []interface{}) error {
+	if len(args) < 2 {
+		return fmt.Errorf("nth_value requires at least 2 arguments")
+	}
+
+	// Parse N parameter
+	n := 1
+	if nVal, ok := args[1].(int); ok {
+		n = nVal
+	} else if nVal, ok := args[1].(int64); ok {
+		n = int(nVal)
+	} else if nVal, ok := args[1].(float64); ok {
+		n = int(nVal)
+	} else {
+		return fmt.Errorf("nth_value n must be an integer, got %T", args[1])
+	}
+
+	if n <= 0 {
+		return fmt.Errorf("nth_value n must be positive, got %d", n)
+	}
+
+	f.n = n
+	return nil
 }

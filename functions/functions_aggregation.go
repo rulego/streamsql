@@ -150,7 +150,7 @@ func (f *AvgFunction) Add(value interface{}) {
 
 func (f *AvgFunction) Result() interface{} {
 	if f.count == 0 {
-		return nil // Return nil when no valid values instead of 0.0
+		return nil // Return NULL when no valid values according to SQL standard
 	}
 	return f.sum / float64(f.count)
 }
@@ -187,6 +187,13 @@ func (f *MinFunction) Validate(args []interface{}) error {
 }
 
 func (f *MinFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	// 检查是否有nil参数
+	for _, arg := range args {
+		if arg == nil {
+			return nil, nil
+		}
+	}
+	
 	min := math.Inf(1)
 	for _, arg := range args {
 		val, err := cast.ToFloat64E(arg)
@@ -224,7 +231,7 @@ func (f *MinFunction) Add(value interface{}) {
 
 func (f *MinFunction) Result() interface{} {
 	if f.first {
-		return nil
+		return nil // Return NULL when no data according to SQL standard
 	}
 	return f.value
 }
@@ -261,6 +268,13 @@ func (f *MaxFunction) Validate(args []interface{}) error {
 }
 
 func (f *MaxFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	// 检查是否有nil参数
+	for _, arg := range args {
+		if arg == nil {
+			return nil, nil
+		}
+	}
+	
 	max := math.Inf(-1)
 	for _, arg := range args {
 		val, err := cast.ToFloat64E(arg)
@@ -298,7 +312,7 @@ func (f *MaxFunction) Add(value interface{}) {
 
 func (f *MaxFunction) Result() interface{} {
 	if f.first {
-		return nil
+		return nil // Return NULL when no data according to SQL standard
 	}
 	return f.value
 }
@@ -580,6 +594,69 @@ func (f *CollectFunction) Clone() AggregatorFunction {
 	}
 	copy(newFunc.values, f.values)
 	return newFunc
+}
+
+// FirstValueFunction 首个值函数 - 返回组中第一行的值
+type FirstValueFunction struct {
+	*BaseFunction
+	firstValue interface{}
+	hasValue   bool
+}
+
+func NewFirstValueFunction() *FirstValueFunction {
+	return &FirstValueFunction{
+		BaseFunction: NewBaseFunction("first_value", TypeAggregation, "聚合函数", "返回第一个值", 1, -1),
+		firstValue:   nil,
+		hasValue:     false,
+	}
+}
+
+func (f *FirstValueFunction) Validate(args []interface{}) error {
+	return f.ValidateArgCount(args)
+}
+
+func (f *FirstValueFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	if err := f.Validate(args); err != nil {
+		return nil, err
+	}
+	if len(args) == 0 {
+		return nil, fmt.Errorf("function %s requires at least one argument", f.GetName())
+	}
+	// 返回第一个值
+	return args[0], nil
+}
+
+// 实现AggregatorFunction接口
+func (f *FirstValueFunction) New() AggregatorFunction {
+	return &FirstValueFunction{
+		BaseFunction: f.BaseFunction,
+		firstValue:   nil,
+		hasValue:     false,
+	}
+}
+
+func (f *FirstValueFunction) Add(value interface{}) {
+	if !f.hasValue {
+		f.firstValue = value
+		f.hasValue = true
+	}
+}
+
+func (f *FirstValueFunction) Result() interface{} {
+	return f.firstValue
+}
+
+func (f *FirstValueFunction) Reset() {
+	f.firstValue = nil
+	f.hasValue = false
+}
+
+func (f *FirstValueFunction) Clone() AggregatorFunction {
+	return &FirstValueFunction{
+		BaseFunction: f.BaseFunction,
+		firstValue:   f.firstValue,
+		hasValue:     f.hasValue,
+	}
 }
 
 // LastValueFunction 最后值函数 - 返回组中最后一行的值

@@ -140,6 +140,12 @@ func (ga *GroupAggregator) isNumericAggregator(aggType AggregateType) bool {
 	return false
 }
 
+// shouldAllowNullValues 判断聚合函数是否应该允许NULL值
+func (ga *GroupAggregator) shouldAllowNullValues(aggType AggregateType) bool {
+	// FIRST_VALUE和LAST_VALUE函数应该允许NULL值，因为它们需要记录第一个/最后一个值，即使是NULL
+	return aggType == FirstValue || aggType == LastValue
+}
+
 func (ga *GroupAggregator) Add(data interface{}) error {
 	ga.mu.Lock()
 	defer ga.mu.Unlock()
@@ -286,8 +292,8 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 
 		aggType := aggField.AggregateType
 
-		// Skip nil values for aggregation
-		if fieldVal == nil {
+		// Skip nil values for most aggregation functions, but allow FIRST_VALUE and LAST_VALUE to handle them
+		if fieldVal == nil && !ga.shouldAllowNullValues(aggType) {
 			continue
 		}
 
@@ -301,6 +307,7 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 			// For numeric aggregation functions, try to convert to numeric type
 			if numVal, err := cast.ToFloat64E(fieldVal); err == nil {
 				if groupAgg, exists := ga.groups[key][outputAlias]; exists {
+
 					groupAgg.Add(numVal)
 				}
 			} else {
@@ -309,6 +316,7 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		} else {
 			// For non-numeric aggregation functions, pass original value directly
 			if groupAgg, exists := ga.groups[key][outputAlias]; exists {
+
 				groupAgg.Add(fieldVal)
 			}
 		}
@@ -336,7 +344,12 @@ func (ga *GroupAggregator) GetResults() ([]map[string]interface{}, error) {
 			}
 		}
 		for field, agg := range aggregators {
-			group[field] = agg.Result()
+			result := agg.Result()
+			group[field] = result
+			// Debug: log aggregator results (can be removed in production)
+			// if strings.HasPrefix(field, "__") {
+			//	fmt.Printf("Aggregator %s result: %v (%T)\n", field, result, result)
+			// }
 		}
 		result = append(result, group)
 	}

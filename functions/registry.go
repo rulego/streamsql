@@ -61,6 +61,11 @@ type Function interface {
 	Execute(ctx *FunctionContext, args []interface{}) (interface{}, error)
 	// GetDescription returns the function description
 	GetDescription() string
+
+	// GetMinArgs returns the minimum number of arguments
+	GetMinArgs() int
+	// GetMaxArgs returns the maximum number of arguments (-1 means unlimited)
+	GetMaxArgs() int
 }
 
 // FunctionRegistry manages function registration and retrieval

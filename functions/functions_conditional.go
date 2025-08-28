@@ -24,6 +24,17 @@ func (f *IfNullFunction) Validate(args []interface{}) error {
 
 func (f *IfNullFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
 	if args[0] == nil {
+		// 当第一个参数为nil时，返回第二个参数
+		// 如果第二个参数是数字0，确保返回float64类型以保持一致性
+		if args[1] != nil {
+			// 尝试转换为float64以保持数值类型一致性
+			if val, ok := args[1].(int); ok && val == 0 {
+				return 0.0, nil
+			}
+			if val, ok := args[1].(float32); ok {
+				return float64(val), nil
+			}
+		}
 		return args[1], nil
 	}
 	return args[0], nil

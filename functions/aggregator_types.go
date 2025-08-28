@@ -18,6 +18,7 @@ const (
 	WindowStart AggregateType = "window_start"
 	WindowEnd   AggregateType = "window_end"
 	Collect     AggregateType = "collect"
+	FirstValue  AggregateType = "first_value"
 	LastValue   AggregateType = "last_value"
 	MergeAgg    AggregateType = "merge_agg"
 	StdDev      AggregateType = "stddev"
@@ -32,6 +33,8 @@ const (
 	HadChanged AggregateType = "had_changed"
 	// Expression aggregator for handling custom functions
 	Expression AggregateType = "expression"
+	// Post-aggregation marker for fields that need post-processing
+	PostAggregation AggregateType = "post_aggregation"
 )
 
 // String constant versions for convenience
@@ -46,6 +49,7 @@ const (
 	WindowStartStr = string(WindowStart)
 	WindowEndStr   = string(WindowEnd)
 	CollectStr     = string(Collect)
+	FirstValueStr  = string(FirstValue)
 	LastValueStr   = string(LastValue)
 	MergeAggStr    = string(MergeAgg)
 	StdStr         = "std"
@@ -61,6 +65,8 @@ const (
 	HadChangedStr = string(HadChanged)
 	// Expression aggregator
 	ExpressionStr = string(Expression)
+	// Post-aggregation marker
+	PostAggregationStr = string(PostAggregation)
 )
 
 // LegacyAggregatorFunction defines aggregator function interface compatible with legacy aggregator interface

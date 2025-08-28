@@ -360,7 +360,11 @@ func TestBuildSelectFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			aggMap, fieldMap := buildSelectFields(tt.fields)
+			aggMap, fieldMap, err := buildSelectFields(tt.fields)
+		if err != nil {
+			t.Errorf("buildSelectFields() error = %v", err)
+			return
+		}
 
 			// 检查聚合函数映射
 			if len(aggMap) != len(tt.wantAggs) {
@@ -498,9 +502,14 @@ func TestParseAggregateTypeWithExpression(t *testing.T) {
 		},
 	}
 
+	// 测试正常情况
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			aggType, name, expression, allFields := ParseAggregateTypeWithExpression(tt.exprStr)
+			aggType, name, expression, allFields, err := ParseAggregateTypeWithExpression(tt.exprStr)
+			if err != nil {
+				t.Errorf("ParseAggregateTypeWithExpression() returned error: %v", err)
+				return
+			}
 
 			if string(aggType) != tt.wantAggType {
 				t.Errorf("ParseAggregateTypeWithExpression() aggType = %s, want %s", aggType, tt.wantAggType)
@@ -521,6 +530,82 @@ func TestParseAggregateTypeWithExpression(t *testing.T) {
 						}
 					}
 				}
+			}
+		})
+	}
+
+	// 测试嵌套聚合函数检测
+	nestedTests := []struct {
+		name    string
+		exprStr string
+	}{
+		{
+			name:    "嵌套聚合函数 - MAX(AVG(temperature))",
+			exprStr: "MAX(AVG(temperature))",
+		},
+		{
+			name:    "嵌套聚合函数 - COUNT(SUM(price))",
+			exprStr: "COUNT(SUM(price))",
+		},
+		{
+			name:    "复杂嵌套 - MAX(ROUND(AVG(temperature), 1))",
+			exprStr: "MAX(ROUND(AVG(temperature), 1))",
+		},
+	}
+
+	for _, tt := range nestedTests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, _, _, err := ParseAggregateTypeWithExpression(tt.exprStr)
+			if err == nil {
+				t.Errorf("ParseAggregateTypeWithExpression() should return error for nested aggregation: %s", tt.exprStr)
+			} else if !strings.Contains(err.Error(), "aggregate function calls cannot be nested") {
+				t.Errorf("ParseAggregateTypeWithExpression() error message should contain 'aggregate function calls cannot be nested', got: %v", err)
+			}
+		})
+	}
+}
+
+// TestDetectNestedAggregation 测试嵌套聚合函数检测
+func TestDetectNestedAggregation(t *testing.T) {
+	tests := []struct {
+		name      string
+		exprStr   string
+		wantError bool
+	}{
+		{
+			name:      "正常聚合函数",
+			exprStr:   "MAX(temperature)",
+			wantError: false,
+		},
+		{
+			name:      "嵌套聚合函数",
+			exprStr:   "MAX(AVG(temperature))",
+			wantError: true,
+		},
+		{
+			name:      "复杂嵌套",
+			exprStr:   "MAX(ROUND(AVG(temperature), 1))",
+			wantError: true,
+		},
+		{
+			name:      "非聚合函数嵌套",
+			exprStr:   "UPPER(CONCAT(first_name, last_name))",
+			wantError: false,
+		},
+		{
+			name:      "聚合函数包含非聚合函数",
+			exprStr:   "MAX(ROUND(temperature, 1))",
+			wantError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := detectNestedAggregation(tt.exprStr)
+			if tt.wantError && err == nil {
+				t.Errorf("detectNestedAggregation() should return error for: %s", tt.exprStr)
+			} else if !tt.wantError && err != nil {
+				t.Errorf("detectNestedAggregation() should not return error for: %s, got: %v", tt.exprStr, err)
 			}
 		})
 	}

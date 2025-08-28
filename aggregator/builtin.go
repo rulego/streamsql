@@ -20,6 +20,7 @@ const (
 	WindowStart = functions.WindowStart
 	WindowEnd   = functions.WindowEnd
 	Collect     = functions.Collect
+	FirstValue  = functions.FirstValue
 	LastValue   = functions.LastValue
 	MergeAgg    = functions.MergeAgg
 	StdDevS     = functions.StdDevS
@@ -33,6 +34,8 @@ const (
 	HadChanged = functions.HadChanged
 	// Expression aggregator for handling custom functions
 	Expression = functions.Expression
+	// Post-aggregation marker
+	PostAggregation = functions.PostAggregation
 )
 
 // AggregatorFunction aggregator function interface, re-exports functions.LegacyAggregatorFunction
@@ -55,7 +58,28 @@ func CreateBuiltinAggregator(aggType AggregateType) AggregatorFunction {
 		}
 	}
 
+	// Special handling for post-aggregation type (placeholder aggregator)
+	if aggType == "post_aggregation" {
+		return &PostAggregationPlaceholder{}
+	}
+
 	return functions.CreateLegacyAggregator(aggType)
+}
+
+// PostAggregationPlaceholder is a placeholder aggregator for post-aggregation fields
+type PostAggregationPlaceholder struct{}
+
+func (p *PostAggregationPlaceholder) New() AggregatorFunction {
+	return &PostAggregationPlaceholder{}
+}
+
+func (p *PostAggregationPlaceholder) Add(value interface{}) {
+	// Do nothing - this is just a placeholder
+}
+
+func (p *PostAggregationPlaceholder) Result() interface{} {
+	// Return nil - actual result will be computed in post-processing
+	return nil
 }
 
 // ExpressionAggregatorWrapper wraps expression aggregator to make it compatible with LegacyAggregatorFunction interface
