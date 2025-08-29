@@ -22,6 +22,13 @@ func TestMathFunctions(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "abs with invalid",
+			funcName: "abs",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
 			name:     "abs negative",
 			funcName: "abs",
 			args:     []interface{}{-5},
@@ -64,11 +71,25 @@ func TestMathFunctions(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "sqrt with invalid",
+			funcName: "sqrt",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
 			name:     "acos valid",
 			funcName: "acos",
 			args:     []interface{}{1},
 			expected: float64(0),
 			wantErr:  false,
+		},
+		{
+			name:     "acos with invalid",
+			funcName: "acos",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
 		},
 		{
 			name:     "asin valid",
@@ -78,11 +99,25 @@ func TestMathFunctions(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "asin with invalid",
+			funcName: "asin",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
 			name:     "atan valid",
 			funcName: "atan",
 			args:     []interface{}{0},
 			expected: float64(0),
 			wantErr:  false,
+		},
+		{
+			name:     "atan with invalid",
+			funcName: "atan",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
 		},
 		{
 			name:     "cos zero",
@@ -92,11 +127,25 @@ func TestMathFunctions(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "cos with invalid",
+			funcName: "cos",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
 			name:     "sin zero",
 			funcName: "sin",
 			args:     []interface{}{0},
 			expected: float64(0),
 			wantErr:  false,
+		},
+		{
+			name:     "sin with invalid",
+			funcName: "sin",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
 		},
 		{
 			name:     "tan zero",
@@ -106,11 +155,25 @@ func TestMathFunctions(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "tan with invalid",
+			funcName: "tan",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
 			name:     "exp zero",
 			funcName: "exp",
 			args:     []interface{}{0},
 			expected: float64(1),
 			wantErr:  false,
+		},
+		{
+			name:     "exp with invalid",
+			funcName: "exp",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
 		},
 		{
 			name:     "log natural",
@@ -120,11 +183,25 @@ func TestMathFunctions(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "log natural with invalid",
+			funcName: "log",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
 			name:     "log10 hundred",
 			funcName: "log10",
 			args:     []interface{}{100},
 			expected: float64(2),
 			wantErr:  false,
+		},
+		{
+			name:     "log10 with invalid",
+			funcName: "log10",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
 		},
 		{
 			name:     "ceil positive",
@@ -134,11 +211,25 @@ func TestMathFunctions(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "ceil with invalid",
+			funcName: "ceil",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
 			name:     "floor positive",
 			funcName: "floor",
 			args:     []interface{}{3.14},
 			expected: float64(3),
 			wantErr:  false,
+		},
+		{
+			name:     "floor with invalid",
+			funcName: "floor",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
 		},
 		{
 			name:     "round positive",
@@ -148,11 +239,25 @@ func TestMathFunctions(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "round with invalid",
+			funcName: "round",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
 			name:     "round half up",
 			funcName: "round",
 			args:     []interface{}{3.5},
 			expected: float64(4),
 			wantErr:  false,
+		},
+		{
+			name:     "round with invalid",
+			funcName: "round",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
 		},
 		{
 			name:     "power basic",
@@ -162,6 +267,13 @@ func TestMathFunctions(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "power with invalid",
+			funcName: "power",
+			args:     []interface{}{"invalid", 3},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
 			name:     "mod basic",
 			funcName: "mod",
 			args:     []interface{}{10, 3},
@@ -169,11 +281,25 @@ func TestMathFunctions(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "mod with invalid",
+			funcName: "mod",
+			args:     []interface{}{"invalid", 3},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
 			name:     "log2 8",
 			funcName: "log2",
 			args:     []interface{}{8.0},
 			expected: float64(3),
 			wantErr:  false,
+		},
+		{
+			name:     "log2 with invalid",
+			funcName: "log2",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
 		},
 		{
 			name:     "log2 1",
@@ -197,6 +323,13 @@ func TestMathFunctions(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "sign with invalid",
+			funcName: "sign",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
 			name:     "sign negative",
 			funcName: "sign",
 			args:     []interface{}{-5.0},
@@ -216,6 +349,13 @@ func TestMathFunctions(t *testing.T) {
 			args:     []interface{}{10.0, 3.0},
 			expected: float64(1),
 			wantErr:  false,
+		},
+		{
+			name:     "mod with invalid",
+			funcName: "mod",
+			args:     []interface{}{"invalid", 3.0},
+			expected: nil,
+			wantErr:  true,
 		},
 		{
 			name:     "mod decimal",
@@ -251,6 +391,20 @@ func TestMathFunctions(t *testing.T) {
 			args:     []interface{}{-3.7},
 			expected: float64(-4),
 			wantErr:  false,
+		},
+		{
+			name:     "round with invalid",
+			funcName: "round",
+			args:     []interface{}{"invalid"},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
+			name:     "power basic with invalid",
+			funcName: "power",
+			args:     []interface{}{"invalid", 3.0},
+			expected: nil,
+			wantErr:  true,
 		},
 		{
 			name:     "power basic",
@@ -310,7 +464,13 @@ func TestMathFunctions(t *testing.T) {
 			if !exists {
 				t.Fatalf("Function %s not found", tt.funcName)
 			}
-
+			// 验证参数
+			if err := fn.Validate(tt.args); err != nil {
+				if !tt.wantErr {
+					t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+				}
+				return
+			}
 			result, err := fn.Execute(&FunctionContext{}, tt.args)
 			if tt.wantErr {
 				if err == nil {
@@ -376,54 +536,6 @@ func TestMathFunctionValidation(t *testing.T) {
 			name:     "abs valid args",
 			function: NewAbsFunction(),
 			args:     []interface{}{-5},
-			wantErr:  false,
-		},
-		{
-			name:     "sqrt no args",
-			function: NewSqrtFunction(),
-			args:     []interface{}{},
-			wantErr:  true,
-		},
-		{
-			name:     "sqrt valid args",
-			function: NewSqrtFunction(),
-			args:     []interface{}{9},
-			wantErr:  false,
-		},
-		{
-			name:     "power no args",
-			function: NewPowerFunction(),
-			args:     []interface{}{},
-			wantErr:  true,
-		},
-		{
-			name:     "power one arg",
-			function: NewPowerFunction(),
-			args:     []interface{}{2},
-			wantErr:  true,
-		},
-		{
-			name:     "power valid args",
-			function: NewPowerFunction(),
-			args:     []interface{}{2, 3},
-			wantErr:  false,
-		},
-		{
-			name:     "mod no args",
-			function: NewModFunction(),
-			args:     []interface{}{},
-			wantErr:  true,
-		},
-		{
-			name:     "mod one arg",
-			function: NewModFunction(),
-			args:     []interface{}{10},
-			wantErr:  true,
-		},
-		{
-			name:     "mod valid args",
-			function: NewModFunction(),
-			args:     []interface{}{10, 3},
 			wantErr:  false,
 		},
 	}

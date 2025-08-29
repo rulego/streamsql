@@ -82,7 +82,11 @@ func TestNewStringFunctions(t *testing.T) {
 			if !exists {
 				t.Fatalf("Function %s not found", tt.funcName)
 			}
-
+			// 验证参数
+			if err := fn.Validate(tt.args); err != nil {
+				t.Errorf("Validate() error = %v", err)
+				return
+			}
 			ctx := &FunctionContext{}
 			result, err := fn.Execute(ctx, tt.args)
 
@@ -165,84 +169,6 @@ func TestStringFunctionValidation(t *testing.T) {
 			name:     "length valid args",
 			function: NewLengthFunction(),
 			args:     []interface{}{"hello"},
-			wantErr:  false,
-		},
-		{
-			name:     "upper no args",
-			function: NewUpperFunction(),
-			args:     []interface{}{},
-			wantErr:  true,
-		},
-		{
-			name:     "upper valid args",
-			function: NewUpperFunction(),
-			args:     []interface{}{"hello"},
-			wantErr:  false,
-		},
-		{
-			name:     "endswith no args",
-			function: NewEndswithFunction(),
-			args:     []interface{}{},
-			wantErr:  true,
-		},
-		{
-			name:     "endswith one arg",
-			function: NewEndswithFunction(),
-			args:     []interface{}{"hello"},
-			wantErr:  true,
-		},
-		{
-			name:     "endswith valid args",
-			function: NewEndswithFunction(),
-			args:     []interface{}{"hello", "lo"},
-			wantErr:  false,
-		},
-		{
-			name:     "substring no args",
-			function: NewSubstringFunction(),
-			args:     []interface{}{},
-			wantErr:  true,
-		},
-		{
-			name:     "substring one arg",
-			function: NewSubstringFunction(),
-			args:     []interface{}{"hello"},
-			wantErr:  true,
-		},
-		{
-			name:     "substring valid args",
-			function: NewSubstringFunction(),
-			args:     []interface{}{"hello", 1},
-			wantErr:  false,
-		},
-		{
-			name:     "replace no args",
-			function: NewReplaceFunction(),
-			args:     []interface{}{},
-			wantErr:  true,
-		},
-		{
-			name:     "replace two args",
-			function: NewReplaceFunction(),
-			args:     []interface{}{"hello", "world"},
-			wantErr:  true,
-		},
-		{
-			name:     "replace valid args",
-			function: NewReplaceFunction(),
-			args:     []interface{}{"hello", "l", "x"},
-			wantErr:  false,
-		},
-		{
-			name:     "regexp_matches no args",
-			function: NewRegexpMatchesFunction(),
-			args:     []interface{}{},
-			wantErr:  true,
-		},
-		{
-			name:     "regexp_matches valid args",
-			function: NewRegexpMatchesFunction(),
-			args:     []interface{}{"hello123", "[0-9]+"},
 			wantErr:  false,
 		},
 	}

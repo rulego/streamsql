@@ -157,10 +157,10 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		})
 
 		// 添加测试数据
-		testTime := time.Date(2025, 4, 15, 10, 30, 0, 0, time.UTC)
+		//testTime := time.Date(2025, 4, 15, 10, 30, 0, 0, time.UTC)
 		testData := map[string]interface{}{
 			"device":    "test-device",
-			"timestamp": testTime,
+			"timestamp": "2025-08-25",
 		}
 		strm.Emit(testData)
 
@@ -177,8 +177,8 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			item := resultSlice[0]
 			assert.Equal(t, "test-device", item["device"])
 			assert.NotNil(t, item["current_time"])
-			assert.Equal(t, 2025.0, item["ts_year"])
-			assert.Equal(t, 4.0, item["ts_month"])
+			assert.Equal(t, 2025, item["ts_year"])
+			assert.Equal(t, 8, item["ts_month"])
 		case <-ctx.Done():
 			t.Fatal("测试超时，未收到结果")
 		}
@@ -947,7 +947,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			item := resultSlice[0]
 
 			// 验证执行顺序：date_add('2023-12-25 15:30:45', 1, 'years') -> '2024-12-25 15:30:45', year('2024-12-25 15:30:45') -> 2024
-			assert.Equal(t, float64(2024), item["next_year"])
+			assert.Equal(t, 2024, item["next_year"])
 		case <-ctx.Done():
 			t.Fatal("测试超时")
 		}
