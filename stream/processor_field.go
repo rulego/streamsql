@@ -98,6 +98,8 @@ func (s *Stream) compileSimpleFieldInfo(fieldSpec string) *fieldProcessInfo {
 
 // compileExpressionInfo pre-compiles expression processing information
 func (s *Stream) compileExpressionInfo() {
+	// Initialize unnest function detection flag
+	s.hasUnnestFunction = false
 	bridge := functions.GetExprBridge()
 
 	for fieldName, fieldExpr := range s.config.FieldExpressions {
@@ -123,6 +125,11 @@ func (s *Stream) compileExpressionInfo() {
 		exprInfo.isFunctionCall = strings.Contains(fieldExpr.Expression, "(") && strings.Contains(fieldExpr.Expression, ")")
 		exprInfo.hasNestedFields = !exprInfo.isFunctionCall && strings.Contains(fieldExpr.Expression, ".")
 		exprInfo.needsBacktickPreprocess = bridge.ContainsBacktickIdentifiers(fieldExpr.Expression)
+
+		// Check if expression contains unnest function
+		if exprInfo.isFunctionCall && strings.Contains(strings.ToLower(fieldExpr.Expression), "unnest(") {
+			s.hasUnnestFunction = true
+		}
 
 		// Pre-compile expression object (only for non-function call expressions)
 		if !exprInfo.isFunctionCall {

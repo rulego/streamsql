@@ -522,12 +522,54 @@ func (dp *DataProcessor) processDirectData(data map[string]interface{}) {
 		}
 	}
 
-	// Wrap result as array
-	results := []map[string]interface{}{result}
+	// Check if any field contains unnest function result and expand to multiple rows
+	results := dp.expandUnnestResults(result, dataMap)
 
 	// Non-blocking send result to resultChan
 	dp.stream.sendResultNonBlocking(results)
 
 	// Asynchronously call all sinks, avoid blocking
 	dp.stream.callSinksAsync(results)
+}
+
+// expandUnnestResults 检查结果是否包含 unnest 函数输出并展开为多行
+func (dp *DataProcessor) expandUnnestResults(result map[string]interface{}, originalData map[string]interface{}) []map[string]interface{} {
+	// Early return if no unnest function is used in the query
+	// This optimization significantly improves performance for queries without unnest functions
+	if !dp.stream.hasUnnestFunction {
+		return []map[string]interface{}{result}
+	}
+	
+	if len(result) == 0 {
+		return []map[string]interface{}{result}
+	}
+	
+	for fieldName, fieldValue := range result {
+		if functions.IsUnnestResult(fieldValue) {
+			expandedRows := functions.ProcessUnnestResultWithFieldName(fieldValue, fieldName)
+			// 如果unnest结果为空，返回空结果数组
+			if len(expandedRows) == 0 {
+				return []map[string]interface{}{}
+			}
+			
+			results := make([]map[string]interface{}, len(expandedRows))
+			for i, unnestRow := range expandedRows {
+				newRow := make(map[string]interface{}, len(result)+len(unnestRow))
+				for k, v := range result {
+					if k != fieldName {
+						newRow[k] = v
+					}
+				}
+				
+				for k, v := range unnestRow {
+					newRow[k] = v
+				}
+				
+				results[i] = newRow
+			}
+			return results
+		}
+	}
+	
+	return []map[string]interface{}{result}
 }

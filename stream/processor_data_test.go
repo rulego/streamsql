@@ -430,3 +430,140 @@ func TestDataProcessor_ExpressionWithNullValues(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 20.0, result)
 }
+
+// TestDataProcessor_ExpandUnnestResults 测试 expandUnnestResults 函数的各种情况
+func TestDataProcessor_ExpandUnnestResults(t *testing.T) {
+	tests := []struct {
+		name             string
+		hasUnnestFunction bool
+		result           map[string]interface{}
+		originalData     map[string]interface{}
+		expected         []map[string]interface{}
+	}{
+		{
+			name:             "no unnest function - should return single result",
+			hasUnnestFunction: false,
+			result: map[string]interface{}{
+				"name": "test",
+				"age":  25,
+			},
+			originalData: map[string]interface{}{"id": 1},
+			expected: []map[string]interface{}{
+				{"name": "test", "age": 25},
+			},
+		},
+		{
+			name:             "empty result - should return single empty result",
+			hasUnnestFunction: true,
+			result:           map[string]interface{}{},
+			originalData:     map[string]interface{}{"id": 1},
+			expected: []map[string]interface{}{
+				{},
+			},
+		},
+		{
+			name:             "no unnest result - should return single result",
+			hasUnnestFunction: true,
+			result: map[string]interface{}{
+				"name": "test",
+				"age":  25,
+			},
+			originalData: map[string]interface{}{"id": 1},
+			expected: []map[string]interface{}{
+				{"name": "test", "age": 25},
+			},
+		},
+		{
+			name:             "unnest result with simple values",
+			hasUnnestFunction: true,
+			result: map[string]interface{}{
+				"name": "test",
+				"items": []interface{}{
+					map[string]interface{}{
+						"__unnest_object__": true,
+						"__data__":          "item1",
+					},
+					map[string]interface{}{
+						"__unnest_object__": true,
+						"__data__":          "item2",
+					},
+				},
+			},
+			originalData: map[string]interface{}{"id": 1},
+			expected: []map[string]interface{}{
+				{"name": "test", "items": "item1"},
+				{"name": "test", "items": "item2"},
+			},
+		},
+		{
+			name:             "unnest result with object values",
+			hasUnnestFunction: true,
+			result: map[string]interface{}{
+				"name": "test",
+				"orders": []interface{}{
+					map[string]interface{}{
+						"__unnest_object__": true,
+						"__data__": map[string]interface{}{
+							"order_id": 1,
+							"amount":   100,
+						},
+					},
+					map[string]interface{}{
+						"__unnest_object__": true,
+						"__data__": map[string]interface{}{
+							"order_id": 2,
+							"amount":   200,
+						},
+					},
+				},
+			},
+			originalData: map[string]interface{}{"id": 1},
+			expected: []map[string]interface{}{
+				{"name": "test", "order_id": 1, "amount": 100},
+				{"name": "test", "order_id": 2, "amount": 200},
+			},
+		},
+		{
+			name:             "empty unnest result - should return empty array",
+			hasUnnestFunction: true,
+			result: map[string]interface{}{
+				"name": "test",
+				"items": []interface{}{
+					map[string]interface{}{
+						"__unnest_object__": true,
+						"__empty_unnest__":  true,
+					},
+				},
+			},
+			originalData: map[string]interface{}{"id": 1},
+			expected:     []map[string]interface{}{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 创建测试用的 stream 和 processor
+			config := types.Config{
+				SimpleFields: []string{"name", "age"},
+			}
+			stream, err := NewStream(config)
+			require.NoError(t, err)
+			defer func() {
+				if stream != nil {
+					close(stream.done)
+				}
+			}()
+
+			// 设置 hasUnnestFunction 标志
+			stream.hasUnnestFunction = tt.hasUnnestFunction
+
+			processor := NewDataProcessor(stream)
+
+			// 调用被测试的函数
+			result := processor.expandUnnestResults(tt.result, tt.originalData)
+
+			// 验证结果
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

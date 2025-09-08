@@ -15,7 +15,20 @@ func TestUnnestFunction(t *testing.T) {
 	if err != nil {
 		t.Errorf("UnnestFunction should not return error: %v", err)
 	}
-	expected := []interface{}{"a", "b", "c"}
+	expected := []interface{}{
+		map[string]interface{}{
+			"__unnest_object__": true,
+			"__data__":          "a",
+		},
+		map[string]interface{}{
+			"__unnest_object__": true,
+			"__data__":          "b",
+		},
+		map[string]interface{}{
+			"__unnest_object__": true,
+			"__data__":          "c",
+		},
+	}
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("UnnestFunction = %v, want %v", result, expected)
 	}
@@ -51,8 +64,15 @@ func TestUnnestFunction(t *testing.T) {
 	if err != nil {
 		t.Errorf("UnnestFunction should not return error for empty array: %v", err)
 	}
-	if len(result.([]interface{})) != 0 {
-		t.Errorf("UnnestFunction should return empty array for empty input")
+	// 空数组应该返回带有空标记的结果
+	expectedEmpty := []interface{}{
+		map[string]interface{}{
+			"__unnest_object__": true,
+			"__empty_unnest__":  true,
+		},
+	}
+	if !reflect.DeepEqual(result, expectedEmpty) {
+		t.Errorf("UnnestFunction empty array = %v, want %v", result, expectedEmpty)
 	}
 
 	// 测试nil参数
@@ -61,8 +81,15 @@ func TestUnnestFunction(t *testing.T) {
 	if err != nil {
 		t.Errorf("UnnestFunction should not return error for nil: %v", err)
 	}
-	if len(result.([]interface{})) != 0 {
-		t.Errorf("UnnestFunction should return empty array for nil input")
+	// nil应该返回带有空标记的结果
+	expectedNil := []interface{}{
+		map[string]interface{}{
+			"__unnest_object__": true,
+			"__empty_unnest__":  true,
+		},
+	}
+	if !reflect.DeepEqual(result, expectedNil) {
+		t.Errorf("UnnestFunction nil = %v, want %v", result, expectedNil)
 	}
 
 	// 测试错误参数数量
@@ -85,7 +112,20 @@ func TestUnnestFunction(t *testing.T) {
 	if err != nil {
 		t.Errorf("UnnestFunction should handle arrays: %v", err)
 	}
-	expected = []interface{}{"x", "y", "z"}
+	expected = []interface{}{
+		map[string]interface{}{
+			"__unnest_object__": true,
+			"__data__":          "x",
+		},
+		map[string]interface{}{
+			"__unnest_object__": true,
+			"__data__":          "y",
+		},
+		map[string]interface{}{
+			"__unnest_object__": true,
+			"__data__":          "z",
+		},
+	}
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("UnnestFunction array = %v, want %v", result, expected)
 	}

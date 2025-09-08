@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql/functions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -986,14 +987,293 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 			// 验证错误处理：invalid_field不存在，应该返回nil或默认值
 			_, exists := item["error_result"]
-			if exists {
-				// 如果字段存在，应该是nil或者错误被正确处理
-				t.Logf("Error result field exists: %v", item["error_result"])
-			} else {
-				t.Logf("Error result field does not exist (expected behavior)")
-			}
+			assert.True(t, exists)
 		case <-ctx.Done():
 			t.Fatal("测试超时")
 		}
 	})
+}
+
+// flattenUnnestRows 将可能包含 unnest 结果的批次结果展开为多行，便于断言
+// 兼容两种形态：
+// 1) 当前实现：返回单行，其中 alias 字段为 []interface{}（需要在测试侧展开）
+// 2) 未来实现：引擎直接返回多行（此时原样返回）
+func flattenUnnestRows(result []map[string]interface{}, alias string) []map[string]interface{} {
+	// 如果已经是多行，直接返回
+	if len(result) > 1 {
+		return result
+	}
+	if len(result) == 0 {
+		return result
+	}
+
+	// 形如：[{ alias: []interface{}{...} , ...}]
+	if v, ok := result[0][alias]; ok {
+		if functions.IsUnnestResult(v) {
+			// 使用ProcessUnnestResultWithFieldName保留字段名，并合并其他字段
+			expandedRows := functions.ProcessUnnestResultWithFieldName(v, alias)
+			if len(expandedRows) == 0 {
+				return result
+			}
+
+			// 将其他字段合并到每一行中
+			results := make([]map[string]interface{}, len(expandedRows))
+			for i, unnestRow := range expandedRows {
+				newRow := make(map[string]interface{}, len(result[0])+len(unnestRow))
+				// 复制原始行的其他字段（除了unnest字段）
+				for k, v := range result[0] {
+					if k != alias {
+						newRow[k] = v
+					}
+				}
+				// 添加unnest展开的字段
+				for k, v := range unnestRow {
+					newRow[k] = v
+				}
+				results[i] = newRow
+			}
+			return results
+		}
+	}
+
+	return result
+}
+
+// TestUnnestFunctionIntegration 验证 unnest(array) 是否按预期将数组展开为多行
+// 该用例集成到完整 SQL 执行路径：
+// - 语法: unnest(array)
+// - 描述: 将数组展开为多行
+// - 示例: SELECT unnest(tags) as tag FROM stream
+func TestUnnestFunctionIntegration(t *testing.T) {
+	t.Run("PrimitiveArray", func(t *testing.T) {
+		ssql := New()
+		defer ssql.Stop()
+
+		sql := "SELECT unnest(tags) as tag FROM stream"
+		err := ssql.Execute(sql)
+		require.NoError(t, err)
+
+		strm := ssql.stream
+		resultChan := make(chan interface{}, 10)
+		strm.AddSink(func(result []map[string]interface{}) {
+			resultChan <- result
+		})
+
+		// 输入为普通字符串数组
+		input := map[string]interface{}{
+			"tags": []string{"a", "b", "c"},
+		}
+		strm.Emit(input)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		select {
+		case raw := <-resultChan:
+			batch, ok := raw.([]map[string]interface{})
+			require.True(t, ok)
+			// 按两种形态规范化为多行
+			rows := flattenUnnestRows(batch, "tag")
+			require.Len(t, rows, 3)
+
+			expected := []string{"a", "b", "c"}
+			for i, exp := range expected {
+				row := rows[i]
+				// 兼容两种字段命名：引擎直接展开可能使用别名(tag)，函数侧展开为默认字段(value)
+				var got interface{}
+				if v, ok := row["tag"]; ok {
+					got = v
+				} else if v, ok := row["value"]; ok {
+					got = v
+				} else {
+					t.Fatalf("row %d does not contain expected field 'tag' or 'value': %v", i, row)
+				}
+				assert.Equal(t, exp, got)
+			}
+		case <-ctx.Done():
+			t.Fatal("测试超时，未收到结果")
+		}
+	})
+
+	t.Run("CombinedColumns", func(t *testing.T) {
+		ssql := New()
+		defer ssql.Stop()
+
+		// 测试组合列：SELECT id,unnest(tags) as tag FROM events
+		sql := "SELECT id, unnest(tags) as tag FROM stream"
+		err := ssql.Execute(sql)
+		require.NoError(t, err)
+
+		strm := ssql.stream
+		resultChan := make(chan interface{}, 10)
+		strm.AddSink(func(result []map[string]interface{}) {
+			resultChan <- result
+		})
+
+		// 输入包含id字段和tags数组
+		input := map[string]interface{}{
+			"id":   100,
+			"tags": []string{"a", "b", "c"},
+		}
+		strm.Emit(input)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		select {
+		case raw := <-resultChan:
+			batch, ok := raw.([]map[string]interface{})
+			require.True(t, ok)
+			// 展开unnest结果
+			rows := flattenUnnestRows(batch, "tag")
+			require.Len(t, rows, 3)
+
+			// 验证每行都包含id字段和tag字段
+			expectedTags := []string{"a", "b", "c"}
+			for i, expectedTag := range expectedTags {
+				row := rows[i]
+
+				// 验证id字段保持不变
+				assert.Equal(t, 100, row["id"], "row %d should have id=100", i)
+
+				// 验证tag字段
+				var gotTag interface{}
+				if v, ok := row["tag"]; ok {
+					gotTag = v
+				} else if v, ok := row["value"]; ok {
+					gotTag = v
+				} else {
+					t.Fatalf("row %d does not contain expected field 'tag' or 'value': %v", i, row)
+				}
+				assert.Equal(t, expectedTag, gotTag, "row %d should have tag=%s", i, expectedTag)
+			}
+		case <-ctx.Done():
+			t.Fatal("测试超时，未收到结果")
+		}
+	})
+	t.Run("ObjectArray", func(t *testing.T) {
+		ssql := New()
+		defer ssql.Stop()
+
+		sql := "SELECT unnest(props) as prop FROM stream"
+		err := ssql.Execute(sql)
+		require.NoError(t, err)
+
+		strm := ssql.stream
+		resultChan := make(chan interface{}, 10)
+		strm.AddSink(func(result []map[string]interface{}) {
+			resultChan <- result
+		})
+
+		// 输入为对象数组
+		input := map[string]interface{}{
+			"props": []map[string]interface{}{
+				{"k": "x", "v": 1},
+				{"k": "y", "v": 2},
+			},
+		}
+		strm.Emit(input)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		select {
+		case raw := <-resultChan:
+			batch, ok := raw.([]map[string]interface{})
+			require.True(t, ok)
+
+			rows := flattenUnnestRows(batch, "prop")
+			require.Len(t, rows, 2)
+
+			// 校验每一行包含对象内的字段
+			assert.Equal(t, "x", firstOf(rows[0], "k", "prop", "k"))
+			assert.Equal(t, 1, firstOf(rows[0], "v", "prop", "v"))
+			assert.Equal(t, "y", firstOf(rows[1], "k", "prop", "k"))
+			assert.Equal(t, 2, firstOf(rows[1], "v", "prop", "v"))
+		case <-ctx.Done():
+			t.Fatal("测试超时，未收到结果")
+		}
+	})
+
+	t.Run("EmptyArray", func(t *testing.T) {
+		ssql := New()
+		defer ssql.Stop()
+
+		sql := "SELECT unnest(tags) as tag FROM stream"
+		err := ssql.Execute(sql)
+		require.NoError(t, err)
+
+		strm := ssql.stream
+		resultChan := make(chan interface{}, 10)
+		strm.AddSink(func(result []map[string]interface{}) {
+			resultChan <- result
+		})
+
+		// 空数组
+		input := map[string]interface{}{
+			"tags": []string{},
+		}
+		strm.Emit(input)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		select {
+		case raw := <-resultChan:
+			batch, ok := raw.([]map[string]interface{})
+			require.True(t, ok)
+
+			rows := flattenUnnestRows(batch, "tag")
+			assert.Len(t, rows, 0)
+		case <-ctx.Done():
+			t.Fatal("测试超时，未收到结果")
+		}
+	})
+
+	t.Run("NilArray", func(t *testing.T) {
+		ssql := New()
+		defer ssql.Stop()
+
+		sql := "SELECT unnest(tags) as tag FROM stream"
+		err := ssql.Execute(sql)
+		require.NoError(t, err)
+
+		strm := ssql.stream
+		resultChan := make(chan interface{}, 10)
+		strm.AddSink(func(result []map[string]interface{}) {
+			resultChan <- result
+		})
+
+		// nil 值
+		input := map[string]interface{}{
+			"tags": nil,
+		}
+		strm.Emit(input)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		select {
+		case raw := <-resultChan:
+			batch, ok := raw.([]map[string]interface{})
+			require.True(t, ok)
+
+			rows := flattenUnnestRows(batch, "tag")
+			assert.Len(t, rows, 0)
+		case <-ctx.Done():
+			t.Fatal("测试超时，未收到结果")
+		}
+	})
+}
+
+// firstOf 辅助从行中读取字段值，兼容 prop 为对象的形态
+// 优先按 top-level 字段取值，若不存在则尝试从嵌套对象（如 prop[k]）获取
+func firstOf(row map[string]interface{}, topLevelKey string, nestedObjKey string, nestedField string) interface{} {
+	if v, ok := row[topLevelKey]; ok {
+		return v
+	}
+	if m, ok := row[nestedObjKey].(map[string]interface{}); ok {
+		return m[nestedField]
+	}
+	return nil
 }

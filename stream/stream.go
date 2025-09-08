@@ -97,6 +97,11 @@ type Stream struct {
 	compiledFieldInfo map[string]*fieldProcessInfo      // Field processing information cache
 	compiledExprInfo  map[string]*expressionProcessInfo // Expression processing information cache
 
+	// Unnest function optimization flags
+	// hasUnnestFunction 标识查询是否使用了 unnest 函数，在预处理阶段确定
+	// 用于优化 expandUnnestResults 函数的性能，避免不必要的字段遍历检查
+	hasUnnestFunction bool // Whether the query uses unnest function, determined during preprocessing
+
 }
 
 // NewStream creates Stream using unified configuration
