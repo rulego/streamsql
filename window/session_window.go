@@ -19,6 +19,7 @@ package window
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -68,19 +69,24 @@ type session struct {
 func NewSessionWindow(config types.WindowConfig) (*SessionWindow, error) {
 	// Create a cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
-	timeout, err := cast.ToDurationE(config.Params["timeout"])
+
+	// Get timeout parameter from params array
+	if len(config.Params) == 0 {
+		return nil, fmt.Errorf("session window requires 'timeout' parameter")
+	}
+
+	timeoutVal := config.Params[0]
+	timeout, err := cast.ToDurationE(timeoutVal)
 	if err != nil {
 		return nil, fmt.Errorf("invalid timeout for session window: %v", err)
 	}
 
 	// Use unified performance configuration to get window output buffer size
 	bufferSize := 100 // Default value, session windows typically have smaller buffers
-	if perfConfig, exists := config.Params["performanceConfig"]; exists {
-		if pc, ok := perfConfig.(types.PerformanceConfig); ok {
-			bufferSize = pc.BufferConfig.WindowOutputSize / 10 // Session window uses 1/10 of buffer
-			if bufferSize < 10 {
-				bufferSize = 10 // Minimum value
-			}
+	if (config.PerformanceConfig != types.PerformanceConfig{}) {
+		bufferSize = config.PerformanceConfig.BufferConfig.WindowOutputSize / 10 // Session window uses 1/10 of buffer
+		if bufferSize < 10 {
+			bufferSize = 10 // Minimum value
 		}
 	}
 
@@ -115,9 +121,8 @@ func (sw *SessionWindow) Add(data interface{}) {
 		Timestamp: timestamp,
 	}
 
-	// Extract session key
-	// If groupby is configured, use groupby field as session key
-	key := extractSessionKey(data, sw.config.GroupByKey)
+	// Extract session key (supports multiple group by keys)
+	key := extractSessionCompositeKey(data, sw.config.GroupByKeys)
 
 	// Get or create session
 	s, exists := sw.sessionMap[key]
@@ -208,7 +213,6 @@ func (sw *SessionWindow) Stop() {
 // checkExpiredSessions checks and triggers expired sessions
 func (sw *SessionWindow) checkExpiredSessions() {
 	sw.mu.Lock()
-	defer sw.mu.Unlock()
 
 	now := time.Now()
 	expiredKeys := []string{}
@@ -221,49 +225,74 @@ func (sw *SessionWindow) checkExpiredSessions() {
 	}
 
 	// Process expired sessions
+	resultsToSend := make([][]types.Row, 0)
 	for _, key := range expiredKeys {
 		s := sw.sessionMap[key]
 		if len(s.data) > 0 {
 			// Trigger session window
 			result := make([]types.Row, len(s.data))
 			copy(result, s.data)
-
-			// If callback function is set, execute it
-			if sw.callback != nil {
-				sw.callback(result)
-			}
-
-			// Send data to output channel
-			sw.outputChan <- result
+			resultsToSend = append(resultsToSend, result)
 		}
 		// Delete expired session
 		delete(sw.sessionMap, key)
+	}
+
+	// Release lock before sending to channel and calling callback to avoid blocking
+	sw.mu.Unlock()
+
+	// Send results and call callbacks outside of lock to avoid blocking
+	for _, result := range resultsToSend {
+		// If callback function is set, execute it
+		if sw.callback != nil {
+			sw.callback(result)
+		}
+
+		// Non-blocking send to output channel
+		select {
+		case sw.outputChan <- result:
+			// Successfully sent
+		default:
+			// Channel full, drop result (could add statistics here if needed)
+		}
 	}
 }
 
 // Trigger manually triggers all session windows
 func (sw *SessionWindow) Trigger() {
 	sw.mu.Lock()
-	defer sw.mu.Unlock()
 
-	// Iterate through all sessions
+	// Collect all results first
+	resultsToSend := make([][]types.Row, 0)
 	for _, s := range sw.sessionMap {
 		if len(s.data) > 0 {
 			// Trigger session window
 			result := make([]types.Row, len(s.data))
 			copy(result, s.data)
-
-			// If callback function is set, execute it
-			if sw.callback != nil {
-				sw.callback(result)
-			}
-
-			// Send data to output channel
-			sw.outputChan <- result
+			resultsToSend = append(resultsToSend, result)
 		}
 	}
 	// Clear all sessions
 	sw.sessionMap = make(map[string]*session)
+
+	// Release lock before sending to channel and calling callback to avoid blocking
+	sw.mu.Unlock()
+
+	// Send results and call callbacks outside of lock to avoid blocking
+	for _, result := range resultsToSend {
+		// If callback function is set, execute it
+		if sw.callback != nil {
+			sw.callback(result)
+		}
+
+		// Non-blocking send to output channel
+		select {
+		case sw.outputChan <- result:
+			// Successfully sent
+		default:
+			// Channel full, drop result (could add statistics here if needed)
+		}
+	}
 }
 
 // Reset resets session window data
@@ -297,19 +326,18 @@ func (sw *SessionWindow) SetCallback(callback func([]types.Row)) {
 	sw.callback = callback
 }
 
-// extractSessionKey extracts session key from data
-// If no key is specified, returns default key
-func extractSessionKey(data interface{}, keyField string) string {
-	if keyField == "" {
-		return "default" // Default session key
+// extractSessionCompositeKey builds composite session key from multiple group fields
+// If GroupByKeys is empty, returns default key
+func extractSessionCompositeKey(data interface{}, keys []string) string {
+	if len(keys) == 0 {
+		return "default"
 	}
-
-	// Try to extract from map
+	parts := make([]string, 0, len(keys))
 	if m, ok := data.(map[string]interface{}); ok {
-		if val, exists := m[keyField]; exists {
-			return fmt.Sprintf("%v", val)
+		for _, k := range keys {
+			parts = append(parts, fmt.Sprintf("%v", m[k]))
 		}
+		return strings.Join(parts, "|")
 	}
-
 	return "default"
 }
