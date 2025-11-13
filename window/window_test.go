@@ -1029,8 +1029,8 @@ func TestWindowUnifiedConfigIntegration(t *testing.T) {
 
 		// 检查统计信息
 		stats := tw.GetStats()
-		assert.Contains(t, stats, "dropped_count")
-		assert.Contains(t, stats, "sent_count")
+		assert.Contains(t, stats, "droppedCount")
+		assert.Contains(t, stats, "sentCount")
 	})
 }
 
@@ -1369,8 +1369,8 @@ func TestTumblingWindowAdvanced(t *testing.T) {
 
 	// 检查统计信息
 	stats := tw.GetStats()
-	assert.Contains(t, stats, "sent_count")
-	assert.Contains(t, stats, "dropped_count")
+	assert.Contains(t, stats, "sentCount")
+	assert.Contains(t, stats, "droppedCount")
 
 	// 测试重置统计信息
 	tw.ResetStats()
