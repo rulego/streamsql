@@ -66,17 +66,22 @@ type TumblingWindow struct {
 func NewTumblingWindow(config types.WindowConfig) (*TumblingWindow, error) {
 	// Create a cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
-	size, err := cast.ToDurationE(config.Params["size"])
+
+	// Get size parameter from params array
+	if len(config.Params) == 0 {
+		return nil, fmt.Errorf("tumbling window requires 'size' parameter")
+	}
+
+	sizeVal := config.Params[0]
+	size, err := cast.ToDurationE(sizeVal)
 	if err != nil {
 		return nil, fmt.Errorf("invalid size for tumbling window: %v", err)
 	}
 
 	// Use unified performance config to get window output buffer size
 	bufferSize := 1000 // Default value
-	if perfConfig, exists := config.Params["performanceConfig"]; exists {
-		if pc, ok := perfConfig.(types.PerformanceConfig); ok {
-			bufferSize = pc.BufferConfig.WindowOutputSize
-		}
+	if (config.PerformanceConfig != types.PerformanceConfig{}) {
+		bufferSize = config.PerformanceConfig.BufferConfig.WindowOutputSize
 	}
 
 	return &TumblingWindow{
@@ -196,9 +201,9 @@ func (tw *TumblingWindow) Start() {
 func (tw *TumblingWindow) Trigger() {
 	// Lock to ensure thread safety
 	tw.mu.Lock()
-	defer tw.mu.Unlock()
 
 	if !tw.initialized {
+		tw.mu.Unlock()
 		return
 	}
 	// Calculate next window slot
@@ -223,26 +228,41 @@ func (tw *TumblingWindow) Trigger() {
 		}
 	}
 
-	// Execute callback function if set
-	if tw.callback != nil {
-		tw.callback(resultData)
-	}
-
 	// Update window data
 	tw.data = newData
 	tw.currentSlot = next
 
+	// Get callback reference before releasing lock
+	callback := tw.callback
+
+	// Release lock before calling callback and sending to channel to avoid blocking
+	tw.mu.Unlock()
+
+	if callback != nil {
+		callback(resultData)
+	}
+
 	// Non-blocking send to output channel and update statistics
+	var sent bool
 	select {
 	case tw.outputChan <- resultData:
-		// Successfully sent, update statistics (within lock)
-		tw.sentCount++
+		// Successfully sent
+		sent = true
 	default:
-		// Channel full, drop result and update statistics (within lock)
-		tw.droppedCount++
+		// Channel full, drop result
+		sent = false
+	}
 
+	// Re-acquire lock to update statistics
+	tw.mu.Lock()
+	if sent {
+		tw.sentCount++
+	} else {
+		tw.droppedCount++
 		// Optional: add logging here
-	} // log.Printf("Window output channel full, dropped result with %d rows", len(resultData))
+		// log.Printf("Window output channel full, dropped result with %d rows", len(resultData))
+	}
+	tw.mu.Unlock()
 }
 
 // Reset resets tumbling window data
@@ -290,10 +310,10 @@ func (tw *TumblingWindow) GetStats() map[string]int64 {
 	defer tw.mu.RUnlock()
 
 	return map[string]int64{
-		"sent_count":    tw.sentCount,
-		"dropped_count": tw.droppedCount,
-		"buffer_size":   int64(cap(tw.outputChan)),
-		"buffer_used":   int64(len(tw.outputChan)),
+		"sentCount":    tw.sentCount,
+		"droppedCount": tw.droppedCount,
+		"bufferSize":   int64(cap(tw.outputChan)),
+		"bufferUsed":   int64(len(tw.outputChan)),
 	}
 }
 
