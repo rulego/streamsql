@@ -16,7 +16,7 @@ func TestTumblingWindow(t *testing.T) {
 
 	tw, _ := NewTumblingWindow(types.WindowConfig{
 		Type:   "TumblingWindow",
-		Params: map[string]interface{}{"size": "2s"},
+		Params: []interface{}{2 * time.Second},
 		TsProp: "Ts",
 	})
 	tw.SetCallback(func(results []types.Row) {

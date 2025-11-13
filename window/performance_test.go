@@ -17,10 +17,7 @@ func TestTumblingWindowPerformance(t *testing.T) {
 		t.Run(fmt.Sprintf("BufferSize_%d", bufferSize), func(t *testing.T) {
 			tw, _ := NewTumblingWindow(types.WindowConfig{
 				Type: "TumblingWindow",
-				Params: map[string]interface{}{
-					"size":             "100ms",
-					"outputBufferSize": bufferSize,
-				},
+				Params: []interface{}{100 * time.Millisecond},
 				TsProp: "Ts",
 			})
 
@@ -47,14 +44,14 @@ func TestTumblingWindowPerformance(t *testing.T) {
 
 			t.Logf("缓冲区大小: %d", bufferSize)
 			t.Logf("处理时间: %v", elapsed)
-			t.Logf("发送成功: %d", stats["sent_count"])
-			t.Logf("丢弃数量: %d", stats["dropped_count"])
-			t.Logf("缓冲区利用率: %d/%d", stats["buffer_used"], stats["buffer_size"])
+			t.Logf("发送成功: %d", stats["sentCount"])
+			t.Logf("丢弃数量: %d", stats["droppedCount"])
+			t.Logf("缓冲区利用率: %d/%d", stats["bufferUsed"], stats["bufferSize"])
 
 			// 验证没有严重的数据丢失
 			if bufferSize >= 1000 {
-				if stats["dropped_count"] > int64(dataCount/10) { // 允许最多10%的丢失
-					t.Errorf("丢失数据过多: %d (总数: %d)", stats["dropped_count"], dataCount)
+				if stats["droppedCount"] > int64(dataCount/10) { // 允许最多10%的丢失
+					t.Errorf("丢失数据过多: %d (总数: %d)", stats["droppedCount"], dataCount)
 				}
 			}
 
@@ -73,10 +70,7 @@ type TestData struct {
 func BenchmarkTumblingWindowThroughput(b *testing.B) {
 	tw, _ := NewTumblingWindow(types.WindowConfig{
 		Type: "TumblingWindow",
-		Params: map[string]interface{}{
-			"size":             "10ms",
-			"outputBufferSize": 5000,
-		},
+		Params: []interface{}{10 * time.Millisecond},
 		TsProp: "Ts",
 	})
 
@@ -107,7 +101,7 @@ func BenchmarkTumblingWindowThroughput(b *testing.B) {
 
 	// 获取最终统计
 	stats := tw.GetStats()
-	b.Logf("发送成功: %d, 丢弃: %d", stats["sent_count"], stats["dropped_count"])
+	b.Logf("发送成功: %d, 丢弃: %d", stats["sentCount"], stats["droppedCount"])
 
 	tw.Stop()
 }
@@ -117,10 +111,7 @@ func TestWindowBufferOverflow(t *testing.T) {
 	// 创建一个小缓冲区的窗口
 	tw, _ := NewTumblingWindow(types.WindowConfig{
 		Type: "TumblingWindow",
-		Params: map[string]interface{}{
-			"size":             "50ms",
-			"outputBufferSize": 5, // 很小的缓冲区
-		},
+		Params: []interface{}{50 * time.Millisecond},
 		TsProp: "Ts",
 	})
 
@@ -141,15 +132,15 @@ func TestWindowBufferOverflow(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	stats := tw.GetStats()
-	t.Logf("缓冲区溢出测试 - 发送: %d, 丢弃: %d", stats["sent_count"], stats["dropped_count"])
+	t.Logf("缓冲区溢出测试 - 发送: %d, 丢弃: %d", stats["sentCount"], stats["droppedCount"])
 
 	// 应该有数据被丢弃
-	if stats["dropped_count"] == 0 {
+	if stats["droppedCount"] == 0 {
 		t.Log("预期会有数据丢弃，但实际没有丢弃")
 	}
 
 	// 验证系统仍然运行正常（没有阻塞）
-	if stats["sent_count"] == 0 {
+	if stats["sentCount"] == 0 {
 		t.Error("应该至少发送了一些数据")
 	}
 

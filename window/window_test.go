@@ -2,6 +2,7 @@ package window
 
 import (
 	"reflect"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -23,9 +24,7 @@ func getTypeString(obj interface{}) string {
 func TestWindowEdgeCases(t *testing.T) {
 	t.Run("tumbling window with zero duration", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Duration(0),
-			},
+			Params: []interface{}{time.Duration(0)},
 		}
 		_, err := NewTumblingWindow(config)
 		// 零持续时间可能是有效的，取决于实现
@@ -34,9 +33,7 @@ func TestWindowEdgeCases(t *testing.T) {
 
 	t.Run("tumbling window with negative duration", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": -time.Second,
-			},
+			Params: []interface{}{-time.Second},
 		}
 		_, err := NewTumblingWindow(config)
 		// 负持续时间可能是有效的，取决于实现
@@ -45,10 +42,7 @@ func TestWindowEdgeCases(t *testing.T) {
 
 	t.Run("sliding window with zero window size", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size":  time.Duration(0),
-				"slide": time.Second,
-			},
+			Params: []interface{}{time.Duration(0), time.Second},
 		}
 		_, err := NewSlidingWindow(config)
 		// 零滑动间隔可能是有效的，取决于实现
@@ -57,10 +51,7 @@ func TestWindowEdgeCases(t *testing.T) {
 
 	t.Run("sliding window with zero slide interval", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size":  time.Minute,
-				"slide": time.Duration(0),
-			},
+			Params: []interface{}{time.Minute, time.Duration(0)},
 		}
 		_, err := NewSlidingWindow(config)
 		// 零滑动间隔可能是有效的，取决于实现
@@ -70,10 +61,7 @@ func TestWindowEdgeCases(t *testing.T) {
 	t.Run("sliding window with slide larger than window", func(t *testing.T) {
 		// 这种情况可能是有效的，取决于实现
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size":  time.Second,
-				"slide": time.Minute,
-			},
+			Params: []interface{}{time.Second, time.Minute},
 		}
 		window, err := NewSlidingWindow(config)
 		_ = window
@@ -82,9 +70,7 @@ func TestWindowEdgeCases(t *testing.T) {
 
 	t.Run("counting window with zero count", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"count": 0,
-			},
+			Params: []interface{}{0},
 		}
 		_, err := NewCountingWindow(config)
 		require.NotNil(t, err)
@@ -92,9 +78,7 @@ func TestWindowEdgeCases(t *testing.T) {
 
 	t.Run("counting window with negative count", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"count": -10,
-			},
+			Params: []interface{}{-10},
 		}
 		_, err := NewCountingWindow(config)
 		require.NotNil(t, err)
@@ -102,9 +86,7 @@ func TestWindowEdgeCases(t *testing.T) {
 
 	t.Run("session window with zero timeout", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"timeout": time.Duration(0),
-			},
+			Params: []interface{}{time.Duration(0)},
 		}
 		_, err := NewSessionWindow(config)
 		// 零超时可能是有效的，取决于实现
@@ -113,9 +95,7 @@ func TestWindowEdgeCases(t *testing.T) {
 
 	t.Run("session window with negative timeout", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"timeout": -time.Second,
-			},
+			Params: []interface{}{-time.Second},
 		}
 		_, err := NewSessionWindow(config)
 		// 负超时可能是有效的，取决于实现
@@ -127,9 +107,7 @@ func TestWindowEdgeCases(t *testing.T) {
 func TestWindowWithNilCallback(t *testing.T) {
 	t.Run("tumbling window with nil callback", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Second,
-			},
+			Params: []interface{}{time.Second},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -147,10 +125,7 @@ func TestWindowWithNilCallback(t *testing.T) {
 
 	t.Run("sliding window with nil callback", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size":  time.Minute,
-				"slide": time.Second,
-			},
+			Params: []interface{}{time.Minute, time.Second},
 		}
 		window, err := NewSlidingWindow(config)
 		if err == nil {
@@ -167,9 +142,7 @@ func TestWindowWithNilCallback(t *testing.T) {
 
 	t.Run("counting window with nil callback", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"count": 10,
-			},
+			Params: []interface{}{10},
 		}
 		window, err := NewCountingWindow(config)
 		if err == nil {
@@ -186,9 +159,7 @@ func TestWindowWithNilCallback(t *testing.T) {
 
 	t.Run("session window with nil callback", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"timeout": time.Minute,
-			},
+			Params: []interface{}{time.Minute},
 		}
 		window, err := NewSessionWindow(config)
 		if err == nil {
@@ -217,9 +188,7 @@ func TestWindowConcurrency(t *testing.T) {
 		}
 
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Millisecond * 100,
-			},
+			Params: []interface{}{time.Millisecond * 100},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -258,9 +227,7 @@ func TestWindowConcurrency(t *testing.T) {
 
 	t.Run("concurrent start stop", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Second,
-			},
+			Params: []interface{}{time.Second},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -286,9 +253,7 @@ func TestWindowConcurrency(t *testing.T) {
 
 	t.Run("concurrent add and stop", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Second,
-			},
+			Params: []interface{}{time.Second},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -335,9 +300,7 @@ func TestWindowMemoryManagement(t *testing.T) {
 		}
 
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Millisecond * 50,
-			},
+			Params: []interface{}{time.Millisecond * 50},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -379,9 +342,7 @@ func TestWindowMemoryManagement(t *testing.T) {
 		}
 
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Millisecond * 10,
-			},
+			Params: []interface{}{time.Millisecond * 10},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -409,9 +370,7 @@ func TestWindowMemoryManagement(t *testing.T) {
 func TestWindowErrorConditions(t *testing.T) {
 	t.Run("add to stopped window", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Second,
-			},
+			Params: []interface{}{time.Second},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -431,9 +390,7 @@ func TestWindowErrorConditions(t *testing.T) {
 
 	t.Run("add invalid data types", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Second,
-			},
+			Params: []interface{}{time.Second},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -457,9 +414,7 @@ func TestWindowErrorConditions(t *testing.T) {
 
 	t.Run("add row with zero timestamp", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Second,
-			},
+			Params: []interface{}{time.Second},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -479,9 +434,7 @@ func TestWindowErrorConditions(t *testing.T) {
 
 	t.Run("add row with future timestamp", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Second,
-			},
+			Params: []interface{}{time.Second},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -501,9 +454,7 @@ func TestWindowErrorConditions(t *testing.T) {
 
 	t.Run("add row with very old timestamp", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Second,
-			},
+			Params: []interface{}{time.Second},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -526,9 +477,7 @@ func TestWindowErrorConditions(t *testing.T) {
 func TestWindowStatsAndMetrics(t *testing.T) {
 	t.Run("get stats from tumbling window", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Second,
-			},
+			Params: []interface{}{time.Second},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -543,9 +492,7 @@ func TestWindowStatsAndMetrics(t *testing.T) {
 
 	t.Run("reset stats", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Second,
-			},
+			Params: []interface{}{time.Second},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -568,9 +515,7 @@ func TestWindowStatsAndMetrics(t *testing.T) {
 
 	t.Run("get output channel", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Second,
-			},
+			Params: []interface{}{time.Second},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -585,9 +530,7 @@ func TestWindowStatsAndMetrics(t *testing.T) {
 
 	t.Run("set callback", func(t *testing.T) {
 		config := types.WindowConfig{
-			Params: map[string]interface{}{
-				"size": time.Second,
-			},
+			Params: []interface{}{time.Second},
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
@@ -655,16 +598,48 @@ func TestWindowWithPerformanceConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Convert extraParams to array format
+			var params []interface{}
+			if tt.windowType == TypeCounting {
+				if count, ok := tt.extraParams["count"].(int); ok {
+					params = []interface{}{count}
+				} else if countStr, ok := tt.extraParams["count"].(string); ok {
+					if count, err := strconv.Atoi(countStr); err == nil {
+						params = []interface{}{count}
+					}
+				}
+			} else if tt.windowType == TypeSession {
+				if timeout, ok := tt.extraParams["timeout"].(string); ok {
+					if dur, err := time.ParseDuration(timeout); err == nil {
+						params = []interface{}{dur}
+					}
+				}
+			} else if tt.windowType == TypeSliding {
+				var size, slide time.Duration
+				if sizeStr, ok := tt.extraParams["size"].(string); ok {
+					if dur, err := time.ParseDuration(sizeStr); err == nil {
+						size = dur
+					}
+				}
+				if slideStr, ok := tt.extraParams["slide"].(string); ok {
+					if dur, err := time.ParseDuration(slideStr); err == nil {
+						slide = dur
+					}
+				}
+				params = []interface{}{size, slide}
+			} else {
+				if sizeStr, ok := tt.extraParams["size"].(string); ok {
+					if dur, err := time.ParseDuration(sizeStr); err == nil {
+						params = []interface{}{dur}
+					}
+				}
+			}
+			
 			config := types.WindowConfig{
-				Type:   tt.windowType,
-				Params: make(map[string]interface{}),
+				Type:             tt.windowType,
+				Params:           params,
+				PerformanceConfig: tt.performanceConfig,
 			}
-
-			// 合并参数
-			for k, v := range tt.extraParams {
-				config.Params[k] = v
-			}
-			config.Params["performanceConfig"] = tt.performanceConfig
 
 			var window Window
 			var err error
@@ -692,9 +667,7 @@ func TestWindowWithPerformanceConfig(t *testing.T) {
 	t.Run("无性能配置-使用默认值", func(t *testing.T) {
 		config := types.WindowConfig{
 			Type: TypeTumbling,
-			Params: map[string]interface{}{
-				"size": "3s",
-			},
+		Params: []interface{}{3 * time.Second},
 		}
 
 		tw, err := NewTumblingWindow(config)
@@ -780,10 +753,8 @@ func TestGetTimestampEdgeCases(t *testing.T) {
 func TestSessionWindowSessionKey(t *testing.T) {
 	config := types.WindowConfig{
 		Type: TypeSession,
-		Params: map[string]interface{}{
-			"timeout": "5s",
-		},
-		GroupByKey: "user_id",
+		Params: []interface{}{5 * time.Second},
+		GroupByKeys: []string{"user_id"},
 	}
 
 	sw, err := NewSessionWindow(config)
@@ -834,31 +805,28 @@ func TestWindowStopBeforeStart(t *testing.T) {
 			name: "滚动窗口",
 			config: types.WindowConfig{
 				Type:   TypeTumbling,
-				Params: map[string]interface{}{"size": "1s"},
+				Params: []interface{}{time.Second},
 			},
 		},
 		{
 			name: "滑动窗口",
 			config: types.WindowConfig{
 				Type: TypeSliding,
-				Params: map[string]interface{}{
-					"size":  "2s",
-					"slide": "1s",
-				},
+				Params: []interface{}{2 * time.Second, time.Second},
 			},
 		},
 		{
 			name: "计数窗口",
 			config: types.WindowConfig{
 				Type:   TypeCounting,
-				Params: map[string]interface{}{"count": 10},
+				Params: []interface{}{10},
 			},
 		},
 		{
 			name: "会话窗口",
 			config: types.WindowConfig{
 				Type:   TypeSession,
-				Params: map[string]interface{}{"timeout": "5s"},
+				Params: []interface{}{5 * time.Second},
 			},
 		},
 	}
@@ -889,7 +857,7 @@ func TestWindowStopBeforeStart(t *testing.T) {
 func TestWindowMultipleStops(t *testing.T) {
 	config := types.WindowConfig{
 		Type:   TypeTumbling,
-		Params: map[string]interface{}{"size": "1s"},
+		Params: []interface{}{time.Second},
 	}
 
 	tw, err := NewTumblingWindow(config)
@@ -909,7 +877,7 @@ func TestWindowMultipleStops(t *testing.T) {
 func TestWindowAddAfterStop(t *testing.T) {
 	config := types.WindowConfig{
 		Type:   TypeTumbling,
-		Params: map[string]interface{}{"size": "1s"},
+		Params: []interface{}{time.Second},
 	}
 
 	tw, err := NewTumblingWindow(config)
@@ -935,11 +903,9 @@ func TestCountingWindowWithCallback(t *testing.T) {
 	}
 
 	config := types.WindowConfig{
-		Type: TypeCounting,
-		Params: map[string]interface{}{
-			"count":    2,
-			"callback": callback,
-		},
+		Type:     TypeCounting,
+		Params:   []interface{}{2},
+		Callback: callback,
 	}
 
 	cw, err := NewCountingWindow(config)
@@ -967,20 +933,15 @@ func TestCountingWindowWithCallback(t *testing.T) {
 func TestSlidingWindowInvalidParams(t *testing.T) {
 	tests := []struct {
 		name   string
-		params map[string]interface{}
+		params []interface{}
 	}{
 		{
-			name: "无效的slide参数",
-			params: map[string]interface{}{
-				"size":  "10s",
-				"slide": "invalid",
-			},
+			name:   "无效的slide参数",
+			params: []interface{}{10 * time.Second, "invalid"},
 		},
 		{
-			name: "缺少slide参数",
-			params: map[string]interface{}{
-				"size": "10s",
-			},
+			name:   "缺少slide参数",
+			params: []interface{}{10 * time.Second},
 		},
 	}
 
@@ -1002,11 +963,9 @@ func TestWindowUnifiedConfigIntegration(t *testing.T) {
 		performanceConfig := types.HighPerformanceConfig()
 
 		windowConfig := types.WindowConfig{
-			Type: TypeTumbling,
-			Params: map[string]interface{}{
-				"size":              "1s",
-				"performanceConfig": performanceConfig,
-			},
+			Type:             TypeTumbling,
+			Params:           []interface{}{time.Second},
+			PerformanceConfig: performanceConfig,
 		}
 
 		tw, err := NewTumblingWindow(windowConfig)
@@ -1049,11 +1008,9 @@ func TestWindowUnifiedConfigIntegration(t *testing.T) {
 		}
 
 		config := types.WindowConfig{
-			Type: TypeTumbling,
-			Params: map[string]interface{}{
-				"size":              "100ms",
-				"performanceConfig": smallBufferConfig,
-			},
+			Type:             TypeTumbling,
+			Params:           []interface{}{100 * time.Millisecond},
+			PerformanceConfig: smallBufferConfig,
 		}
 
 		tw, err := NewTumblingWindow(config)
@@ -1072,8 +1029,8 @@ func TestWindowUnifiedConfigIntegration(t *testing.T) {
 
 		// 检查统计信息
 		stats := tw.GetStats()
-		assert.Contains(t, stats, "dropped_count")
-		assert.Contains(t, stats, "sent_count")
+		assert.Contains(t, stats, "droppedCount")
+		assert.Contains(t, stats, "sentCount")
 	})
 }
 
@@ -1088,10 +1045,8 @@ func TestCreateWindow(t *testing.T) {
 		{
 			name: "创建滚动窗口",
 			config: types.WindowConfig{
-				Type: TypeTumbling,
-				Params: map[string]interface{}{
-					"size": "5s",
-				},
+				Type:   TypeTumbling,
+				Params: []interface{}{5 * time.Second},
 			},
 			expectError:  false,
 			expectedType: "*window.TumblingWindow",
@@ -1099,11 +1054,8 @@ func TestCreateWindow(t *testing.T) {
 		{
 			name: "创建滑动窗口",
 			config: types.WindowConfig{
-				Type: TypeSliding,
-				Params: map[string]interface{}{
-					"size":  "10s",
-					"slide": "5s",
-				},
+				Type:   TypeSliding,
+				Params: []interface{}{10 * time.Second, 5 * time.Second},
 			},
 			expectError:  false,
 			expectedType: "*window.SlidingWindow",
@@ -1111,10 +1063,8 @@ func TestCreateWindow(t *testing.T) {
 		{
 			name: "创建计数窗口",
 			config: types.WindowConfig{
-				Type: TypeCounting,
-				Params: map[string]interface{}{
-					"count": 100,
-				},
+				Type:   TypeCounting,
+				Params: []interface{}{100},
 			},
 			expectError:  false,
 			expectedType: "*window.CountingWindow",
@@ -1122,10 +1072,8 @@ func TestCreateWindow(t *testing.T) {
 		{
 			name: "创建会话窗口",
 			config: types.WindowConfig{
-				Type: TypeSession,
-				Params: map[string]interface{}{
-					"timeout": "30s",
-				},
+				Type:   TypeSession,
+				Params: []interface{}{30 * time.Second},
 			},
 			expectError:  false,
 			expectedType: "*window.SessionWindow",
@@ -1134,12 +1082,10 @@ func TestCreateWindow(t *testing.T) {
 			name: "窗口工厂与统一配置集成",
 			config: types.WindowConfig{
 				Type: TypeTumbling,
-				Params: map[string]interface{}{
-					"size": "5s",
-					"performanceConfig": types.PerformanceConfig{
+				Params: []interface{}{5 * time.Second},
+				PerformanceConfig: types.PerformanceConfig{
 						BufferConfig: types.BufferConfig{
 							WindowOutputSize: 1500,
-						},
 					},
 				},
 			},
@@ -1149,10 +1095,8 @@ func TestCreateWindow(t *testing.T) {
 		{
 			name: "无效的窗口类型",
 			config: types.WindowConfig{
-				Type: "invalid",
-				Params: map[string]interface{}{
-					"size": "5s",
-				},
+				Type:   "invalid",
+				Params: []interface{}{5 * time.Second},
 			},
 			expectError:  true,
 			expectedType: "",
@@ -1253,10 +1197,8 @@ func TestGetTimestampCoverage(t *testing.T) {
 func TestWindowErrorHandling(t *testing.T) {
 	t.Run("滚动窗口无效大小", func(t *testing.T) {
 		config := types.WindowConfig{
-			Type: TypeTumbling,
-			Params: map[string]interface{}{
-				"size": "invalid",
-			},
+			Type:   TypeTumbling,
+			Params: []interface{}{"invalid"},
 		}
 		_, err := NewTumblingWindow(config)
 		assert.Error(t, err)
@@ -1264,11 +1206,8 @@ func TestWindowErrorHandling(t *testing.T) {
 
 	t.Run("滑动窗口无效参数", func(t *testing.T) {
 		config := types.WindowConfig{
-			Type: TypeSliding,
-			Params: map[string]interface{}{
-				"size":  "invalid",
-				"slide": "5s",
-			},
+			Type:   TypeSliding,
+			Params: []interface{}{"invalid", 5 * time.Second},
 		}
 		_, err := NewSlidingWindow(config)
 		assert.Error(t, err)
@@ -1276,10 +1215,8 @@ func TestWindowErrorHandling(t *testing.T) {
 
 	t.Run("计数窗口无效计数", func(t *testing.T) {
 		config := types.WindowConfig{
-			Type: TypeCounting,
-			Params: map[string]interface{}{
-				"count": 0,
-			},
+			Type:   TypeCounting,
+			Params: []interface{}{0},
 		}
 		_, err := NewCountingWindow(config)
 		assert.Error(t, err)
@@ -1287,10 +1224,8 @@ func TestWindowErrorHandling(t *testing.T) {
 
 	t.Run("会话窗口无效超时", func(t *testing.T) {
 		config := types.WindowConfig{
-			Type: TypeSession,
-			Params: map[string]interface{}{
-				"timeout": "invalid",
-			},
+			Type:   TypeSession,
+			Params: []interface{}{"invalid"},
 		}
 		_, err := NewSessionWindow(config)
 		assert.Error(t, err)
@@ -1301,10 +1236,8 @@ func TestWindowErrorHandling(t *testing.T) {
 func TestSessionWindowAdvanced(t *testing.T) {
 	config := types.WindowConfig{
 		Type: TypeSession,
-		Params: map[string]interface{}{
-			"timeout": "1s",
-		},
-		GroupByKey: "user_id",
+		Params: []interface{}{time.Second},
+		GroupByKeys: []string{"user_id"},
 	}
 
 	sw, err := NewSessionWindow(config)
@@ -1352,11 +1285,8 @@ func TestSessionWindowAdvanced(t *testing.T) {
 // TestSlidingWindowAdvanced 测试滑动窗口的高级功能
 func TestSlidingWindowAdvanced(t *testing.T) {
 	config := types.WindowConfig{
-		Type: TypeSliding,
-		Params: map[string]interface{}{
-			"size":  "2s",
-			"slide": "1s",
-		},
+		Type:     TypeSliding,
+		Params:   []interface{}{2 * time.Second, time.Second},
 		TsProp:   "timestamp",
 		TimeUnit: time.Second,
 	}
@@ -1379,10 +1309,8 @@ func TestSlidingWindowAdvanced(t *testing.T) {
 // TestCountingWindowAdvanced 测试计数窗口的高级功能
 func TestCountingWindowAdvanced(t *testing.T) {
 	config := types.WindowConfig{
-		Type: TypeCounting,
-		Params: map[string]interface{}{
-			"count": 3,
-		},
+		Type:     TypeCounting,
+		Params:   []interface{}{3},
 		TsProp:   "timestamp",
 		TimeUnit: time.Second,
 	}
@@ -1430,9 +1358,7 @@ func TestCountingWindowAdvanced(t *testing.T) {
 func TestTumblingWindowAdvanced(t *testing.T) {
 	config := types.WindowConfig{
 		Type: TypeTumbling,
-		Params: map[string]interface{}{
-			"size": "1s",
-		},
+		Params: []interface{}{time.Second},
 		TsProp:   "timestamp",
 		TimeUnit: time.Second,
 	}
@@ -1443,8 +1369,8 @@ func TestTumblingWindowAdvanced(t *testing.T) {
 
 	// 检查统计信息
 	stats := tw.GetStats()
-	assert.Contains(t, stats, "sent_count")
-	assert.Contains(t, stats, "dropped_count")
+	assert.Contains(t, stats, "sentCount")
+	assert.Contains(t, stats, "droppedCount")
 
 	// 测试重置统计信息
 	tw.ResetStats()

@@ -22,10 +22,7 @@ func TestSlidingWindow(t *testing.T) {
 	defer cancel()
 
 	sw, _ := NewSlidingWindow(types.WindowConfig{
-		Params: map[string]interface{}{
-			"size":  "2s",
-			"slide": "1s",
-		},
+		Params: []interface{}{2 * time.Second, time.Second},
 		TsProp:   "Ts",
 		TimeUnit: time.Second,
 	})

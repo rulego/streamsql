@@ -251,8 +251,8 @@ func TestSelectStatementEdgeCases(t *testing.T) {
 	if config2.WindowConfig.Type != window.TypeSession {
 		t.Errorf("Expected session window, got %v", config2.WindowConfig.Type)
 	}
-	if config2.WindowConfig.GroupByKey != "user_id" {
-		t.Errorf("Expected GroupByKey to be 'user_id', got %s", config2.WindowConfig.GroupByKey)
+	if len(config2.WindowConfig.GroupByKeys) == 0 || config2.WindowConfig.GroupByKeys[0] != "user_id" {
+		t.Errorf("Expected GroupByKeys to contain 'user_id', got %v", config2.WindowConfig.GroupByKeys)
 	}
 }
 

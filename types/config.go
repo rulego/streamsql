@@ -34,11 +34,13 @@ type Config struct {
 
 // WindowConfig window configuration
 type WindowConfig struct {
-	Type       string                 `json:"type"`
-	Params     map[string]interface{} `json:"params"`
-	TsProp     string                 `json:"tsProp"`
-	TimeUnit   time.Duration          `json:"timeUnit"`
-	GroupByKey string                 `json:"groupByKey"` // Session window grouping key
+	Type              string            `json:"type"`
+	Params            []interface{}     `json:"params"` // Window function parameters array
+	TsProp            string            `json:"tsProp"`
+	TimeUnit          time.Duration     `json:"timeUnit"`
+	GroupByKeys       []string          `json:"groupByKeys"`       // Multiple grouping keys for keyed windows
+	PerformanceConfig PerformanceConfig `json:"performanceConfig"` // Performance configuration
+	Callback          func([]Row)       `json:"-"`                 // Callback function (not serialized)
 }
 
 // FieldExpression field expression configuration

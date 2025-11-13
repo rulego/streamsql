@@ -16,7 +16,7 @@ func TestWindowSlotAggregation(t *testing.T) {
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
 			Type:   "sliding",
-			Params: map[string]interface{}{"size": 2 * time.Second, "slide": 1 * time.Second},
+			Params: []interface{}{2 * time.Second, 1 * time.Second},
 			TsProp: "ts",
 		},
 		GroupFields: []string{"device"},
@@ -103,44 +103,37 @@ func TestWindowTypes(t *testing.T) {
 	tests := []struct {
 		name         string
 		windowType   string
-		windowParams map[string]interface{}
+		windowParams []interface{}
 		expectError  bool
 	}{
 		{
-			name:       "Tumbling Window",
-			windowType: "tumbling",
-			windowParams: map[string]interface{}{
-				"size": "5s",
-			},
-			expectError: false,
+			name:         "Tumbling Window",
+			windowType:   "tumbling",
+			windowParams: []interface{}{5 * time.Second},
+			expectError:  false,
 		},
 		{
-			name:       "Sliding Window",
-			windowType: "sliding",
-			windowParams: map[string]interface{}{
-				"size":  "10s",
-				"slide": "5s",
-			},
-			expectError: false,
+			name:         "Sliding Window",
+			windowType:   "sliding",
+			windowParams: []interface{}{10 * time.Second, 5 * time.Second},
+			expectError:  false,
 		},
 		{
-			name:       "Session Window",
-			windowType: "session",
-			windowParams: map[string]interface{}{
-				"timeout": "30s",
-			},
-			expectError: false,
+			name:         "Session Window",
+			windowType:   "session",
+			windowParams: []interface{}{30 * time.Second},
+			expectError:  false,
 		},
 		{
 			name:         "Invalid Window Type",
 			windowType:   "invalid_window_type",
-			windowParams: map[string]interface{}{"size": "5s"},
+			windowParams: []interface{}{5 * time.Second},
 			expectError:  true,
 		},
 		{
 			name:         "Missing Size Parameter",
 			windowType:   "tumbling",
-			windowParams: map[string]interface{}{},
+			windowParams: []interface{}{},
 			expectError:  true,
 		},
 	}
@@ -195,7 +188,7 @@ func TestAggregationTypes(t *testing.T) {
 			config := types.Config{
 				WindowConfig: types.WindowConfig{
 					Type:   "tumbling",
-					Params: map[string]interface{}{"size": 500 * time.Millisecond},
+					Params: []interface{}{500 * time.Millisecond},
 				},
 				GroupFields: []string{"group"},
 				SelectFields: map[string]aggregator.AggregateType{
