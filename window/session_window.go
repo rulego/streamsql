@@ -25,7 +25,6 @@ import (
 
 	"github.com/rulego/streamsql/types"
 	"github.com/rulego/streamsql/utils/cast"
-	"github.com/rulego/streamsql/utils/timex"
 )
 
 // Ensure SessionWindow struct implements Window interface
@@ -128,7 +127,9 @@ func (sw *SessionWindow) Add(data interface{}) {
 	s, exists := sw.sessionMap[key]
 	if !exists {
 		// Create new session
-		start := timex.AlignTime(timestamp, sw.config.TimeUnit, true)
+		// Use the actual timestamp of the first data point as session start
+		// No alignment needed - session starts from when first data arrives
+		start := timestamp
 		end := start.Add(sw.timeout)
 		slot := types.NewTimeSlot(&start, &end)
 

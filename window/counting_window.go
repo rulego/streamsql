@@ -24,7 +24,6 @@ import (
 	"sync"
 
 	"github.com/rulego/streamsql/utils/cast"
-	"github.com/rulego/streamsql/utils/timex"
 
 	"github.com/rulego/streamsql/types"
 )
@@ -225,13 +224,15 @@ func (cw *CountingWindow) createSlot(data []types.Row) *types.TimeSlot {
 	if len(data) == 0 {
 		return nil
 	} else if len(data) < cw.threshold {
-		start := timex.AlignTime(data[0].Timestamp, cw.config.TimeUnit, true)
-		end := timex.AlignTime(data[len(data)-1].Timestamp, cw.config.TimeUnit, false)
+		// Use actual timestamps without alignment
+		start := data[0].Timestamp
+		end := data[len(data)-1].Timestamp
 		slot := types.NewTimeSlot(&start, &end)
 		return slot
 	} else {
-		start := timex.AlignTime(data[0].Timestamp, cw.config.TimeUnit, true)
-		end := timex.AlignTime(data[cw.threshold-1].Timestamp, cw.config.TimeUnit, false)
+		// Use actual timestamps without alignment
+		start := data[0].Timestamp
+		end := data[cw.threshold-1].Timestamp
 		slot := types.NewTimeSlot(&start, &end)
 		return slot
 	}
