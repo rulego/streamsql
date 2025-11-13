@@ -37,7 +37,7 @@ func TestDataProcessor_ApplyDistinct(t *testing.T) {
 		},
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: map[string]interface{}{"size": 1 * time.Second},
+			Params: []interface{}{1 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)
@@ -79,7 +79,7 @@ func TestDataProcessor_ApplyHavingFilter(t *testing.T) {
 		Having: "temperature > 25",
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: map[string]interface{}{"size": 1 * time.Second},
+			Params: []interface{}{1 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)
@@ -120,7 +120,7 @@ func TestDataProcessor_ApplyHavingWithCaseExpression(t *testing.T) {
 		Having: "CASE WHEN temperature > 30 THEN 1 WHEN status = 'active' THEN 1 ELSE 0 END",
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: map[string]interface{}{"size": 1 * time.Second},
+			Params: []interface{}{1 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)
@@ -161,7 +161,7 @@ func TestDataProcessor_ApplyHavingWithCondition(t *testing.T) {
 		Having: "temperature > 25",
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: map[string]interface{}{"size": 1 * time.Second},
+			Params: []interface{}{1 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)
@@ -541,7 +541,7 @@ func TestStream_ProcessSync(t *testing.T) {
 		},
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: map[string]interface{}{"size": 1 * time.Second},
+			Params: []interface{}{1 * time.Second},
 		},
 	}
 	aggStream, err := NewStream(aggConfig)

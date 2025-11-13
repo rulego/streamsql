@@ -99,11 +99,8 @@ func (sf *StreamFactory) createStreamWithUnifiedConfig(config types.Config) (*St
 func (sf *StreamFactory) createWindow(config types.Config) (window.Window, error) {
 	// Pass unified performance configuration to window
 	windowConfig := config.WindowConfig
-	if windowConfig.Params == nil {
-		windowConfig.Params = make(map[string]interface{})
-	}
-	// Pass complete performance configuration to window
-	windowConfig.Params[PerformanceConfigKey] = config.PerformanceConfig
+	// Set performance configuration directly
+	windowConfig.PerformanceConfig = config.PerformanceConfig
 
 	return window.CreateWindow(windowConfig)
 }

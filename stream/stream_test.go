@@ -53,7 +53,7 @@ func TestStreamBasicOperations(t *testing.T) {
 				WindowConfig: types.WindowConfig{
 					Type:     "tumbling",
 					TimeUnit: 1000,
-					Params:   map[string]interface{}{"size": 1 * time.Second},
+					Params:   []interface{}{1 * time.Second},
 				},
 			},
 			testFunc:    "withWindow",
@@ -146,7 +146,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 			config: types.Config{
 				WindowConfig: types.WindowConfig{
 					Type:   "tumbling",
-					Params: map[string]interface{}{"size": 500 * time.Millisecond},
+					Params: []interface{}{500 * time.Millisecond},
 				},
 				GroupFields: []string{"device"},
 				SelectFields: map[string]aggregator.AggregateType{
@@ -170,7 +170,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 			config: types.Config{
 				WindowConfig: types.WindowConfig{
 					Type:   "tumbling",
-					Params: map[string]interface{}{"size": 500 * time.Millisecond},
+					Params: []interface{}{500 * time.Millisecond},
 				},
 				GroupFields: []string{"device"},
 				SelectFields: map[string]aggregator.AggregateType{
@@ -255,7 +255,7 @@ func TestStreamWithoutFilter(t *testing.T) {
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
 			Type:   "sliding",
-			Params: map[string]interface{}{"size": 2 * time.Second, "slide": 1 * time.Second},
+			Params: []interface{}{2 * time.Second, 1 * time.Second},
 		},
 		GroupFields: []string{"device"},
 		SelectFields: map[string]aggregator.AggregateType{
@@ -510,10 +510,8 @@ func TestStreamAggregationQuery(t *testing.T) {
 		},
 		NeedWindow: true,
 		WindowConfig: types.WindowConfig{
-			Type: "tumbling",
-			Params: map[string]interface{}{
-				"size": "5s",
-			},
+			Type:   "tumbling",
+			Params: []interface{}{5 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)
@@ -730,7 +728,7 @@ func TestStreamWithWindowAndAggregation(t *testing.T) {
 		SimpleFields: []string{"name", "age"},
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: map[string]interface{}{"size": 100 * time.Millisecond},
+			Params: []interface{}{100 * time.Millisecond},
 		},
 		SelectFields: map[string]aggregator.AggregateType{
 			"avg_age": aggregator.Avg,
@@ -1214,10 +1212,8 @@ func TestStreamWindowEdgeCasesEnhanced(t *testing.T) {
 			config: func() types.Config {
 				c := types.NewConfig()
 				c.WindowConfig = types.WindowConfig{
-					Type: "tumbling",
-					Params: map[string]interface{}{
-						"size": 1 * time.Nanosecond, // 极小时间窗口
-					},
+					Type:     "tumbling",
+					Params:   []interface{}{1 * time.Nanosecond}, // 极小时间窗口
 					TimeUnit: 1 * time.Nanosecond,
 				}
 				c.NeedWindow = true
@@ -1230,10 +1226,8 @@ func TestStreamWindowEdgeCasesEnhanced(t *testing.T) {
 			name: "极大时间窗口",
 			config: types.Config{
 				WindowConfig: types.WindowConfig{
-					Type: "tumbling",
-					Params: map[string]interface{}{
-						"size": 8760 * time.Hour, // 1年
-					},
+					Type:     "tumbling",
+					Params:   []interface{}{8760 * time.Hour}, // 1年
 					TimeUnit: 8760 * time.Hour,
 				},
 				NeedWindow:        true,
@@ -1245,11 +1239,8 @@ func TestStreamWindowEdgeCasesEnhanced(t *testing.T) {
 			name: "滑动窗口零滑动",
 			config: types.Config{
 				WindowConfig: types.WindowConfig{
-					Type: "sliding",
-					Params: map[string]interface{}{
-						"size":  1 * time.Second,
-						"slide": 1 * time.Millisecond, // 很小的滑动间隔
-					},
+					Type:     "sliding",
+					Params:   []interface{}{1 * time.Second, 1 * time.Millisecond}, // 很小的滑动间隔
 					TimeUnit: 1 * time.Second,
 				},
 				NeedWindow:        true,
@@ -1298,10 +1289,8 @@ func TestStreamUnifiedConfigIntegration(t *testing.T) {
 			config := types.Config{
 				NeedWindow: true,
 				WindowConfig: types.WindowConfig{
-					Type: "tumbling",
-					Params: map[string]interface{}{
-						"size": "5s",
-					},
+					Type:   "tumbling",
+					Params: []interface{}{5 * time.Second},
 				},
 				SelectFields: map[string]aggregator.AggregateType{
 					"value": aggregator.Count,
@@ -1338,10 +1327,8 @@ func TestStreamUnifiedConfigPerformanceImpact(t *testing.T) {
 			config := types.Config{
 				NeedWindow: true,
 				WindowConfig: types.WindowConfig{
-					Type: "tumbling",
-					Params: map[string]interface{}{
-						"size": "1s",
-					},
+					Type:   "tumbling",
+					Params: []interface{}{time.Second},
 				},
 				SelectFields: map[string]aggregator.AggregateType{
 					"value": aggregator.Sum,
@@ -1410,10 +1397,8 @@ func TestStreamUnifiedConfigErrorHandling(t *testing.T) {
 			config: types.Config{
 				NeedWindow: true,
 				WindowConfig: types.WindowConfig{
-					Type: "invalid_window_type",
-					Params: map[string]interface{}{
-						"size": "5s",
-					},
+					Type:   "invalid_window_type",
+					Params: []interface{}{5 * time.Second},
 				},
 				SelectFields: map[string]aggregator.AggregateType{
 					"value": aggregator.Count,
@@ -1429,7 +1414,7 @@ func TestStreamUnifiedConfigErrorHandling(t *testing.T) {
 				NeedWindow: true,
 				WindowConfig: types.WindowConfig{
 					Type:   "tumbling",
-					Params: map[string]interface{}{},
+					Params: []interface{}{},
 				},
 				SelectFields: map[string]aggregator.AggregateType{
 					"value": aggregator.Count,
@@ -1444,10 +1429,8 @@ func TestStreamUnifiedConfigErrorHandling(t *testing.T) {
 			config: types.Config{
 				NeedWindow: true,
 				WindowConfig: types.WindowConfig{
-					Type: "tumbling",
-					Params: map[string]interface{}{
-						"size": "5s",
-					},
+					Type:   "tumbling",
+					Params: []interface{}{5 * time.Second},
 				},
 				SelectFields: map[string]aggregator.AggregateType{
 					"value": aggregator.Count,
@@ -1802,10 +1785,8 @@ func TestStreamFactory_CreateStreamWithWindow(t *testing.T) {
 		SimpleFields: []string{"name", "age"},
 		NeedWindow:   true,
 		WindowConfig: types.WindowConfig{
-			Type: "tumbling",
-			Params: map[string]interface{}{
-				"size": "5s",
-			},
+			Type:   "tumbling",
+			Params: []interface{}{5 * time.Second},
 		},
 	}
 
@@ -1843,10 +1824,8 @@ func TestStreamFactory_CreateWindow(t *testing.T) {
 	factory := NewStreamFactory()
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
-			Type: "tumbling",
-			Params: map[string]interface{}{
-				"size": "5s",
-			},
+			Type:   "tumbling",
+			Params: []interface{}{5 * time.Second},
 		},
 		PerformanceConfig: types.DefaultPerformanceConfig(),
 	}

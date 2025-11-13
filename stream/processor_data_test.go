@@ -56,7 +56,7 @@ func TestDataProcessor_InitializeAggregator(t *testing.T) {
 		},
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: map[string]interface{}{"size": 1 * time.Second},
+			Params: []interface{}{1 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)
@@ -90,7 +90,7 @@ func TestDataProcessor_RegisterExpressionCalculator(t *testing.T) {
 		},
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: map[string]interface{}{"size": 1 * time.Second},
+			Params: []interface{}{1 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)

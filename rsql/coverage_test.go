@@ -6,6 +6,7 @@ import (
 
 	"github.com/rulego/streamsql/aggregator"
 	"github.com/rulego/streamsql/types"
+	"github.com/rulego/streamsql/window"
 )
 
 // TestParseSmartParameters 测试智能参数解析函数
@@ -203,6 +204,12 @@ func TestParseWindowParams(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name:        "计数窗口参数",
+			params:      []interface{}{100},
+			windowType:  "COUNTINGWINDOW",
+			expectError: false,
+		},
+		{
 			name:        "无效持续时间",
 			params:      []interface{}{"invalid"},
 			windowType:  "TUMBLINGWINDOW",
@@ -212,7 +219,7 @@ func TestParseWindowParams(t *testing.T) {
 			name:        "非字符串参数",
 			params:      []interface{}{123},
 			windowType:  "TUMBLINGWINDOW",
-			expectError: true,
+			expectError: false, // 整数参数会被视为秒数，这是有效的
 		},
 		{
 			name:        "空参数",
@@ -224,14 +231,23 @@ func TestParseWindowParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var result map[string]interface{}
+			var result []interface{}
 			var err error
 
-			if tt.windowType == "SESSIONWINDOW" {
-				result, err = parseWindowParamsWithType(tt.params, "SESSIONWINDOW")
-			} else {
-				result, err = parseWindowParams(tt.params)
+			// Convert window type to internal format
+			windowType := ""
+			switch tt.windowType {
+			case "SESSIONWINDOW":
+				windowType = window.TypeSession
+			case "TUMBLINGWINDOW":
+				windowType = window.TypeTumbling
+			case "SLIDINGWINDOW":
+				windowType = window.TypeSliding
+			case "COUNTINGWINDOW":
+				windowType = window.TypeCounting
 			}
+
+			result, err = validateWindowParams(tt.params, windowType)
 
 			if tt.expectError {
 				if err == nil {

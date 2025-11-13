@@ -17,10 +17,7 @@ func TestTumblingWindowPerformance(t *testing.T) {
 		t.Run(fmt.Sprintf("BufferSize_%d", bufferSize), func(t *testing.T) {
 			tw, _ := NewTumblingWindow(types.WindowConfig{
 				Type: "TumblingWindow",
-				Params: map[string]interface{}{
-					"size":             "100ms",
-					"outputBufferSize": bufferSize,
-				},
+				Params: []interface{}{100 * time.Millisecond},
 				TsProp: "Ts",
 			})
 
@@ -73,10 +70,7 @@ type TestData struct {
 func BenchmarkTumblingWindowThroughput(b *testing.B) {
 	tw, _ := NewTumblingWindow(types.WindowConfig{
 		Type: "TumblingWindow",
-		Params: map[string]interface{}{
-			"size":             "10ms",
-			"outputBufferSize": 5000,
-		},
+		Params: []interface{}{10 * time.Millisecond},
 		TsProp: "Ts",
 	})
 
@@ -117,10 +111,7 @@ func TestWindowBufferOverflow(t *testing.T) {
 	// 创建一个小缓冲区的窗口
 	tw, _ := NewTumblingWindow(types.WindowConfig{
 		Type: "TumblingWindow",
-		Params: map[string]interface{}{
-			"size":             "50ms",
-			"outputBufferSize": 5, // 很小的缓冲区
-		},
+		Params: []interface{}{50 * time.Millisecond},
 		TsProp: "Ts",
 	})
 

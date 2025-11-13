@@ -29,10 +29,10 @@ func TestConfig(t *testing.T) {
 	config := &Config{
 		WindowConfig: WindowConfig{
 			Type:       "tumbling",
-			Params:     map[string]interface{}{"size": "1m"},
+			Params:     []interface{}{time.Minute},
 			TsProp:     "timestamp",
 			TimeUnit:   time.Minute,
-			GroupByKey: "user_id",
+			GroupByKeys: []string{"user_id"},
 		},
 		GroupFields:  []string{"user_id", "category"},
 		SelectFields: map[string]aggregator.AggregateType{"count": aggregator.Count, "sum": aggregator.Sum},
@@ -127,10 +127,10 @@ func TestConfig(t *testing.T) {
 func TestWindowConfig(t *testing.T) {
 	windowConfig := WindowConfig{
 		Type:       "sliding",
-		Params:     map[string]interface{}{"size": "5m", "interval": "1m"},
+		Params:     []interface{}{5 * time.Minute, time.Minute},
 		TsProp:     "event_time",
 		TimeUnit:   time.Minute,
-		GroupByKey: "session_id",
+		GroupByKeys: []string{"session_id"},
 	}
 
 	if windowConfig.Type != "sliding" {
@@ -145,20 +145,22 @@ func TestWindowConfig(t *testing.T) {
 		t.Errorf("Expected time unit 'Minute', got '%v'", windowConfig.TimeUnit)
 	}
 
-	if windowConfig.GroupByKey != "session_id" {
-		t.Errorf("Expected group by key 'session_id', got '%s'", windowConfig.GroupByKey)
+	if len(windowConfig.GroupByKeys) == 0 || windowConfig.GroupByKeys[0] != "session_id" {
+		t.Errorf("Expected group by keys to contain 'session_id', got %v", windowConfig.GroupByKeys)
 	}
 
 	if len(windowConfig.Params) != 2 {
 		t.Errorf("Expected 2 parameters, got %d", len(windowConfig.Params))
 	}
 
-	if windowConfig.Params["size"] != "5m" {
-		t.Errorf("Expected size parameter '5m', got '%v'", windowConfig.Params["size"])
+	// Check first parameter (size)
+	if size, ok := windowConfig.Params[0].(time.Duration); !ok || size != 5*time.Minute {
+		t.Errorf("Expected size parameter 5m, got '%v'", windowConfig.Params[0])
 	}
 
-	if windowConfig.Params["interval"] != "1m" {
-		t.Errorf("Expected interval parameter '1m', got '%v'", windowConfig.Params["interval"])
+	// Check second parameter (slide/interval)
+	if slide, ok := windowConfig.Params[1].(time.Duration); !ok || slide != time.Minute {
+		t.Errorf("Expected slide parameter 1m, got '%v'", windowConfig.Params[1])
 	}
 }
 
@@ -447,10 +449,10 @@ func TestComplexConfig(t *testing.T) {
 	config := Config{
 		WindowConfig: WindowConfig{
 			Type:       "sliding",
-			Params:     map[string]interface{}{"size": "5m", "slide": "1m"},
+			Params:     []interface{}{5 * time.Minute, time.Minute},
 			TsProp:     "event_time",
 			TimeUnit:   time.Minute,
-			GroupByKey: "session_id",
+			GroupByKeys: []string{"session_id"},
 		},
 		GroupFields: []string{"user_id", "product_category", "region"},
 		SelectFields: map[string]aggregator.AggregateType{

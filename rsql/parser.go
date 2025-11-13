@@ -506,44 +506,46 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 }
 
 func (p *Parser) parseWindowFunction(stmt *SelectStatement, winType string) error {
-	p.lexer.NextToken() // 跳过(
+	nextTok := p.lexer.NextToken() // 读取下一个 token，应该是 '('
+	if nextTok.Type != TokenLParen {
+		return fmt.Errorf("expected '(' after window function %s, got %s (type: %v)", winType, nextTok.Value, nextTok.Type)
+	}
+	
 	var params []interface{}
-
-	// 设置最大次数限制，防止无限循环
 	maxIterations := 100
 	iterations := 0
 
-	for p.lexer.peekChar() != ')' {
+	// Parse parameters until we find the closing parenthesis
+	for {
 		iterations++
-		// 安全检查：防止无限循环
 		if iterations > maxIterations {
-			return errors.New("window function parameter parsing exceeded maximum iterations, possible syntax error")
+			return fmt.Errorf("window function parameter parsing exceeded maximum iterations")
 		}
 
+		// Read the next token first
 		valTok := p.lexer.NextToken()
+		
+		// If we hit the closing parenthesis or EOF, break
 		if valTok.Type == TokenRParen || valTok.Type == TokenEOF {
 			break
 		}
+		
+		// Skip commas
 		if valTok.Type == TokenComma {
 			continue
 		}
-		//valTok := p.lexer.NextToken()
+		
 		// Handle quoted values
 		if strings.HasPrefix(valTok.Value, "'") && strings.HasSuffix(valTok.Value, "'") {
 			valTok.Value = strings.Trim(valTok.Value, "'")
 		}
+		
+		// Add the parameter value
 		params = append(params, convertValue(valTok.Value))
 	}
 
-	if &stmt.Window != nil {
 		stmt.Window.Params = params
 		stmt.Window.Type = winType
-	} else {
-		stmt.Window = WindowDefinition{
-			Type:   winType,
-			Params: params,
-		}
-	}
 	return nil
 }
 
@@ -593,7 +595,9 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 	hasWindowFunction := false
 	if tok.Type == TokenTumbling || tok.Type == TokenSliding || tok.Type == TokenCounting || tok.Type == TokenSession {
 		hasWindowFunction = true
-		_ = p.parseWindowFunction(stmt, tok.Value)
+		if err := p.parseWindowFunction(stmt, tok.Value); err != nil {
+			return err
+		}
 	}
 
 	hasGroupBy := false
@@ -633,7 +637,15 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 			continue
 		}
 		if tok.Type == TokenTumbling || tok.Type == TokenSliding || tok.Type == TokenCounting || tok.Type == TokenSession {
-			_ = p.parseWindowFunction(stmt, tok.Value)
+			if err := p.parseWindowFunction(stmt, tok.Value); err != nil {
+				return err
+			}
+			// After parsing window function, skip adding it to GroupBy and continue
+			continue
+		}
+		
+		// Skip right parenthesis tokens (they should be consumed by parseWindowFunction)
+		if tok.Type == TokenRParen {
 			continue
 		}
 
