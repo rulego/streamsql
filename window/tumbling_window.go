@@ -24,7 +24,6 @@ import (
 
 	"github.com/rulego/streamsql/types"
 	"github.com/rulego/streamsql/utils/cast"
-	"github.com/rulego/streamsql/utils/timex"
 )
 
 // Ensure TumblingWindow implements the Window interface
@@ -120,7 +119,7 @@ func (tw *TumblingWindow) Add(data interface{}) {
 
 func (sw *TumblingWindow) createSlot(t time.Time) *types.TimeSlot {
 	// Create a new time slot
-	start := timex.AlignTimeToWindow(t, sw.size)
+	start := t
 	end := start.Add(sw.size)
 	slot := types.NewTimeSlot(&start, &end)
 	return slot

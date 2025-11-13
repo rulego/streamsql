@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/rulego/streamsql/utils/cast"
-	"github.com/rulego/streamsql/utils/timex"
 
 	"github.com/rulego/streamsql/types"
 )
@@ -65,6 +64,8 @@ type SlidingWindow struct {
 	initialized bool
 	// timerMu protects timer access
 	timerMu sync.Mutex
+	// firstWindowStartTime records when first window started (processing time)
+	firstWindowStartTime time.Time
 	// Performance statistics
 	droppedCount int64 // Number of dropped results
 	sentCount    int64 // Number of successfully sent results
@@ -126,9 +127,9 @@ func (sw *SlidingWindow) Add(data interface{}) {
 	t := GetTimestamp(data, sw.config.TsProp, sw.config.TimeUnit)
 	if !sw.initialized {
 		sw.currentSlot = sw.createSlot(t)
-		sw.timerMu.Lock()
-		sw.timer = time.NewTicker(sw.slide)
-		sw.timerMu.Unlock()
+		// Record when first window started (processing time)
+		sw.firstWindowStartTime = time.Now()
+		// Don't start timer here, wait for first window to end
 		// Send initialization complete signal
 		close(sw.initChan)
 		sw.initialized = true
@@ -142,6 +143,7 @@ func (sw *SlidingWindow) Add(data interface{}) {
 
 // Start starts the sliding window with periodic triggering
 // Uses lazy initialization to avoid infinite waiting when no data, ensuring subsequent data can be processed normally
+// First window triggers when it ends, then subsequent windows trigger at slide intervals
 func (sw *SlidingWindow) Start() {
 	go func() {
 		// Close output channel when function ends
@@ -156,6 +158,53 @@ func (sw *SlidingWindow) Start() {
 			return
 		}
 
+		// Wait for first window to end, then trigger it
+		// After initChan is closed, firstWindowStartTime should be set by Add()
+		sw.mu.RLock()
+		firstWindowStartTime := sw.firstWindowStartTime
+		sw.mu.RUnlock()
+
+		// Verify that firstWindowStartTime is valid (not zero)
+		// If zero, it means Add() hasn't been called yet, which shouldn't happen
+		// but we handle it gracefully by waiting for window size
+		if firstWindowStartTime.IsZero() {
+			// This shouldn't happen if Add() is called before Start(),
+			// but if it does, wait for window size from now
+			firstWindowStartTime = time.Now()
+		}
+
+		// Calculate time until first window ends (window size from processing time)
+		now := time.Now()
+		elapsed := now.Sub(firstWindowStartTime)
+		var waitDuration time.Duration
+		if elapsed < sw.size {
+			// Wait until window size time has passed
+			waitDuration = sw.size - elapsed
+		} else {
+			// First window already ended, trigger immediately
+			waitDuration = 0
+		}
+
+		// Wait for first window to end
+		if waitDuration > 0 {
+			select {
+			case <-time.After(waitDuration):
+				// First window ended, trigger it
+				sw.Trigger()
+			case <-sw.ctx.Done():
+				return
+			}
+		} else {
+			// First window already ended, trigger immediately
+			sw.Trigger()
+		}
+
+		// Now start the sliding step timer for subsequent windows
+		sw.timerMu.Lock()
+		sw.timer = time.NewTicker(sw.slide)
+		sw.timerMu.Unlock()
+
+		// Continue with periodic triggering at slide intervals
 		for {
 			// Safely get timer in each loop iteration
 			sw.timerMu.Lock()
@@ -327,6 +376,7 @@ func (sw *SlidingWindow) Reset() {
 	sw.currentSlot = nil
 	sw.initialized = false
 	sw.initChan = make(chan struct{})
+	sw.firstWindowStartTime = time.Time{}
 
 	// Recreate context for next startup
 	sw.ctx, sw.cancelFunc = context.WithCancel(context.Background())
@@ -356,7 +406,7 @@ func (sw *SlidingWindow) NextSlot() *types.TimeSlot {
 
 func (sw *SlidingWindow) createSlot(t time.Time) *types.TimeSlot {
 	// Create a new time slot
-	start := timex.AlignTimeToWindow(t, sw.slide)
+	start := t
 	end := start.Add(sw.size)
 	slot := types.NewTimeSlot(&start, &end)
 	return slot
