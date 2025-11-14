@@ -59,6 +59,11 @@ func (dp *DataProcessor) Process() {
 		currentDataChan := dp.stream.dataChan
 		dp.stream.dataChanMux.RUnlock()
 
+		// Check if dataChan is nil (stream has been stopped)
+		if currentDataChan == nil {
+			return
+		}
+
 		select {
 		case data, ok := <-currentDataChan:
 			if !ok {

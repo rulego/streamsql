@@ -56,7 +56,7 @@ type SlidingWindow struct {
 	ctx context.Context
 	// cancelFunc cancels the context
 	cancelFunc context.CancelFunc
-	// timer for triggering window periodically
+	// timer for triggering window periodically (used for ProcessingTime)
 	timer       *time.Ticker
 	currentSlot *types.TimeSlot
 	// initChan for window initialization
@@ -66,6 +66,10 @@ type SlidingWindow struct {
 	timerMu sync.Mutex
 	// firstWindowStartTime records when first window started (processing time)
 	firstWindowStartTime time.Time
+	// watermark for event time processing (only used for EventTime)
+	watermark *Watermark
+	// triggeredWindows stores windows that have been triggered but are still open for late data (for EventTime with allowedLateness)
+	triggeredWindows map[string]*triggeredWindowInfo // key: window end time string
 	// Performance statistics
 	droppedCount int64 // Number of dropped results
 	sentCount    int64 // Number of successfully sent results
@@ -102,18 +106,42 @@ func NewSlidingWindow(config types.WindowConfig) (*SlidingWindow, error) {
 		bufferSize = config.PerformanceConfig.BufferConfig.WindowOutputSize
 	}
 
+	// Determine time characteristic (default to ProcessingTime for backward compatibility)
+	timeChar := config.TimeCharacteristic
+	if timeChar == "" {
+		timeChar = types.ProcessingTime
+	}
+
+	// Initialize watermark for event time
+	var watermark *Watermark
+	if timeChar == types.EventTime {
+		maxOutOfOrderness := config.MaxOutOfOrderness
+		if maxOutOfOrderness == 0 {
+			maxOutOfOrderness = 0 // Default: no out-of-orderness allowed
+		}
+		watermarkInterval := config.WatermarkInterval
+		if watermarkInterval == 0 {
+			watermarkInterval = 200 * time.Millisecond // Default: 200ms
+		}
+		idleTimeout := config.IdleTimeout
+		// Default: 0 means disabled, no idle source mechanism
+		watermark = NewWatermark(maxOutOfOrderness, watermarkInterval, idleTimeout)
+	}
+
 	// Create a cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
 	return &SlidingWindow{
-		config:      config,
-		size:        size,
-		slide:       slide,
-		outputChan:  make(chan []types.Row, bufferSize),
-		ctx:         ctx,
-		cancelFunc:  cancel,
-		data:        make([]types.Row, 0),
-		initChan:    make(chan struct{}),
-		initialized: false,
+		config:           config,
+		size:             size,
+		slide:            slide,
+		outputChan:       make(chan []types.Row, bufferSize),
+		ctx:              ctx,
+		cancelFunc:       cancel,
+		data:             make([]types.Row, 0),
+		initChan:         make(chan struct{}),
+		initialized:      false,
+		watermark:        watermark,
+		triggeredWindows: make(map[string]*triggeredWindowInfo),
 	}, nil
 }
 
@@ -123,12 +151,42 @@ func (sw *SlidingWindow) Add(data interface{}) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 
+	// Get timestamp
+	eventTime := GetTimestamp(data, sw.config.TsProp, sw.config.TimeUnit)
+
+	// Determine time characteristic (default to ProcessingTime for backward compatibility)
+	timeChar := sw.config.TimeCharacteristic
+	if timeChar == "" {
+		timeChar = types.ProcessingTime
+	}
+
+	// For event time, update watermark and check for late data
+	if timeChar == types.EventTime && sw.watermark != nil {
+		sw.watermark.UpdateEventTime(eventTime)
+		// Check if data is late and handle allowedLateness
+		if sw.watermark.IsEventTimeLate(eventTime) {
+			// Data is late, check if it's within allowedLateness
+			allowedLateness := sw.config.AllowedLateness
+			if allowedLateness > 0 {
+				// Check if this late data belongs to any triggered window that's still open
+				sw.handleLateData(eventTime, allowedLateness)
+			}
+			// If allowedLateness is 0 or data is too late, we still add it but it won't trigger updates
+		}
+	}
+
 	// Add data to the window's data list
-	t := GetTimestamp(data, sw.config.TsProp, sw.config.TimeUnit)
 	if !sw.initialized {
-		sw.currentSlot = sw.createSlot(t)
-		// Record when first window started (processing time)
-		sw.firstWindowStartTime = time.Now()
+		if timeChar == types.EventTime {
+			// For event time, align window start to window boundaries
+			alignedStart := alignWindowStart(eventTime, sw.slide)
+			sw.currentSlot = sw.createSlotFromStart(alignedStart)
+		} else {
+			// For processing time, use current time or event time as-is
+			sw.currentSlot = sw.createSlot(eventTime)
+			// Record when first window started (processing time)
+			sw.firstWindowStartTime = time.Now()
+		}
 		// Don't start timer here, wait for first window to end
 		// Send initialization complete signal
 		// Safely close initChan to avoid closing an already closed channel
@@ -142,7 +200,7 @@ func (sw *SlidingWindow) Add(data interface{}) {
 	}
 	row := types.Row{
 		Data:      data,
-		Timestamp: t,
+		Timestamp: eventTime,
 	}
 	sw.data = append(sw.data, row)
 }
@@ -151,6 +209,23 @@ func (sw *SlidingWindow) Add(data interface{}) {
 // Uses lazy initialization to avoid infinite waiting when no data, ensuring subsequent data can be processed normally
 // First window triggers when it ends, then subsequent windows trigger at slide intervals
 func (sw *SlidingWindow) Start() {
+	// Determine time characteristic (default to ProcessingTime for backward compatibility)
+	timeChar := sw.config.TimeCharacteristic
+	if timeChar == "" {
+		timeChar = types.ProcessingTime
+	}
+
+	if timeChar == types.EventTime {
+		// Event time: trigger based on watermark
+		sw.startEventTime()
+	} else {
+		// Processing time: trigger based on system clock
+		sw.startProcessingTime()
+	}
+}
+
+// startProcessingTime starts the processing time trigger mechanism
+func (sw *SlidingWindow) startProcessingTime() {
 	go func() {
 		// Close output channel when function ends
 		defer close(sw.outputChan)
@@ -244,17 +319,146 @@ func (sw *SlidingWindow) Start() {
 	}()
 }
 
+// startEventTime starts the event time trigger mechanism based on watermark
+func (sw *SlidingWindow) startEventTime() {
+	go func() {
+		// Close output channel when function ends
+		defer close(sw.outputChan)
+		if sw.watermark != nil {
+			defer sw.watermark.Stop()
+		}
+
+		// Wait for initialization complete or context cancellation
+		select {
+		case <-sw.initChan:
+			// Initialization completed normally, continue processing
+		case <-sw.ctx.Done():
+			// Context cancelled, exit directly
+			return
+		}
+
+		// Process watermark updates
+		if sw.watermark != nil {
+			for {
+				select {
+				case watermarkTime := <-sw.watermark.WatermarkChan():
+					sw.checkAndTriggerWindows(watermarkTime)
+				case <-sw.ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+}
+
+// checkAndTriggerWindows checks if any windows should be triggered based on watermark
+func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+
+	if !sw.initialized || sw.currentSlot == nil {
+		return
+	}
+
+	allowedLateness := sw.config.AllowedLateness
+
+	// Trigger all windows whose end time is before watermark
+	for sw.currentSlot != nil && !sw.currentSlot.End.After(watermarkTime) {
+		// Trigger current window
+		sw.triggerWindowLocked()
+
+		// If allowedLateness > 0, keep window open for late data
+		if allowedLateness > 0 {
+			windowKey := sw.getWindowKey(*sw.currentSlot.End)
+			closeTime := sw.currentSlot.End.Add(allowedLateness)
+			sw.triggeredWindows[windowKey] = &triggeredWindowInfo{
+				slot:      sw.currentSlot,
+				closeTime: closeTime,
+			}
+		}
+
+		// Move to next window
+		sw.currentSlot = sw.NextSlot()
+	}
+
+	// Close windows that have exceeded allowedLateness
+	sw.closeExpiredWindows(watermarkTime)
+}
+
+// triggerWindowLocked triggers the window (must be called with lock held)
+func (sw *SlidingWindow) triggerWindowLocked() {
+	if sw.currentSlot == nil {
+		return
+	}
+
+	// Extract current window data
+	resultData := make([]types.Row, 0)
+	for _, item := range sw.data {
+		if sw.currentSlot.Contains(item.Timestamp) {
+			item.Slot = sw.currentSlot
+			resultData = append(resultData, item)
+		}
+	}
+
+	// Retain data that could be in future windows
+	// For sliding windows, we need to keep data that falls within:
+	// - Current window end + size (for overlapping windows)
+	cutoffTime := sw.currentSlot.End.Add(sw.size)
+	newData := make([]types.Row, 0)
+	for _, item := range sw.data {
+		// Keep data that could be in future windows (before cutoffTime)
+		if item.Timestamp.Before(cutoffTime) {
+			newData = append(newData, item)
+		}
+	}
+	sw.data = newData
+
+	// Get callback reference before releasing lock
+	callback := sw.callback
+
+	// Release lock before calling callback and sending to channel to avoid blocking
+	sw.mu.Unlock()
+
+	if callback != nil {
+		callback(resultData)
+	}
+
+	// Non-blocking send to output channel and update statistics
+	var sent bool
+	select {
+	case sw.outputChan <- resultData:
+		// Successfully sent
+		sent = true
+	default:
+		// Channel full, drop result
+		sent = false
+	}
+
+	// Re-acquire lock to update statistics
+	sw.mu.Lock()
+	if sent {
+		sw.sentCount++
+	} else {
+		sw.droppedCount++
+	}
+}
+
 // Stop stops the sliding window operations
 func (sw *SlidingWindow) Stop() {
 	// Call cancel function to stop window operations
 	sw.cancelFunc()
 
-	// Safely stop timer
+	// Safely stop timer (for processing time)
 	sw.timerMu.Lock()
 	if sw.timer != nil {
 		sw.timer.Stop()
 	}
 	sw.timerMu.Unlock()
+
+	// Stop watermark (for event time)
+	if sw.watermark != nil {
+		sw.watermark.Stop()
+	}
 
 	// Ensure initChan is closed if it hasn't been closed yet
 	// This prevents Start() goroutine from blocking on initChan
@@ -271,7 +475,15 @@ func (sw *SlidingWindow) Stop() {
 }
 
 // Trigger triggers the sliding window to process data within the window
+// For ProcessingTime: called by timer
+// For EventTime: called by watermark updates
 func (sw *SlidingWindow) Trigger() {
+	// Determine time characteristic
+	timeChar := sw.config.TimeCharacteristic
+	if timeChar == "" {
+		timeChar = types.ProcessingTime
+	}
+
 	// Lock to ensure thread safety
 	sw.mu.Lock()
 
@@ -284,6 +496,15 @@ func (sw *SlidingWindow) Trigger() {
 		sw.mu.Unlock()
 		return
 	}
+
+	if timeChar == types.EventTime {
+		// For event time, trigger is handled by watermark mechanism
+		// This method is kept for backward compatibility but shouldn't be called directly
+		sw.mu.Unlock()
+		return
+	}
+
+	// Processing time logic
 	// Calculate next slot for sliding window
 	next := sw.NextSlot()
 	if next == nil {
@@ -313,6 +534,16 @@ func (sw *SlidingWindow) Trigger() {
 		if item.Timestamp.Before(cutoffTime) {
 			newData = append(newData, item)
 		}
+	}
+
+	// If resultData is empty, skip callback to avoid sending empty results
+	// This prevents empty results from filling up channels when timer triggers repeatedly
+	if len(resultData) == 0 {
+		// Update window data even if no result
+		sw.data = newData
+		sw.currentSlot = next
+		sw.mu.Unlock()
+		return
 	}
 
 	// Update window data
@@ -382,7 +613,7 @@ func (sw *SlidingWindow) Reset() {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 
-	// Stop existing timer
+	// Stop existing timer (for processing time)
 	sw.timerMu.Lock()
 	if sw.timer != nil {
 		sw.timer.Stop()
@@ -390,12 +621,35 @@ func (sw *SlidingWindow) Reset() {
 	}
 	sw.timerMu.Unlock()
 
+	// Stop watermark (for event time)
+	if sw.watermark != nil {
+		sw.watermark.Stop()
+		// Recreate watermark
+		timeChar := sw.config.TimeCharacteristic
+		if timeChar == "" {
+			timeChar = types.ProcessingTime
+		}
+		if timeChar == types.EventTime {
+			maxOutOfOrderness := sw.config.MaxOutOfOrderness
+			if maxOutOfOrderness == 0 {
+				maxOutOfOrderness = 0
+			}
+			watermarkInterval := sw.config.WatermarkInterval
+			if watermarkInterval == 0 {
+				watermarkInterval = 200 * time.Millisecond
+			}
+			idleTimeout := sw.config.IdleTimeout
+			sw.watermark = NewWatermark(maxOutOfOrderness, watermarkInterval, idleTimeout)
+		}
+	}
+
 	// Clear window data
 	sw.data = nil
 	sw.currentSlot = nil
 	sw.initialized = false
 	sw.initChan = make(chan struct{})
 	sw.firstWindowStartTime = time.Time{}
+	sw.triggeredWindows = make(map[string]*triggeredWindowInfo)
 
 	// Recreate context for next startup
 	sw.ctx, sw.cancelFunc = context.WithCancel(context.Background())
@@ -424,9 +678,89 @@ func (sw *SlidingWindow) NextSlot() *types.TimeSlot {
 }
 
 func (sw *SlidingWindow) createSlot(t time.Time) *types.TimeSlot {
-	// Create a new time slot
+	// Create a new time slot (for processing time, no alignment needed)
 	start := t
 	end := start.Add(sw.size)
 	slot := types.NewTimeSlot(&start, &end)
 	return slot
+}
+
+func (sw *SlidingWindow) createSlotFromStart(start time.Time) *types.TimeSlot {
+	// Create a new time slot from aligned start time (for event time)
+	end := start.Add(sw.size)
+	slot := types.NewTimeSlot(&start, &end)
+	return slot
+}
+
+// getWindowKey generates a key for a window based on its end time
+func (sw *SlidingWindow) getWindowKey(endTime time.Time) string {
+	return fmt.Sprintf("%d", endTime.UnixNano())
+}
+
+// handleLateData handles late data that arrives within allowedLateness
+func (sw *SlidingWindow) handleLateData(eventTime time.Time, allowedLateness time.Duration) {
+	// Find which triggered window this late data belongs to
+	for _, info := range sw.triggeredWindows {
+		if info.slot.Contains(eventTime) {
+			// This late data belongs to a triggered window that's still open
+			// Trigger window again with updated data (late update)
+			sw.triggerLateUpdateLocked(info.slot)
+			return
+		}
+	}
+}
+
+// triggerLateUpdateLocked triggers a late update for a window (must be called with lock held)
+func (sw *SlidingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
+	// Extract window data including late data
+	resultData := make([]types.Row, 0)
+	for _, item := range sw.data {
+		if slot.Contains(item.Timestamp) {
+			item.Slot = slot
+			resultData = append(resultData, item)
+		}
+	}
+
+	if len(resultData) == 0 {
+		return
+	}
+
+	// Get callback reference before releasing lock
+	callback := sw.callback
+
+	// Release lock before calling callback and sending to channel to avoid blocking
+	sw.mu.Unlock()
+
+	if callback != nil {
+		callback(resultData)
+	}
+
+	// Non-blocking send to output channel and update statistics
+	var sent bool
+	select {
+	case sw.outputChan <- resultData:
+		// Successfully sent
+		sent = true
+	default:
+		// Channel full, drop result
+		sent = false
+	}
+
+	// Re-acquire lock to update statistics
+	sw.mu.Lock()
+	if sent {
+		sw.sentCount++
+	} else {
+		sw.droppedCount++
+	}
+}
+
+// closeExpiredWindows closes windows that have exceeded allowedLateness
+func (sw *SlidingWindow) closeExpiredWindows(watermarkTime time.Time) {
+	for key, info := range sw.triggeredWindows {
+		if !watermarkTime.Before(info.closeTime) {
+			// Window has expired, remove it
+			delete(sw.triggeredWindows, key)
+		}
+	}
 }

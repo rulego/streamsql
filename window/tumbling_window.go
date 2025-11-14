@@ -29,6 +29,12 @@ import (
 // Ensure TumblingWindow implements the Window interface
 var _ Window = (*TumblingWindow)(nil)
 
+// triggeredWindowInfo stores information about a triggered window that is still open for late data
+type triggeredWindowInfo struct {
+	slot      *types.TimeSlot
+	closeTime time.Time // window end + allowedLateness
+}
+
 // TumblingWindow represents a tumbling window for collecting data and triggering processing at fixed time intervals
 type TumblingWindow struct {
 	// config holds window configuration
@@ -47,7 +53,7 @@ type TumblingWindow struct {
 	ctx context.Context
 	// cancelFunc cancels window operations
 	cancelFunc context.CancelFunc
-	// timer for triggering window periodically
+	// timer for triggering window periodically (used for ProcessingTime)
 	timer       *time.Ticker
 	currentSlot *types.TimeSlot
 	// initChan for window initialization
@@ -55,6 +61,12 @@ type TumblingWindow struct {
 	initialized bool
 	// timerMu protects timer access
 	timerMu sync.Mutex
+	// watermark for event time processing (only used for EventTime)
+	watermark *Watermark
+	// pendingWindows stores windows waiting to be triggered (for EventTime)
+	pendingWindows map[string]*types.TimeSlot // key: window end time string
+	// triggeredWindows stores windows that have been triggered but are still open for late data (for EventTime with allowedLateness)
+	triggeredWindows map[string]*triggeredWindowInfo // key: window end time string
 	// Performance statistics
 	droppedCount int64 // Number of dropped results
 	sentCount    int64 // Number of successfully sent results
@@ -83,14 +95,39 @@ func NewTumblingWindow(config types.WindowConfig) (*TumblingWindow, error) {
 		bufferSize = config.PerformanceConfig.BufferConfig.WindowOutputSize
 	}
 
+	// Determine time characteristic (default to ProcessingTime for backward compatibility)
+	timeChar := config.TimeCharacteristic
+	if timeChar == "" {
+		timeChar = types.ProcessingTime
+	}
+
+	// Initialize watermark for event time
+	var watermark *Watermark
+	if timeChar == types.EventTime {
+		maxOutOfOrderness := config.MaxOutOfOrderness
+		if maxOutOfOrderness == 0 {
+			maxOutOfOrderness = 0 // Default: no out-of-orderness allowed
+		}
+		watermarkInterval := config.WatermarkInterval
+		if watermarkInterval == 0 {
+			watermarkInterval = 200 * time.Millisecond // Default: 200ms
+		}
+		idleTimeout := config.IdleTimeout
+		// Default: 0 means disabled, no idle source mechanism
+		watermark = NewWatermark(maxOutOfOrderness, watermarkInterval, idleTimeout)
+	}
+
 	return &TumblingWindow{
-		config:      config,
-		size:        size,
-		outputChan:  make(chan []types.Row, bufferSize),
-		ctx:         ctx,
-		cancelFunc:  cancel,
-		initChan:    make(chan struct{}),
-		initialized: false,
+		config:           config,
+		size:             size,
+		outputChan:       make(chan []types.Row, bufferSize),
+		ctx:              ctx,
+		cancelFunc:       cancel,
+		initChan:         make(chan struct{}),
+		initialized:      false,
+		watermark:        watermark,
+		pendingWindows:   make(map[string]*types.TimeSlot),
+		triggeredWindows: make(map[string]*triggeredWindowInfo),
 	}, nil
 }
 
@@ -100,12 +137,48 @@ func (tw *TumblingWindow) Add(data interface{}) {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 
+	// Get timestamp
+	eventTime := GetTimestamp(data, tw.config.TsProp, tw.config.TimeUnit)
+
+	// Determine time characteristic (default to ProcessingTime for backward compatibility)
+	timeChar := tw.config.TimeCharacteristic
+	if timeChar == "" {
+		timeChar = types.ProcessingTime
+	}
+
+	// For event time, update watermark and check for late data
+	if timeChar == types.EventTime && tw.watermark != nil {
+		tw.watermark.UpdateEventTime(eventTime)
+		// Check if data is late and handle allowedLateness
+		if tw.watermark.IsEventTimeLate(eventTime) {
+			// Data is late, check if it's within allowedLateness
+			allowedLateness := tw.config.AllowedLateness
+			if allowedLateness > 0 {
+				// Check if this late data belongs to any triggered window that's still open
+				tw.handleLateData(eventTime, allowedLateness)
+			}
+			// If allowedLateness is 0 or data is too late, we still add it but it won't trigger updates
+		}
+	}
+
 	// Append data to window's data list
 	if !tw.initialized {
-		tw.currentSlot = tw.createSlot(GetTimestamp(data, tw.config.TsProp, tw.config.TimeUnit))
-		tw.timerMu.Lock()
-		tw.timer = time.NewTicker(tw.size)
-		tw.timerMu.Unlock()
+		if timeChar == types.EventTime {
+			// For event time, align window start to window boundaries
+			alignedStart := alignWindowStart(eventTime, tw.size)
+			tw.currentSlot = tw.createSlotFromStart(alignedStart)
+		} else {
+			// For processing time, use current time or event time as-is
+			tw.currentSlot = tw.createSlot(eventTime)
+		}
+
+		// Only start timer for processing time
+		if timeChar == types.ProcessingTime {
+			tw.timerMu.Lock()
+			tw.timer = time.NewTicker(tw.size)
+			tw.timerMu.Unlock()
+		}
+
 		tw.initialized = true
 		// Send initialization complete signal (after setting timer)
 		// Safely close initChan to avoid closing an already closed channel
@@ -116,27 +189,35 @@ func (tw *TumblingWindow) Add(data interface{}) {
 			close(tw.initChan)
 		}
 	}
+
 	row := types.Row{
 		Data:      data,
-		Timestamp: GetTimestamp(data, tw.config.TsProp, tw.config.TimeUnit),
+		Timestamp: eventTime,
 	}
 	tw.data = append(tw.data, row)
 }
 
-func (sw *TumblingWindow) createSlot(t time.Time) *types.TimeSlot {
-	// Create a new time slot
+func (tw *TumblingWindow) createSlot(t time.Time) *types.TimeSlot {
+	// Create a new time slot (for processing time, no alignment needed)
 	start := t
-	end := start.Add(sw.size)
+	end := start.Add(tw.size)
 	slot := types.NewTimeSlot(&start, &end)
 	return slot
 }
 
-func (sw *TumblingWindow) NextSlot() *types.TimeSlot {
-	if sw.currentSlot == nil {
+func (tw *TumblingWindow) createSlotFromStart(start time.Time) *types.TimeSlot {
+	// Create a new time slot from aligned start time (for event time)
+	end := start.Add(tw.size)
+	slot := types.NewTimeSlot(&start, &end)
+	return slot
+}
+
+func (tw *TumblingWindow) NextSlot() *types.TimeSlot {
+	if tw.currentSlot == nil {
 		return nil
 	}
-	start := sw.currentSlot.End
-	end := sw.currentSlot.End.Add(sw.size)
+	start := tw.currentSlot.End
+	end := start.Add(tw.size)
 	return types.NewTimeSlot(start, &end)
 }
 
@@ -145,12 +226,17 @@ func (tw *TumblingWindow) Stop() {
 	// Call cancel function to stop window operations
 	tw.cancelFunc()
 
-	// Safely stop timer
+	// Safely stop timer (for processing time)
 	tw.timerMu.Lock()
 	if tw.timer != nil {
 		tw.timer.Stop()
 	}
 	tw.timerMu.Unlock()
+
+	// Stop watermark (for event time)
+	if tw.watermark != nil {
+		tw.watermark.Stop()
+	}
 
 	// Ensure initChan is closed if it hasn't been closed yet
 	// This prevents Start() goroutine from blocking on initChan
@@ -169,6 +255,23 @@ func (tw *TumblingWindow) Stop() {
 // Start starts the tumbling window's periodic trigger mechanism
 // Uses lazy initialization to avoid infinite waiting when no data, ensuring subsequent data can be processed normally
 func (tw *TumblingWindow) Start() {
+	// Determine time characteristic (default to ProcessingTime for backward compatibility)
+	timeChar := tw.config.TimeCharacteristic
+	if timeChar == "" {
+		timeChar = types.ProcessingTime
+	}
+
+	if timeChar == types.EventTime {
+		// Event time: trigger based on watermark
+		tw.startEventTime()
+	} else {
+		// Processing time: trigger based on system clock
+		tw.startProcessingTime()
+	}
+}
+
+// startProcessingTime starts the processing time trigger mechanism
+func (tw *TumblingWindow) startProcessingTime() {
 	go func() {
 		// Close output channel when function ends
 		defer close(tw.outputChan)
@@ -215,15 +318,224 @@ func (tw *TumblingWindow) Start() {
 	}()
 }
 
+// startEventTime starts the event time trigger mechanism based on watermark
+func (tw *TumblingWindow) startEventTime() {
+	go func() {
+		// Close output channel when function ends
+		defer close(tw.outputChan)
+		if tw.watermark != nil {
+			defer tw.watermark.Stop()
+		}
+
+		// Wait for initialization complete or context cancellation
+		select {
+		case <-tw.initChan:
+			// Initialization completed normally, continue processing
+		case <-tw.ctx.Done():
+			// Context cancelled, exit directly
+			return
+		}
+
+		// Process watermark updates
+		if tw.watermark != nil {
+			for {
+				select {
+				case watermarkTime := <-tw.watermark.WatermarkChan():
+					tw.checkAndTriggerWindows(watermarkTime)
+				case <-tw.ctx.Done():
+					return
+				}
+			}
+		}
+	}()
+}
+
+// checkAndTriggerWindows checks if any windows should be triggered based on watermark
+func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+
+	if !tw.initialized || tw.currentSlot == nil {
+		return
+	}
+
+	allowedLateness := tw.config.AllowedLateness
+
+	// Trigger all windows whose end time is before watermark
+	for tw.currentSlot != nil && !tw.currentSlot.End.After(watermarkTime) {
+		// Trigger current window
+		tw.triggerWindowLocked()
+
+		// If allowedLateness > 0, keep window open for late data
+		if allowedLateness > 0 {
+			windowKey := tw.getWindowKey(*tw.currentSlot.End)
+			closeTime := tw.currentSlot.End.Add(allowedLateness)
+			tw.triggeredWindows[windowKey] = &triggeredWindowInfo{
+				slot:      tw.currentSlot,
+				closeTime: closeTime,
+			}
+		}
+
+		// Move to next window
+		tw.currentSlot = tw.NextSlot()
+	}
+
+	// Close windows that have exceeded allowedLateness
+	tw.closeExpiredWindows(watermarkTime)
+}
+
+// closeExpiredWindows closes windows that have exceeded allowedLateness
+func (tw *TumblingWindow) closeExpiredWindows(watermarkTime time.Time) {
+	for key, info := range tw.triggeredWindows {
+		if !watermarkTime.Before(info.closeTime) {
+			// Window has expired, remove it
+			delete(tw.triggeredWindows, key)
+		}
+	}
+}
+
+// handleLateData handles late data that arrives within allowedLateness
+func (tw *TumblingWindow) handleLateData(eventTime time.Time, allowedLateness time.Duration) {
+	// Find which triggered window this late data belongs to
+	for _, info := range tw.triggeredWindows {
+		if info.slot.Contains(eventTime) {
+			// This late data belongs to a triggered window that's still open
+			// Trigger window again with updated data (late update)
+			tw.triggerLateUpdateLocked(info.slot)
+			return
+		}
+	}
+}
+
+// triggerLateUpdateLocked triggers a late update for a window (must be called with lock held)
+func (tw *TumblingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
+	// Extract window data including late data
+	resultData := make([]types.Row, 0)
+	for _, item := range tw.data {
+		if slot.Contains(item.Timestamp) {
+			item.Slot = slot
+			resultData = append(resultData, item)
+		}
+	}
+
+	if len(resultData) == 0 {
+		return
+	}
+
+	// Get callback reference before releasing lock
+	callback := tw.callback
+
+	// Release lock before calling callback and sending to channel to avoid blocking
+	tw.mu.Unlock()
+
+	if callback != nil {
+		callback(resultData)
+	}
+
+	// Non-blocking send to output channel and update statistics
+	var sent bool
+	select {
+	case tw.outputChan <- resultData:
+		// Successfully sent
+		sent = true
+	default:
+		// Channel full, drop result
+		sent = false
+	}
+
+	// Re-acquire lock to update statistics
+	tw.mu.Lock()
+	if sent {
+		tw.sentCount++
+	} else {
+		tw.droppedCount++
+	}
+}
+
+// getWindowKey generates a key for a window based on its end time
+func (tw *TumblingWindow) getWindowKey(endTime time.Time) string {
+	return fmt.Sprintf("%d", endTime.UnixNano())
+}
+
+// triggerWindowLocked triggers the window (must be called with lock held)
+func (tw *TumblingWindow) triggerWindowLocked() {
+	if tw.currentSlot == nil {
+		return
+	}
+
+	// Extract current window data
+	resultData := make([]types.Row, 0)
+	for _, item := range tw.data {
+		if tw.currentSlot.Contains(item.Timestamp) {
+			item.Slot = tw.currentSlot
+			resultData = append(resultData, item)
+		}
+	}
+
+	// Remove data that belongs to current window
+	newData := make([]types.Row, 0)
+	for _, item := range tw.data {
+		if !tw.currentSlot.Contains(item.Timestamp) {
+			newData = append(newData, item)
+		}
+	}
+	tw.data = newData
+
+	// Get callback reference before releasing lock
+	callback := tw.callback
+
+	// Release lock before calling callback and sending to channel to avoid blocking
+	tw.mu.Unlock()
+
+	if callback != nil {
+		callback(resultData)
+	}
+
+	// Non-blocking send to output channel and update statistics
+	var sent bool
+	select {
+	case tw.outputChan <- resultData:
+		// Successfully sent
+		sent = true
+	default:
+		// Channel full, drop result
+		sent = false
+	}
+
+	// Re-acquire lock to update statistics
+	tw.mu.Lock()
+	if sent {
+		tw.sentCount++
+	} else {
+		tw.droppedCount++
+	}
+}
+
 // Trigger triggers the tumbling window's processing logic
+// For ProcessingTime: called by timer
+// For EventTime: called by watermark updates
 func (tw *TumblingWindow) Trigger() {
-	// Lock to ensure thread safety
+	// Determine time characteristic
+	timeChar := tw.config.TimeCharacteristic
+	if timeChar == "" {
+		timeChar = types.ProcessingTime
+	}
+
 	tw.mu.Lock()
 
 	if !tw.initialized {
 		tw.mu.Unlock()
 		return
 	}
+
+	if timeChar == types.EventTime {
+		// For event time, trigger is handled by watermark mechanism
+		// This method is kept for backward compatibility but shouldn't be called directly
+		tw.mu.Unlock()
+		return
+	}
+
+	// Processing time logic
 	// Calculate next window slot
 	next := tw.NextSlot()
 	// Retain data for next window
@@ -244,6 +556,16 @@ func (tw *TumblingWindow) Trigger() {
 			item.Slot = tw.currentSlot
 			resultData = append(resultData, item)
 		}
+	}
+
+	// If resultData is empty, skip callback to avoid sending empty results
+	// This prevents empty results from filling up channels when timer triggers repeatedly
+	if len(resultData) == 0 {
+		// Update window data even if no result
+		tw.data = newData
+		tw.currentSlot = next
+		tw.mu.Unlock()
+		return
 	}
 
 	// Update window data
@@ -292,7 +614,7 @@ func (tw *TumblingWindow) Reset() {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 
-	// Stop existing timer
+	// Stop existing timer (for processing time)
 	tw.timerMu.Lock()
 	if tw.timer != nil {
 		tw.timer.Stop()
@@ -300,11 +622,35 @@ func (tw *TumblingWindow) Reset() {
 	}
 	tw.timerMu.Unlock()
 
+	// Stop watermark (for event time)
+	if tw.watermark != nil {
+		tw.watermark.Stop()
+		// Recreate watermark
+		timeChar := tw.config.TimeCharacteristic
+		if timeChar == "" {
+			timeChar = types.ProcessingTime
+		}
+		if timeChar == types.EventTime {
+			maxOutOfOrderness := tw.config.MaxOutOfOrderness
+			if maxOutOfOrderness == 0 {
+				maxOutOfOrderness = 0
+			}
+			watermarkInterval := tw.config.WatermarkInterval
+			if watermarkInterval == 0 {
+				watermarkInterval = 200 * time.Millisecond
+			}
+			idleTimeout := tw.config.IdleTimeout
+			tw.watermark = NewWatermark(maxOutOfOrderness, watermarkInterval, idleTimeout)
+		}
+	}
+
 	// Clear window data
 	tw.data = nil
 	tw.currentSlot = nil
 	tw.initialized = false
 	tw.initChan = make(chan struct{})
+	tw.pendingWindows = make(map[string]*types.TimeSlot)
+	tw.triggeredWindows = make(map[string]*triggeredWindowInfo)
 
 	// Recreate context for next startup
 	tw.ctx, tw.cancelFunc = context.WithCancel(context.Background())

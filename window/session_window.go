@@ -55,6 +55,16 @@ type SessionWindow struct {
 	// Lock to protect ticker
 	tickerMu sync.Mutex
 	ticker   *time.Ticker
+	// watermark for event time processing (only used for EventTime)
+	watermark *Watermark
+	// triggeredSessions stores sessions that have been triggered but are still open for late data (for EventTime with allowedLateness)
+	triggeredSessions map[string]*sessionInfo
+}
+
+// sessionInfo stores information about a triggered session that is still open for late data
+type sessionInfo struct {
+	session   *session
+	closeTime time.Time // session end + allowedLateness
 }
 
 // session stores data and state for a session
@@ -66,17 +76,18 @@ type session struct {
 
 // NewSessionWindow creates a new session window instance
 func NewSessionWindow(config types.WindowConfig) (*SessionWindow, error) {
-	// Create a cancellable context
-	ctx, cancel := context.WithCancel(context.Background())
-
 	// Get timeout parameter from params array
 	if len(config.Params) == 0 {
 		return nil, fmt.Errorf("session window requires 'timeout' parameter")
 	}
 
+	// Create a cancellable context
+	ctx, cancel := context.WithCancel(context.Background())
+
 	timeoutVal := config.Params[0]
 	timeout, err := cast.ToDurationE(timeoutVal)
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("invalid timeout for session window: %v", err)
 	}
 
@@ -89,15 +100,39 @@ func NewSessionWindow(config types.WindowConfig) (*SessionWindow, error) {
 		}
 	}
 
+	// Determine time characteristic (default to ProcessingTime for backward compatibility)
+	timeChar := config.TimeCharacteristic
+	if timeChar == "" {
+		timeChar = types.ProcessingTime
+	}
+
+	// Initialize watermark for event time
+	var watermark *Watermark
+	if timeChar == types.EventTime {
+		maxOutOfOrderness := config.MaxOutOfOrderness
+		if maxOutOfOrderness == 0 {
+			maxOutOfOrderness = 0 // Default: no out-of-orderness allowed
+		}
+		watermarkInterval := config.WatermarkInterval
+		if watermarkInterval == 0 {
+			watermarkInterval = 200 * time.Millisecond // Default: 200ms
+		}
+		idleTimeout := config.IdleTimeout
+		// Default: 0 means disabled, no idle source mechanism
+		watermark = NewWatermark(maxOutOfOrderness, watermarkInterval, idleTimeout)
+	}
+
 	return &SessionWindow{
-		config:      config,
-		timeout:     timeout,
-		sessionMap:  make(map[string]*session),
-		outputChan:  make(chan []types.Row, bufferSize),
-		ctx:         ctx,
-		cancelFunc:  cancel,
-		initChan:    make(chan struct{}),
-		initialized: false,
+		config:            config,
+		timeout:           timeout,
+		sessionMap:        make(map[string]*session),
+		outputChan:        make(chan []types.Row, bufferSize),
+		ctx:               ctx,
+		cancelFunc:        cancel,
+		initChan:          make(chan struct{}),
+		initialized:       false,
+		watermark:         watermark,
+		triggeredSessions: make(map[string]*sessionInfo),
 	}, nil
 }
 
@@ -120,6 +155,28 @@ func (sw *SessionWindow) Add(data interface{}) {
 
 	// Get data timestamp
 	timestamp := GetTimestamp(data, sw.config.TsProp, sw.config.TimeUnit)
+
+	// Determine time characteristic (default to ProcessingTime for backward compatibility)
+	timeChar := sw.config.TimeCharacteristic
+	if timeChar == "" {
+		timeChar = types.ProcessingTime
+	}
+
+	// For event time, update watermark and check for late data
+	if timeChar == types.EventTime && sw.watermark != nil {
+		sw.watermark.UpdateEventTime(timestamp)
+		// Check if data is late and handle allowedLateness
+		if sw.watermark.IsEventTimeLate(timestamp) {
+			// Data is late, check if it's within allowedLateness
+			allowedLateness := sw.config.AllowedLateness
+			if allowedLateness > 0 {
+				// Check if this late data belongs to any triggered session that's still open
+				sw.handleLateData(timestamp, allowedLateness)
+			}
+			// If allowedLateness is 0 or data is too late, we still add it but it won't trigger updates
+		}
+	}
+
 	// Create Row object
 	row := types.Row{
 		Data:      data,
@@ -166,6 +223,23 @@ func (sw *SessionWindow) Add(data interface{}) {
 // Start starts the session window, begins periodic checking of expired sessions
 // Uses lazy initialization mode to avoid infinite waiting when no data, while ensuring subsequent data can be processed normally
 func (sw *SessionWindow) Start() {
+	// Determine time characteristic (default to ProcessingTime for backward compatibility)
+	timeChar := sw.config.TimeCharacteristic
+	if timeChar == "" {
+		timeChar = types.ProcessingTime
+	}
+
+	if timeChar == types.EventTime {
+		// Event time: trigger based on watermark
+		sw.startEventTime()
+	} else {
+		// Processing time: trigger based on system clock
+		sw.startProcessingTime()
+	}
+}
+
+// startProcessingTime starts the processing time trigger mechanism
+func (sw *SessionWindow) startProcessingTime() {
 	go func() {
 		// Close output channel when function ends
 		defer close(sw.outputChan)
@@ -204,6 +278,42 @@ func (sw *SessionWindow) Start() {
 	}()
 }
 
+// startEventTime starts the event time trigger mechanism based on watermark
+func (sw *SessionWindow) startEventTime() {
+	go func() {
+		// Close output channel when function ends
+		defer close(sw.outputChan)
+		if sw.watermark != nil {
+			defer sw.watermark.Stop()
+		}
+
+		// Wait for initialization completion or context cancellation
+		select {
+		case <-sw.initChan:
+			// Normal initialization completed, continue processing
+		case <-sw.ctx.Done():
+			// Context cancelled, exit directly
+			return
+		}
+
+		// Process watermark updates
+		if sw.watermark != nil {
+			for {
+				select {
+				case watermarkTime := <-sw.watermark.WatermarkChan():
+					sw.checkAndTriggerSessions(watermarkTime)
+				case <-sw.ctx.Done():
+					return
+				}
+			}
+		} else {
+			// If watermark is nil, just wait for context cancellation
+			<-sw.ctx.Done()
+			return
+		}
+	}()
+}
+
 // Stop stops session window operations
 func (sw *SessionWindow) Stop() {
 	// Call cancel function to stop window operations
@@ -215,6 +325,11 @@ func (sw *SessionWindow) Stop() {
 		sw.ticker.Stop()
 	}
 	sw.tickerMu.Unlock()
+
+	// Stop watermark (for event time)
+	if sw.watermark != nil {
+		sw.watermark.Stop()
+	}
 
 	// Ensure initChan is closed if it hasn't been closed yet
 	// This prevents Start() goroutine from blocking on initChan
@@ -230,50 +345,75 @@ func (sw *SessionWindow) Stop() {
 	sw.mu.Unlock()
 }
 
-// checkExpiredSessions checks and triggers expired sessions
 func (sw *SessionWindow) checkExpiredSessions() {
 	sw.mu.Lock()
-
 	now := time.Now()
-	expiredKeys := []string{}
+	resultsToSend := sw.collectExpiredSessions(now)
+	sw.mu.Unlock()
 
-	// Find expired sessions
+	sw.sendResults(resultsToSend)
+}
+
+func (sw *SessionWindow) checkAndTriggerSessions(watermarkTime time.Time) {
+	sw.mu.Lock()
+	resultsToSend := sw.collectExpiredSessions(watermarkTime)
+	sw.closeExpiredSessions(watermarkTime)
+	sw.mu.Unlock()
+
+	sw.sendResults(resultsToSend)
+}
+
+func (sw *SessionWindow) collectExpiredSessions(currentTime time.Time) [][]types.Row {
+	expiredKeys := []string{}
 	for key, s := range sw.sessionMap {
-		if now.Sub(s.lastActive) > sw.timeout {
+		// For event time, use slot.End to determine if session expired
+		// Session expires when watermark >= session end time
+		// For processing time, use lastActive + timeout
+		if s.slot.End != nil && !currentTime.Before(*s.slot.End) {
+			expiredKeys = append(expiredKeys, key)
+		} else if currentTime.Sub(s.lastActive) > sw.timeout {
 			expiredKeys = append(expiredKeys, key)
 		}
 	}
 
-	// Process expired sessions
 	resultsToSend := make([][]types.Row, 0)
+	allowedLateness := sw.config.AllowedLateness
+
 	for _, key := range expiredKeys {
 		s := sw.sessionMap[key]
 		if len(s.data) > 0 {
-			// Trigger session window
 			result := make([]types.Row, len(s.data))
 			copy(result, s.data)
 			resultsToSend = append(resultsToSend, result)
+
+			if allowedLateness > 0 {
+				closeTime := s.slot.End.Add(allowedLateness)
+				sw.triggeredSessions[key] = &sessionInfo{
+					session:   s,
+					closeTime: closeTime,
+				}
+			}
 		}
-		// Delete expired session
 		delete(sw.sessionMap, key)
 	}
 
-	// Release lock before sending to channel and calling callback to avoid blocking
-	sw.mu.Unlock()
+	return resultsToSend
+}
 
-	// Send results and call callbacks outside of lock to avoid blocking
+func (sw *SessionWindow) sendResults(resultsToSend [][]types.Row) {
 	for _, result := range resultsToSend {
-		// If callback function is set, execute it
+		// Skip empty results to avoid filling up channels
+		if len(result) == 0 {
+			continue
+		}
+
 		if sw.callback != nil {
 			sw.callback(result)
 		}
 
-		// Non-blocking send to output channel
 		select {
 		case sw.outputChan <- result:
-			// Successfully sent
 		default:
-			// Channel full, drop result (could add statistics here if needed)
 		}
 	}
 }
@@ -300,6 +440,11 @@ func (sw *SessionWindow) Trigger() {
 
 	// Send results and call callbacks outside of lock to avoid blocking
 	for _, result := range resultsToSend {
+		// Skip empty results to avoid filling up channels
+		if len(result) == 0 {
+			continue
+		}
+
 		// If callback function is set, execute it
 		if sw.callback != nil {
 			sw.callback(result)
@@ -328,8 +473,31 @@ func (sw *SessionWindow) Reset() {
 	}
 	sw.tickerMu.Unlock()
 
+	// Stop watermark (for event time)
+	if sw.watermark != nil {
+		sw.watermark.Stop()
+		// Recreate watermark
+		timeChar := sw.config.TimeCharacteristic
+		if timeChar == "" {
+			timeChar = types.ProcessingTime
+		}
+		if timeChar == types.EventTime {
+			maxOutOfOrderness := sw.config.MaxOutOfOrderness
+			if maxOutOfOrderness == 0 {
+				maxOutOfOrderness = 0
+			}
+			watermarkInterval := sw.config.WatermarkInterval
+			if watermarkInterval == 0 {
+				watermarkInterval = 200 * time.Millisecond
+			}
+			idleTimeout := sw.config.IdleTimeout
+			sw.watermark = NewWatermark(maxOutOfOrderness, watermarkInterval, idleTimeout)
+		}
+	}
+
 	// Clear session data
 	sw.sessionMap = make(map[string]*session)
+	sw.triggeredSessions = make(map[string]*sessionInfo)
 	sw.initialized = false
 	sw.initChan = make(chan struct{})
 }
@@ -344,6 +512,64 @@ func (sw *SessionWindow) SetCallback(callback func([]types.Row)) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 	sw.callback = callback
+}
+
+// handleLateData handles late data that arrives within allowedLateness
+func (sw *SessionWindow) handleLateData(eventTime time.Time, allowedLateness time.Duration) {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+
+	// Find which triggered session this late data belongs to
+	for _, info := range sw.triggeredSessions {
+		if info.session.slot.Contains(eventTime) {
+			// This late data belongs to a triggered session that's still open
+			// Trigger session again with updated data (late update)
+			sw.triggerLateUpdateLocked(info.session)
+			return
+		}
+	}
+}
+
+// triggerLateUpdateLocked triggers a late update for a session (must be called with lock held)
+func (sw *SessionWindow) triggerLateUpdateLocked(s *session) {
+	if len(s.data) == 0 {
+		return
+	}
+
+	// Extract session data including late data
+	resultData := make([]types.Row, len(s.data))
+	copy(resultData, s.data)
+
+	// Get callback reference before releasing lock
+	callback := sw.callback
+
+	// Release lock before calling callback and sending to channel to avoid blocking
+	sw.mu.Unlock()
+
+	if callback != nil {
+		callback(resultData)
+	}
+
+	// Non-blocking send to output channel
+	select {
+	case sw.outputChan <- resultData:
+		// Successfully sent
+	default:
+		// Channel full, drop result
+	}
+
+	// Re-acquire lock
+	sw.mu.Lock()
+}
+
+// closeExpiredSessions closes sessions that have exceeded allowedLateness
+func (sw *SessionWindow) closeExpiredSessions(watermarkTime time.Time) {
+	for key, info := range sw.triggeredSessions {
+		if !watermarkTime.Before(info.closeTime) {
+			// Session has expired, remove it
+			delete(sw.triggeredSessions, key)
+		}
+	}
 }
 
 // extractSessionCompositeKey builds composite session key from multiple group fields

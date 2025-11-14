@@ -49,6 +49,12 @@ type CountingWindow struct {
 }
 
 func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
+	// Counting window does not support event time
+	// It triggers based on count, not time
+	if config.TimeCharacteristic == types.EventTime {
+		return nil, fmt.Errorf("counting window does not support event time, use processing time instead")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		if cancel != nil {

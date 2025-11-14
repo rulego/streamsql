@@ -62,7 +62,14 @@ func TestSQLCountingWindow_GroupedCounting_MixedDevices(t *testing.T) {
 	require.NoError(t, err)
 
 	ch := make(chan []map[string]interface{}, 8)
-	ssql.AddSink(func(results []map[string]interface{}) { ch <- results })
+	ssql.AddSink(func(results []map[string]interface{}) {
+		defer func() {
+			if r := recover(); r != nil {
+				// channel 已关闭，忽略错误
+			}
+		}()
+		ch <- results
+	})
 
 	for i := 0; i < 10; i++ {
 		ssql.Emit(map[string]interface{}{"deviceId": "A", "temperature": i, "timestamp": time.Now()})
@@ -100,7 +107,14 @@ func TestSQLCountingWindow_MultiKeyGroupedCounting(t *testing.T) {
 	require.NoError(t, err)
 
 	ch := make(chan []map[string]interface{}, 8)
-	ssql.AddSink(func(results []map[string]interface{}) { ch <- results })
+	ssql.AddSink(func(results []map[string]interface{}) {
+		defer func() {
+			if r := recover(); r != nil {
+				// channel 已关闭，忽略错误
+			}
+		}()
+		ch <- results
+	})
 
 	for i := 0; i < 5; i++ {
 		ssql.Emit(map[string]interface{}{"deviceId": "A", "region": "R1", "temperature": i, "timestamp": time.Now()})

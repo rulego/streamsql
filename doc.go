@@ -26,6 +26,8 @@ integration with the RuleGo ecosystem.
 • Lightweight design - Pure in-memory operations, no external dependencies
 • SQL syntax support - Process stream data using familiar SQL syntax
 • Multiple window types - Sliding, tumbling, counting, and session windows
+• Event time and processing time - Support both time semantics for accurate stream processing
+• Watermark mechanism - Handle out-of-order and late-arriving data with configurable tolerance
 • Rich aggregate functions - MAX, MIN, AVG, SUM, STDDEV, MEDIAN, PERCENTILE, etc.
 • Plugin-based custom functions - Runtime dynamic registration, supports 8 function types
 • RuleGo ecosystem integration - Extend input/output sources using RuleGo components
@@ -106,6 +108,77 @@ StreamSQL supports multiple window types:
 
 	// Session window - Automatically closes session after 5-minute timeout
 	SELECT user_id, COUNT(*) FROM stream GROUP BY user_id, SessionWindow('5m')
+
+# Event Time vs Processing Time
+
+StreamSQL supports two time semantics for window processing:
+
+## Processing Time (Default)
+
+Processing time uses the system clock when data arrives. Windows are triggered based on data arrival time:
+
+	// Processing time window (default)
+	SELECT COUNT(*) FROM stream GROUP BY TumblingWindow('5m')
+	// Windows are triggered every 5 minutes based on when data arrives
+
+## Event Time
+
+Event time uses timestamps embedded in the data itself. Windows are triggered based on event timestamps,
+allowing correct handling of out-of-order and late-arriving data:
+
+	// Event time window - Use 'order_time' field as event timestamp
+	SELECT COUNT(*) as order_count
+	FROM stream
+	GROUP BY TumblingWindow('5m')
+	WITH (TIMESTAMP='order_time')
+
+	// Event time with integer timestamp (Unix milliseconds)
+	SELECT AVG(temperature) FROM stream
+	GROUP BY TumblingWindow('1m')
+	WITH (TIMESTAMP='event_time', TIMEUNIT='ms')
+
+## Watermark and Late Data Handling
+
+Event time windows use watermark mechanism to handle out-of-order and late data:
+
+	// Configure max out-of-orderness (tolerate 5 seconds of out-of-order data)
+	SELECT COUNT(*) FROM stream
+	GROUP BY TumblingWindow('5m')
+	WITH (
+		TIMESTAMP='order_time',
+		MAXOUTOFORDERNESS='5s'  // Watermark = max(event_time) - 5s
+	)
+
+	// Configure allowed lateness (accept late data for 2 seconds after window closes)
+	SELECT COUNT(*) FROM stream
+	GROUP BY TumblingWindow('5m')
+	WITH (
+		TIMESTAMP='order_time',
+		ALLOWEDLATENESS='2s'  // Window stays open for 2s after trigger
+	)
+
+	// Combine both configurations
+	SELECT COUNT(*) FROM stream
+	GROUP BY TumblingWindow('5m')
+	WITH (
+		TIMESTAMP='order_time',
+		MAXOUTOFORDERNESS='5s',  // Tolerate 5s out-of-order before trigger
+		ALLOWEDLATENESS='2s'     // Accept 2s late data after trigger
+	)
+
+	// Configure idle source mechanism (advance watermark based on processing time when data source is idle)
+	SELECT COUNT(*) FROM stream
+	GROUP BY TumblingWindow('5m')
+	WITH (
+		TIMESTAMP='order_time',
+		IDLETIMEOUT='5s'  // If no data arrives within 5s, watermark advances based on processing time
+	)
+
+Key concepts:
+• MaxOutOfOrderness: Affects watermark calculation, delays window trigger to tolerate out-of-order data
+• AllowedLateness: Keeps window open after trigger to accept late data and update results
+• IdleTimeout: When data source is idle (no data arrives within timeout), watermark advances based on processing time to ensure windows can close
+• Watermark: Indicates that no events with timestamp less than watermark are expected
 
 # Custom Functions
 

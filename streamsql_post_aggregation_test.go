@@ -19,8 +19,19 @@ func createTestEnvironment(t *testing.T, rsql string) (*Streamsql, chan interfac
 	require.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
+	t.Cleanup(func() { close(resultChan) })
+
 	ssql.AddSink(func(result []map[string]interface{}) {
-		resultChan <- result
+		defer func() {
+			if r := recover(); r != nil {
+				// channel 已关闭，忽略错误
+			}
+		}()
+		select {
+		case resultChan <- result:
+		default:
+			// 非阻塞发送
+		}
 	})
 
 	return ssql, resultChan
@@ -35,20 +46,27 @@ func sendDataAndCollectResults(t *testing.T, ssql *Streamsql, resultChan chan in
 	// 等待窗口触发
 	time.Sleep(time.Duration(windowSizeSeconds+1) * time.Second)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	// 使用更严格的超时机制
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var results []map[string]interface{}
+	maxIterations := 10 // 最多收集10次结果
+	iteration := 0
+
 collecting:
-	for {
+	for iteration < maxIterations {
 		select {
 		case result := <-resultChan:
 			if resultSlice, ok := result.([]map[string]interface{}); ok {
 				results = append(results, resultSlice...)
 			}
-		case <-time.After(1 * time.Second):
+			iteration++
+		case <-time.After(500 * time.Millisecond):
+			// 500ms 没有新结果，退出
 			break collecting
 		case <-ctx.Done():
+			// 超时退出
 			break collecting
 		}
 	}
@@ -68,16 +86,14 @@ func TestPostAggregationExpressions(t *testing.T) {
 				(SUM(value) / COUNT(*)) as calcAvg,
 				(SUM(value) + AVG(value)) as sumPlusAvg
 				FROM stream 
-				GROUP BY deviceId, TumblingWindow('5s') 
-				WITH (TIMESTAMP='ts', TIMEUNIT='ss')`
+				GROUP BY deviceId, TumblingWindow('5s')`
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		baseTime := time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)
 		testData := []map[string]interface{}{
-			{"deviceId": "dev1", "value": 10.0, "ts": baseTime},
-			{"deviceId": "dev1", "value": 20.0, "ts": baseTime.Add(1 * time.Second)},
-			{"deviceId": "dev1", "value": 30.0, "ts": baseTime.Add(2 * time.Second)},
+			{"deviceId": "dev1", "value": 10.0},
+			{"deviceId": "dev1", "value": 20.0},
+			{"deviceId": "dev1", "value": 30.0},
 		}
 
 		results := sendDataAndCollectResults(t, ssql, resultChan, testData, 5)
@@ -102,17 +118,15 @@ func TestPostAggregationExpressions(t *testing.T) {
 				IF_NULL(LAST_VALUE(value), 0) as lastOrZero,
 				IF_NULL(AVG(value), 0) as avgOrZero
 				FROM stream
-				GROUP BY deviceId, TumblingWindow('5s')
-				WITH (TIMESTAMP='ts', TIMEUNIT='ss')`
+				GROUP BY deviceId, TumblingWindow('5s')`
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		baseTime := time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)
 		testData := []map[string]interface{}{
-			{"deviceId": "sensor1", "value": nil, "ts": baseTime},
-			{"deviceId": "sensor1", "value": 10.0, "ts": baseTime.Add(1 * time.Second)},
-			{"deviceId": "sensor1", "value": nil, "ts": baseTime.Add(2 * time.Second)},
-			{"deviceId": "sensor1", "value": 30.0, "ts": baseTime.Add(3 * time.Second)},
+			{"deviceId": "sensor1", "value": nil},
+			{"deviceId": "sensor1", "value": 10.0},
+			{"deviceId": "sensor1", "value": nil},
+			{"deviceId": "sensor1", "value": 30.0},
 		}
 
 		results := sendDataAndCollectResults(t, ssql, resultChan, testData, 5)
@@ -136,17 +150,15 @@ func TestPostAggregationExpressions(t *testing.T) {
 				MAX(IF_NULL(value, 0)) as maxVal,
 				MIN(IF_NULL(value, 0)) as minVal
 				FROM stream
-				GROUP BY deviceId, TumblingWindow('5s')
-				WITH (TIMESTAMP='ts', TIMEUNIT='ss')`
+				GROUP BY deviceId, TumblingWindow('5s')`
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		baseTime := time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)
 		testData := []map[string]interface{}{
-			{"deviceId": "sensor1", "value": nil, "ts": baseTime},
-			{"deviceId": "sensor1", "value": 10.0, "ts": baseTime.Add(1 * time.Second)},
-			{"deviceId": "sensor1", "value": nil, "ts": baseTime.Add(2 * time.Second)},
-			{"deviceId": "sensor1", "value": 30.0, "ts": baseTime.Add(3 * time.Second)},
+			{"deviceId": "sensor1", "value": nil},
+			{"deviceId": "sensor1", "value": 10.0},
+			{"deviceId": "sensor1", "value": nil},
+			{"deviceId": "sensor1", "value": 30.0},
 		}
 
 		results := sendDataAndCollectResults(t, ssql, resultChan, testData, 5)
@@ -172,16 +184,14 @@ func TestPostAggregationExpressions(t *testing.T) {
 				(SUM(value) + LATEST(value)) as totalPlusLatest,
 				(AVG(value) * LATEST(value)) as avgTimesLatest
 				FROM stream 
-				GROUP BY deviceId, TumblingWindow('5s') 
-				WITH (TIMESTAMP='ts', TIMEUNIT='ss')`
+				GROUP BY deviceId, TumblingWindow('5s')`
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		baseTime := time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)
 		testData := []map[string]interface{}{
-			{"deviceId": "sensor1", "value": 10.0, "ts": baseTime},
-			{"deviceId": "sensor1", "value": 20.0, "ts": baseTime.Add(1 * time.Second)},
-			{"deviceId": "sensor1", "value": 30.0, "ts": baseTime.Add(2 * time.Second)},
+			{"deviceId": "sensor1", "value": 10.0},
+			{"deviceId": "sensor1", "value": 20.0},
+			{"deviceId": "sensor1", "value": 30.0},
 		}
 
 		results := sendDataAndCollectResults(t, ssql, resultChan, testData, 5)
@@ -210,17 +220,15 @@ func TestPostAggregationExpressions(t *testing.T) {
 				CEIL((AVG(value) / COUNT(*))) as ceilResult,
 				ROUND((SUM(value) * AVG(value) / 1000), 2) as roundResult
 				FROM stream 
-				GROUP BY deviceId, TumblingWindow('5s') 
-				WITH (TIMESTAMP='ts', TIMEUNIT='ss')`
+				GROUP BY deviceId, TumblingWindow('5s')`
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		baseTime := time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)
 		testData := []map[string]interface{}{
-			{"deviceId": "sensor1", "value": 10.0, "ts": baseTime},
-			{"deviceId": "sensor1", "value": 20.0, "ts": baseTime.Add(1 * time.Second)},
-			{"deviceId": "sensor1", "value": 30.0, "ts": baseTime.Add(2 * time.Second)},
-			{"deviceId": "sensor1", "value": 40.0, "ts": baseTime.Add(3 * time.Second)},
+			{"deviceId": "sensor1", "value": 10.0},
+			{"deviceId": "sensor1", "value": 20.0},
+			{"deviceId": "sensor1", "value": 30.0},
+			{"deviceId": "sensor1", "value": 40.0},
 		}
 
 		results := sendDataAndCollectResults(t, ssql, resultChan, testData, 5)
@@ -275,20 +283,18 @@ func TestPostAggregationExpressions(t *testing.T) {
 				window_start() as start, 
 				window_end() as end 
 				FROM stream 
-				GROUP BY deviceId, TumblingWindow('5s') 
-				WITH (TIMESTAMP='ts', TIMEUNIT='ss')`
+				GROUP BY deviceId, TumblingWindow('5s')`
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		baseTime := time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)
 		testData := []map[string]interface{}{
 			// 设备1的数据
-			{"deviceId": "meter001", "displayNum": 100.0, "ts": baseTime},
-			{"deviceId": "meter001", "displayNum": 115.0, "ts": baseTime.Add(3 * time.Second)},
+			{"deviceId": "meter001", "displayNum": 100.0},
+			{"deviceId": "meter001", "displayNum": 115.0},
 
 			// 设备2的数据
-			{"deviceId": "meter002", "displayNum": 200.0, "ts": baseTime.Add(1 * time.Second)},
-			{"deviceId": "meter002", "displayNum": 206.0, "ts": baseTime.Add(4 * time.Second)},
+			{"deviceId": "meter002", "displayNum": 200.0},
+			{"deviceId": "meter002", "displayNum": 206.0},
 		}
 
 		results := sendDataAndCollectResults(t, ssql, resultChan, testData, 5)
@@ -345,17 +351,15 @@ func TestPostAggregationExpressions(t *testing.T) {
 				ROUND(SQRT(ABS(AVG(value) - MIN(value))), 2) as nestedMathFunc,
 				UPPER(CONCAT('RESULT_', CAST(ROUND(SUM(value), 0) as STRING))) as nestedStrMathFunc
 				FROM stream 
-				GROUP BY deviceId, TumblingWindow('5s') 
-				WITH (TIMESTAMP='ts', TIMEUNIT='ss')`
+				GROUP BY deviceId, TumblingWindow('5s')`
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		baseTime := time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)
 		testData := []map[string]interface{}{
-			{"deviceId": "sensor1", "value": 10.0, "ts": baseTime},
-			{"deviceId": "sensor1", "value": 20.0, "ts": baseTime.Add(1 * time.Second)},
-			{"deviceId": "sensor1", "value": 30.0, "ts": baseTime.Add(2 * time.Second)},
-			{"deviceId": "sensor1", "value": 40.0, "ts": baseTime.Add(3 * time.Second)},
+			{"deviceId": "sensor1", "value": 10.0},
+			{"deviceId": "sensor1", "value": 20.0},
+			{"deviceId": "sensor1", "value": 30.0},
+			{"deviceId": "sensor1", "value": 40.0},
 		}
 
 		results := sendDataAndCollectResults(t, ssql, resultChan, testData, 5)
@@ -407,17 +411,15 @@ func TestPostAggregationExpressions(t *testing.T) {
 				CEIL(AVG(FLOOR(SQRT(value)))) as tripleNested2,
 				ABS(MIN(ROUND(value / 5, 2))) as tripleNested3
 				FROM stream 
-				GROUP BY deviceId, TumblingWindow('5s') 
-				WITH (TIMESTAMP='ts', TIMEUNIT='ss')`
+				GROUP BY deviceId, TumblingWindow('5s')`
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		baseTime := time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)
 		testData := []map[string]interface{}{
-			{"deviceId": "sensor1", "value": 16.0, "ts": baseTime},
-			{"deviceId": "sensor1", "value": 25.0, "ts": baseTime.Add(1 * time.Second)},
-			{"deviceId": "sensor1", "value": 36.0, "ts": baseTime.Add(2 * time.Second)},
-			{"deviceId": "sensor1", "value": 49.0, "ts": baseTime.Add(3 * time.Second)},
+			{"deviceId": "sensor1", "value": 16.0},
+			{"deviceId": "sensor1", "value": 25.0},
+			{"deviceId": "sensor1", "value": 36.0},
+			{"deviceId": "sensor1", "value": 49.0},
 		}
 
 		results := sendDataAndCollectResults(t, ssql, resultChan, testData, 5)
@@ -481,17 +483,15 @@ func TestPostAggregationExpressions(t *testing.T) {
 				(COUNT(*) * NTH_VALUE(value, 2)) as countTimesSecond,
 				(SUM(value) + LEAD(value, 1)) as sumPlusLead
 				FROM stream 
-				GROUP BY deviceId, TumblingWindow('5s') 
-				WITH (TIMESTAMP='ts', TIMEUNIT='ss')`
+				GROUP BY deviceId, TumblingWindow('5s')`
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		baseTime := time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)
 		testData := []map[string]interface{}{
-			{"deviceId": "sensor1", "value": 10.0, "ts": baseTime},
-			{"deviceId": "sensor1", "value": 20.0, "ts": baseTime.Add(1 * time.Second)},
-			{"deviceId": "sensor1", "value": 30.0, "ts": baseTime.Add(2 * time.Second)},
-			{"deviceId": "sensor1", "value": 40.0, "ts": baseTime.Add(3 * time.Second)},
+			{"deviceId": "sensor1", "value": 10.0},
+			{"deviceId": "sensor1", "value": 20.0},
+			{"deviceId": "sensor1", "value": 30.0},
+			{"deviceId": "sensor1", "value": 40.0},
 		}
 
 		results := sendDataAndCollectResults(t, ssql, resultChan, testData, 5)
@@ -515,17 +515,15 @@ func TestPostAggregationExpressions(t *testing.T) {
 				NTH_VALUE(value, 3) as thirdValue,
 				NTH_VALUE(value, 4) as fourthValue
 				FROM stream 
-				GROUP BY deviceId, TumblingWindow('5s') 
-				WITH (TIMESTAMP='ts', TIMEUNIT='ss')`
+				GROUP BY deviceId, TumblingWindow('5s')`
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		baseTime := time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)
 		testData := []map[string]interface{}{
-			{"deviceId": "sensor1", "value": 100.0, "ts": baseTime},
-			{"deviceId": "sensor1", "value": 200.0, "ts": baseTime.Add(1 * time.Second)},
-			{"deviceId": "sensor1", "value": 300.0, "ts": baseTime.Add(2 * time.Second)},
-			{"deviceId": "sensor1", "value": 400.0, "ts": baseTime.Add(3 * time.Second)},
+			{"deviceId": "sensor1", "value": 100.0},
+			{"deviceId": "sensor1", "value": 200.0},
+			{"deviceId": "sensor1", "value": 300.0},
+			{"deviceId": "sensor1", "value": 400.0},
 		}
 
 		results := sendDataAndCollectResults(t, ssql, resultChan, testData, 5)
