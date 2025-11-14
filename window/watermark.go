@@ -171,12 +171,32 @@ func (wm *Watermark) IsEventTimeLate(eventTime time.Time) bool {
 
 // alignWindowStart aligns window start time to window boundaries
 // For event time windows, windows are aligned to epoch (00:00:00 UTC)
+//
+// Alignment granularity: The alignment granularity equals the window size itself.
+// For example:
+//   - If window size is 2s, alignment granularity is 2s
+//   - If window size is 1h, alignment granularity is 1h
+//
+// Alignment behavior:
+//   - Windows are aligned downward to the nearest window boundary from epoch
+//   - Formula: alignedTime = (timestamp / windowSize) * windowSize
+//   - This ensures consistent window boundaries across different data sources
+//
+// Example:
+//   - First data arrives at 10001ms, window size is 2000ms
+//   - Aligned start = (10001000000 / 2000000000) * 2000000000 = 10000000000ns = 10000ms
+//   - Window range: [10000ms, 12000ms)
+//   - The data at 10001ms will be in this window
+//
+// Note: This alignment may cause the first window to start before the first data arrives,
+// which is expected behavior for event time windows to ensure consistent boundaries.
 func alignWindowStart(timestamp time.Time, windowSize time.Duration) time.Time {
 	// Convert to Unix timestamp in nanoseconds
 	unixNano := timestamp.UnixNano()
 	windowSizeNano := windowSize.Nanoseconds()
 
-	// Align to window boundary
+	// Align to window boundary (downward alignment)
+	// This creates consistent window boundaries aligned to epoch
 	alignedNano := (unixNano / windowSizeNano) * windowSizeNano
 
 	// Convert back to time.Time

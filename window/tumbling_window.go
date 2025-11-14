@@ -31,8 +31,9 @@ var _ Window = (*TumblingWindow)(nil)
 
 // triggeredWindowInfo stores information about a triggered window that is still open for late data
 type triggeredWindowInfo struct {
-	slot      *types.TimeSlot
-	closeTime time.Time // window end + allowedLateness
+	slot         *types.TimeSlot
+	closeTime    time.Time   // window end + allowedLateness
+	snapshotData []types.Row // snapshot of window data when first triggered (for Flink-like late update behavior)
 }
 
 // TumblingWindow represents a tumbling window for collecting data and triggering processing at fixed time intervals
@@ -146,29 +147,22 @@ func (tw *TumblingWindow) Add(data interface{}) {
 		timeChar = types.ProcessingTime
 	}
 
-	// For event time, update watermark and check for late data
+	// For event time, update watermark
 	if timeChar == types.EventTime && tw.watermark != nil {
 		tw.watermark.UpdateEventTime(eventTime)
-		// Check if data is late and handle allowedLateness
-		if tw.watermark.IsEventTimeLate(eventTime) {
-			// Data is late, check if it's within allowedLateness
-			allowedLateness := tw.config.AllowedLateness
-			if allowedLateness > 0 {
-				// Check if this late data belongs to any triggered window that's still open
-				tw.handleLateData(eventTime, allowedLateness)
-			}
-			// If allowedLateness is 0 or data is too late, we still add it but it won't trigger updates
-		}
 	}
 
-	// Append data to window's data list
+	// Append data to window's data list first (needed for late data handling)
 	if !tw.initialized {
 		if timeChar == types.EventTime {
 			// For event time, align window start to window boundaries
+			// Alignment ensures consistent window boundaries across different data sources
+			// Alignment granularity equals window size (e.g., 2s window aligns to 2s boundaries)
 			alignedStart := alignWindowStart(eventTime, tw.size)
 			tw.currentSlot = tw.createSlotFromStart(alignedStart)
 		} else {
 			// For processing time, use current time or event time as-is
+			// No alignment is performed - window starts immediately when first data arrives
 			tw.currentSlot = tw.createSlot(eventTime)
 		}
 
@@ -195,10 +189,48 @@ func (tw *TumblingWindow) Add(data interface{}) {
 		Timestamp: eventTime,
 	}
 	tw.data = append(tw.data, row)
+
+	// Check if data is late and handle allowedLateness (after data is added)
+	if timeChar == types.EventTime && tw.watermark != nil {
+		if tw.watermark.IsEventTimeLate(eventTime) {
+			allowedLateness := tw.config.AllowedLateness
+			if allowedLateness > 0 {
+				// IMPORTANT: First check if this late data belongs to any triggered window that's still open
+				// This ensures late data is correctly assigned to its original window, even if
+				// the event time happens to fall within the current window's range
+				// Example: window [1000, 2000) triggered, moved to [2000, 3000), late data with
+				// eventTime=1500 should go to [1000, 2000), not [2000, 3000)
+				belongsToTriggeredWindow := false
+				for _, info := range tw.triggeredWindows {
+					if info.slot.Contains(eventTime) {
+						belongsToTriggeredWindow = true
+						// Trigger late update for this window (data is already in tw.data)
+						tw.handleLateData(eventTime, allowedLateness)
+						break
+					}
+				}
+
+				// If not belonging to triggered window, check if it belongs to currentSlot
+				// This handles the case where watermark has advanced but window hasn't triggered yet
+				if !belongsToTriggeredWindow && tw.initialized && tw.currentSlot != nil && tw.currentSlot.Contains(eventTime) {
+					// Data belongs to currentSlot, it will be included when window triggers
+					// No need to do anything here
+				} else if !belongsToTriggeredWindow {
+					// Check if this late data belongs to any triggered window that's still open
+					tw.handleLateData(eventTime, allowedLateness)
+				}
+			}
+			// If allowedLateness is 0 or data is too late, we still add it but it won't trigger updates
+		}
+	}
+
 }
 
 func (tw *TumblingWindow) createSlot(t time.Time) *types.TimeSlot {
 	// Create a new time slot (for processing time, no alignment needed)
+	// Processing time windows start immediately when the first data arrives,
+	// without alignment to any fixed boundary. This ensures windows start
+	// as soon as data processing begins.
 	start := t
 	end := start.Add(tw.size)
 	slot := types.NewTimeSlot(&start, &end)
@@ -361,23 +393,89 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 
 	allowedLateness := tw.config.AllowedLateness
 
-	// Trigger all windows whose end time is before watermark
-	for tw.currentSlot != nil && !tw.currentSlot.End.After(watermarkTime) {
-		// Trigger current window
-		tw.triggerWindowLocked()
+	// Trigger all windows whose end time is <= watermark
+	// Note: window end time is exclusive [start, end), so we trigger when watermark >= end
+	// In Flink, windows are triggered when watermark >= windowEnd.
+	// However, due to watermark calculation (watermark = maxEventTime - maxOutOfOrderness),
+	// watermark may be slightly less than windowEnd. We need to handle this case.
+	// If watermark is very close to windowEnd (within a small threshold), we should also trigger.
+	triggeredCount := 0
+	for tw.currentSlot != nil {
+		windowEnd := tw.currentSlot.End
+		// Trigger if watermark >= windowEnd
+		// In Flink, windows are triggered when watermark >= windowEnd.
+		// Watermark calculation: watermark = maxEventTime - maxOutOfOrderness
+		// So watermark >= windowEnd means: maxEventTime - maxOutOfOrderness >= windowEnd
+		// Which means: maxEventTime >= windowEnd + maxOutOfOrderness
+		// This ensures all data for the window has arrived (within maxOutOfOrderness tolerance)
+		// Check if watermark >= windowEnd
+		// Use !Before() instead of After() to include equality case
+		// This is equivalent to watermarkTime >= windowEnd
+		shouldTrigger := !watermarkTime.Before(*windowEnd)
 
-		// If allowedLateness > 0, keep window open for late data
-		if allowedLateness > 0 {
-			windowKey := tw.getWindowKey(*tw.currentSlot.End)
-			closeTime := tw.currentSlot.End.Add(allowedLateness)
-			tw.triggeredWindows[windowKey] = &triggeredWindowInfo{
-				slot:      tw.currentSlot,
-				closeTime: closeTime,
+		if !shouldTrigger {
+			// Watermark hasn't reached windowEnd yet, stop checking
+			break
+		}
+
+		// Save current slot reference before triggering (triggerWindowLocked may release lock)
+		currentSlotEnd := *tw.currentSlot.End
+		currentSlot := tw.currentSlot
+
+		// Check if window has data before triggering
+		hasData := false
+		dataInWindow := 0
+		for _, item := range tw.data {
+			if tw.currentSlot.Contains(item.Timestamp) {
+				hasData = true
+				dataInWindow++
 			}
 		}
 
-		// Move to next window
-		tw.currentSlot = tw.NextSlot()
+		// Trigger current window only if it has data
+		if hasData {
+
+			// Save snapshot data before triggering (for Flink-like late update behavior)
+			var snapshotData []types.Row
+			if allowedLateness > 0 {
+				// Create a deep copy of window data for snapshot
+				snapshotData = make([]types.Row, 0, dataInWindow)
+				for _, item := range tw.data {
+					if tw.currentSlot.Contains(item.Timestamp) {
+						// Create a copy of the row
+						snapshotData = append(snapshotData, types.Row{
+							Data:      item.Data,
+							Timestamp: item.Timestamp,
+							Slot:      tw.currentSlot,
+						})
+					}
+				}
+			}
+
+			tw.triggerWindowLocked()
+			triggeredCount++
+			// triggerWindowLocked releases and re-acquires lock, so we need to re-check state
+
+			// If allowedLateness > 0, keep window open for late data
+			// Note: currentSlot may have changed after triggerWindowLocked, so use saved reference
+			if allowedLateness > 0 {
+				windowKey := tw.getWindowKey(currentSlotEnd)
+				closeTime := currentSlotEnd.Add(allowedLateness)
+				tw.triggeredWindows[windowKey] = &triggeredWindowInfo{
+					slot:         currentSlot,
+					closeTime:    closeTime,
+					snapshotData: snapshotData, // Save snapshot for late updates
+				}
+			}
+		}
+
+		// Move to next window (even if current window was empty)
+		// Re-check currentSlot in case it was modified
+		if tw.currentSlot != nil {
+			tw.currentSlot = tw.NextSlot()
+		} else {
+			break
+		}
 	}
 
 	// Close windows that have exceeded allowedLateness
@@ -386,10 +484,32 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 
 // closeExpiredWindows closes windows that have exceeded allowedLateness
 func (tw *TumblingWindow) closeExpiredWindows(watermarkTime time.Time) {
+	expiredWindows := make([]*types.TimeSlot, 0)
 	for key, info := range tw.triggeredWindows {
 		if !watermarkTime.Before(info.closeTime) {
-			// Window has expired, remove it
+			// Window has expired, mark for removal
+			expiredWindows = append(expiredWindows, info.slot)
 			delete(tw.triggeredWindows, key)
+		}
+	}
+
+	// Clean up data that belongs to expired windows (if any)
+	if len(expiredWindows) > 0 {
+		newData := make([]types.Row, 0)
+		for _, item := range tw.data {
+			belongsToExpiredWindow := false
+			for _, expiredSlot := range expiredWindows {
+				if expiredSlot.Contains(item.Timestamp) {
+					belongsToExpiredWindow = true
+					break
+				}
+			}
+			if !belongsToExpiredWindow {
+				newData = append(newData, item)
+			}
+		}
+		if len(newData) != len(tw.data) {
+			tw.data = newData
 		}
 	}
 }
@@ -408,9 +528,31 @@ func (tw *TumblingWindow) handleLateData(eventTime time.Time, allowedLateness ti
 }
 
 // triggerLateUpdateLocked triggers a late update for a window (must be called with lock held)
+// This implements Flink-like behavior: late updates include complete window data (original + late data)
 func (tw *TumblingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
-	// Extract window data including late data
+	// Find the triggered window info to get snapshot data
+	var windowInfo *triggeredWindowInfo
+	windowKey := tw.getWindowKey(*slot.End)
+	if info, exists := tw.triggeredWindows[windowKey]; exists {
+		windowInfo = info
+	}
+
+	// Collect all data for this window: original snapshot + late data from tw.data
 	resultData := make([]types.Row, 0)
+
+	// First, add original snapshot data (if exists)
+	if windowInfo != nil && len(windowInfo.snapshotData) > 0 {
+		// Create copies of snapshot data
+		for _, item := range windowInfo.snapshotData {
+			resultData = append(resultData, types.Row{
+				Data:      item.Data,
+				Timestamp: item.Timestamp,
+				Slot:      slot, // Update slot reference
+			})
+		}
+	}
+
+	// Then, add late data from tw.data (newly arrived late data)
 	for _, item := range tw.data {
 		if slot.Contains(item.Timestamp) {
 			item.Slot = slot
@@ -420,6 +562,19 @@ func (tw *TumblingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
 
 	if len(resultData) == 0 {
 		return
+	}
+
+	// Update snapshot to include late data (for future late updates)
+	if windowInfo != nil {
+		// Update snapshot with complete data (original + late)
+		windowInfo.snapshotData = make([]types.Row, len(resultData))
+		for i, item := range resultData {
+			windowInfo.snapshotData[i] = types.Row{
+				Data:      item.Data,
+				Timestamp: item.Timestamp,
+				Slot:      slot,
+			}
+		}
 	}
 
 	// Get callback reference before releasing lock
@@ -470,6 +625,12 @@ func (tw *TumblingWindow) triggerWindowLocked() {
 			item.Slot = tw.currentSlot
 			resultData = append(resultData, item)
 		}
+	}
+
+	// Skip triggering if window has no data
+	// This prevents empty windows from being triggered
+	if len(resultData) == 0 {
+		return
 	}
 
 	// Remove data that belongs to current window

@@ -412,6 +412,9 @@ END:
 // TestSQLTumblingWindow_BothConfigs 测试滚动窗口同时配置 MaxOutOfOrderness 和 AllowedLateness
 // 验证两个配置组合使用时，延迟数据能否被正确处理
 func TestSQLTumblingWindow_BothConfigs(t *testing.T) {
+	// 启用调试日志（可选，用于排查问题）
+	// window.EnableDebug = true
+
 	ssql := New()
 	defer ssql.Stop()
 

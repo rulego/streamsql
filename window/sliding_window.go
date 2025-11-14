@@ -160,22 +160,12 @@ func (sw *SlidingWindow) Add(data interface{}) {
 		timeChar = types.ProcessingTime
 	}
 
-	// For event time, update watermark and check for late data
+	// For event time, update watermark
 	if timeChar == types.EventTime && sw.watermark != nil {
 		sw.watermark.UpdateEventTime(eventTime)
-		// Check if data is late and handle allowedLateness
-		if sw.watermark.IsEventTimeLate(eventTime) {
-			// Data is late, check if it's within allowedLateness
-			allowedLateness := sw.config.AllowedLateness
-			if allowedLateness > 0 {
-				// Check if this late data belongs to any triggered window that's still open
-				sw.handleLateData(eventTime, allowedLateness)
-			}
-			// If allowedLateness is 0 or data is too late, we still add it but it won't trigger updates
-		}
 	}
 
-	// Add data to the window's data list
+	// Add data to the window's data list first (needed for late data handling)
 	if !sw.initialized {
 		if timeChar == types.EventTime {
 			// For event time, align window start to window boundaries
@@ -203,6 +193,38 @@ func (sw *SlidingWindow) Add(data interface{}) {
 		Timestamp: eventTime,
 	}
 	sw.data = append(sw.data, row)
+
+	// Check if data is late and handle allowedLateness (after data is added)
+	if timeChar == types.EventTime && sw.watermark != nil {
+		if sw.watermark.IsEventTimeLate(eventTime) {
+			allowedLateness := sw.config.AllowedLateness
+			if allowedLateness > 0 {
+				// IMPORTANT: First check if this late data belongs to any triggered window that's still open
+				// This ensures late data is correctly assigned to its original window, even if
+				// the event time happens to fall within the current window's range
+				belongsToTriggeredWindow := false
+				for _, info := range sw.triggeredWindows {
+					if info.slot.Contains(eventTime) {
+						belongsToTriggeredWindow = true
+						// Trigger late update for this window (data is already in sw.data)
+						sw.handleLateData(eventTime, allowedLateness)
+						break
+					}
+				}
+				
+				// If not belonging to triggered window, check if it belongs to currentSlot
+				// This handles the case where watermark has advanced but window hasn't triggered yet
+				if !belongsToTriggeredWindow && sw.initialized && sw.currentSlot != nil && sw.currentSlot.Contains(eventTime) {
+					// Data belongs to currentSlot, it will be included when window triggers
+					// No need to do anything here
+				} else if !belongsToTriggeredWindow {
+					// Check if this late data belongs to any triggered window that's still open
+					sw.handleLateData(eventTime, allowedLateness)
+				}
+			}
+			// If allowedLateness is 0 or data is too late, we still add it but it won't trigger updates
+		}
+	}
 }
 
 // Start starts the sliding window with periodic triggering
@@ -362,22 +384,76 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 
 	allowedLateness := sw.config.AllowedLateness
 
-	// Trigger all windows whose end time is before watermark
-	for sw.currentSlot != nil && !sw.currentSlot.End.After(watermarkTime) {
-		// Trigger current window
-		sw.triggerWindowLocked()
-
-		// If allowedLateness > 0, keep window open for late data
-		if allowedLateness > 0 {
-			windowKey := sw.getWindowKey(*sw.currentSlot.End)
-			closeTime := sw.currentSlot.End.Add(allowedLateness)
-			sw.triggeredWindows[windowKey] = &triggeredWindowInfo{
-				slot:      sw.currentSlot,
-				closeTime: closeTime,
+	// Trigger all windows whose end time is <= watermark
+	// In Flink, windows are triggered when watermark >= windowEnd.
+	// Watermark calculation: watermark = maxEventTime - maxOutOfOrderness
+	// So watermark >= windowEnd means: maxEventTime - maxOutOfOrderness >= windowEnd
+	// Which means: maxEventTime >= windowEnd + maxOutOfOrderness
+	// This ensures all data for the window has arrived (within maxOutOfOrderness tolerance)
+	// Use a small threshold (1ms) only for floating point precision issues
+	for sw.currentSlot != nil {
+		windowEnd := sw.currentSlot.End
+		
+		// Check if watermark >= windowEnd
+		// Use !Before() instead of After() to include equality case
+		// This is equivalent to watermarkTime >= windowEnd
+		shouldTrigger := !watermarkTime.Before(*windowEnd)
+		
+		if !shouldTrigger {
+			// Watermark hasn't reached windowEnd yet, stop checking
+			break
+		}
+		// Check if window has data before triggering
+		hasData := false
+		for _, item := range sw.data {
+			if sw.currentSlot.Contains(item.Timestamp) {
+				hasData = true
+				break
 			}
 		}
 
-		// Move to next window
+		// Trigger current window only if it has data
+		if hasData {
+			// Count data in window before triggering
+			dataInWindow := 0
+			for _, item := range sw.data {
+				if sw.currentSlot.Contains(item.Timestamp) {
+					dataInWindow++
+				}
+			}
+			
+			// Save snapshot data before triggering (for Flink-like late update behavior)
+			var snapshotData []types.Row
+			if allowedLateness > 0 {
+				// Create a deep copy of window data for snapshot
+				snapshotData = make([]types.Row, 0, dataInWindow)
+				for _, item := range sw.data {
+					if sw.currentSlot.Contains(item.Timestamp) {
+						// Create a copy of the row
+						snapshotData = append(snapshotData, types.Row{
+							Data:      item.Data,
+							Timestamp: item.Timestamp,
+							Slot:      sw.currentSlot,
+						})
+					}
+				}
+			}
+			
+			sw.triggerWindowLocked()
+
+			// If allowedLateness > 0, keep window open for late data
+			if allowedLateness > 0 {
+				windowKey := sw.getWindowKey(*sw.currentSlot.End)
+				closeTime := sw.currentSlot.End.Add(allowedLateness)
+				sw.triggeredWindows[windowKey] = &triggeredWindowInfo{
+					slot:         sw.currentSlot,
+					closeTime:    closeTime,
+					snapshotData: snapshotData, // Save snapshot for late updates
+				}
+			}
+		}
+
+		// Move to next window (even if current window was empty)
 		sw.currentSlot = sw.NextSlot()
 	}
 
@@ -398,6 +474,12 @@ func (sw *SlidingWindow) triggerWindowLocked() {
 			item.Slot = sw.currentSlot
 			resultData = append(resultData, item)
 		}
+	}
+
+	// Skip triggering if window has no data
+	// This prevents empty windows from being triggered
+	if len(resultData) == 0 {
+		return
 	}
 
 	// Retain data that could be in future windows
@@ -711,18 +793,55 @@ func (sw *SlidingWindow) handleLateData(eventTime time.Time, allowedLateness tim
 }
 
 // triggerLateUpdateLocked triggers a late update for a window (must be called with lock held)
+// This implements Flink-like behavior: late updates include complete window data (original + late data)
 func (sw *SlidingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
-	// Extract window data including late data
+	// Find the triggered window info to get snapshot data
+	var windowInfo *triggeredWindowInfo
+	windowKey := sw.getWindowKey(*slot.End)
+	if info, exists := sw.triggeredWindows[windowKey]; exists {
+		windowInfo = info
+	}
+
+	// Collect all data for this window: original snapshot + late data from sw.data
 	resultData := make([]types.Row, 0)
+	
+	// First, add original snapshot data (if exists)
+	if windowInfo != nil && len(windowInfo.snapshotData) > 0 {
+		// Create copies of snapshot data
+		for _, item := range windowInfo.snapshotData {
+			resultData = append(resultData, types.Row{
+				Data:      item.Data,
+				Timestamp: item.Timestamp,
+				Slot:      slot, // Update slot reference
+			})
+		}
+	}
+	
+	// Then, add late data from sw.data (newly arrived late data)
+	lateDataCount := 0
 	for _, item := range sw.data {
 		if slot.Contains(item.Timestamp) {
 			item.Slot = slot
 			resultData = append(resultData, item)
+			lateDataCount++
 		}
 	}
 
 	if len(resultData) == 0 {
 		return
+	}
+
+	// Update snapshot to include late data (for future late updates)
+	if windowInfo != nil {
+		// Update snapshot with complete data (original + late)
+		windowInfo.snapshotData = make([]types.Row, len(resultData))
+		for i, item := range resultData {
+			windowInfo.snapshotData[i] = types.Row{
+				Data:      item.Data,
+				Timestamp: item.Timestamp,
+				Slot:      slot,
+			}
+		}
 	}
 
 	// Get callback reference before releasing lock
@@ -757,10 +876,32 @@ func (sw *SlidingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
 
 // closeExpiredWindows closes windows that have exceeded allowedLateness
 func (sw *SlidingWindow) closeExpiredWindows(watermarkTime time.Time) {
+	expiredWindows := make([]*types.TimeSlot, 0)
 	for key, info := range sw.triggeredWindows {
 		if !watermarkTime.Before(info.closeTime) {
-			// Window has expired, remove it
+			// Window has expired, mark for removal
+			expiredWindows = append(expiredWindows, info.slot)
 			delete(sw.triggeredWindows, key)
+		}
+	}
+	
+	// Clean up data that belongs to expired windows (if any)
+	if len(expiredWindows) > 0 {
+		newData := make([]types.Row, 0)
+		for _, item := range sw.data {
+			belongsToExpiredWindow := false
+			for _, expiredSlot := range expiredWindows {
+				if expiredSlot.Contains(item.Timestamp) {
+					belongsToExpiredWindow = true
+					break
+				}
+			}
+			if !belongsToExpiredWindow {
+				newData = append(newData, item)
+			}
+		}
+		if len(newData) != len(sw.data) {
+			sw.data = newData
 		}
 	}
 }
