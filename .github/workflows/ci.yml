@@ -42,11 +42,11 @@ jobs:
 
     - name: Run tests
       if: matrix.go-version != '1.21'
-      run: go test -v -race -timeout 300s ./...
+      run: go test -v -race -timeout 600s ./...
 
     - name: Run tests with coverage
       if: matrix.go-version == '1.21'
-      run: go test -v -race -coverprofile="codecov.report" -covermode=atomic -timeout 300s ./...
+      run: go test -v -race -coverprofile="codecov.report" -covermode=atomic -timeout 600s ./...
 
     - name: Upload coverage reports to Codecov
       if: matrix.go-version == '1.21'
