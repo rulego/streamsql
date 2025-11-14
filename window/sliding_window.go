@@ -131,7 +131,13 @@ func (sw *SlidingWindow) Add(data interface{}) {
 		sw.firstWindowStartTime = time.Now()
 		// Don't start timer here, wait for first window to end
 		// Send initialization complete signal
-		close(sw.initChan)
+		// Safely close initChan to avoid closing an already closed channel
+		select {
+		case <-sw.initChan:
+			// Already closed, do nothing
+		default:
+			close(sw.initChan)
+		}
 		sw.initialized = true
 	}
 	row := types.Row{
@@ -249,6 +255,19 @@ func (sw *SlidingWindow) Stop() {
 		sw.timer.Stop()
 	}
 	sw.timerMu.Unlock()
+
+	// Ensure initChan is closed if it hasn't been closed yet
+	// This prevents Start() goroutine from blocking on initChan
+	sw.mu.Lock()
+	if !sw.initialized && sw.initChan != nil {
+		select {
+		case <-sw.initChan:
+			// Already closed, do nothing
+		default:
+			close(sw.initChan)
+		}
+	}
+	sw.mu.Unlock()
 }
 
 // Trigger triggers the sliding window to process data within the window

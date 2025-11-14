@@ -97,6 +97,16 @@ func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
 }
 
 func (cw *CountingWindow) Add(data interface{}) {
+	// Check if window is stopped before adding data
+	cw.mu.Lock()
+	stopped := cw.stopped
+	cw.mu.Unlock()
+
+	if stopped {
+		// Window is stopped, ignore the data
+		return
+	}
+
 	t := GetTimestamp(data, cw.config.TsProp, cw.config.TimeUnit)
 	row := types.Row{
 		Data:      data,

@@ -108,7 +108,13 @@ func (tw *TumblingWindow) Add(data interface{}) {
 		tw.timerMu.Unlock()
 		tw.initialized = true
 		// Send initialization complete signal (after setting timer)
-		close(tw.initChan)
+		// Safely close initChan to avoid closing an already closed channel
+		select {
+		case <-tw.initChan:
+			// Already closed, do nothing
+		default:
+			close(tw.initChan)
+		}
 	}
 	row := types.Row{
 		Data:      data,
@@ -145,6 +151,19 @@ func (tw *TumblingWindow) Stop() {
 		tw.timer.Stop()
 	}
 	tw.timerMu.Unlock()
+
+	// Ensure initChan is closed if it hasn't been closed yet
+	// This prevents Start() goroutine from blocking on initChan
+	tw.mu.Lock()
+	if !tw.initialized && tw.initChan != nil {
+		select {
+		case <-tw.initChan:
+			// Already closed, do nothing
+		default:
+			close(tw.initChan)
+		}
+	}
+	tw.mu.Unlock()
 }
 
 // Start starts the tumbling window's periodic trigger mechanism

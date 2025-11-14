@@ -108,7 +108,13 @@ func (sw *SessionWindow) Add(data interface{}) {
 	defer sw.mu.Unlock()
 
 	if !sw.initialized {
-		close(sw.initChan)
+		// Safely close initChan to avoid closing an already closed channel
+		select {
+		case <-sw.initChan:
+			// Already closed, do nothing
+		default:
+			close(sw.initChan)
+		}
 		sw.initialized = true
 	}
 
@@ -209,6 +215,19 @@ func (sw *SessionWindow) Stop() {
 		sw.ticker.Stop()
 	}
 	sw.tickerMu.Unlock()
+
+	// Ensure initChan is closed if it hasn't been closed yet
+	// This prevents Start() goroutine from blocking on initChan
+	sw.mu.Lock()
+	if !sw.initialized && sw.initChan != nil {
+		select {
+		case <-sw.initChan:
+			// Already closed, do nothing
+		default:
+			close(sw.initChan)
+		}
+	}
+	sw.mu.Unlock()
 }
 
 // checkExpiredSessions checks and triggers expired sessions

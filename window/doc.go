@@ -47,6 +47,7 @@ All window types implement a unified Window interface:
 		Add(row types.Row) error              // Add data to window
 		Reset() error                         // Reset window state
 		Start() error                         // Start window processing
+		Stop()                                // Stop window operations and clean up resources
 		OutputChan() <-chan []types.Row       // Get output channel
 		SetCallback(func([]types.Row))        // Set callback function
 		Trigger() error                       // Manual trigger

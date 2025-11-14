@@ -220,6 +220,19 @@ func (s *Stream) Stop() {
 
 	close(s.done)
 
+	// Stop window operations first to prevent new window triggers
+	if s.Window != nil {
+		s.Window.Stop()
+	}
+
+	// Close dataChan to signal DataProcessor to exit
+	s.dataChanMux.Lock()
+	if s.dataChan != nil {
+		close(s.dataChan)
+		s.dataChan = nil // Set to nil to prevent sending to closed channel
+	}
+	s.dataChanMux.Unlock()
+
 	// Stop and clean up data processing strategy resources
 	if s.dataStrategy != nil {
 		if err := s.dataStrategy.Stop(); err != nil {

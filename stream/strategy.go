@@ -66,11 +66,23 @@ func NewBlockingStrategy() *BlockingStrategy {
 
 // ProcessData implements blocking mode data processing
 func (bs *BlockingStrategy) ProcessData(data map[string]interface{}) {
+	// Check if stream is stopped
+	if atomic.LoadInt32(&bs.stream.stopped) == 1 {
+		return
+	}
+
 	if bs.stream.blockingTimeout <= 0 {
 		// No timeout limit, block permanently until success
 		dataChan := bs.stream.safeGetDataChan()
-		dataChan <- data
-		return
+		if dataChan == nil {
+			return
+		}
+		select {
+		case dataChan <- data:
+			return
+		case <-bs.stream.done:
+			return
+		}
 	}
 
 	// Blocking with timeout
@@ -78,6 +90,10 @@ func (bs *BlockingStrategy) ProcessData(data map[string]interface{}) {
 	defer timer.Stop()
 
 	dataChan := bs.stream.safeGetDataChan()
+	if dataChan == nil {
+		return
+	}
+
 	select {
 	case dataChan <- data:
 		// Successfully added data
@@ -87,7 +103,17 @@ func (bs *BlockingStrategy) ProcessData(data map[string]interface{}) {
 		logger.Error("Data addition timeout, but continue waiting to avoid data loss")
 		// Continue blocking indefinitely, re-get current channel reference
 		finalDataChan := bs.stream.safeGetDataChan()
-		finalDataChan <- data
+		if finalDataChan == nil {
+			return
+		}
+		select {
+		case finalDataChan <- data:
+			return
+		case <-bs.stream.done:
+			return
+		}
+	case <-bs.stream.done:
+		return
 	}
 }
 
@@ -135,7 +161,15 @@ func (es *ExpansionStrategy) ProcessData(data map[string]interface{}) {
 
 	// If still full after expansion, block and wait
 	dataChan := es.stream.safeGetDataChan()
-	dataChan <- data
+	if dataChan == nil {
+		return
+	}
+	select {
+	case dataChan <- data:
+		return
+	case <-es.stream.done:
+		return
+	}
 }
 
 // GetStrategyName gets strategy name

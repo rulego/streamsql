@@ -305,8 +305,19 @@ func (dp *DataProcessor) startWindowProcessing() {
 			}
 		}()
 
-		for batch := range dp.stream.Window.OutputChan() {
-			dp.processWindowBatch(batch)
+		outputChan := dp.stream.Window.OutputChan()
+		for {
+			select {
+			case batch, ok := <-outputChan:
+				if !ok {
+					// Channel closed, exit
+					return
+				}
+				dp.processWindowBatch(batch)
+			case <-dp.stream.done:
+				// Stream stopped, exit
+				return
+			}
 		}
 	}()
 }
