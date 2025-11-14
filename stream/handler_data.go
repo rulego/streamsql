@@ -42,7 +42,16 @@ func (s *Stream) safeGetDataChan() chan map[string]interface{} {
 
 // safeSendToDataChan safely sends data to dataChan
 func (s *Stream) safeSendToDataChan(data map[string]interface{}) bool {
+	// Check if stream is stopped before attempting to send
+	if atomic.LoadInt32(&s.stopped) == 1 {
+		return false
+	}
+
 	dataChan := s.safeGetDataChan()
+	if dataChan == nil {
+		return false
+	}
+
 	select {
 	case dataChan <- data:
 		return true

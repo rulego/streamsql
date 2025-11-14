@@ -38,6 +38,7 @@ type Window interface {
 	//GetResults() []interface{}
 	Reset()
 	Start()
+	Stop() // Stop window operations and clean up resources
 	OutputChan() <-chan []types.Row
 	SetCallback(callback func([]types.Row))
 	Trigger()

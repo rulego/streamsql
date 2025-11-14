@@ -2,7 +2,6 @@ package window
 
 import (
 	"context"
-	"github.com/rulego/streamsql/utils/timex"
 	"testing"
 	"time"
 
@@ -22,7 +21,7 @@ func TestSlidingWindow(t *testing.T) {
 	defer cancel()
 
 	sw, _ := NewSlidingWindow(types.WindowConfig{
-		Params: []interface{}{2 * time.Second, time.Second},
+		Params:   []interface{}{2 * time.Second, time.Second},
 		TsProp:   "Ts",
 		TimeUnit: time.Second,
 	})
@@ -49,11 +48,17 @@ func TestSlidingWindow(t *testing.T) {
 	sw.Add(t_0)
 
 	// 验证每个窗口的数据
+	// 移除对齐后，窗口从第一个数据的时间开始
+	// 窗口大小2秒，滑动步长1秒
+	// 第一个窗口: [t_3, t_3 + 2秒) = [16:46:56.789, 16:46:58.789)
+	// 第二个窗口: [t_3 + 1秒, t_3 + 3秒) = [16:46:57.789, 16:46:59.789)
+	// 第三个窗口: [t_3 + 2秒, t_3 + 4秒) = [16:46:58.789, 16:47:00.789)
+	// 第四个窗口: [t_3 + 3秒, t_3 + 5秒) = [16:46:59.789, 16:47:01.789)
 	expected := []TestResult{
-		{size: 2, data: []TestDate{t_3, t_2}, start: timex.AlignTime(t_3.Ts, time.Second, true), end: timex.AlignTime(t_2.Ts, time.Second, false)},
-		{size: 2, data: []TestDate{t_2, t_1}, start: timex.AlignTime(t_2.Ts, time.Second, true), end: timex.AlignTime(t_1.Ts, time.Second, false)},
-		{size: 2, data: []TestDate{t_1, t_0}, start: timex.AlignTime(t_1.Ts, time.Second, true), end: timex.AlignTime(t_0.Ts, time.Second, false)},
-		{size: 1, data: []TestDate{t_0}, start: timex.AlignTime(t_0.Ts, time.Second, true), end: timex.AlignTime(t_0.Ts, time.Second, true).Add(sw.size)},
+		{size: 2, data: []TestDate{t_3, t_2}, start: t_3.Ts, end: t_3.Ts.Add(sw.size)},
+		{size: 2, data: []TestDate{t_2, t_1}, start: t_3.Ts.Add(sw.slide), end: t_3.Ts.Add(sw.slide).Add(sw.size)},
+		{size: 2, data: []TestDate{t_1, t_0}, start: t_3.Ts.Add(2 * sw.slide), end: t_3.Ts.Add(2 * sw.slide).Add(sw.size)},
+		{size: 1, data: []TestDate{t_0}, start: t_3.Ts.Add(3 * sw.slide), end: t_3.Ts.Add(3 * sw.slide).Add(sw.size)},
 	}
 	// 等待一段时间，触发窗口
 	//time.Sleep(3 * time.Second)
@@ -88,12 +93,14 @@ END:
 	assert.Equal(t, len(actual), len(expected))
 	// 预期结果：保留最近 2 秒内的数据
 	for i, exp := range expected {
-		assert.Equal(t, actual[i].size, exp.size)
-		// 允许时间有1秒的误差
-		assert.WithinDuration(t, exp.start, actual[i].start, time.Second)
-		assert.WithinDuration(t, exp.end, actual[i].end, time.Second)
+		assert.Equal(t, actual[i].size, exp.size, "窗口 %d 的数据量应该匹配", i+1)
+		// 移除对齐后，窗口时间应该精确匹配（允许微小的纳秒级误差）
+		assert.WithinDuration(t, exp.start, actual[i].start, 100*time.Millisecond,
+			"窗口 %d 的开始时间应该匹配，预期: %v, 实际: %v", i+1, exp.start, actual[i].start)
+		assert.WithinDuration(t, exp.end, actual[i].end, 100*time.Millisecond,
+			"窗口 %d 的结束时间应该匹配，预期: %v, 实际: %v", i+1, exp.end, actual[i].end)
 		for _, d := range exp.data {
-			assert.Contains(t, actual[i].data, d)
+			assert.Contains(t, actual[i].data, d, "窗口 %d 应该包含数据 %v", i+1, d)
 		}
 	}
 }
