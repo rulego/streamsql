@@ -1066,9 +1066,20 @@ func TestSQLSlidingWindow_MaxOutOfOrderness(t *testing.T) {
 	}
 
 	// 第三阶段：发送更多正常数据，推进 watermark
+	// 关键：要触发窗口，需要 watermark >= windowEnd
+	// watermark = maxEventTime - maxOutOfOrderness
+	// 所以需要：maxEventTime >= windowEnd + maxOutOfOrderness
+	windowSizeMs := int64(2000)        // 2秒
+	maxOutOfOrdernessMs := int64(1000) // 1秒
+	firstWindowEnd := baseTime + windowSizeMs
+	requiredEventTimeForTrigger := firstWindowEnd + maxOutOfOrdernessMs
 	t.Log("第三阶段：继续发送正常数据，推进 watermark")
 	for i := 10; i < 15; i++ {
 		eventTime := baseTime + int64(i*200)
+		// 确保至少有一个数据的事件时间 >= requiredEventTimeForTrigger
+		if i == 10 && eventTime < requiredEventTimeForTrigger {
+			eventTime = requiredEventTimeForTrigger
+		}
 		ssql.Emit(map[string]interface{}{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
@@ -1192,11 +1203,17 @@ func TestSQLSlidingWindow_AllowedLateness(t *testing.T) {
 	}
 
 	// 推进watermark，触发第一个窗口
-	// 发送事件时间超过第一个窗口结束时间的数据
-	firstWindowEnd := baseTime + int64(2000) // 第一个窗口结束时间
+	// 关键：要触发窗口，需要 watermark >= windowEnd
+	// watermark = maxEventTime - maxOutOfOrderness
+	// 所以需要：maxEventTime >= windowEnd + maxOutOfOrderness
+	windowSizeMs := int64(2000)        // 2秒
+	maxOutOfOrdernessMs := int64(1000) // 1秒
+	firstWindowEnd := baseTime + windowSizeMs
+	requiredEventTimeForTrigger := firstWindowEnd + maxOutOfOrdernessMs
+	// 发送事件时间 >= requiredEventTimeForTrigger 的数据，确保 watermark >= windowEnd
 	ssql.Emit(map[string]interface{}{
 		"deviceId":    "sensor001",
-		"eventTime":   firstWindowEnd + int64(2000),
+		"eventTime":   requiredEventTimeForTrigger,
 		"temperature": 100.0,
 	})
 

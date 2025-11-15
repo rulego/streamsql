@@ -19,6 +19,7 @@ package window
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -26,6 +27,17 @@ import (
 
 	"github.com/rulego/streamsql/types"
 )
+
+// debugLogSliding logs debug information only when EnableDebug is true
+// This function is optimized to avoid unnecessary string formatting when debug is disabled
+func debugLogSliding(format string, args ...interface{}) {
+	// Fast path: if debug is disabled, return immediately without evaluating args
+	// The compiler should optimize this check away when EnableDebug is a compile-time constant false
+	if !EnableDebug {
+		return
+	}
+	log.Printf("[SlidingWindow] "+format, args...)
+}
 
 // Ensure SlidingWindow implements the Window interface
 var _ Window = (*SlidingWindow)(nil)
@@ -171,11 +183,17 @@ func (sw *SlidingWindow) Add(data interface{}) {
 			// For event time, align window start to window boundaries
 			alignedStart := alignWindowStart(eventTime, sw.slide)
 			sw.currentSlot = sw.createSlotFromStart(alignedStart)
+			debugLogSliding("Add: initialized with EventTime, eventTime=%v, alignedStart=%v, window=[%v, %v)",
+				eventTime.UnixMilli(), alignedStart.UnixMilli(),
+				sw.currentSlot.Start.UnixMilli(), sw.currentSlot.End.UnixMilli())
 		} else {
 			// For processing time, use current time or event time as-is
 			sw.currentSlot = sw.createSlot(eventTime)
 			// Record when first window started (processing time)
 			sw.firstWindowStartTime = time.Now()
+			debugLogSliding("Add: initialized with ProcessingTime, eventTime=%v, window=[%v, %v)",
+				eventTime.UnixMilli(),
+				sw.currentSlot.Start.UnixMilli(), sw.currentSlot.End.UnixMilli())
 		}
 		// Don't start timer here, wait for first window to end
 		// Send initialization complete signal
@@ -193,6 +211,10 @@ func (sw *SlidingWindow) Add(data interface{}) {
 		Timestamp: eventTime,
 	}
 	sw.data = append(sw.data, row)
+	debugLogSliding("Add: added data, eventTime=%v, totalData=%d, currentSlot=[%v, %v), inWindow=%v",
+		eventTime.UnixMilli(), len(sw.data),
+		sw.currentSlot.Start.UnixMilli(), sw.currentSlot.End.UnixMilli(),
+		sw.currentSlot.Contains(eventTime))
 
 	// Check if data is late and handle allowedLateness (after data is added)
 	if timeChar == types.EventTime && sw.watermark != nil {
@@ -211,7 +233,7 @@ func (sw *SlidingWindow) Add(data interface{}) {
 						break
 					}
 				}
-				
+
 				// If not belonging to triggered window, check if it belongs to currentSlot
 				// This handles the case where watermark has advanced but window hasn't triggered yet
 				if !belongsToTriggeredWindow && sw.initialized && sw.currentSlot != nil && sw.currentSlot.Contains(eventTime) {
@@ -379,6 +401,7 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 	defer sw.mu.Unlock()
 
 	if !sw.initialized || sw.currentSlot == nil {
+		debugLogSliding("checkAndTriggerWindows: not initialized or currentSlot is nil")
 		return
 	}
 
@@ -391,26 +414,42 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 	// Which means: maxEventTime >= windowEnd + maxOutOfOrderness
 	// This ensures all data for the window has arrived (within maxOutOfOrderness tolerance)
 	// Use a small threshold (1ms) only for floating point precision issues
+	totalDataCount := len(sw.data)
+	debugLogSliding("checkAndTriggerWindows: watermark=%v, totalData=%d, currentSlot=[%v, %v)",
+		watermarkTime.UnixMilli(), totalDataCount,
+		sw.currentSlot.Start.UnixMilli(), sw.currentSlot.End.UnixMilli())
+
 	for sw.currentSlot != nil {
 		windowEnd := sw.currentSlot.End
-		
+		windowStart := sw.currentSlot.Start
+
 		// Check if watermark >= windowEnd
 		// Use !Before() instead of After() to include equality case
 		// This is equivalent to watermarkTime >= windowEnd
 		shouldTrigger := !watermarkTime.Before(*windowEnd)
-		
+
+		debugLogSliding("checkAndTriggerWindows: window=[%v, %v), watermark=%v, shouldTrigger=%v",
+			windowStart.UnixMilli(), windowEnd.UnixMilli(), watermarkTime.UnixMilli(), shouldTrigger)
+
 		if !shouldTrigger {
 			// Watermark hasn't reached windowEnd yet, stop checking
+			debugLogSliding("checkAndTriggerWindows: watermark hasn't reached windowEnd, stopping")
 			break
 		}
 		// Check if window has data before triggering
 		hasData := false
+		dataInWindow := 0
+		var dataTimestamps []int64
 		for _, item := range sw.data {
 			if sw.currentSlot.Contains(item.Timestamp) {
 				hasData = true
-				break
+				dataInWindow++
+				dataTimestamps = append(dataTimestamps, item.Timestamp.UnixMilli())
 			}
 		}
+
+		debugLogSliding("checkAndTriggerWindows: window=[%v, %v), hasData=%v, dataInWindow=%d, dataTimestamps=%v",
+			windowStart.UnixMilli(), windowEnd.UnixMilli(), hasData, dataInWindow, dataTimestamps)
 
 		// Trigger current window only if it has data
 		if hasData {
@@ -421,7 +460,7 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 					dataInWindow++
 				}
 			}
-			
+
 			// Save snapshot data before triggering (for Flink-like late update behavior)
 			var snapshotData []types.Row
 			if allowedLateness > 0 {
@@ -438,8 +477,11 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 					}
 				}
 			}
-			
+
+			debugLogSliding("checkAndTriggerWindows: triggering window [%v, %v) with %d data items",
+				windowStart.UnixMilli(), windowEnd.UnixMilli(), dataInWindow)
 			sw.triggerWindowLocked()
+			debugLogSliding("checkAndTriggerWindows: window triggered successfully")
 
 			// If allowedLateness > 0, keep window open for late data
 			if allowedLateness > 0 {
@@ -450,11 +492,23 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 					closeTime:    closeTime,
 					snapshotData: snapshotData, // Save snapshot for late updates
 				}
+				debugLogSliding("checkAndTriggerWindows: window [%v, %v) kept open for late data until %v",
+					windowStart.UnixMilli(), windowEnd.UnixMilli(), closeTime.UnixMilli())
 			}
+		} else {
+			debugLogSliding("checkAndTriggerWindows: window [%v, %v) has no data, skipping trigger",
+				windowStart.UnixMilli(), windowEnd.UnixMilli())
 		}
 
 		// Move to next window (even if current window was empty)
 		sw.currentSlot = sw.NextSlot()
+		if sw.currentSlot != nil {
+			debugLogSliding("checkAndTriggerWindows: moved to next window [%v, %v)",
+				sw.currentSlot.Start.UnixMilli(), sw.currentSlot.End.UnixMilli())
+		} else {
+			debugLogSliding("checkAndTriggerWindows: NextSlot returned nil, stopping")
+			break
+		}
 	}
 
 	// Close windows that have exceeded allowedLateness
@@ -804,7 +858,7 @@ func (sw *SlidingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
 
 	// Collect all data for this window: original snapshot + late data from sw.data
 	resultData := make([]types.Row, 0)
-	
+
 	// First, add original snapshot data (if exists)
 	if windowInfo != nil && len(windowInfo.snapshotData) > 0 {
 		// Create copies of snapshot data
@@ -816,7 +870,7 @@ func (sw *SlidingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
 			})
 		}
 	}
-	
+
 	// Then, add late data from sw.data (newly arrived late data)
 	lateDataCount := 0
 	for _, item := range sw.data {
@@ -884,7 +938,7 @@ func (sw *SlidingWindow) closeExpiredWindows(watermarkTime time.Time) {
 			delete(sw.triggeredWindows, key)
 		}
 	}
-	
+
 	// Clean up data that belongs to expired windows (if any)
 	if len(expiredWindows) > 0 {
 		newData := make([]types.Row, 0)

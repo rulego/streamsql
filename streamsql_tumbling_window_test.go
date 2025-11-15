@@ -448,7 +448,17 @@ func TestSQLTumblingWindow_BothConfigs(t *testing.T) {
 	})
 
 	// 模拟完整的延迟数据处理场景
-	baseTime := time.Now().UnixMilli() - 10000
+	// 关键：确保 baseTime 对齐到窗口边界，以便窗口对齐行为可预测
+	windowSizeMs := int64(2000) // 2秒
+	baseTimeRaw := time.Now().UnixMilli() - 10000
+	baseTime := (baseTimeRaw / windowSizeMs) * windowSizeMs // 对齐到窗口边界
+	maxOutOfOrdernessMs := int64(1000)                      // 1秒
+	firstWindowEnd := baseTime + windowSizeMs
+	// 关键：要触发窗口，需要 watermark >= windowEnd
+	// watermark = maxEventTime - maxOutOfOrderness
+	// 所以需要：maxEventTime - maxOutOfOrderness >= windowEnd
+	// 即：maxEventTime >= windowEnd + maxOutOfOrderness
+	requiredEventTimeForTrigger := firstWindowEnd + maxOutOfOrdernessMs
 
 	// 第一阶段：发送正常顺序的数据
 	t.Log("第一阶段：发送正常顺序的数据")
@@ -482,9 +492,14 @@ func TestSQLTumblingWindow_BothConfigs(t *testing.T) {
 	}
 
 	// 第三阶段：继续发送正常数据，推进 watermark
+	// 关键：必须发送事件时间 >= requiredEventTimeForTrigger 的数据，才能让 watermark >= windowEnd
 	t.Log("第三阶段：继续发送正常数据，推进 watermark")
 	for i := 10; i < 15; i++ {
 		eventTime := baseTime + int64(i*200)
+		// 确保至少有一个数据的事件时间 >= requiredEventTimeForTrigger
+		if i == 10 && eventTime < requiredEventTimeForTrigger {
+			eventTime = requiredEventTimeForTrigger
+		}
 		ssql.Emit(map[string]interface{}{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,

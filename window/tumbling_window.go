@@ -19,12 +19,27 @@ package window
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
 	"github.com/rulego/streamsql/types"
 	"github.com/rulego/streamsql/utils/cast"
 )
+
+// EnableDebug enables debug logging for window operations
+var EnableDebug = false
+
+// debugLog logs debug information only when EnableDebug is true
+// This function is optimized to avoid unnecessary string formatting when debug is disabled
+func debugLog(format string, args ...interface{}) {
+	// Fast path: if debug is disabled, return immediately without evaluating args
+	// The compiler should optimize this check away when EnableDebug is a compile-time constant false
+	if !EnableDebug {
+		return
+	}
+	log.Printf("[TumblingWindow] "+format, args...)
+}
 
 // Ensure TumblingWindow implements the Window interface
 var _ Window = (*TumblingWindow)(nil)
@@ -160,10 +175,16 @@ func (tw *TumblingWindow) Add(data interface{}) {
 			// Alignment granularity equals window size (e.g., 2s window aligns to 2s boundaries)
 			alignedStart := alignWindowStart(eventTime, tw.size)
 			tw.currentSlot = tw.createSlotFromStart(alignedStart)
+			debugLog("Add: initialized with EventTime, eventTime=%v, alignedStart=%v, window=[%v, %v)",
+				eventTime.UnixMilli(), alignedStart.UnixMilli(),
+				tw.currentSlot.Start.UnixMilli(), tw.currentSlot.End.UnixMilli())
 		} else {
 			// For processing time, use current time or event time as-is
 			// No alignment is performed - window starts immediately when first data arrives
 			tw.currentSlot = tw.createSlot(eventTime)
+			debugLog("Add: initialized with ProcessingTime, eventTime=%v, window=[%v, %v)",
+				eventTime.UnixMilli(),
+				tw.currentSlot.Start.UnixMilli(), tw.currentSlot.End.UnixMilli())
 		}
 
 		// Only start timer for processing time
@@ -189,6 +210,10 @@ func (tw *TumblingWindow) Add(data interface{}) {
 		Timestamp: eventTime,
 	}
 	tw.data = append(tw.data, row)
+	debugLog("Add: added data, eventTime=%v, totalData=%d, currentSlot=[%v, %v), inWindow=%v",
+		eventTime.UnixMilli(), len(tw.data),
+		tw.currentSlot.Start.UnixMilli(), tw.currentSlot.End.UnixMilli(),
+		tw.currentSlot.Contains(eventTime))
 
 	// Check if data is late and handle allowedLateness (after data is added)
 	if timeChar == types.EventTime && tw.watermark != nil {
@@ -388,6 +413,7 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 	defer tw.mu.Unlock()
 
 	if !tw.initialized || tw.currentSlot == nil {
+		debugLog("checkAndTriggerWindows: not initialized or currentSlot is nil")
 		return
 	}
 
@@ -400,8 +426,14 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 	// watermark may be slightly less than windowEnd. We need to handle this case.
 	// If watermark is very close to windowEnd (within a small threshold), we should also trigger.
 	triggeredCount := 0
+	totalDataCount := len(tw.data)
+	debugLog("checkAndTriggerWindows: watermark=%v, totalData=%d, currentSlot=[%v, %v)",
+		watermarkTime.UnixMilli(), totalDataCount,
+		tw.currentSlot.Start.UnixMilli(), tw.currentSlot.End.UnixMilli())
+
 	for tw.currentSlot != nil {
 		windowEnd := tw.currentSlot.End
+		windowStart := tw.currentSlot.Start
 		// Trigger if watermark >= windowEnd
 		// In Flink, windows are triggered when watermark >= windowEnd.
 		// Watermark calculation: watermark = maxEventTime - maxOutOfOrderness
@@ -413,8 +445,12 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 		// This is equivalent to watermarkTime >= windowEnd
 		shouldTrigger := !watermarkTime.Before(*windowEnd)
 
+		debugLog("checkAndTriggerWindows: window=[%v, %v), watermark=%v, shouldTrigger=%v",
+			windowStart.UnixMilli(), windowEnd.UnixMilli(), watermarkTime.UnixMilli(), shouldTrigger)
+
 		if !shouldTrigger {
 			// Watermark hasn't reached windowEnd yet, stop checking
+			debugLog("checkAndTriggerWindows: watermark hasn't reached windowEnd, stopping")
 			break
 		}
 
@@ -425,12 +461,17 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 		// Check if window has data before triggering
 		hasData := false
 		dataInWindow := 0
+		var dataTimestamps []int64
 		for _, item := range tw.data {
 			if tw.currentSlot.Contains(item.Timestamp) {
 				hasData = true
 				dataInWindow++
+				dataTimestamps = append(dataTimestamps, item.Timestamp.UnixMilli())
 			}
 		}
+
+		debugLog("checkAndTriggerWindows: window=[%v, %v), hasData=%v, dataInWindow=%d, dataTimestamps=%v",
+			windowStart.UnixMilli(), windowEnd.UnixMilli(), hasData, dataInWindow, dataTimestamps)
 
 		// Trigger current window only if it has data
 		if hasData {
@@ -452,8 +493,11 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 				}
 			}
 
+			debugLog("checkAndTriggerWindows: triggering window [%v, %v) with %d data items",
+				windowStart.UnixMilli(), windowEnd.UnixMilli(), dataInWindow)
 			tw.triggerWindowLocked()
 			triggeredCount++
+			debugLog("checkAndTriggerWindows: window triggered successfully, triggeredCount=%d", triggeredCount)
 			// triggerWindowLocked releases and re-acquires lock, so we need to re-check state
 
 			// If allowedLateness > 0, keep window open for late data
@@ -466,17 +510,31 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 					closeTime:    closeTime,
 					snapshotData: snapshotData, // Save snapshot for late updates
 				}
+				debugLog("checkAndTriggerWindows: window [%v, %v) kept open for late data until %v",
+					windowStart.UnixMilli(), windowEnd.UnixMilli(), closeTime.UnixMilli())
 			}
+		} else {
+			debugLog("checkAndTriggerWindows: window [%v, %v) has no data, skipping trigger",
+				windowStart.UnixMilli(), windowEnd.UnixMilli())
 		}
 
 		// Move to next window (even if current window was empty)
 		// Re-check currentSlot in case it was modified
 		if tw.currentSlot != nil {
 			tw.currentSlot = tw.NextSlot()
+			if tw.currentSlot != nil {
+				debugLog("checkAndTriggerWindows: moved to next window [%v, %v)",
+					tw.currentSlot.Start.UnixMilli(), tw.currentSlot.End.UnixMilli())
+			} else {
+				debugLog("checkAndTriggerWindows: NextSlot returned nil, stopping")
+			}
 		} else {
+			debugLog("checkAndTriggerWindows: currentSlot is nil, breaking")
 			break
 		}
 	}
+
+	debugLog("checkAndTriggerWindows: finished, triggeredCount=%d", triggeredCount)
 
 	// Close windows that have exceeded allowedLateness
 	tw.closeExpiredWindows(watermarkTime)
