@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rulego/streamsql/types"
+	"github.com/rulego/streamsql/utils/cast"
 )
 
 // 解析器配置常量
@@ -510,7 +511,7 @@ func (p *Parser) parseWindowFunction(stmt *SelectStatement, winType string) erro
 	if nextTok.Type != TokenLParen {
 		return fmt.Errorf("expected '(' after window function %s, got %s (type: %v)", winType, nextTok.Value, nextTok.Type)
 	}
-	
+
 	var params []interface{}
 	maxIterations := 100
 	iterations := 0
@@ -524,28 +525,28 @@ func (p *Parser) parseWindowFunction(stmt *SelectStatement, winType string) erro
 
 		// Read the next token first
 		valTok := p.lexer.NextToken()
-		
+
 		// If we hit the closing parenthesis or EOF, break
 		if valTok.Type == TokenRParen || valTok.Type == TokenEOF {
 			break
 		}
-		
+
 		// Skip commas
 		if valTok.Type == TokenComma {
 			continue
 		}
-		
+
 		// Handle quoted values
 		if strings.HasPrefix(valTok.Value, "'") && strings.HasSuffix(valTok.Value, "'") {
 			valTok.Value = strings.Trim(valTok.Value, "'")
 		}
-		
+
 		// Add the parameter value
 		params = append(params, convertValue(valTok.Value))
 	}
 
-		stmt.Window.Params = params
-		stmt.Window.Type = winType
+	stmt.Window.Params = params
+	stmt.Window.Type = winType
 	return nil
 }
 
@@ -643,7 +644,7 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 			// After parsing window function, skip adding it to GroupBy and continue
 			continue
 		}
-		
+
 		// Skip right parenthesis tokens (they should be consumed by parseWindowFunction)
 		if tok.Type == TokenRParen {
 			continue
@@ -708,7 +709,7 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 			}
 		}
 		if valTok.Type == TokenTimeUnit {
-			timeUnit := time.Minute
+			timeUnit := time.Millisecond // Default to milliseconds
 			next := p.lexer.NextToken()
 			if next.Type == TokenEQ {
 				next = p.lexer.NextToken()
@@ -726,8 +727,10 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 					timeUnit = time.Second
 				case "ms":
 					timeUnit = time.Millisecond
+				case "ns":
+					timeUnit = time.Nanosecond
 				default:
-
+					// If unknown unit, keep default (milliseconds)
 				}
 				// Check if Window is initialized; if not, create new WindowDefinition
 				if stmt.Window.Type == "" {
@@ -737,6 +740,72 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 				} else {
 					stmt.Window.TimeUnit = timeUnit
 				}
+			}
+		}
+		if valTok.Type == TokenMaxOutOfOrderness {
+			next := p.lexer.NextToken()
+			if next.Type == TokenEQ {
+				next = p.lexer.NextToken()
+				durationStr := next.Value
+				if strings.HasPrefix(durationStr, "'") && strings.HasSuffix(durationStr, "'") {
+					durationStr = strings.Trim(durationStr, "'")
+				}
+				// Parse duration string like '5s', '2m', '1h', etc.
+				if duration, err := cast.ToDurationE(durationStr); err == nil {
+					// Check if Window is initialized; if not, create new WindowDefinition
+					if stmt.Window.Type == "" {
+						stmt.Window = WindowDefinition{
+							MaxOutOfOrderness: duration,
+						}
+					} else {
+						stmt.Window.MaxOutOfOrderness = duration
+					}
+				}
+				// If parsing fails, silently ignore (keep default 0)
+			}
+		}
+		if valTok.Type == TokenAllowedLateness {
+			next := p.lexer.NextToken()
+			if next.Type == TokenEQ {
+				next = p.lexer.NextToken()
+				durationStr := next.Value
+				if strings.HasPrefix(durationStr, "'") && strings.HasSuffix(durationStr, "'") {
+					durationStr = strings.Trim(durationStr, "'")
+				}
+				// Parse duration string like '5s', '2m', '1h', etc.
+				if duration, err := cast.ToDurationE(durationStr); err == nil {
+					// Check if Window is initialized; if not, create new WindowDefinition
+					if stmt.Window.Type == "" {
+						stmt.Window = WindowDefinition{
+							AllowedLateness: duration,
+						}
+					} else {
+						stmt.Window.AllowedLateness = duration
+					}
+				}
+				// If parsing fails, silently ignore (keep default 0)
+			}
+		}
+		if valTok.Type == TokenIdleTimeout {
+			next := p.lexer.NextToken()
+			if next.Type == TokenEQ {
+				next = p.lexer.NextToken()
+				durationStr := next.Value
+				if strings.HasPrefix(durationStr, "'") && strings.HasSuffix(durationStr, "'") {
+					durationStr = strings.Trim(durationStr, "'")
+				}
+				// Parse duration string like '5s', '2m', '1h', etc.
+				if duration, err := cast.ToDurationE(durationStr); err == nil {
+					// Check if Window is initialized; if not, create new WindowDefinition
+					if stmt.Window.Type == "" {
+						stmt.Window = WindowDefinition{
+							IdleTimeout: duration,
+						}
+					} else {
+						stmt.Window.IdleTimeout = duration
+					}
+				}
+				// If parsing fails, silently ignore (keep default 0)
 			}
 		}
 	}

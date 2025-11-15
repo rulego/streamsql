@@ -32,15 +32,32 @@ type Config struct {
 	PerformanceConfig PerformanceConfig `json:"performanceConfig"`
 }
 
+// TimeCharacteristic represents the time characteristic for window operations
+type TimeCharacteristic string
+
+const (
+	// ProcessingTime uses system clock for window operations
+	// Windows trigger based on when data arrives, not when events occurred
+	ProcessingTime TimeCharacteristic = "ProcessingTime"
+	// EventTime uses event timestamps for window operations
+	// Windows trigger based on event time, requires watermark mechanism
+	EventTime TimeCharacteristic = "EventTime"
+)
+
 // WindowConfig window configuration
 type WindowConfig struct {
-	Type              string            `json:"type"`
-	Params            []interface{}     `json:"params"` // Window function parameters array
-	TsProp            string            `json:"tsProp"`
-	TimeUnit          time.Duration     `json:"timeUnit"`
-	GroupByKeys       []string          `json:"groupByKeys"`       // Multiple grouping keys for keyed windows
-	PerformanceConfig PerformanceConfig `json:"performanceConfig"` // Performance configuration
-	Callback          func([]Row)       `json:"-"`                 // Callback function (not serialized)
+	Type               string             `json:"type"`
+	Params             []interface{}      `json:"params"` // Window function parameters array
+	TsProp             string             `json:"tsProp"`
+	TimeUnit           time.Duration      `json:"timeUnit"`
+	TimeCharacteristic TimeCharacteristic `json:"timeCharacteristic"` // Time characteristic: EventTime or ProcessingTime (default: ProcessingTime)
+	MaxOutOfOrderness  time.Duration      `json:"maxOutOfOrderness"`  // Maximum allowed out-of-orderness for event time (default: 0)
+	WatermarkInterval  time.Duration      `json:"watermarkInterval"`  // Watermark update interval for event time (default: 200ms)
+	AllowedLateness    time.Duration      `json:"allowedLateness"`    // Maximum allowed lateness for event time windows (default: 0, meaning no late data accepted after window closes)
+	IdleTimeout        time.Duration      `json:"idleTimeout"`        // Idle source timeout: when no data arrives within this duration, watermark advances based on processing time (default: 0, meaning disabled)
+	GroupByKeys        []string           `json:"groupByKeys"`        // Multiple grouping keys for keyed windows
+	PerformanceConfig  PerformanceConfig  `json:"performanceConfig"`  // Performance configuration
+	Callback           func([]Row)        `json:"-"`                  // Callback function (not serialized)
 }
 
 // FieldExpression field expression configuration

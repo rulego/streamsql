@@ -57,40 +57,65 @@ All window types implement a unified Window interface:
 
 Non-overlapping time-based windows:
 
-	// Create tumbling window
+	// Create tumbling window with processing time (default)
 	config := types.WindowConfig{
 		Type: "tumbling",
-		Params: map[string]interface{}{
-			"size": "5s",  // 5-second windows
-		},
+		Params: []interface{}{"5s"},  // 5-second windows
 		TsProp: "timestamp",
+		TimeCharacteristic: types.ProcessingTime, // Uses system clock
+	}
+	window, err := NewTumblingWindow(config)
+
+	// Create tumbling window with event time
+	config := types.WindowConfig{
+		Type: "tumbling",
+		Params: []interface{}{"5s"},  // 5-second windows
+		TsProp: "timestamp",
+		TimeCharacteristic: types.EventTime, // Uses event timestamps
+		MaxOutOfOrderness: 2 * time.Second, // Allow 2 seconds of out-of-order data
+		WatermarkInterval: 200 * time.Millisecond, // Update watermark every 200ms
+		AllowedLateness: 1 * time.Second, // Allow 1 second of late data after window closes
 	}
 	window, err := NewTumblingWindow(config)
 
 	// Window characteristics:
 	// - Fixed size (e.g., 5 seconds)
 	// - No overlap between windows
-	// - Triggers at regular intervals
+	// - Triggers at regular intervals (ProcessingTime) or based on watermark (EventTime)
 	// - Memory efficient
 	// - Suitable for periodic aggregations
 
-	// Example timeline:
-	// Window 1: [00:00 - 00:05)
-	// Window 2: [00:05 - 00:10)
-	// Window 3: [00:10 - 00:15)
+	// ProcessingTime example timeline (based on data arrival):
+	// Window 1: [00:00 - 00:05) - triggers when 5s elapsed from first data
+	// Window 2: [00:05 - 00:10) - triggers when next 5s elapsed
+	// Window 3: [00:10 - 00:15) - triggers when next 5s elapsed
+
+	// EventTime example timeline (based on event timestamps):
+	// Window 1: [00:00 - 00:05) - triggers when watermark >= 00:05
+	// Window 2: [00:05 - 00:10) - triggers when watermark >= 00:10
+	// Window 3: [00:10 - 00:15) - triggers when watermark >= 00:15
 
 # Sliding Windows
 
 Overlapping time-based windows with configurable slide interval:
 
-	// Create sliding window
+	// Create sliding window with processing time (default)
 	config := types.WindowConfig{
 		Type: "sliding",
-		Params: map[string]interface{}{
-			"size":  "30s", // 30-second window size
-			"slide": "10s", // 10-second slide interval
-		},
+		Params: []interface{}{"30s", "10s"}, // 30-second window size, 10-second slide
 		TsProp: "timestamp",
+		TimeCharacteristic: types.ProcessingTime, // Uses system clock
+	}
+	window, err := NewSlidingWindow(config)
+
+	// Create sliding window with event time
+	config := types.WindowConfig{
+		Type: "sliding",
+		Params: []interface{}{"30s", "10s"}, // 30-second window size, 10-second slide
+		TsProp: "timestamp",
+		TimeCharacteristic: types.EventTime, // Uses event timestamps
+		MaxOutOfOrderness: 2 * time.Second, // Allow 2 seconds of out-of-order data
+		WatermarkInterval: 200 * time.Millisecond, // Update watermark every 200ms
 	}
 	window, err := NewSlidingWindow(config)
 
@@ -101,10 +126,15 @@ Overlapping time-based windows with configurable slide interval:
 	// - Higher memory usage
 	// - Suitable for smooth trend analysis
 
-	// Example timeline (30s window, 10s slide):
-	// Window 1: [00:00 - 00:30)
-	// Window 2: [00:10 - 00:40)
-	// Window 3: [00:20 - 00:50)
+	// ProcessingTime example timeline (30s window, 10s slide, based on data arrival):
+	// Window 1: [00:00 - 00:30) - triggers when 30s elapsed from first data
+	// Window 2: [00:10 - 00:40) - triggers 10s after Window 1
+	// Window 3: [00:20 - 00:50) - triggers 10s after Window 2
+
+	// EventTime example timeline (30s window, 10s slide, based on event timestamps):
+	// Window 1: [00:00 - 00:30) - triggers when watermark >= 00:30
+	// Window 2: [00:10 - 00:40) - triggers when watermark >= 00:40
+	// Window 3: [00:20 - 00:50) - triggers when watermark >= 00:50
 
 # Counting Windows
 
@@ -174,6 +204,59 @@ Time handling for window operations:
 		End      time.Time
 		Duration time.Duration
 	}
+
+# Time Characteristics
+
+Windows support two time characteristics:
+
+## ProcessingTime (Default)
+- Uses system clock for window operations
+- Windows trigger based on when data arrives
+- Cannot handle out-of-order data
+- Lower latency, but results may be inconsistent
+- Suitable for real-time monitoring and low-latency requirements
+
+## EventTime
+- Uses event timestamps for window operations
+- Windows trigger based on event time via watermark mechanism
+- Can handle out-of-order and late-arriving data
+- Consistent results, but may have higher latency
+- Suitable for accurate time-based analysis and historical data processing
+
+## Watermark Mechanism
+For EventTime windows, watermark indicates that no events with timestamp less than watermark time are expected:
+- Watermark = max(event_time) - max_out_of_orderness
+- Windows trigger when watermark >= window_end_time
+- Late data (before watermark) can be detected and handled specially
+
+## Allowed Lateness
+For EventTime windows, `allowedLateness` allows windows to accept late data after they have been triggered:
+- When watermark >= window_end, window triggers and outputs result
+- Window remains open until watermark >= window_end + allowedLateness
+- Late data arriving within allowedLateness triggers delayed updates (window fires again)
+- After allowedLateness expires, window closes and late data is ignored
+- Default: 0 (no late data accepted after window closes)
+
+Example:
+- Window [00:00 - 00:05) triggers when watermark >= 00:05
+- With allowedLateness = 2s, window stays open until watermark >= 00:07
+- Late data with timestamp in [00:00 - 00:05) arriving before watermark >= 00:07 triggers delayed update
+- After watermark >= 00:07, window closes and late data is ignored
+
+## Idle Source Mechanism
+For EventTime windows, `idleTimeout` enables watermark advancement based on processing time when the data source is idle:
+- Normally: Watermark advances based on event time (Watermark = max(event_time) - maxOutOfOrderness)
+- When idle: If no data arrives within idleTimeout, watermark advances based on processing time
+- This ensures windows can close even when the data source stops sending data
+- Prevents memory leaks from windows that never close
+- Default: 0 (disabled, watermark only advances based on event time)
+
+Example:
+- Window [00:00 - 00:05) has data with max event time = 00:02
+- Data source stops sending data at 00:03
+- With idleTimeout = 5s, after 5 seconds of no data (at 00:08), watermark advances based on processing time
+- Watermark = currentProcessingTime - maxOutOfOrderness = 00:08 - 1s = 00:07
+- Window [00:00 - 00:05) can trigger (watermark >= 00:05) and close
 
 # Performance Features
 

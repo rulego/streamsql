@@ -88,7 +88,7 @@ func (fv *FunctionValidator) isBuiltinFunction(funcName string) bool {
 func (fv *FunctionValidator) isKeyword(word string) bool {
 	keywords := []string{
 		"SELECT", "FROM", "WHERE", "GROUP", "BY", "HAVING", "ORDER",
-		"AS", "DISTINCT", "LIMIT", "WITH", "TIMESTAMP", "TIMEUNIT",
+		"AS", "DISTINCT", "LIMIT", "WITH", "TIMESTAMP", "TIMEUNIT", "MAXOUTOFORDERNESS", "ALLOWEDLATENESS", "IDLETIMEOUT",
 		"TUMBLINGWINDOW", "SLIDINGWINDOW", "COUNTINGWINDOW", "SESSIONWINDOW",
 		"AND", "OR", "NOT", "IN", "LIKE", "IS", "NULL", "TRUE", "FALSE",
 		"BETWEEN", "IS", "NULL", "TRUE", "FALSE", "CASE", "WHEN",

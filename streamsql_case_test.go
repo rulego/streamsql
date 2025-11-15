@@ -61,13 +61,14 @@ func TestCaseExpressionInSQL(t *testing.T) {
 
 // TestCaseExpressionInAggregation 测试CASE表达式在聚合查询中的使用
 func TestCaseExpressionInAggregation(t *testing.T) {
+	// 使用处理时间窗口，避免需要推进watermark的复杂性
+	// 这个测试主要验证CASE表达式在聚合函数中的使用，而不是事件时间窗口
 	sql := `SELECT deviceId,
 	              COUNT(*) as total_count,
 	              SUM(CASE WHEN temperature > 30 THEN 1 ELSE 0 END) as hot_count,
 	              AVG(CASE status WHEN 'active' THEN temperature ELSE 0 END) as avg_active_temp
 	         FROM stream 
-	         GROUP BY deviceId, TumblingWindow('1s')
-	         WITH (TIMESTAMP='ts', TIMEUNIT='ss')`
+	         GROUP BY deviceId, TumblingWindow('1s')`
 
 	// 创建StreamSQL实例
 	streamSQL := New()
@@ -76,14 +77,13 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 	err := streamSQL.Execute(sql)
 	assert.NoError(t, err, "执行SQL应该成功")
 
-	// 模拟数据
-	baseTime := time.Now()
+	// 模拟数据（不需要时间戳字段，因为使用处理时间窗口）
 	testData := []map[string]interface{}{
-		{"deviceId": "device1", "temperature": 35.0, "status": "active", "ts": baseTime},
-		{"deviceId": "device1", "temperature": 25.0, "status": "inactive", "ts": baseTime},
-		{"deviceId": "device1", "temperature": 32.0, "status": "active", "ts": baseTime},
-		{"deviceId": "device2", "temperature": 28.0, "status": "active", "ts": baseTime},
-		{"deviceId": "device2", "temperature": 22.0, "status": "inactive", "ts": baseTime},
+		{"deviceId": "device1", "temperature": 35.0, "status": "active"},
+		{"deviceId": "device1", "temperature": 25.0, "status": "inactive"},
+		{"deviceId": "device1", "temperature": 32.0, "status": "active"},
+		{"deviceId": "device2", "temperature": 28.0, "status": "active"},
+		{"deviceId": "device2", "temperature": 22.0, "status": "inactive"},
 	}
 
 	// 添加数据并获取结果
@@ -208,12 +208,11 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 			                     WHEN temperature > 25 THEN 0.5 
 			                     ELSE 0 END) as complex_score
 			      FROM stream 
-			      GROUP BY deviceId, TumblingWindow('1s')
-			      WITH (TIMESTAMP='ts', TIMEUNIT='ss')`,
+			      GROUP BY deviceId, TumblingWindow('1s')`,
 			data: []map[string]interface{}{
-				{"deviceId": "device1", "temperature": 35.0, "humidity": 70.0, "ts": time.Now()},
-				{"deviceId": "device1", "temperature": 28.0, "humidity": 50.0, "ts": time.Now()},
-				{"deviceId": "device1", "temperature": 20.0, "humidity": 40.0, "ts": time.Now()},
+				{"deviceId": "device1", "temperature": 35.0, "humidity": 70.0},
+				{"deviceId": "device1", "temperature": 28.0, "humidity": 50.0},
+				{"deviceId": "device1", "temperature": 20.0, "humidity": 40.0},
 			},
 			description: "测试多条件CASE表达式在SUM聚合中的使用",
 		},
@@ -222,12 +221,11 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 			sql: `SELECT deviceId,
 			      AVG(CASE WHEN ABS(temperature - 25) < 5 THEN temperature ELSE 0 END) as normalized_avg
 			      FROM stream 
-			      GROUP BY deviceId, TumblingWindow('1s')
-			      WITH (TIMESTAMP='ts', TIMEUNIT='ss')`,
+			      GROUP BY deviceId, TumblingWindow('1s')`,
 			data: []map[string]interface{}{
-				{"deviceId": "device1", "temperature": 23.0, "ts": time.Now()},
-				{"deviceId": "device1", "temperature": 27.0, "ts": time.Now()},
-				{"deviceId": "device1", "temperature": 35.0, "ts": time.Now()}, // 这个会被排除
+				{"deviceId": "device1", "temperature": 23.0},
+				{"deviceId": "device1", "temperature": 27.0},
+				{"deviceId": "device1", "temperature": 35.0}, // 这个会被排除
 			},
 			description: "测试带函数的CASE表达式在AVG聚合中的使用",
 		},
@@ -236,12 +234,11 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 			sql: `SELECT deviceId,
 			            COUNT(CASE WHEN temperature * 1.8 + 32 > 80 THEN 1 END) as fahrenheit_hot_count
 			      FROM stream 
-			      GROUP BY deviceId, TumblingWindow('1s')
-			      WITH (TIMESTAMP='ts', TIMEUNIT='ss')`,
+			      GROUP BY deviceId, TumblingWindow('1s')`,
 			data: []map[string]interface{}{
-				{"deviceId": "device1", "temperature": 25.0, "ts": time.Now()}, // 77F
-				{"deviceId": "device1", "temperature": 30.0, "ts": time.Now()}, // 86F
-				{"deviceId": "device1", "temperature": 35.0, "ts": time.Now()}, // 95F
+				{"deviceId": "device1", "temperature": 25.0}, // 77F
+				{"deviceId": "device1", "temperature": 30.0}, // 86F
+				{"deviceId": "device1", "temperature": 35.0}, // 95F
 			},
 			description: "测试算术表达式CASE在COUNT聚合中的使用",
 		},
@@ -501,14 +498,13 @@ func TestCaseExpressionAggregated(t *testing.T) {
 					COUNT(CASE WHEN temperature <= 25 THEN 1 END) as normal_temp_count,
 					COUNT(*) as total_count
 				  FROM stream
-				  GROUP BY deviceId, TumblingWindow('1s')
-				  WITH (TIMESTAMP='ts', TIMEUNIT='ss')`,
+				  GROUP BY deviceId, TumblingWindow('1s')`,
 			testData: []map[string]interface{}{
-				{"deviceId": "device1", "temperature": 30.0, "ts": time.Now()},
-				{"deviceId": "device1", "temperature": 20.0, "ts": time.Now()},
-				{"deviceId": "device1", "temperature": 35.0, "ts": time.Now()},
-				{"deviceId": "device2", "temperature": 22.0, "ts": time.Now()},
-				{"deviceId": "device2", "temperature": 28.0, "ts": time.Now()},
+				{"deviceId": "device1", "temperature": 30.0},
+				{"deviceId": "device1", "temperature": 20.0},
+				{"deviceId": "device1", "temperature": 35.0},
+				{"deviceId": "device2", "temperature": 22.0},
+				{"deviceId": "device2", "temperature": 28.0},
 			},
 			wantErr: false,
 		},
@@ -524,12 +520,11 @@ func TestCaseExpressionAggregated(t *testing.T) {
 						ELSE NULL 
 					END) as avg_high_humidity
 				  FROM stream
-				  GROUP BY deviceId, TumblingWindow('1s')
-				  WITH (TIMESTAMP='ts', TIMEUNIT='ss')`,
+				  GROUP BY deviceId, TumblingWindow('1s')`,
 			testData: []map[string]interface{}{
-				{"deviceId": "device1", "temperature": 30.0, "humidity": 60.0, "ts": time.Now()},
-				{"deviceId": "device1", "temperature": 20.0, "humidity": 40.0, "ts": time.Now()},
-				{"deviceId": "device1", "temperature": 35.0, "humidity": 70.0, "ts": time.Now()},
+				{"deviceId": "device1", "temperature": 30.0, "humidity": 60.0},
+				{"deviceId": "device1", "temperature": 20.0, "humidity": 40.0},
+				{"deviceId": "device1", "temperature": 35.0, "humidity": 70.0},
 			},
 			wantErr: false,
 		},
@@ -762,8 +757,7 @@ func TestHavingWithCaseExpression(t *testing.T) {
 			             AVG(CASE WHEN temperature > 30 THEN temperature ELSE 0 END) as conditional_avg
 			      FROM stream 
 			      GROUP BY deviceId, TumblingWindow('5s')
-			      HAVING conditional_avg > 25
-			      WITH (TIMESTAMP='ts', TIMEUNIT='ss')`,
+			      HAVING conditional_avg > 25`,
 			wantErr: false,
 		},
 		{
@@ -777,8 +771,7 @@ func TestHavingWithCaseExpression(t *testing.T) {
 			                 END) as weighted_score
 			      FROM stream 
 			      GROUP BY deviceId, TumblingWindow('5s')
-			      HAVING weighted_score > 3
-			      WITH (TIMESTAMP='ts', TIMEUNIT='ss')`,
+			      HAVING weighted_score > 3`,
 			wantErr: false,
 		},
 	}
@@ -819,8 +812,7 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 	              SUM(CASE WHEN temperature > 30 THEN 1 ELSE 0 END) as hot_count
 	        FROM stream 
 	        GROUP BY deviceId, TumblingWindow('2s')
-	        HAVING hot_count >= 2
-	        WITH (TIMESTAMP='ts', TIMEUNIT='ss')`
+	        HAVING hot_count >= 2`
 
 	// 创建StreamSQL实例
 	streamSQL := New()
@@ -830,23 +822,22 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 	assert.NoError(t, err, "执行SQL应该成功")
 
 	// 模拟数据
-	baseTime := time.Now()
 	testData := []map[string]interface{}{
 		// device1: 3条高温记录，应该通过HAVING条件
-		{"deviceId": "device1", "temperature": 35.0, "ts": baseTime},
-		{"deviceId": "device1", "temperature": 32.0, "ts": baseTime},
-		{"deviceId": "device1", "temperature": 31.0, "ts": baseTime},
-		{"deviceId": "device1", "temperature": 25.0, "ts": baseTime}, // 不是高温
+		{"deviceId": "device1", "temperature": 35.0},
+		{"deviceId": "device1", "temperature": 32.0},
+		{"deviceId": "device1", "temperature": 31.0},
+		{"deviceId": "device1", "temperature": 25.0}, // 不是高温
 
 		// device2: 1条高温记录，不应该通过HAVING条件
-		{"deviceId": "device2", "temperature": 33.0, "ts": baseTime},
-		{"deviceId": "device2", "temperature": 28.0, "ts": baseTime},
-		{"deviceId": "device2", "temperature": 26.0, "ts": baseTime},
+		{"deviceId": "device2", "temperature": 33.0},
+		{"deviceId": "device2", "temperature": 28.0},
+		{"deviceId": "device2", "temperature": 26.0},
 
 		// device3: 2条高温记录，应该通过HAVING条件
-		{"deviceId": "device3", "temperature": 34.0, "ts": baseTime},
-		{"deviceId": "device3", "temperature": 31.0, "ts": baseTime},
-		{"deviceId": "device3", "temperature": 29.0, "ts": baseTime},
+		{"deviceId": "device3", "temperature": 34.0},
+		{"deviceId": "device3", "temperature": 31.0},
+		{"deviceId": "device3", "temperature": 29.0},
 	}
 
 	// 添加数据并获取结果

@@ -35,10 +35,13 @@ type Field struct {
 }
 
 type WindowDefinition struct {
-	Type     string
-	Params   []interface{}
-	TsProp   string
-	TimeUnit time.Duration
+	Type              string
+	Params            []interface{}
+	TsProp            string
+	TimeUnit          time.Duration
+	MaxOutOfOrderness time.Duration // Maximum allowed out-of-orderness for event time
+	AllowedLateness   time.Duration // Maximum allowed lateness for event time windows
+	IdleTimeout       time.Duration // Idle source timeout: when no data arrives within this duration, watermark advances based on processing time
 }
 
 // ToStreamConfig converts AST to Stream configuration
@@ -133,14 +136,25 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		return nil, "", err
 	}
 
+	// Determine time characteristic based on whether TIMESTAMP is specified in WITH clause
+	// If TsProp is set, use EventTime; otherwise use ProcessingTime (default)
+	timeCharacteristic := types.ProcessingTime
+	if s.Window.TsProp != "" {
+		timeCharacteristic = types.EventTime
+	}
+
 	// Build Stream configuration
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
-			Type:        windowType,
-			Params:      params,
-			TsProp:      s.Window.TsProp,
-			TimeUnit:    s.Window.TimeUnit,
-			GroupByKeys: extractGroupFields(s),
+			Type:               windowType,
+			Params:             params,
+			TsProp:             s.Window.TsProp,
+			TimeUnit:           s.Window.TimeUnit,
+			TimeCharacteristic: timeCharacteristic,
+			MaxOutOfOrderness:  s.Window.MaxOutOfOrderness,
+			AllowedLateness:    s.Window.AllowedLateness,
+			IdleTimeout:        s.Window.IdleTimeout,
+			GroupByKeys:        extractGroupFields(s),
 		},
 		GroupFields:        extractGroupFields(s),
 		SelectFields:       aggs,
