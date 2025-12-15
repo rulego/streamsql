@@ -650,12 +650,6 @@ func (sw *SlidingWindow) Trigger() {
 
 	// Extract Data fields to form []interface{} type data for current window
 	resultData := make([]types.Row, 0)
-	for _, item := range sw.data {
-		if sw.currentSlot.Contains(item.Timestamp) {
-			item.Slot = sw.currentSlot
-			resultData = append(resultData, item)
-		}
-	}
 
 	// Retain data that could be in future windows
 	// For sliding windows, we need to keep data that falls within:
@@ -666,8 +660,12 @@ func (sw *SlidingWindow) Trigger() {
 	cutoffTime := next.End.Add(sw.size)
 	newData := make([]types.Row, 0)
 	for _, item := range sw.data {
-		// Keep data that could be in future windows (before cutoffTime)
-		if item.Timestamp.Before(cutoffTime) {
+		if sw.currentSlot.Contains(item.Timestamp) {
+			item.Slot = sw.currentSlot
+			resultData = append(resultData, item)
+		}
+		// Keep data that could be in future windows (before cutoffTime && After next.Start)
+		if item.Timestamp.Before(cutoffTime) && item.Timestamp.After(*next.Start) && item.Timestamp.Equal(*next.Start) {
 			newData = append(newData, item)
 		}
 	}
