@@ -131,7 +131,25 @@ func validateBasicSyntax(exprStr string) error {
 	}
 
 	// Check for invalid characters
+	inQuotes := false
+	var quoteChar rune
+
 	for i, ch := range trimmed {
+		// Handle quotes
+		if ch == '\'' || ch == '"' {
+			if !inQuotes {
+				inQuotes = true
+				quoteChar = ch
+			} else if ch == quoteChar {
+				inQuotes = false
+			}
+		}
+
+		// If inside quotes, skip character validation
+		if inQuotes {
+			continue
+		}
+
 		// Allowed characters: letters, numbers, operators, parentheses, dots, underscores, spaces, quotes
 		if !isValidChar(ch) {
 			return fmt.Errorf("invalid character '%c' at position %d", ch, i)
