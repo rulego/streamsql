@@ -343,7 +343,7 @@ func TestStreamsqlDistinct(t *testing.T) {
 
 	// 等待窗口触发（处理时间模式）
 	//fmt.Println("等待窗口初始化...")
-	time.Sleep(1 * time.Second)
+	time.Sleep(1500 * time.Millisecond)
 
 	// 手动触发窗口
 	//fmt.Println("手动触发窗口")
