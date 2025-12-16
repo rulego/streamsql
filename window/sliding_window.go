@@ -658,16 +658,13 @@ func (sw *SlidingWindow) Trigger() {
 	}
 
 	// Retain data that could be in future windows
-	// For sliding windows, we need to keep data that falls within:
-	// - Current window end + size (for overlapping windows)
-	// - Next window end + size (for future windows)
-	// Actually, we should keep all data that could be in any future window
-	// The latest window that could contain a data point is: next.End + size
-	cutoffTime := next.End.Add(sw.size)
+	// For sliding windows, we need to keep data that falls within future windows
+	// Future windows start at next.Start or later (next.Start + k * slide)
+	// So any data with timestamp < next.Start cannot be in any future window
 	newData := make([]types.Row, 0)
 	for _, item := range sw.data {
-		// Keep data that could be in future windows (before cutoffTime)
-		if item.Timestamp.Before(cutoffTime) {
+		// Keep data that could be in future windows (>= next.Start)
+		if !item.Timestamp.Before(*next.Start) {
 			newData = append(newData, item)
 		}
 	}
