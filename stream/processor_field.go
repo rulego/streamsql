@@ -61,7 +61,32 @@ func (s *Stream) compileSimpleFieldInfo(fieldSpec string) *fieldProcessInfo {
 	}
 
 	// Parse alias
-	parts := strings.Split(fieldSpec, ":")
+	var parts []string
+	// Helper to split field spec considering quotes
+	splitFieldSpec := func(spec string) []string {
+		inQuote := false
+		var quoteChar byte
+		for i := 0; i < len(spec); i++ {
+			c := spec[i]
+			if inQuote {
+				if c == quoteChar {
+					inQuote = false
+				}
+			} else {
+				if c == '\'' || c == '"' || c == '`' {
+					inQuote = true
+					quoteChar = c
+				} else if c == ':' {
+					// Found separator
+					return []string{spec[:i], spec[i+1:]}
+				}
+			}
+		}
+		// No separator found outside quotes
+		return []string{spec}
+	}
+
+	parts = splitFieldSpec(fieldSpec)
 	info.fieldName = parts[0]
 	// Remove backticks from field name
 	if len(info.fieldName) >= 2 && info.fieldName[0] == '`' && info.fieldName[len(info.fieldName)-1] == '`' {
@@ -398,7 +423,32 @@ func (s *Stream) processSingleFieldFallback(fieldSpec string, dataMap map[string
 	}
 
 	// Handle alias
-	parts := strings.Split(fieldSpec, ":")
+	var parts []string
+	// Helper to split field spec considering quotes
+	splitFieldSpec := func(spec string) []string {
+		inQuote := false
+		var quoteChar byte
+		for i := 0; i < len(spec); i++ {
+			c := spec[i]
+			if inQuote {
+				if c == quoteChar {
+					inQuote = false
+				}
+			} else {
+				if c == '\'' || c == '"' || c == '`' {
+					inQuote = true
+					quoteChar = c
+				} else if c == ':' {
+					// Found separator
+					return []string{spec[:i], spec[i+1:]}
+				}
+			}
+		}
+		// No separator found outside quotes
+		return []string{spec}
+	}
+
+	parts = splitFieldSpec(fieldSpec)
 	fieldName := parts[0]
 	outputName := fieldName
 	if len(parts) > 1 {
