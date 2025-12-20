@@ -42,7 +42,7 @@ func (s *Stream) GetStats() map[string]int64 {
 	dataChanCap := int64(cap(s.dataChan))
 	s.dataChanMux.RUnlock()
 
-	return map[string]int64{
+	stats := map[string]int64{
 		InputCount:    atomic.LoadInt64(&s.inputCount),
 		OutputCount:   atomic.LoadInt64(&s.outputCount),
 		DroppedCount:  atomic.LoadInt64(&s.droppedCount),
@@ -55,6 +55,15 @@ func (s *Stream) GetStats() map[string]int64 {
 		ActiveRetries: int64(atomic.LoadInt32(&s.activeRetries)),
 		Expanding:     int64(atomic.LoadInt32(&s.expanding)),
 	}
+
+	if s.Window != nil {
+		winStats := s.Window.GetStats()
+		for k, v := range winStats {
+			stats[k] = v
+		}
+	}
+
+	return stats
 }
 
 // GetDetailedStats gets detailed performance statistics

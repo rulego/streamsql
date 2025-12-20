@@ -6,6 +6,15 @@ import (
 	"github.com/rulego/streamsql/aggregator"
 )
 
+const (
+	// OverflowStrategyBlock blocks when buffer is full
+	OverflowStrategyBlock = "block"
+	// OverflowStrategyDrop drops data when buffer is full
+	OverflowStrategyDrop = "drop"
+	// OverflowStrategyExpand expands buffer when full (not implemented for windows yet)
+	OverflowStrategyExpand = "expand"
+)
+
 // Config stream processing configuration
 type Config struct {
 	// SQL processing related configuration

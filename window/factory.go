@@ -42,6 +42,7 @@ type Window interface {
 	OutputChan() <-chan []types.Row
 	SetCallback(callback func([]types.Row))
 	Trigger()
+	GetStats() map[string]int64
 }
 
 func CreateWindow(config types.WindowConfig) (Window, error) {

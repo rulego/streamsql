@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rulego/streamsql/utils/cast"
@@ -436,12 +437,28 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 			debugLogSliding("checkAndTriggerWindows: watermark hasn't reached windowEnd, stopping")
 			break
 		}
+
+		// Save current slot reference before triggering
+		// We need to advance sw.currentSlot BEFORE calling triggerSpecificWindowLocked
+		// because triggerSpecificWindowLocked releases the lock, and we want to prevent
+		// re-entry for the same window.
+		slotToTrigger := sw.currentSlot
+
+		// Move to next window immediately
+		sw.currentSlot = sw.NextSlot()
+		if sw.currentSlot != nil {
+			debugLogSliding("checkAndTriggerWindows: moved to next window [%v, %v)",
+				sw.currentSlot.Start.UnixMilli(), sw.currentSlot.End.UnixMilli())
+		} else {
+			debugLogSliding("checkAndTriggerWindows: NextSlot returned nil")
+		}
+
 		// Check if window has data before triggering
 		hasData := false
 		dataInWindow := 0
 		var dataTimestamps []int64
 		for _, item := range sw.data {
-			if sw.currentSlot.Contains(item.Timestamp) {
+			if slotToTrigger.Contains(item.Timestamp) {
 				hasData = true
 				dataInWindow++
 				dataTimestamps = append(dataTimestamps, item.Timestamp.UnixMilli())
@@ -453,13 +470,8 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 
 		// Trigger current window only if it has data
 		if hasData {
-			// Count data in window before triggering
-			dataInWindow := 0
-			for _, item := range sw.data {
-				if sw.currentSlot.Contains(item.Timestamp) {
-					dataInWindow++
-				}
-			}
+			// Count data in window before triggering (re-count? redundant but harmless)
+			// Actually we already counted dataInWindow above
 
 			// Save snapshot data before triggering (for Flink-like late update behavior)
 			var snapshotData []types.Row
@@ -467,12 +479,12 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 				// Create a deep copy of window data for snapshot
 				snapshotData = make([]types.Row, 0, dataInWindow)
 				for _, item := range sw.data {
-					if sw.currentSlot.Contains(item.Timestamp) {
+					if slotToTrigger.Contains(item.Timestamp) {
 						// Create a copy of the row
 						snapshotData = append(snapshotData, types.Row{
 							Data:      item.Data,
 							Timestamp: item.Timestamp,
-							Slot:      sw.currentSlot,
+							Slot:      slotToTrigger,
 						})
 					}
 				}
@@ -480,15 +492,17 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 
 			debugLogSliding("checkAndTriggerWindows: triggering window [%v, %v) with %d data items",
 				windowStart.UnixMilli(), windowEnd.UnixMilli(), dataInWindow)
-			sw.triggerWindowLocked()
+
+			sw.triggerSpecificWindowLocked(slotToTrigger)
+
 			debugLogSliding("checkAndTriggerWindows: window triggered successfully")
 
 			// If allowedLateness > 0, keep window open for late data
 			if allowedLateness > 0 {
-				windowKey := sw.getWindowKey(*sw.currentSlot.End)
-				closeTime := sw.currentSlot.End.Add(allowedLateness)
+				windowKey := sw.getWindowKey(*slotToTrigger.End)
+				closeTime := slotToTrigger.End.Add(allowedLateness)
 				sw.triggeredWindows[windowKey] = &triggeredWindowInfo{
-					slot:         sw.currentSlot,
+					slot:         slotToTrigger,
 					closeTime:    closeTime,
 					snapshotData: snapshotData, // Save snapshot for late updates
 				}
@@ -499,33 +513,23 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 			debugLogSliding("checkAndTriggerWindows: window [%v, %v) has no data, skipping trigger",
 				windowStart.UnixMilli(), windowEnd.UnixMilli())
 		}
-
-		// Move to next window (even if current window was empty)
-		sw.currentSlot = sw.NextSlot()
-		if sw.currentSlot != nil {
-			debugLogSliding("checkAndTriggerWindows: moved to next window [%v, %v)",
-				sw.currentSlot.Start.UnixMilli(), sw.currentSlot.End.UnixMilli())
-		} else {
-			debugLogSliding("checkAndTriggerWindows: NextSlot returned nil, stopping")
-			break
-		}
 	}
 
 	// Close windows that have exceeded allowedLateness
 	sw.closeExpiredWindows(watermarkTime)
 }
 
-// triggerWindowLocked triggers the window (must be called with lock held)
-func (sw *SlidingWindow) triggerWindowLocked() {
-	if sw.currentSlot == nil {
-		return
+// extractWindowDataLocked extracts window data for the given slot (must be called with lock held)
+func (sw *SlidingWindow) extractWindowDataLocked(slot *types.TimeSlot) []types.Row {
+	if slot == nil {
+		return nil
 	}
 
 	// Extract current window data
 	resultData := make([]types.Row, 0)
 	for _, item := range sw.data {
-		if sw.currentSlot.Contains(item.Timestamp) {
-			item.Slot = sw.currentSlot
+		if slot.Contains(item.Timestamp) {
+			item.Slot = slot
 			resultData = append(resultData, item)
 		}
 	}
@@ -533,21 +537,32 @@ func (sw *SlidingWindow) triggerWindowLocked() {
 	// Skip triggering if window has no data
 	// This prevents empty windows from being triggered
 	if len(resultData) == 0 {
-		return
+		return nil
 	}
 
-	// Retain data that could be in future windows
-	// For sliding windows, we need to keep data that falls within:
-	// - Current window end + size (for overlapping windows)
-	cutoffTime := sw.currentSlot.End.Add(sw.size)
+	// Remove data that is no longer needed
+	// For sliding windows, data can belong to multiple windows
+	// We only remove data that is older than the start of the next window
+	// because any data before that will not be included in future windows.
+
+	nextWindowStart := slot.Start.Add(sw.slide)
 	newData := make([]types.Row, 0)
 	for _, item := range sw.data {
-		// Keep data that could be in future windows (before cutoffTime)
-		if item.Timestamp.Before(cutoffTime) {
+		if !item.Timestamp.Before(nextWindowStart) {
 			newData = append(newData, item)
 		}
 	}
 	sw.data = newData
+
+	return resultData
+}
+
+// triggerSpecificWindowLocked triggers the specified window (must be called with lock held)
+func (sw *SlidingWindow) triggerSpecificWindowLocked(slot *types.TimeSlot) {
+	resultData := sw.extractWindowDataLocked(slot)
+	if len(resultData) == 0 {
+		return
+	}
 
 	// Get callback reference before releasing lock
 	callback := sw.callback
@@ -559,24 +574,10 @@ func (sw *SlidingWindow) triggerWindowLocked() {
 		callback(resultData)
 	}
 
-	// Non-blocking send to output channel and update statistics
-	var sent bool
-	select {
-	case sw.outputChan <- resultData:
-		// Successfully sent
-		sent = true
-	default:
-		// Channel full, drop result
-		sent = false
-	}
+	sw.sendResult(resultData)
 
 	// Re-acquire lock to update statistics
 	sw.mu.Lock()
-	if sent {
-		sw.sentCount++
-	} else {
-		sw.droppedCount++
-	}
 }
 
 // Stop stops the sliding window operations
@@ -648,40 +649,16 @@ func (sw *SlidingWindow) Trigger() {
 		return
 	}
 
-	// Extract Data fields to form []interface{} type data for current window
-	resultData := make([]types.Row, 0)
-	for _, item := range sw.data {
-		if sw.currentSlot.Contains(item.Timestamp) {
-			item.Slot = sw.currentSlot
-			resultData = append(resultData, item)
-		}
-	}
+	// Extract current window data
+	currentSlot := sw.currentSlot
+	sw.currentSlot = next
 
-	// Retain data that could be in future windows
-	// For sliding windows, we need to keep data that falls within future windows
-	// Future windows start at next.Start or later (next.Start + k * slide)
-	// So any data with timestamp < next.Start cannot be in any future window
-	newData := make([]types.Row, 0)
-	for _, item := range sw.data {
-		// Keep data that could be in future windows (>= next.Start)
-		if !item.Timestamp.Before(*next.Start) {
-			newData = append(newData, item)
-		}
-	}
+	resultData := sw.extractWindowDataLocked(currentSlot)
 
-	// If resultData is empty, skip callback to avoid sending empty results
-	// This prevents empty results from filling up channels when timer triggers repeatedly
 	if len(resultData) == 0 {
-		// Update window data even if no result
-		sw.data = newData
-		sw.currentSlot = next
 		sw.mu.Unlock()
 		return
 	}
-
-	// Update window data
-	sw.data = newData
-	sw.currentSlot = next
 
 	// Get callback reference before releasing lock
 	callback := sw.callback
@@ -689,40 +666,57 @@ func (sw *SlidingWindow) Trigger() {
 	// Release lock before calling callback and sending to channel to avoid blocking
 	sw.mu.Unlock()
 
-	// Execute callback function if set (outside of lock to avoid blocking)
 	if callback != nil {
 		callback(resultData)
 	}
 
-	// Non-blocking send to output channel and update statistics
-	var sent bool
-	select {
-	case sw.outputChan <- resultData:
-		// Successfully sent
-		sent = true
-	default:
-		// Channel full, drop result
-		sent = false
+	sw.sendResult(resultData)
+}
+
+func (sw *SlidingWindow) sendResult(data []types.Row) {
+	strategy := sw.config.PerformanceConfig.OverflowConfig.Strategy
+	timeout := sw.config.PerformanceConfig.OverflowConfig.BlockTimeout
+
+	if strategy == types.OverflowStrategyBlock {
+		if timeout <= 0 {
+			timeout = 5 * time.Second
+		}
+		select {
+		case sw.outputChan <- data:
+			atomic.AddInt64(&sw.sentCount, 1)
+		case <-time.After(timeout):
+			atomic.AddInt64(&sw.droppedCount, 1)
+		case <-sw.ctx.Done():
+			return
+		}
+		return
 	}
 
-	// Re-acquire lock to update statistics
-	sw.mu.Lock()
-	if sent {
-		sw.sentCount++
-	} else {
-		sw.droppedCount++
+	// Default: "drop" strategy (implemented as Drop Oldest / Smart Drop)
+	select {
+	case sw.outputChan <- data:
+		atomic.AddInt64(&sw.sentCount, 1)
+	default:
+		// Try to drop oldest data
+		select {
+		case <-sw.outputChan:
+			select {
+			case sw.outputChan <- data:
+				atomic.AddInt64(&sw.sentCount, 1)
+			default:
+				atomic.AddInt64(&sw.droppedCount, 1)
+			}
+		default:
+			atomic.AddInt64(&sw.droppedCount, 1)
+		}
 	}
-	sw.mu.Unlock()
 }
 
 // GetStats returns window performance statistics
 func (sw *SlidingWindow) GetStats() map[string]int64 {
-	sw.mu.RLock()
-	defer sw.mu.RUnlock()
-
 	return map[string]int64{
-		"sentCount":    sw.sentCount,
-		"droppedCount": sw.droppedCount,
+		"sentCount":    atomic.LoadInt64(&sw.sentCount),
+		"droppedCount": atomic.LoadInt64(&sw.droppedCount),
 		"bufferSize":   int64(cap(sw.outputChan)),
 		"bufferUsed":   int64(len(sw.outputChan)),
 	}
@@ -730,11 +724,8 @@ func (sw *SlidingWindow) GetStats() map[string]int64 {
 
 // ResetStats resets performance statistics
 func (sw *SlidingWindow) ResetStats() {
-	sw.mu.Lock()
-	defer sw.mu.Unlock()
-
-	sw.sentCount = 0
-	sw.droppedCount = 0
+	atomic.StoreInt64(&sw.sentCount, 0)
+	atomic.StoreInt64(&sw.droppedCount, 0)
 }
 
 // Reset resets the sliding window and clears window data

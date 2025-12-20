@@ -22,6 +22,8 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/rulego/streamsql/utils/cast"
 
@@ -75,12 +77,9 @@ func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
 	}
 
 	// Use unified performance config to get window output buffer size
-	bufferSize := 100 // Default value
-	if (config.PerformanceConfig != types.PerformanceConfig{}) {
+	bufferSize := 1000 // Default value
+	if config.PerformanceConfig.BufferConfig.WindowOutputSize > 0 {
 		bufferSize = config.PerformanceConfig.BufferConfig.WindowOutputSize
-		if bufferSize < 10 {
-			bufferSize = 10 // Minimum value
-		}
 	}
 
 	cw := &CountingWindow{
@@ -161,18 +160,7 @@ func (cw *CountingWindow) Start() {
 						cw.callback(data)
 					}
 
-					select {
-					case cw.outputChan <- data:
-						cw.mu.Lock()
-						cw.sentCount++
-						cw.mu.Unlock()
-					case <-cw.ctx.Done():
-						return
-					default:
-						cw.mu.Lock()
-						cw.droppedCount++
-						cw.mu.Unlock()
-					}
+					cw.sendResult(data)
 				} else {
 					cw.mu.Unlock()
 				}
@@ -182,6 +170,58 @@ func (cw *CountingWindow) Start() {
 			}
 		}
 	}()
+}
+
+func (cw *CountingWindow) sendResult(data []types.Row) {
+	strategy := cw.config.PerformanceConfig.OverflowConfig.Strategy
+	timeout := cw.config.PerformanceConfig.OverflowConfig.BlockTimeout
+
+	if strategy == types.OverflowStrategyBlock {
+		if timeout <= 0 {
+			timeout = 5 * time.Second
+		}
+		select {
+		case cw.outputChan <- data:
+			atomic.AddInt64(&cw.sentCount, 1)
+		case <-time.After(timeout):
+			// Timeout, check if data loss is allowed
+			if cw.config.PerformanceConfig.OverflowConfig.AllowDataLoss {
+				atomic.AddInt64(&cw.droppedCount, 1)
+				// Drop new data (simplest fallback for block)
+			} else {
+				atomic.AddInt64(&cw.droppedCount, 1)
+			}
+		case <-cw.ctx.Done():
+			return
+		}
+		return
+	}
+
+	// Default: "drop" strategy (implemented as Drop Oldest / Smart Drop)
+	// If the buffer is full, remove the oldest item to make space for the new item.
+	// This ensures that we always keep the most recent data, which is usually preferred in streaming.
+	select {
+	case cw.outputChan <- data:
+		atomic.AddInt64(&cw.sentCount, 1)
+	case <-cw.ctx.Done():
+		return
+	default:
+		// Try to drop oldest data to make room for new data
+		select {
+		case <-cw.outputChan:
+			// Successfully dropped one old item
+			select {
+			case cw.outputChan <- data:
+				atomic.AddInt64(&cw.sentCount, 1)
+			default:
+				// Still failed, drop current
+				atomic.AddInt64(&cw.droppedCount, 1)
+			}
+		default:
+			// Channel empty, try to send again or drop
+			atomic.AddInt64(&cw.droppedCount, 1)
+		}
+	}
 }
 
 func (cw *CountingWindow) Trigger() {
@@ -211,17 +251,14 @@ func (cw *CountingWindow) Reset() {
 	cw.dataBuffer = nil
 	cw.keyedBuffer = make(map[string][]types.Row)
 	cw.keyedCount = make(map[string]int)
-	cw.sentCount = 0
-	cw.droppedCount = 0
+	atomic.StoreInt64(&cw.sentCount, 0)
+	atomic.StoreInt64(&cw.droppedCount, 0)
 }
 
 func (cw *CountingWindow) GetStats() map[string]int64 {
-	cw.mu.Lock()
-	defer cw.mu.Unlock()
-
 	return map[string]int64{
-		"sentCount":    cw.sentCount,
-		"droppedCount": cw.droppedCount,
+		"sentCount":    atomic.LoadInt64(&cw.sentCount),
+		"droppedCount": atomic.LoadInt64(&cw.droppedCount),
 		"bufferSize":   int64(cap(cw.outputChan)),
 		"bufferUsed":   int64(len(cw.outputChan)),
 	}

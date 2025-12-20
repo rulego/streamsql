@@ -19,8 +19,10 @@ package window
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rulego/streamsql/types"
@@ -59,6 +61,9 @@ type SessionWindow struct {
 	watermark *Watermark
 	// triggeredSessions stores sessions that have been triggered but are still open for late data (for EventTime with allowedLateness)
 	triggeredSessions map[string]*sessionInfo
+	// Performance statistics
+	sentCount    int64 // Number of successfully sent results
+	droppedCount int64 // Number of dropped results
 }
 
 // sessionInfo stores information about a triggered session that is still open for late data
@@ -92,12 +97,9 @@ func NewSessionWindow(config types.WindowConfig) (*SessionWindow, error) {
 	}
 
 	// Use unified performance configuration to get window output buffer size
-	bufferSize := 100 // Default value
-	if (config.PerformanceConfig != types.PerformanceConfig{}) {
+	bufferSize := 1000 // Default value
+	if config.PerformanceConfig.BufferConfig.WindowOutputSize > 0 {
 		bufferSize = config.PerformanceConfig.BufferConfig.WindowOutputSize
-		if bufferSize < 10 {
-			bufferSize = 10 // Minimum value
-		}
 	}
 
 	// Determine time characteristic (default to ProcessingTime for backward compatibility)
@@ -411,11 +413,65 @@ func (sw *SessionWindow) sendResults(resultsToSend [][]types.Row) {
 			sw.callback(result)
 		}
 
+		sw.sendResult(result)
+	}
+}
+
+func (sw *SessionWindow) sendResult(data []types.Row) {
+	strategy := sw.config.PerformanceConfig.OverflowConfig.Strategy
+	timeout := sw.config.PerformanceConfig.OverflowConfig.BlockTimeout
+
+	if strategy == types.OverflowStrategyBlock {
+		if timeout <= 0 {
+			timeout = 5 * time.Second
+		}
 		select {
-		case sw.outputChan <- result:
+		case sw.outputChan <- data:
+			atomic.AddInt64(&sw.sentCount, 1)
+		case <-time.After(timeout):
+			atomic.AddInt64(&sw.droppedCount, 1)
+		case <-sw.ctx.Done():
+			return
+		}
+		return
+	}
+
+	// Default: "drop" strategy (implemented as Drop Oldest / Smart Drop)
+	// If the buffer is full, remove the oldest item to make space for the new item.
+	// This ensures that we always keep the most recent data, which is usually preferred in streaming.
+	select {
+	case sw.outputChan <- data:
+		atomic.AddInt64(&sw.sentCount, 1)
+	default:
+		// Try to drop oldest data
+		select {
+		case <-sw.outputChan:
+			select {
+			case sw.outputChan <- data:
+				atomic.AddInt64(&sw.sentCount, 1)
+			default:
+				atomic.AddInt64(&sw.droppedCount, 1)
+			}
 		default:
+			atomic.AddInt64(&sw.droppedCount, 1)
 		}
 	}
+}
+
+// GetStats returns window performance statistics
+func (sw *SessionWindow) GetStats() map[string]int64 {
+	return map[string]int64{
+		"sentCount":    atomic.LoadInt64(&sw.sentCount),
+		"droppedCount": atomic.LoadInt64(&sw.droppedCount),
+		"bufferSize":   int64(cap(sw.outputChan)),
+		"bufferUsed":   int64(len(sw.outputChan)),
+	}
+}
+
+// ResetStats resets performance statistics
+func (sw *SessionWindow) ResetStats() {
+	atomic.StoreInt64(&sw.sentCount, 0)
+	atomic.StoreInt64(&sw.droppedCount, 0)
 }
 
 // Trigger manually triggers all session windows
@@ -450,13 +506,7 @@ func (sw *SessionWindow) Trigger() {
 			sw.callback(result)
 		}
 
-		// Non-blocking send to output channel
-		select {
-		case sw.outputChan <- result:
-			// Successfully sent
-		default:
-			// Channel full, drop result (could add statistics here if needed)
-		}
+		sw.sendResult(result)
 	}
 }
 
@@ -550,13 +600,7 @@ func (sw *SessionWindow) triggerLateUpdateLocked(s *session) {
 		callback(resultData)
 	}
 
-	// Non-blocking send to output channel
-	select {
-	case sw.outputChan <- resultData:
-		// Successfully sent
-	default:
-		// Channel full, drop result
-	}
+	sw.sendResult(resultData)
 
 	// Re-acquire lock
 	sw.mu.Lock()
@@ -578,12 +622,44 @@ func extractSessionCompositeKey(data interface{}, keys []string) string {
 	if len(keys) == 0 {
 		return "default"
 	}
-	parts := make([]string, 0, len(keys))
+
+	// Fast path for map[string]interface{}
 	if m, ok := data.(map[string]interface{}); ok {
+		parts := make([]string, 0, len(keys))
 		for _, k := range keys {
-			parts = append(parts, fmt.Sprintf("%v", m[k]))
+			if val, exists := m[k]; exists {
+				parts = append(parts, cast.ToString(val))
+			} else {
+				parts = append(parts, "")
+			}
 		}
 		return strings.Join(parts, "|")
 	}
-	return "default"
+
+	// Use reflection for structs and other types
+	v := reflect.ValueOf(data)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		var part string
+		switch v.Kind() {
+		case reflect.Map:
+			if v.Type().Key().Kind() == reflect.String {
+				mv := v.MapIndex(reflect.ValueOf(k))
+				if mv.IsValid() {
+					part = cast.ToString(mv.Interface())
+				}
+			}
+		case reflect.Struct:
+			f := v.FieldByName(k)
+			if f.IsValid() {
+				part = cast.ToString(f.Interface())
+			}
+		}
+		parts = append(parts, part)
+	}
+	return strings.Join(parts, "|")
 }

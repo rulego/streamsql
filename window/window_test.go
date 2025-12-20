@@ -584,7 +584,7 @@ func TestWindowWithPerformanceConfig(t *testing.T) {
 			name:               "计数窗口-高性能配置",
 			windowType:         TypeCounting,
 			performanceConfig:  types.HighPerformanceConfig(),
-			expectedBufferSize: 20, // 200 / 10
+			expectedBufferSize: 200,
 			extraParams:        map[string]interface{}{"count": 10},
 		},
 		{

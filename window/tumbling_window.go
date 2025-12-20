@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rulego/streamsql/types"
@@ -435,14 +436,7 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 		windowEnd := tw.currentSlot.End
 		windowStart := tw.currentSlot.Start
 		// Trigger if watermark >= windowEnd
-		// In Flink, windows are triggered when watermark >= windowEnd.
-		// Watermark calculation: watermark = maxEventTime - maxOutOfOrderness
-		// So watermark >= windowEnd means: maxEventTime - maxOutOfOrderness >= windowEnd
-		// Which means: maxEventTime >= windowEnd + maxOutOfOrderness
 		// This ensures all data for the window has arrived (within maxOutOfOrderness tolerance)
-		// Check if watermark >= windowEnd
-		// Use !Before() instead of After() to include equality case
-		// This is equivalent to watermarkTime >= windowEnd
 		shouldTrigger := !watermarkTime.Before(*windowEnd)
 
 		debugLog("checkAndTriggerWindows: window=[%v, %v), watermark=%v, shouldTrigger=%v",
@@ -495,7 +489,18 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 
 			debugLog("checkAndTriggerWindows: triggering window [%v, %v) with %d data items",
 				windowStart.UnixMilli(), windowEnd.UnixMilli(), dataInWindow)
-			tw.triggerWindowLocked()
+
+			resultData := tw.extractWindowDataLocked()
+			if len(resultData) > 0 {
+				callback := tw.callback
+				tw.mu.Unlock()
+				if callback != nil {
+					callback(resultData)
+				}
+				tw.sendResult(resultData)
+				tw.mu.Lock()
+			}
+
 			triggeredCount++
 			debugLog("checkAndTriggerWindows: window triggered successfully, triggeredCount=%d", triggeredCount)
 			// triggerWindowLocked releases and re-acquires lock, so we need to re-check state
@@ -579,15 +584,24 @@ func (tw *TumblingWindow) handleLateData(eventTime time.Time, allowedLateness ti
 		if info.slot.Contains(eventTime) {
 			// This late data belongs to a triggered window that's still open
 			// Trigger window again with updated data (late update)
-			tw.triggerLateUpdateLocked(info.slot)
+			resultData := tw.extractLateUpdateDataLocked(info.slot)
+			if len(resultData) > 0 {
+				callback := tw.callback
+				tw.mu.Unlock()
+				if callback != nil {
+					callback(resultData)
+				}
+				tw.sendResult(resultData)
+				tw.mu.Lock()
+			}
 			return
 		}
 	}
 }
 
-// triggerLateUpdateLocked triggers a late update for a window (must be called with lock held)
+// extractLateUpdateDataLocked extracts late update data for a window (must be called with lock held)
 // This implements Flink-like behavior: late updates include complete window data (original + late data)
-func (tw *TumblingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
+func (tw *TumblingWindow) extractLateUpdateDataLocked(slot *types.TimeSlot) []types.Row {
 	// Find the triggered window info to get snapshot data
 	var windowInfo *triggeredWindowInfo
 	windowKey := tw.getWindowKey(*slot.End)
@@ -619,7 +633,7 @@ func (tw *TumblingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
 	}
 
 	if len(resultData) == 0 {
-		return
+		return nil
 	}
 
 	// Update snapshot to include late data (for future late updates)
@@ -635,34 +649,7 @@ func (tw *TumblingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
 		}
 	}
 
-	// Get callback reference before releasing lock
-	callback := tw.callback
-
-	// Release lock before calling callback and sending to channel to avoid blocking
-	tw.mu.Unlock()
-
-	if callback != nil {
-		callback(resultData)
-	}
-
-	// Non-blocking send to output channel and update statistics
-	var sent bool
-	select {
-	case tw.outputChan <- resultData:
-		// Successfully sent
-		sent = true
-	default:
-		// Channel full, drop result
-		sent = false
-	}
-
-	// Re-acquire lock to update statistics
-	tw.mu.Lock()
-	if sent {
-		tw.sentCount++
-	} else {
-		tw.droppedCount++
-	}
+	return resultData
 }
 
 // getWindowKey generates a key for a window based on its end time
@@ -670,10 +657,10 @@ func (tw *TumblingWindow) getWindowKey(endTime time.Time) string {
 	return fmt.Sprintf("%d", endTime.UnixNano())
 }
 
-// triggerWindowLocked triggers the window (must be called with lock held)
-func (tw *TumblingWindow) triggerWindowLocked() {
+// extractWindowDataLocked extracts current window data (must be called with lock held)
+func (tw *TumblingWindow) extractWindowDataLocked() []types.Row {
 	if tw.currentSlot == nil {
-		return
+		return nil
 	}
 
 	// Extract current window data
@@ -688,7 +675,7 @@ func (tw *TumblingWindow) triggerWindowLocked() {
 	// Skip triggering if window has no data
 	// This prevents empty windows from being triggered
 	if len(resultData) == 0 {
-		return
+		return nil
 	}
 
 	// Remove data that belongs to current window
@@ -700,33 +687,47 @@ func (tw *TumblingWindow) triggerWindowLocked() {
 	}
 	tw.data = newData
 
-	// Get callback reference before releasing lock
-	callback := tw.callback
+	return resultData
+}
 
-	// Release lock before calling callback and sending to channel to avoid blocking
-	tw.mu.Unlock()
+func (tw *TumblingWindow) sendResult(data []types.Row) {
+	strategy := tw.config.PerformanceConfig.OverflowConfig.Strategy
+	timeout := tw.config.PerformanceConfig.OverflowConfig.BlockTimeout
 
-	if callback != nil {
-		callback(resultData)
+	if strategy == types.OverflowStrategyBlock {
+		if timeout <= 0 {
+			timeout = 5 * time.Second
+		}
+		select {
+		case tw.outputChan <- data:
+			atomic.AddInt64(&tw.sentCount, 1)
+		case <-time.After(timeout):
+			atomic.AddInt64(&tw.droppedCount, 1)
+		case <-tw.ctx.Done():
+			return
+		}
+		return
 	}
 
-	// Non-blocking send to output channel and update statistics
-	var sent bool
+	// Default: "drop" strategy (implemented as Drop Oldest / Smart Drop)
+	// If the buffer is full, remove the oldest item to make space for the new item.
+	// This ensures that we always keep the most recent data, which is usually preferred in streaming.
 	select {
-	case tw.outputChan <- resultData:
-		// Successfully sent
-		sent = true
+	case tw.outputChan <- data:
+		atomic.AddInt64(&tw.sentCount, 1)
 	default:
-		// Channel full, drop result
-		sent = false
-	}
-
-	// Re-acquire lock to update statistics
-	tw.mu.Lock()
-	if sent {
-		tw.sentCount++
-	} else {
-		tw.droppedCount++
+		// Try to drop oldest data
+		select {
+		case <-tw.outputChan:
+			select {
+			case tw.outputChan <- data:
+				atomic.AddInt64(&tw.sentCount, 1)
+			default:
+				atomic.AddInt64(&tw.droppedCount, 1)
+			}
+		default:
+			atomic.AddInt64(&tw.droppedCount, 1)
+		}
 	}
 }
 
@@ -801,27 +802,8 @@ func (tw *TumblingWindow) Trigger() {
 		callback(resultData)
 	}
 
-	// Non-blocking send to output channel and update statistics
-	var sent bool
-	select {
-	case tw.outputChan <- resultData:
-		// Successfully sent
-		sent = true
-	default:
-		// Channel full, drop result
-		sent = false
-	}
-
-	// Re-acquire lock to update statistics
-	tw.mu.Lock()
-	if sent {
-		tw.sentCount++
-	} else {
-		tw.droppedCount++
-		// Optional: add logging here
-		// log.Printf("Window output channel full, dropped result with %d rows", len(resultData))
-	}
-	tw.mu.Unlock()
+	// Use sendResult to respect overflow strategy
+	tw.sendResult(resultData)
 }
 
 // Reset resets tumbling window data
@@ -889,12 +871,9 @@ func (tw *TumblingWindow) SetCallback(callback func([]types.Row)) {
 
 // GetStats returns window performance statistics
 func (tw *TumblingWindow) GetStats() map[string]int64 {
-	tw.mu.RLock()
-	defer tw.mu.RUnlock()
-
 	return map[string]int64{
-		"sentCount":    tw.sentCount,
-		"droppedCount": tw.droppedCount,
+		"sentCount":    atomic.LoadInt64(&tw.sentCount),
+		"droppedCount": atomic.LoadInt64(&tw.droppedCount),
 		"bufferSize":   int64(cap(tw.outputChan)),
 		"bufferUsed":   int64(len(tw.outputChan)),
 	}
@@ -902,9 +881,6 @@ func (tw *TumblingWindow) GetStats() map[string]int64 {
 
 // ResetStats resets performance statistics
 func (tw *TumblingWindow) ResetStats() {
-	tw.mu.Lock()
-	defer tw.mu.Unlock()
-
-	tw.sentCount = 0
-	tw.droppedCount = 0
+	atomic.StoreInt64(&tw.sentCount, 0)
+	atomic.StoreInt64(&tw.droppedCount, 0)
 }
