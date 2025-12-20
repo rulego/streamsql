@@ -176,5 +176,4 @@ func (sf *StreamFactory) validatePerformanceConfig(config types.PerformanceConfi
 // startWorkerRoutines starts worker goroutines
 func (sf *StreamFactory) startWorkerRoutines(stream *Stream, perfConfig types.PerformanceConfig) {
 	go stream.startSinkWorkerPool(perfConfig.WorkerConfig.SinkWorkerCount)
-	go stream.startResultConsumer()
 }

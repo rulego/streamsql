@@ -61,7 +61,8 @@ type Stream struct {
 	aggregator     aggregator.Aggregator
 	config         types.Config
 	sinks          []func([]map[string]interface{})
-	resultChan     chan []map[string]interface{} // Result channel
+	syncSinks      []func([]map[string]interface{}) // Synchronous sinks, executed sequentially
+	resultChan     chan []map[string]interface{}    // Result channel
 	seenResults    *sync.Map
 	done           chan struct{} // Used to close processing goroutines
 	sinkWorkerPool chan func()   // Sink worker pool to avoid blocking

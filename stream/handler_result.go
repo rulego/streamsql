@@ -141,7 +141,7 @@ func (s *Stream) callSinksAsync(results []map[string]interface{}) {
 	s.sinksMux.RLock()
 	defer s.sinksMux.RUnlock()
 
-	if len(s.sinks) == 0 {
+	if len(s.sinks) == 0 && len(s.syncSinks) == 0 {
 		return
 	}
 
@@ -149,6 +149,19 @@ func (s *Stream) callSinksAsync(results []map[string]interface{}) {
 	// Since submitSinkTask is async, won't hold lock for long time
 	for _, sink := range s.sinks {
 		s.submitSinkTask(sink, results)
+	}
+
+	// Execute synchronous sinks (blocking, sequential)
+	for _, sink := range s.syncSinks {
+		// Recover panic for each sync sink to prevent crashing the stream
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Error("Sync sink execution exception: %v", r)
+				}
+			}()
+			sink(results)
+		}()
 	}
 }
 
@@ -169,22 +182,39 @@ func (s *Stream) submitSinkTask(sink func([]map[string]interface{}), results []m
 	}
 
 	// Non-blocking task submission
+	// Note: Since we use a worker pool, tasks may be executed out of order
 	select {
 	case s.sinkWorkerPool <- task:
 		// Successfully submitted task
 	default:
 		// Worker pool is full, execute directly in current goroutine (degraded handling)
-		go task()
+		// This also helps with backpressure
+		task()
 	}
 }
 
 // AddSink adds a sink function
 // Parameters:
 //   - sink: result processing function that receives []map[string]interface{} type result data
+//
+// Note: Sinks are executed asynchronously in a worker pool, so execution order is NOT guaranteed.
+// If you need strict ordering, use GetResultsChan() instead.
 func (s *Stream) AddSink(sink func([]map[string]interface{})) {
 	s.sinksMux.Lock()
 	defer s.sinksMux.Unlock()
 	s.sinks = append(s.sinks, sink)
+}
+
+// AddSyncSink adds a synchronous sink function
+// Parameters:
+//   - sink: result processing function that receives []map[string]interface{} type result data
+//
+// Note: Sync sinks are executed sequentially in the result processing goroutine.
+// They block subsequent processing, so they should be fast.
+func (s *Stream) AddSyncSink(sink func([]map[string]interface{})) {
+	s.sinksMux.Lock()
+	defer s.sinksMux.Unlock()
+	s.syncSinks = append(s.syncSinks, sink)
 }
 
 // GetResultsChan gets the result channel

@@ -338,6 +338,20 @@ func (s *Streamsql) AddSink(sink func([]map[string]interface{})) {
 	}
 }
 
+// AddSyncSink directly adds synchronous result processing callback functions.
+// Convenience wrapper for Stream().AddSyncSink() for cleaner API calls.
+//
+// Parameters:
+//   - sink: Result processing function, receives []map[string]interface{} type result data
+//
+// Note: Sync sinks are executed sequentially in the result processing goroutine.
+// Use this when order of execution matters.
+func (s *Streamsql) AddSyncSink(sink func([]map[string]interface{})) {
+	if s.stream != nil {
+		s.stream.AddSyncSink(sink)
+	}
+}
+
 // PrintTable prints results to console in table format, similar to database output.
 // Displays column names first, then data rows.
 //
