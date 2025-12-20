@@ -92,9 +92,9 @@ func NewSessionWindow(config types.WindowConfig) (*SessionWindow, error) {
 	}
 
 	// Use unified performance configuration to get window output buffer size
-	bufferSize := 100 // Default value, session windows typically have smaller buffers
+	bufferSize := 100 // Default value
 	if (config.PerformanceConfig != types.PerformanceConfig{}) {
-		bufferSize = config.PerformanceConfig.BufferConfig.WindowOutputSize / 10 // Session window uses 1/10 of buffer
+		bufferSize = config.PerformanceConfig.BufferConfig.WindowOutputSize
 		if bufferSize < 10 {
 			bufferSize = 10 // Minimum value
 		}

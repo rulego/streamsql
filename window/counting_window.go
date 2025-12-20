@@ -75,9 +75,9 @@ func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
 	}
 
 	// Use unified performance config to get window output buffer size
-	bufferSize := 100 // Default value, counting windows usually have smaller buffers
+	bufferSize := 100 // Default value
 	if (config.PerformanceConfig != types.PerformanceConfig{}) {
-		bufferSize = config.PerformanceConfig.BufferConfig.WindowOutputSize / 10 // Counting window uses 1/10 of buffer
+		bufferSize = config.PerformanceConfig.BufferConfig.WindowOutputSize
 		if bufferSize < 10 {
 			bufferSize = 10 // Minimum value
 		}
