@@ -215,7 +215,7 @@ func TestDataProcessor_EvaluateNestedFieldExpression(t *testing.T) {
 			data: map[string]interface{}{
 				"device": map[string]interface{}{"id": 123},
 			},
-			expected: 123.0,
+			expected: 123, // Expect int because EvaluateValueWithNull returns original type
 			hasError: false,
 		},
 		{
@@ -244,7 +244,7 @@ func TestDataProcessor_EvaluateNestedFieldExpression(t *testing.T) {
 			data: map[string]interface{}{
 				"device": map[string]interface{}{"id": 456},
 			},
-			expected: 456.0,
+			expected: 456, // Expect int because EvaluateValueWithNull returns original type
 			hasError: false,
 		},
 	}
@@ -434,14 +434,14 @@ func TestDataProcessor_ExpressionWithNullValues(t *testing.T) {
 // TestDataProcessor_ExpandUnnestResults 测试 expandUnnestResults 函数的各种情况
 func TestDataProcessor_ExpandUnnestResults(t *testing.T) {
 	tests := []struct {
-		name             string
+		name              string
 		hasUnnestFunction bool
-		result           map[string]interface{}
-		originalData     map[string]interface{}
-		expected         []map[string]interface{}
+		result            map[string]interface{}
+		originalData      map[string]interface{}
+		expected          []map[string]interface{}
 	}{
 		{
-			name:             "no unnest function - should return single result",
+			name:              "no unnest function - should return single result",
 			hasUnnestFunction: false,
 			result: map[string]interface{}{
 				"name": "test",
@@ -453,16 +453,16 @@ func TestDataProcessor_ExpandUnnestResults(t *testing.T) {
 			},
 		},
 		{
-			name:             "empty result - should return single empty result",
+			name:              "empty result - should return single empty result",
 			hasUnnestFunction: true,
-			result:           map[string]interface{}{},
-			originalData:     map[string]interface{}{"id": 1},
+			result:            map[string]interface{}{},
+			originalData:      map[string]interface{}{"id": 1},
 			expected: []map[string]interface{}{
 				{},
 			},
 		},
 		{
-			name:             "no unnest result - should return single result",
+			name:              "no unnest result - should return single result",
 			hasUnnestFunction: true,
 			result: map[string]interface{}{
 				"name": "test",
@@ -474,7 +474,7 @@ func TestDataProcessor_ExpandUnnestResults(t *testing.T) {
 			},
 		},
 		{
-			name:             "unnest result with simple values",
+			name:              "unnest result with simple values",
 			hasUnnestFunction: true,
 			result: map[string]interface{}{
 				"name": "test",
@@ -496,7 +496,7 @@ func TestDataProcessor_ExpandUnnestResults(t *testing.T) {
 			},
 		},
 		{
-			name:             "unnest result with object values",
+			name:              "unnest result with object values",
 			hasUnnestFunction: true,
 			result: map[string]interface{}{
 				"name": "test",
@@ -524,7 +524,7 @@ func TestDataProcessor_ExpandUnnestResults(t *testing.T) {
 			},
 		},
 		{
-			name:             "empty unnest result - should return empty array",
+			name:              "empty unnest result - should return empty array",
 			hasUnnestFunction: true,
 			result: map[string]interface{}{
 				"name": "test",

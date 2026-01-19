@@ -969,7 +969,7 @@ func TestParserComplexFieldAccess(t *testing.T) {
 		{
 			name:        "混合访问表达式",
 			query:       "SELECT field.nested[0].deep FROM table",
-			expectError: true, // lexer不支持点号在表达式中
+			expectError: false, // lexer现已支持点号在表达式中
 		},
 		{
 			name:        "标识符数组索引",

@@ -157,10 +157,23 @@ func tokenize(expr string) ([]string, error) {
 		}
 
 		// Handle identifiers and keywords
-		if isLetter(expr[i]) || expr[i] == '_' || expr[i] == '$' {
+		if isLetter(expr[i]) || expr[i] == '_' || expr[i] == '$' || expr[i] == '[' {
 			start := i
-			for i < len(expr) && (isLetter(expr[i]) || isDigit(expr[i]) || expr[i] == '_' || expr[i] == '.' || expr[i] == '$') {
-				i++
+			for i < len(expr) {
+				if isLetter(expr[i]) || isDigit(expr[i]) || expr[i] == '_' || expr[i] == '.' || expr[i] == '$' {
+					i++
+				} else if expr[i] == '[' {
+					// Consume until ]
+					i++ // skip [
+					for i < len(expr) && expr[i] != ']' {
+						i++
+					}
+					if i < len(expr) {
+						i++ // skip ]
+					}
+				} else {
+					break
+				}
 			}
 			tokens = append(tokens, expr[start:i])
 			continue
@@ -236,9 +249,9 @@ func isIdentifier(s string) bool {
 		return false
 	}
 
-	// Remaining characters can be letters, digits, or underscores
+	// Remaining characters can be letters, digits, underscores, dots, or brackets
 	for i := 1; i < len(s); i++ {
-		if !isLetter(s[i]) && !isDigit(s[i]) && s[i] != '_' {
+		if !isLetter(s[i]) && !isDigit(s[i]) && s[i] != '_' && s[i] != '.' && s[i] != '[' && s[i] != ']' && s[i] != '\'' && s[i] != '"' && s[i] != '$' {
 			return false
 		}
 	}

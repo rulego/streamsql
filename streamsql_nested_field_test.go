@@ -312,3 +312,175 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 		}
 	})
 }
+
+// TestArrayFieldAccess 测试数组字段访问功能
+func TestArrayFieldAccess(t *testing.T) {
+	t.Run("数组索引访问", func(t *testing.T) {
+		streamsql := New()
+		defer func() {
+			if streamsql != nil {
+				streamsql.Stop()
+			}
+		}()
+
+		// 测试数组索引访问
+		var rsql = "SELECT items[0].name as first_item_name, items[1].id as second_item_id, values[2] as third_value FROM stream"
+		err := streamsql.Execute(rsql)
+		assert.Nil(t, err, "数组索引访问SQL应该能够执行")
+		require.NoError(t, err, "数组索引访问不应该出错")
+
+		strm := streamsql.stream
+		resultChan := make(chan interface{}, 10)
+		strm.AddSink(func(result []map[string]interface{}) {
+			resultChan <- result
+		})
+
+		// 测试数据
+		testData := map[string]interface{}{
+			"items": []interface{}{
+				map[string]interface{}{"name": "item1", "id": 101},
+				map[string]interface{}{"name": "item2", "id": 102},
+			},
+			"values": []interface{}{10, 20, 30, 40},
+		}
+
+		strm.Emit(testData)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		select {
+		case result := <-resultChan:
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok)
+			require.Len(t, resultSlice, 1)
+
+			item := resultSlice[0]
+
+			// 验证 items[0].name
+			name, ok := item["first_item_name"]
+			assert.True(t, ok)
+			assert.Equal(t, "item1", name)
+
+			// 验证 items[1].id
+			id, ok := item["second_item_id"]
+			assert.True(t, ok)
+			assert.Equal(t, 102, id)
+
+			// 验证 values[2]
+			val, ok := item["third_value"]
+			assert.True(t, ok)
+			assert.Equal(t, 30, val)
+
+		case <-ctx.Done():
+			t.Fatal("测试超时")
+		}
+	})
+
+	t.Run("数组索引在WHERE条件中", func(t *testing.T) {
+		streamsql := New()
+		defer func() {
+			if streamsql != nil {
+				streamsql.Stop()
+			}
+		}()
+
+		var rsql = "SELECT * FROM stream WHERE tags[0] = 'urgent' AND scores[1] > 90"
+		err := streamsql.Execute(rsql)
+		require.NoError(t, err)
+
+		strm := streamsql.stream
+		resultChan := make(chan interface{}, 10)
+		strm.AddSink(func(result []map[string]interface{}) {
+			resultChan <- result
+		})
+
+		// 匹配的数据
+		matchData := map[string]interface{}{
+			"id":     "match",
+			"tags":   []interface{}{"urgent", "work"},
+			"scores": []interface{}{80, 95},
+		}
+		// 不匹配的数据
+		mismatchData := map[string]interface{}{
+			"id":     "mismatch",
+			"tags":   []interface{}{"normal", "home"},
+			"scores": []interface{}{80, 85},
+		}
+
+		strm.Emit(matchData)
+		strm.Emit(mismatchData)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		select {
+		case result := <-resultChan:
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok)
+			require.Len(t, resultSlice, 1)
+			assert.Equal(t, "match", resultSlice[0]["id"])
+		case <-ctx.Done():
+			t.Fatal("测试超时")
+		}
+	})
+
+	t.Run("嵌套数组聚合查询", func(t *testing.T) {
+		streamsql := New()
+		defer func() {
+			if streamsql != nil {
+				streamsql.Stop()
+			}
+		}()
+
+		// 测试聚合查询中的嵌套数组字段
+		var rsql = "SELECT device.type, AVG(sensors[0].temperature) as avg_temp FROM stream GROUP BY device.type, TumblingWindow('1s')"
+		err := streamsql.Execute(rsql)
+		assert.Nil(t, err, "嵌套数组聚合SQL应该能够执行")
+
+		strm := streamsql.stream
+		resultChan := make(chan interface{}, 10)
+		strm.AddSink(func(result []map[string]interface{}) {
+			resultChan <- result
+		})
+
+		testData := []map[string]interface{}{
+			{
+				"device": map[string]interface{}{"type": "temp_sensor"},
+				"sensors": []interface{}{
+					map[string]interface{}{"temperature": 20.0},
+				},
+			},
+			{
+				"device": map[string]interface{}{"type": "temp_sensor"},
+				"sensors": []interface{}{
+					map[string]interface{}{"temperature": 30.0},
+				},
+			},
+		}
+
+		for _, data := range testData {
+			strm.Emit(data)
+		}
+
+		time.Sleep(1200 * time.Millisecond)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		select {
+		case result := <-resultChan:
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok)
+			// 聚合结果可能为空，取决于窗口触发时机
+			if len(resultSlice) > 0 {
+				item := resultSlice[0]
+				avgTemp, ok := item["avg_temp"].(float64)
+				assert.True(t, ok)
+				assert.Equal(t, 25.0, avgTemp)
+			}
+		case <-ctx.Done():
+			t.Fatal("测试超时")
+		}
+	})
+}

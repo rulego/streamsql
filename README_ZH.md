@@ -18,7 +18,7 @@
   - 纯内存操作
   - 无依赖
 - SQL语法处理数据
-  - **嵌套字段访问**：支持点号语法（`device.info.name`）访问嵌套结构数据
+  - **嵌套字段访问**：支持点号语法（`device.info.name`）和数组索引（`sensors[0].value`）访问嵌套结构数据
 - 数据分析
   - 内置多种窗口类型：滑动窗口、滚动窗口、计数窗口
   - 内置聚合函数：MAX, MIN, AVG, SUM, STDDEV,MEDIAN,PERCENTILE等

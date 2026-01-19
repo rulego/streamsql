@@ -61,6 +61,8 @@ const (
 	// 数组索引相关token
 	TokenLBracket
 	TokenRBracket
+	// 点号token
+	TokenDot
 )
 
 type Token struct {
@@ -127,6 +129,9 @@ func (l *Lexer) NextToken() Token {
 	case ']':
 		l.readChar()
 		return Token{Type: TokenRBracket, Value: "]", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
+	case '.':
+		l.readChar()
+		return Token{Type: TokenDot, Value: ".", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
 	case '+':
 		l.readChar()
 		return Token{Type: TokenPlus, Value: "+", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}

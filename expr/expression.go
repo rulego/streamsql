@@ -183,6 +183,8 @@ func isValidChar(ch rune) bool {
 		return true
 	case '`': // Backtick (for identifiers)
 		return true
+	case '[', ']': // Brackets (for array/map access)
+		return true
 	default:
 		return false
 	}

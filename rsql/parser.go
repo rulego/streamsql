@@ -31,6 +31,7 @@ var tokenTypeNames = map[TokenType]string{
 	TokenComma:       ",",
 	TokenLParen:      "(",
 	TokenRParen:      ")",
+	TokenDot:         ".",
 	TokenIdent:       "identifier",
 	TokenQuotedIdent: "quoted identifier",
 	TokenNumber:      "number",
@@ -358,11 +359,16 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 				// 3. 数字和标识符之间
 				// 4. 左括号之后
 				// 5. 右括号之前
-				if currentToken.Type == TokenLParen && lastChar != " " && lastChar != "(" {
-					// 函数名和左括号之间不加空格
+				// 6. 数组索引相关：[ 前，[ 后，] 前
+				// 7. 点号前后
+				if (currentToken.Type == TokenLParen || currentToken.Type == TokenLBracket) && lastChar != " " && lastChar != "(" && lastChar != "[" {
+					// 函数名/数组名和左括号/左中括号之间不加空格
 					shouldAddSpace = false
-				} else if lastChar == "(" || currentToken.Type == TokenRParen {
-					// 左括号之后或右括号之前不加空格
+				} else if lastChar == "(" || lastChar == "[" || currentToken.Type == TokenRParen || currentToken.Type == TokenRBracket {
+					// 左括号/左中括号之后或右括号/右中括号之前不加空格
+					shouldAddSpace = false
+				} else if currentToken.Type == TokenDot || lastChar == "." {
+					// 点号前后不加空格
 					shouldAddSpace = false
 				} else if len(exprStr) > 0 && currentToken.Type == TokenNumber {
 					// 检查前一个字符是否是字母（标识符的一部分），且前面没有空格

@@ -18,7 +18,7 @@ English| [简体中文](README_ZH.md)
     - Pure in-memory operations
     - No dependencies
 - Data processing with SQL syntax
-  - **Nested field access**: Support dot notation syntax (`device.info.name`) for accessing nested structured data
+  - **Nested field access**: Support dot notation syntax (`device.info.name`) and array indexing (`sensors[0].value`) for accessing nested structured data
 - Data analysis
     - Built-in multiple window types: sliding window, tumbling window, counting window
     - Built-in aggregate functions: MAX, MIN, AVG, SUM, STDDEV, MEDIAN, PERCENTILE, etc.

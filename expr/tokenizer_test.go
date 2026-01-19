@@ -169,7 +169,9 @@ func TestIsIdentifier(t *testing.T) {
 		{"123abc", false},
 		{"", false},
 		{"var-name", false},
-		{"var.name", false},
+		{"var.name", true},
+		{"var[0]", true},
+		{"var['key']", true},
 		{"var name", false},
 	}
 
