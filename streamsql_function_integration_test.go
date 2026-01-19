@@ -225,6 +225,152 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			t.Fatal("测试超时，未收到结果")
 		}
 	})
+
+	t.Run("JSONExtractMapSupport", func(t *testing.T) {
+		streamsql := New()
+		defer streamsql.Stop()
+
+		// Test json_extract with map input
+		rsql := "SELECT device, json_extract(properties, '$.color') as device_color FROM stream"
+		err := streamsql.Execute(rsql)
+		assert.Nil(t, err)
+
+		strm := streamsql.stream
+		resultChan := make(chan interface{}, 10)
+		strm.AddSink(func(result []map[string]interface{}) {
+			resultChan <- result
+		})
+
+		// Add test data with map
+		testData := map[string]interface{}{
+			"device": "test-device-map",
+			"properties": map[string]interface{}{
+				"color":  "red",
+				"weight": 10,
+			},
+		}
+		strm.Emit(testData)
+
+		// Wait for result
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		select {
+		case result := <-resultChan:
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok)
+			require.Len(t, resultSlice, 1)
+
+			item := resultSlice[0]
+			assert.Equal(t, "test-device-map", item["device"])
+			assert.Equal(t, "red", item["device_color"])
+		case <-ctx.Done():
+			t.Fatal("测试超时，未收到结果")
+		}
+	})
+
+	t.Run("JSONExtractArrayAndNested", func(t *testing.T) {
+		streamsql := New()
+		defer streamsql.Stop()
+
+		// Test json_extract with array and nested structures
+		rsql := "SELECT device, json_extract(tags, '$[0]') as first_tag, json_extract(data, '$.users[0].name') as first_user_name FROM stream"
+		err := streamsql.Execute(rsql)
+		assert.Nil(t, err)
+
+		strm := streamsql.stream
+		resultChan := make(chan interface{}, 10)
+		strm.AddSink(func(result []map[string]interface{}) {
+			resultChan <- result
+		})
+
+		// Add test data with complex structures
+		testData := map[string]interface{}{
+			"device": "complex-device",
+			"tags":   []interface{}{"tag1", "tag2"},
+			"data": map[string]interface{}{
+				"users": []interface{}{
+					map[string]interface{}{"name": "Alice", "age": 30},
+					map[string]interface{}{"name": "Bob", "age": 25},
+				},
+			},
+		}
+		strm.Emit(testData)
+
+		// Wait for result
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		select {
+		case result := <-resultChan:
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok)
+			require.Len(t, resultSlice, 1)
+
+			item := resultSlice[0]
+			assert.Equal(t, "complex-device", item["device"])
+			assert.Equal(t, "tag1", item["first_tag"])
+			assert.Equal(t, "Alice", item["first_user_name"])
+		case <-ctx.Done():
+			t.Fatal("测试超时，未收到结果")
+		}
+	})
+
+	t.Run("JSONExtractWithAggregation", func(t *testing.T) {
+		streamsql := New()
+		defer streamsql.Stop()
+
+		// Test json_extract nested in aggregation function
+		// json_extract returns interface{}, usually need cast to number for aggregation like sum/avg
+		// specific logic depends on whether aggregator handles string/interface conversion
+		// Here we assume json_extract returns float64 for numbers (from Unmarshal) or use cast
+		rsql := "SELECT count(json_extract(tags, '$[0]')) as tag_count, sum(cast(json_extract(data, '$.value'), 'float')) as total_value FROM stream GROUP BY device, TumblingWindow('1s')"
+		err := streamsql.Execute(rsql)
+		assert.Nil(t, err)
+
+		strm := streamsql.stream
+		resultChan := make(chan interface{}, 10)
+		strm.AddSink(func(result []map[string]interface{}) {
+			resultChan <- result
+		})
+
+		testData := []map[string]interface{}{
+			{
+				"device": "device1",
+				"tags":   []interface{}{"tag1", "tag2"},
+				"data":   map[string]interface{}{"value": 10},
+			},
+			{
+				"device": "device1",
+				"tags":   []interface{}{"tag3"},
+				"data":   map[string]interface{}{"value": 20},
+			},
+		}
+
+		for _, data := range testData {
+			strm.Emit(data)
+		}
+
+		time.Sleep(1 * time.Second)
+		strm.Window.Trigger()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		select {
+		case result := <-resultChan:
+			resultSlice, ok := result.([]map[string]interface{})
+			require.True(t, ok)
+			require.Len(t, resultSlice, 1)
+
+			item := resultSlice[0]
+			assert.Equal(t, "device1", item["device"])
+			assert.Equal(t, float64(2), item["tag_count"])
+			assert.Equal(t, float64(30), item["total_value"])
+		case <-ctx.Done():
+			t.Fatal("测试超时，未收到结果")
+		}
+	})
 }
 
 // TestFunctionIntegrationAggregation 测试聚合函数在SQL中的集成

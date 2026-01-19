@@ -89,13 +89,13 @@ func TestJsonFunctions(t *testing.T) {
 			name:     "json_extract invalid path",
 			funcName: "json_extract",
 			args:     []interface{}{`{"name":"test"}`, "invalid_path"},
-			wantErr:  true,
+			expected: nil,
 		},
 		{
 			name:     "json_extract non-object",
 			funcName: "json_extract",
 			args:     []interface{}{`[1,2,3]`, "$.name"},
-			wantErr:  true,
+			expected: nil,
 		},
 		{
 			name:     "json_valid true",
@@ -205,6 +205,42 @@ func TestJsonFunctions(t *testing.T) {
 			args:     []interface{}{`"hello"`},
 			wantErr:  true,
 		},
+		{
+			name:     "json_extract map input",
+			funcName: "json_extract",
+			args:     []interface{}{map[string]interface{}{"name": "test", "value": 123}, "$.name"},
+			expected: "test",
+		},
+		{
+			name:     "json_extract map input number",
+			funcName: "json_extract",
+			args:     []interface{}{map[string]interface{}{"name": "test", "value": 123}, "$.value"},
+			expected: 123,
+		},
+		{
+			name:     "json_extract array input",
+			funcName: "json_extract",
+			args:     []interface{}{[]interface{}{10, 20, 30}, "$[1]"},
+			expected: 20,
+		},
+		{
+			name:     "json_extract nested map",
+			funcName: "json_extract",
+			args:     []interface{}{`{"a": {"b": 100}}`, "$.a.b"},
+			expected: float64(100),
+		},
+		{
+			name:     "json_extract nested array",
+			funcName: "json_extract",
+			args:     []interface{}{`{"list": [1, 2, 3]}`, "$.list[2]"},
+			expected: float64(3),
+		},
+		{
+			name:     "json_extract complex path",
+			funcName: "json_extract",
+			args:     []interface{}{map[string]interface{}{"users": []interface{}{map[string]interface{}{"id": 1}, map[string]interface{}{"id": 2}}}, "$.users[1].id"},
+			expected: 2,
+		},
 	}
 
 	for _, tt := range tests {
@@ -309,38 +345,38 @@ func TestJsonFunctionValidation(t *testing.T) {
 // TestJsonFunctionCreation 测试JSON函数创建
 func TestJsonFunctionCreation(t *testing.T) {
 	tests := []struct {
-		name        string
-		constructor func() Function
+		name         string
+		constructor  func() Function
 		expectedName string
 	}{
 		{
-			name:        "ToJsonFunction",
-			constructor: func() Function { return NewToJsonFunction() },
+			name:         "ToJsonFunction",
+			constructor:  func() Function { return NewToJsonFunction() },
 			expectedName: "to_json",
 		},
 		{
-			name:        "FromJsonFunction",
-			constructor: func() Function { return NewFromJsonFunction() },
+			name:         "FromJsonFunction",
+			constructor:  func() Function { return NewFromJsonFunction() },
 			expectedName: "from_json",
 		},
 		{
-			name:        "JsonExtractFunction",
-			constructor: func() Function { return NewJsonExtractFunction() },
+			name:         "JsonExtractFunction",
+			constructor:  func() Function { return NewJsonExtractFunction() },
 			expectedName: "json_extract",
 		},
 		{
-			name:        "JsonValidFunction",
-			constructor: func() Function { return NewJsonValidFunction() },
+			name:         "JsonValidFunction",
+			constructor:  func() Function { return NewJsonValidFunction() },
 			expectedName: "json_valid",
 		},
 		{
-			name:        "JsonTypeFunction",
-			constructor: func() Function { return NewJsonTypeFunction() },
+			name:         "JsonTypeFunction",
+			constructor:  func() Function { return NewJsonTypeFunction() },
 			expectedName: "json_type",
 		},
 		{
-			name:        "JsonLengthFunction",
-			constructor: func() Function { return NewJsonLengthFunction() },
+			name:         "JsonLengthFunction",
+			constructor:  func() Function { return NewJsonLengthFunction() },
 			expectedName: "json_length",
 		},
 	}

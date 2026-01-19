@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/rulego/streamsql/utils/fieldpath"
 )
 
 // ToJsonFunction converts value to JSON string
@@ -75,9 +77,22 @@ func (f *JsonExtractFunction) Validate(args []interface{}) error {
 }
 
 func (f *JsonExtractFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	jsonStr, ok := args[0].(string)
-	if !ok {
-		return nil, fmt.Errorf("json_extract requires string input")
+	var data interface{}
+	var err error
+
+	// Support string (JSON), map, and slice input
+	switch v := args[0].(type) {
+	case string:
+		err = json.Unmarshal([]byte(v), &data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse JSON: %v", err)
+		}
+	case map[string]interface{}:
+		data = v
+	case []interface{}:
+		data = v
+	default:
+		return nil, fmt.Errorf("json_extract requires string, map, or array input")
 	}
 
 	path, ok := args[1].(string)
@@ -85,21 +100,28 @@ func (f *JsonExtractFunction) Execute(ctx *FunctionContext, args []interface{}) 
 		return nil, fmt.Errorf("json_extract path must be string")
 	}
 
-	var data interface{}
-	err := json.Unmarshal([]byte(jsonStr), &data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %v", err)
+	// Handle JSON Path format
+	// If path starts with $, strip it
+	if strings.HasPrefix(path, "$") {
+		path = path[1:]
+	}
+	// If path starts with ., strip it (unless it's empty, though GetNestedField handles empty path)
+	if strings.HasPrefix(path, ".") {
+		path = path[1:]
 	}
 
-	// Simple path extraction, supports $.field format
-	if strings.HasPrefix(path, "$.") {
-		field := path[2:]
-		if dataMap, ok := data.(map[string]interface{}); ok {
-			return dataMap[field], nil
-		}
+	// Use fieldpath utility to extract value
+	val, found := fieldpath.GetNestedField(data, path)
+	if !found {
+		// Try to see if it's a simple key access that fieldpath might have missed or if data structure is simple
+		// But fieldpath covers most cases. If not found, it means the path doesn't exist.
+		// However, for compatibility with previous simple implementation:
+		// Previous implementation returned nil if key not found (implicit in map lookup)
+		// So returning nil, nil is correct behavior when field is missing
+		return nil, nil
 	}
 
-	return nil, fmt.Errorf("invalid JSON path or data structure")
+	return val, nil
 }
 
 // JsonValidFunction 验证JSON格式是否有效

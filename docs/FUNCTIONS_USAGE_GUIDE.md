@@ -530,8 +530,30 @@ JSON函数用于处理JSON数据。
 **描述**: 从JSON字符串解析值。  
  
 ### JSON_EXTRACT - JSON提取函数
-**语法**: `json_extract(json_str, path)`  
-**描述**: 从JSON字符串中提取指定路径的值。  
+**语法**: `json_extract(json_source, path)`  
+**描述**: 从JSON字符串、Map或Array中提取指定路径的值。支持嵌套对象和数组索引。
+
+**参数**:
+- `json_source`: 输入数据，可以是JSON格式字符串，也可以是Map或Array类型对象
+- `path`: 提取路径，支持 `.` 访问字段，`[]` 访问数组索引或Map Key
+
+**示例**:
+```sql
+-- 提取基本字段
+json_extract('{"name": "Alice"}', 'name') -- 返回 "Alice"
+json_extract('{"name": "Alice"}', '$.name') -- 返回 "Alice"
+
+-- 提取嵌套字段
+json_extract('{"user": {"address": {"city": "New York"}}}', 'user.address.city') -- 返回 "New York"
+json_extract('{"user": {"address": {"city": "New York"}}}', '$.user.address.city') -- 返回 "New York"
+
+-- 提取数组元素
+json_extract('[10, 20, 30]', '[1]') -- 返回 20
+json_extract('[10, 20, 30]', '$[1]') -- 返回 20
+
+-- 复杂嵌套提取
+json_extract('{"users": [{"name": "Alice"}, {"name": "Bob"}]}', 'users[1].name') -- 返回 "Bob"
+```
  
 ### JSON_VALID - JSON验证函数
 **语法**: `json_valid(json_str)`  
