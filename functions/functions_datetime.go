@@ -2,11 +2,25 @@ package functions
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
 	"github.com/rulego/streamsql/utils/cast"
 )
+
+// durationFromInterval multiplies interval by unit, returning an error on
+// time.Duration (int64 nanoseconds) overflow instead of silently wrapping to a
+// wrong or sign-flipped duration. unit must be a positive Duration.
+func durationFromInterval(interval int64, unit time.Duration) (time.Duration, error) {
+	if interval == 0 {
+		return 0, nil
+	}
+	if interval > math.MaxInt64/int64(unit) || interval < math.MinInt64/int64(unit) {
+		return 0, fmt.Errorf("interval %d overflows time.Duration for unit %v", interval, unit)
+	}
+	return time.Duration(interval) * unit, nil
+}
 
 // NowFunction returns current timestamp
 type NowFunction struct {
@@ -114,11 +128,23 @@ func (f *DateAddFunction) Execute(ctx *FunctionContext, args []interface{}) (int
 	case "day", "days":
 		t = t.AddDate(0, 0, int(interval))
 	case "hour", "hours":
-		t = t.Add(time.Duration(interval) * time.Hour)
+		d, err := durationFromInterval(interval, time.Hour)
+		if err != nil {
+			return nil, err
+		}
+		t = t.Add(d)
 	case "minute", "minutes":
-		t = t.Add(time.Duration(interval) * time.Minute)
+		d, err := durationFromInterval(interval, time.Minute)
+		if err != nil {
+			return nil, err
+		}
+		t = t.Add(d)
 	case "second", "seconds":
-		t = t.Add(time.Duration(interval) * time.Second)
+		d, err := durationFromInterval(interval, time.Second)
+		if err != nil {
+			return nil, err
+		}
+		t = t.Add(d)
 	default:
 		return nil, fmt.Errorf("unsupported unit: %s", unit)
 	}
@@ -172,11 +198,23 @@ func (f *DateSubFunction) Execute(ctx *FunctionContext, args []interface{}) (int
 	case "day", "days":
 		t = t.AddDate(0, 0, -int(interval))
 	case "hour", "hours":
-		t = t.Add(-time.Duration(interval) * time.Hour)
+		d, err := durationFromInterval(interval, time.Hour)
+		if err != nil {
+			return nil, err
+		}
+		t = t.Add(-d)
 	case "minute", "minutes":
-		t = t.Add(-time.Duration(interval) * time.Minute)
+		d, err := durationFromInterval(interval, time.Minute)
+		if err != nil {
+			return nil, err
+		}
+		t = t.Add(-d)
 	case "second", "seconds":
-		t = t.Add(-time.Duration(interval) * time.Second)
+		d, err := durationFromInterval(interval, time.Second)
+		if err != nil {
+			return nil, err
+		}
+		t = t.Add(-d)
 	default:
 		return nil, fmt.Errorf("unsupported unit: %s", unit)
 	}

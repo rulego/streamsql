@@ -313,33 +313,44 @@ func (f *SubstringFunction) Execute(ctx *FunctionContext, args []interface{}) (i
 		return nil, err
 	}
 
-	strLen := int64(len(str))
-	if start < 0 {
-		start = strLen + start
-	}
-	if start < 0 || start >= strLen {
-		return "", nil
-	}
-
+	// Slice by rune so multibyte UTF-8 characters are not split into invalid bytes.
 	if len(args) == 2 {
-		return str[start:], nil
+		return substringByRune(str, start, 0, false)
 	}
 
 	length, err := cast.ToInt64E(args[2])
 	if err != nil {
 		return nil, err
 	}
+	return substringByRune(str, start, length, true)
+}
 
+// substringByRune slices str by rune (character) offsets, not bytes, so multibyte
+// UTF-8 sequences are not split. start/length are rune positions; a negative start
+// counts from the end.
+func substringByRune(str string, start, length int64, hasLength bool) (string, error) {
+	runes := []rune(str)
+	runeLen := int64(len(runes))
+	if start < 0 {
+		start = runeLen + start
+	}
+	if start < 0 {
+		start = 0
+	}
+	if start >= runeLen {
+		return "", nil
+	}
+	if !hasLength {
+		return string(runes[start:]), nil
+	}
 	if length < 0 {
 		return "", nil
 	}
-
 	end := start + length
-	if end > strLen {
-		end = strLen
+	if end > runeLen {
+		end = runeLen
 	}
-
-	return str[start:end], nil
+	return string(runes[start:end]), nil
 }
 
 // ReplaceFunction 替换字符串中的内容
