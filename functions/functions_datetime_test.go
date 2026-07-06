@@ -606,10 +606,15 @@ func TestDateFormatConversion(t *testing.T) {
 		expected string
 	}{
 		{"YYYY-MM-DD", "2006-01-02"},
-		{"yyyy/mm/dd", "2006/01/02"},
+		{"yyyy/MM/dd", "2006/01/02"}, // MM = month (uppercase M)
 		{"DD/MM/YYYY", "02/01/2006"},
 		{"HH:MI:SS", "15:04:05"},
 		{"YYYY-MM-DD HH:MI:SS", "2006-01-02 15:04:05"},
+		// mm (lowercase m) = minute, distinct from MM (month). M13 fix.
+		{"HH:mm:ss", "15:04:05"},
+		{"YYYY-MM-DD HH:mm:ss", "2006-01-02 15:04:05"},
+		// Case distinction in one string: MM=month(01), mm=minute(04).
+		{"MM/mm", "01/04"},
 	}
 
 	for _, tt := range tests {

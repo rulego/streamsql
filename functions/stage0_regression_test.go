@@ -38,6 +38,33 @@ func TestSubstringMultibyte(t *testing.T) {
 	}
 }
 
+// TestDateFormatMinutePlaceholder (M13): lowercase "mm" renders minutes and
+// must not be overwritten by the month value; uppercase "MM" still renders month.
+func TestDateFormatMinutePlaceholder(t *testing.T) {
+	fn, ok := Get("date_format")
+	if !ok {
+		t.Fatal("date_format not found")
+	}
+
+	got, err := fn.Execute(nil, []interface{}{"2020-03-05 10:20:30", "YYYY-MM-DD HH:mm:ss"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Minute is 20; the bug rendered 03 (month) over it.
+	if got != "2020-03-05 10:20:30" {
+		t.Errorf("date_format mm = %q, want %q (minute must be 20)", got, "2020-03-05 10:20:30")
+	}
+
+	// MM still renders the month.
+	got, err = fn.Execute(nil, []interface{}{"2020-03-05 10:20:30", "YYYY-MM-DD"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "2020-03-05" {
+		t.Errorf("date_format MM = %q, want %q", got, "2020-03-05")
+	}
+}
+
 // TestDateAddOverflow (M12): a large hour/minute/second interval must error
 // instead of silently wrapping to a wrong (even past) date.
 func TestDateAddOverflow(t *testing.T) {

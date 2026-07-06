@@ -336,8 +336,8 @@ func convertToGoFormat(format string) string {
 		{"yyyy", "2006"},
 		{"YY", "06"},
 		{"yy", "06"},
-		{"MM", "01"},
-		{"mm", "01"},
+		{"MM", "01"}, // month (case-sensitive: uppercase M = month)
+		{"mm", "04"}, // minute (lowercase m = minute, Java/JS convention)
 		{"DD", "02"},
 		{"dd", "02"},
 		{"HH", "15"},
