@@ -522,6 +522,13 @@ func (bridge *ExprBridge) convertLikeToFunction(field, pattern string) string {
 		return fmt.Sprintf("%s == ''", field)
 	}
 
+	// 含 _ 或内部 % 的模式必须走完整匹配器，startsWith/endsWith/contains
+	// 快速路径会把这些通配符当作字面量处理。
+	core := strings.Trim(pattern, "%")
+	if core != "" && (strings.Contains(core, "_") || strings.Contains(core, "%")) {
+		return fmt.Sprintf("like_match(%s, '%s')", field, pattern)
+	}
+
 	// 分析模式类型
 	if strings.HasPrefix(pattern, "%") && strings.HasSuffix(pattern, "%") && len(pattern) > 1 {
 		// %pattern% -> contains操作符（但不是单独的%）

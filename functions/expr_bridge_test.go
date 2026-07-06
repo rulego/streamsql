@@ -274,6 +274,24 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 	})
 }
 
+// TestConvertLikeUnderscoreRoute verifies that LIKE patterns containing _ or
+// an interior % route to like_match, instead of the startsWith/endsWith/
+// contains fast paths that treat those wildcards as literals (H13).
+func TestConvertLikeUnderscoreRoute(t *testing.T) {
+	bridge := NewExprBridge()
+
+	underscoreCases := []string{"a_b%", "%a_b", "%a_b%", "a_b", "%a%b%"}
+	for _, p := range underscoreCases {
+		got := bridge.convertLikeToFunction("name", p)
+		assert.Contains(t, got, "like_match", "pattern %q should route to like_match", p)
+	}
+
+	// Patterns without _ or interior % still use fast paths.
+	assert.Contains(t, bridge.convertLikeToFunction("name", "abc%"), "startsWith")
+	assert.Contains(t, bridge.convertLikeToFunction("name", "%abc"), "endsWith")
+	assert.Contains(t, bridge.convertLikeToFunction("name", "%abc%"), "contains")
+}
+
 // TestExprBridgeComplexExpressions 测试复杂表达式处理
 func TestExprBridgeComplexExpressions(t *testing.T) {
 	bridge := NewExprBridge()
