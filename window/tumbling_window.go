@@ -333,9 +333,6 @@ func (tw *TumblingWindow) Start() {
 // startProcessingTime starts the processing time trigger mechanism
 func (tw *TumblingWindow) startProcessingTime() {
 	go func() {
-		// Close output channel when function ends
-		defer close(tw.outputChan)
-
 		// Wait for initialization complete or context cancellation
 		select {
 		case <-tw.initChan:
@@ -381,8 +378,6 @@ func (tw *TumblingWindow) startProcessingTime() {
 // startEventTime starts the event time trigger mechanism based on watermark
 func (tw *TumblingWindow) startEventTime() {
 	go func() {
-		// Close output channel when function ends
-		defer close(tw.outputChan)
 		if tw.watermark != nil {
 			defer tw.watermark.Stop()
 		}

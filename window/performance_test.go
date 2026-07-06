@@ -77,9 +77,17 @@ func BenchmarkTumblingWindowThroughput(b *testing.B) {
 	go tw.Start()
 
 	// 在后台消费结果，避免阻塞
+	done := make(chan struct{})
 	go func() {
-		for range tw.OutputChan() {
-			// 消费结果
+		for {
+			select {
+			case _, ok := <-tw.OutputChan():
+				if !ok {
+					return
+				}
+			case <-done:
+				return
+			}
 		}
 	}()
 
@@ -104,6 +112,7 @@ func BenchmarkTumblingWindowThroughput(b *testing.B) {
 	b.Logf("发送成功: %d, 丢弃: %d", stats["sentCount"], stats["droppedCount"])
 
 	tw.Stop()
+	close(done)
 }
 
 // TestWindowBufferOverflow 测试缓冲区溢出处理

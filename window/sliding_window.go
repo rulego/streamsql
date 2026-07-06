@@ -272,9 +272,6 @@ func (sw *SlidingWindow) Start() {
 // startProcessingTime starts the processing time trigger mechanism
 func (sw *SlidingWindow) startProcessingTime() {
 	go func() {
-		// Close output channel when function ends
-		defer close(sw.outputChan)
-
 		// Wait for initialization complete or context cancellation
 		select {
 		case <-sw.initChan:
@@ -367,8 +364,6 @@ func (sw *SlidingWindow) startProcessingTime() {
 // startEventTime starts the event time trigger mechanism based on watermark
 func (sw *SlidingWindow) startEventTime() {
 	go func() {
-		// Close output channel when function ends
-		defer close(sw.outputChan)
 		if sw.watermark != nil {
 			defer sw.watermark.Stop()
 		}
