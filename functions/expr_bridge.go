@@ -2,6 +2,7 @@ package functions
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -127,17 +128,6 @@ func (bridge *ExprBridge) CreateEnhancedExprEnvironment(data map[string]interfac
 	return env
 }
 
-// createDataEnv returns a shallow copy of data for use as the expr-lang runtime
-// environment on the compiled-program path. A copy avoids mutating the caller's
-// map. Functions are compiled into the program, so they are not added here.
-func (bridge *ExprBridge) createDataEnv(data map[string]interface{}) map[string]interface{} {
-	env := make(map[string]interface{}, len(data))
-	for k, v := range data {
-		env[k] = v
-	}
-	return env
-}
-
 // preprocessCached applies the deterministic backtick / LIKE / IS NULL
 // preprocessing, memoized per input expression. These transforms depend only
 // on the expression text, so caching avoids repeated ToUpper/Contains/regex
@@ -169,16 +159,16 @@ func (bridge *ExprBridge) preprocessCached(expression string) string {
 
 // CompileExpressionWithStreamSQLFunctions 编译表达式，包含StreamSQL函数
 func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression string, dataType interface{}) (*vm.Program, error) {
-	// Cache compiled programs by (env-type, expression). Compiling rebuilds all
-	// function options under a lock, so caching turns a per-row compile into a
-	// one-time cost. The env type is part of the key so mixed-type callers do
-	// not reuse a program type-inferred against a different environment.
-	cacheKey := expression
-	if dataType != nil {
-		cacheKey = fmt.Sprintf("%T|%s", dataType, expression)
-	}
-	if cached, ok := bridge.programCache.Load(cacheKey); ok {
-		return cached.(*vm.Program), nil
+	// Cache compiled programs by expression source. A program is reusable while
+	// the env type is unchanged, so the entry stores the reflect.Type it was
+	// compiled against and recompiles only if a different type appears. Keying
+	// purely on the expression string (already in hand) avoids a per-call
+	// fmt.Sprintf allocation on the hot path; reflect.TypeOf is allocation-free.
+	dt := reflect.TypeOf(dataType)
+	if cached, ok := bridge.programCache.Load(expression); ok {
+		if e, ok := cached.(*progCacheEntry); ok && e.typ == dt {
+			return e.prog, nil
+		}
 	}
 
 	options := []expr.Option{
@@ -214,8 +204,15 @@ func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression str
 	if err != nil {
 		return nil, err
 	}
-	bridge.programCache.Store(cacheKey, program)
+	bridge.programCache.Store(expression, &progCacheEntry{typ: dt, prog: program})
 	return program, nil
+}
+
+// progCacheEntry pairs a compiled program with the env type it was compiled
+// against, so the program is reused only when the env type matches.
+type progCacheEntry struct {
+	typ  reflect.Type
+	prog *vm.Program
 }
 
 // EvaluateExpression 评估表达式，自动选择最合适的引擎
@@ -235,12 +232,11 @@ func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]
 	program, err := bridge.CompileExpressionWithStreamSQLFunctions(expression, data)
 	if err == nil {
 		// Functions are compiled into the program via expr.Function, so the
-		// runtime env only needs the data — no need to rebuild dozens of
-		// function-wrapper closures per call. Expressions that still need
-		// env-level functions (e.g. streamsql_* aliases) fall through to the
-		// expr.Eval path below on Run error.
-		env := bridge.createDataEnv(data)
-		result, err := expr.Run(program, env)
+		// runtime env only needs the data. expr-lang evaluation is read-only
+		// (no assignment), so the caller's data map is passed directly instead
+		// of being copied per call. Expressions that still need env-level
+		// functions (e.g. streamsql_* aliases) fall through to expr.Eval below.
+		result, err := expr.Run(program, data)
 		if err == nil {
 			return result, nil
 		}
