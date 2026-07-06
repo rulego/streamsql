@@ -559,55 +559,31 @@ func (bridge *ExprBridge) convertLikeToFunction(field, pattern string) string {
 }
 
 // matchesLikePattern 实现LIKE模式匹配
-// 支持%（匹配任意字符序列）和_（匹配单个字符）
+// 支持%（匹配任意字符序列）和_（匹配单个字符）。
+// 采用经典双指针回溯算法，最坏 O(n*m)，对抗性模式不会指数膨胀。
 func (bridge *ExprBridge) matchesLikePattern(text, pattern string) bool {
-	return bridge.likeMatch(text, pattern, 0, 0)
-}
-
-// likeMatch 递归实现LIKE匹配算法
-func (bridge *ExprBridge) likeMatch(text, pattern string, textIndex, patternIndex int) bool {
-	// 如果模式已经匹配完成
-	if patternIndex >= len(pattern) {
-		return textIndex >= len(text) // 文本也应该匹配完成
+	ti, pi := 0, 0
+	starIdx, matchIdx := -1, 0
+	for ti < len(text) {
+		if pi < len(pattern) && (pattern[pi] == '_' || pattern[pi] == text[ti]) {
+			ti++
+			pi++
+		} else if pi < len(pattern) && pattern[pi] == '%' {
+			starIdx = pi
+			matchIdx = ti
+			pi++
+		} else if starIdx != -1 {
+			pi = starIdx + 1
+			matchIdx++
+			ti = matchIdx
+		} else {
+			return false
+		}
 	}
-
-	// 如果文本已经结束，但模式还有非%字符，则不匹配
-	if textIndex >= len(text) {
-		// 检查剩余的模式是否都是%
-		for i := patternIndex; i < len(pattern); i++ {
-			if pattern[i] != '%' {
-				return false
-			}
-		}
-		return true
+	for pi < len(pattern) && pattern[pi] == '%' {
+		pi++
 	}
-
-	// 处理当前模式字符
-	patternChar := pattern[patternIndex]
-
-	if patternChar == '%' {
-		// %可以匹配0个或多个字符
-		// 尝试匹配0个字符（跳过%）
-		if bridge.likeMatch(text, pattern, textIndex, patternIndex+1) {
-			return true
-		}
-		// 尝试匹配1个或多个字符
-		for i := textIndex; i < len(text); i++ {
-			if bridge.likeMatch(text, pattern, i+1, patternIndex+1) {
-				return true
-			}
-		}
-		return false
-	} else if patternChar == '_' {
-		// _匹配恰好一个字符
-		return bridge.likeMatch(text, pattern, textIndex+1, patternIndex+1)
-	} else {
-		// 普通字符必须精确匹配
-		if text[textIndex] == patternChar {
-			return bridge.likeMatch(text, pattern, textIndex+1, patternIndex+1)
-		}
-		return false
-	}
+	return pi == len(pattern)
 }
 
 // toFloat64 将值转换为float64

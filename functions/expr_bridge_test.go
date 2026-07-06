@@ -238,9 +238,9 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 		assert.True(t, bridge.matchesLikePattern("world", "%d"))
 		assert.False(t, bridge.matchesLikePattern("hello", "x%"))
 
-		// 测试递归LIKE匹配
-		assert.True(t, bridge.likeMatch("hello", "h%o", 0, 0))
-		assert.False(t, bridge.likeMatch("hello", "x%", 0, 0))
+		// 测试LIKE匹配
+		assert.True(t, bridge.matchesLikePattern("hello", "h%o"))
+		assert.False(t, bridge.matchesLikePattern("hello", "x%"))
 	})
 
 	t.Run("Type Conversion", func(t *testing.T) {

@@ -97,9 +97,13 @@ func tokenize(expr string) ([]string, error) {
 			continue
 		}
 
-		// Handle numbers (including negative numbers and numbers starting with decimal point)
-		// Note: Numbers starting with decimal point are only valid when not preceded by digit character
-		if isDigit(expr[i]) || (expr[i] == '-' && i+1 < len(expr) && isDigit(expr[i+1])) || (expr[i] == '.' && i+1 < len(expr) && isDigit(expr[i+1]) && (i == 0 || (!isDigit(expr[i-1]) && expr[i-1] != '.'))) {
+		// Handle numbers (including negative numbers and numbers starting with decimal point).
+		// '-' is a negative sign only when not preceded by a value-ending character
+		// (digit/letter/`)`/`]`/backtick/'.'); otherwise it is the binary subtraction
+		// operator, e.g. "price*2-1" must tokenize as [price * 2 - 1], not [price * 2 -1].
+		if isDigit(expr[i]) ||
+			(expr[i] == '-' && i+1 < len(expr) && isDigit(expr[i+1]) && !precededByValue(expr, i)) ||
+			(expr[i] == '.' && i+1 < len(expr) && isDigit(expr[i+1]) && (i == 0 || (!isDigit(expr[i-1]) && expr[i-1] != '.'))) {
 			start := i
 			if expr[i] == '-' {
 				i++ // Skip negative sign
@@ -189,6 +193,25 @@ func tokenize(expr string) ([]string, error) {
 // isDigit checks if character is a digit
 func isDigit(ch byte) bool {
 	return ch >= '0' && ch <= '9'
+}
+
+// valueEnding reports whether ch ends a value/operand, in which case a following
+// '-' is a binary subtraction operator rather than a negative sign.
+func valueEnding(ch byte) bool {
+	return isDigit(ch) || isLetter(ch) || ch == ')' || ch == ']' || ch == '`' || ch == '.'
+}
+
+// precededByValue reports whether position i is preceded (ignoring spaces) by a
+// value-ending character.
+func precededByValue(expr string, i int) bool {
+	j := i - 1
+	for j >= 0 && (expr[j] == ' ' || expr[j] == '\t' || expr[j] == '\n' || expr[j] == '\r') {
+		j--
+	}
+	if j < 0 {
+		return false
+	}
+	return valueEnding(expr[j])
 }
 
 // isLetter checks if character is a letter

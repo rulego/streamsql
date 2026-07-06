@@ -18,12 +18,26 @@ func parseExpression(tokens []string) (*ExprNode, error) {
 
 	// Handle CASE expression
 	if len(tokens) > 0 && strings.ToUpper(tokens[0]) == "CASE" {
-		node, _, err := parseCaseExpression(tokens)
-		return node, err
+		node, remaining, err := parseCaseExpression(tokens)
+		if err != nil {
+			return nil, err
+		}
+		if len(remaining) > 0 {
+			return nil, fmt.Errorf("unexpected token after expression: %s", remaining[0])
+		}
+		return node, nil
 	}
 
-	node, _, err := parseOrExpression(tokens)
-	return node, err
+	node, remaining, err := parseOrExpression(tokens)
+	if err != nil {
+		return nil, err
+	}
+	// Top-level expressions must consume all tokens; leftover tokens mean the
+	// expression was silently truncated (e.g. "price*2-1" parsed as "price*2").
+	if len(remaining) > 0 {
+		return nil, fmt.Errorf("unexpected token after expression: %s", remaining[0])
+	}
+	return node, nil
 }
 
 // parseOrExpression parses OR expression

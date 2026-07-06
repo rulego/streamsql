@@ -2,11 +2,17 @@ package functions
 
 import (
 	"fmt"
+	"sync"
 )
 
-// RowNumberFunction returns row number
+// RowNumberFunction returns a sequentially increasing row number.
+// The registry holds a single shared instance, so the counter and its reset are
+// guarded by a mutex to avoid a data race under concurrent evaluation.
+// (Per-window reset requires window-context wiring that the engine does not
+// provide today; see AUDIT_ROADMAP.)
 type RowNumberFunction struct {
 	*BaseFunction
+	mu               sync.Mutex
 	CurrentRowNumber int64
 }
 
@@ -22,11 +28,15 @@ func (f *RowNumberFunction) Validate(args []interface{}) error {
 }
 
 func (f *RowNumberFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.CurrentRowNumber++
 	return f.CurrentRowNumber, nil
 }
 
 func (f *RowNumberFunction) Reset() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.CurrentRowNumber = 0
 }
 

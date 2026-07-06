@@ -20,7 +20,7 @@ func (f *IsNullFunction) Validate(args []interface{}) error {
 }
 
 func (f *IsNullFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	return args[0] == nil, nil
+	return isNilValue(args[0]), nil
 }
 
 // IsNotNullFunction checks if value is not NULL
@@ -39,7 +39,22 @@ func (f *IsNotNullFunction) Validate(args []interface{}) error {
 }
 
 func (f *IsNotNullFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	return args[0] != nil, nil
+	return !isNilValue(args[0]), nil
+}
+
+// isNilValue reports whether v is nil, including typed-nil values
+// (e.g. (*int)(nil)) which compare != nil under Go's == operator but should be
+// treated as NULL by is_null/is_not_null.
+func isNilValue(v interface{}) bool {
+	if v == nil {
+		return true
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Ptr, reflect.Interface, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func:
+		return rv.IsNil()
+	}
+	return false
 }
 
 // IsNumericFunction checks if value is numeric type

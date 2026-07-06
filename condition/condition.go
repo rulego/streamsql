@@ -2,6 +2,7 @@ package condition
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
@@ -33,13 +34,13 @@ func NewExprCondition(expression string) (Condition, error) {
 			if len(params) != 1 {
 				return false, fmt.Errorf("is_null function requires 1 parameter")
 			}
-			return params[0] == nil, nil
+			return isNilValue(params[0]), nil
 		}),
 		expr.Function("is_not_null", func(params ...any) (any, error) {
 			if len(params) != 1 {
 				return false, fmt.Errorf("is_not_null function requires 1 parameter")
 			}
-			return params[0] != nil, nil
+			return !isNilValue(params[0]), nil
 		}),
 		expr.AllowUndefinedVariables(),
 		expr.AsBool(),
@@ -60,54 +61,47 @@ func (ec *ExprCondition) Evaluate(env interface{}) bool {
 	return result.(bool)
 }
 
-// matchesLikePattern implements LIKE pattern matching
-// Supports % (matches any character sequence) and _ (matches single character)
+// matchesLikePattern implements LIKE pattern matching.
+// Supports % (matches any character sequence) and _ (matches a single character).
+// Uses the classic two-pointer backtracking algorithm: O(n*m) worst case, with no
+// exponential blow-up on adversarial patterns (unlike a naive per-'%' recursion).
 func matchesLikePattern(text, pattern string) bool {
-	return likeMatch(text, pattern, 0, 0)
+	ti, pi := 0, 0
+	starIdx, matchIdx := -1, 0 // last '%' index in pattern; text index when we took it
+	for ti < len(text) {
+		if pi < len(pattern) && (pattern[pi] == '_' || pattern[pi] == text[ti]) {
+			ti++
+			pi++
+		} else if pi < len(pattern) && pattern[pi] == '%' {
+			starIdx = pi
+			matchIdx = ti
+			pi++
+		} else if starIdx != -1 {
+			// backtrack: let the last '%' consume one more character
+			pi = starIdx + 1
+			matchIdx++
+			ti = matchIdx
+		} else {
+			return false
+		}
+	}
+	for pi < len(pattern) && pattern[pi] == '%' {
+		pi++
+	}
+	return pi == len(pattern)
 }
 
-// likeMatch recursively implements LIKE matching algorithm
-func likeMatch(text, pattern string, textIndex, patternIndex int) bool {
-	// If pattern has been fully matched
-	if patternIndex >= len(pattern) {
-		return textIndex >= len(text) // Text should also be fully matched
-	}
-
-	// If text has ended but pattern still has non-% characters, no match
-	if textIndex >= len(text) {
-		// Check if remaining pattern characters are all %
-		for i := patternIndex; i < len(pattern); i++ {
-			if pattern[i] != '%' {
-				return false
-			}
-		}
+// isNilValue reports whether v is nil, including typed-nil values (e.g.
+// (*int)(nil)) which compare != nil under Go's == operator but should be
+// treated as NULL by is_null/is_not_null.
+func isNilValue(v interface{}) bool {
+	if v == nil {
 		return true
 	}
-
-	// Process current pattern character
-	patternChar := pattern[patternIndex]
-
-	if patternChar == '%' {
-		// % can match 0 or more characters
-		// Try matching 0 characters (skip %)
-		if likeMatch(text, pattern, textIndex, patternIndex+1) {
-			return true
-		}
-		// Try matching 1 or more characters
-		for i := textIndex; i < len(text); i++ {
-			if likeMatch(text, pattern, i+1, patternIndex+1) {
-				return true
-			}
-		}
-		return false
-	} else if patternChar == '_' {
-		// _ matches exactly one character
-		return likeMatch(text, pattern, textIndex+1, patternIndex+1)
-	} else {
-		// Regular characters must match exactly
-		if text[textIndex] == patternChar {
-			return likeMatch(text, pattern, textIndex+1, patternIndex+1)
-		}
-		return false
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Ptr, reflect.Interface, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func:
+		return rv.IsNil()
 	}
+	return false
 }

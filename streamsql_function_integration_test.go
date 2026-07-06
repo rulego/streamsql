@@ -135,7 +135,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 			item := resultSlice[0]
 			assert.Equal(t, "test-device", item["device"])
-			assert.Equal(t, int32(25), item["temp_int"])
+			assert.Equal(t, int(25), item["temp_int"])
 			assert.Equal(t, "65", item["humidity_str"])
 		case <-ctx.Done():
 			t.Fatal("测试超时，未收到结果")

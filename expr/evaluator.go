@@ -512,39 +512,33 @@ func compareStrings(left, right, operator string) (bool, error) {
 	}
 }
 
-// matchLikePattern implements LIKE pattern matching
+// matchLikePattern implements LIKE pattern matching.
+// Supports % (any character sequence) and _ (single character).
+// Classic two-pointer backtracking algorithm: O(n*m) worst case, no exponential
+// blow-up on adversarial patterns.
 func matchLikePattern(text, pattern string) bool {
-	// Simplified LIKE implementation, supports % and _ wildcards
-	// % matches any character sequence, _ matches single character
-	return matchPattern(text, pattern, 0, 0)
-}
-
-// matchPattern recursively matches pattern
-func matchPattern(text, pattern string, textIdx, patternIdx int) bool {
-	if patternIdx == len(pattern) {
-		return textIdx == len(text)
-	}
-
-	if pattern[patternIdx] == '%' {
-		// % matches any character sequence
-		for i := textIdx; i <= len(text); i++ {
-			if matchPattern(text, pattern, i, patternIdx+1) {
-				return true
-			}
+	ti, pi := 0, 0
+	starIdx, matchIdx := -1, 0
+	for ti < len(text) {
+		if pi < len(pattern) && (pattern[pi] == '_' || pattern[pi] == text[ti]) {
+			ti++
+			pi++
+		} else if pi < len(pattern) && pattern[pi] == '%' {
+			starIdx = pi
+			matchIdx = ti
+			pi++
+		} else if starIdx != -1 {
+			pi = starIdx + 1
+			matchIdx++
+			ti = matchIdx
+		} else {
+			return false
 		}
-		return false
 	}
-
-	if textIdx == len(text) {
-		return false
+	for pi < len(pattern) && pattern[pi] == '%' {
+		pi++
 	}
-
-	if pattern[patternIdx] == '_' || pattern[patternIdx] == text[textIdx] {
-		// _ matches single character or exact character match
-		return matchPattern(text, pattern, textIdx+1, patternIdx+1)
-	}
-
-	return false
+	return pi == len(pattern)
 }
 
 // compareValuesForEquality compares two values for equality (for simple CASE expressions)

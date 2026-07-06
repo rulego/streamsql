@@ -911,34 +911,16 @@ func (sw *SlidingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
 	}
 }
 
-// closeExpiredWindows closes windows that have exceeded allowedLateness
+// closeExpiredWindows closes windows that have exceeded allowedLateness.
+// It only removes the bookkeeping entries from triggeredWindows; it must NOT
+// delete row data here, because sliding windows overlap and a row belonging to
+// an expired window may still be needed by not-yet-triggered overlapping windows.
+// Row eviction happens in extractWindowDataLocked, which drops a row only once it
+// is older than the start of the next window (i.e. no future window needs it).
 func (sw *SlidingWindow) closeExpiredWindows(watermarkTime time.Time) {
-	expiredWindows := make([]*types.TimeSlot, 0)
 	for key, info := range sw.triggeredWindows {
 		if !watermarkTime.Before(info.closeTime) {
-			// Window has expired, mark for removal
-			expiredWindows = append(expiredWindows, info.slot)
 			delete(sw.triggeredWindows, key)
-		}
-	}
-
-	// Clean up data that belongs to expired windows (if any)
-	if len(expiredWindows) > 0 {
-		newData := make([]types.Row, 0)
-		for _, item := range sw.data {
-			belongsToExpiredWindow := false
-			for _, expiredSlot := range expiredWindows {
-				if expiredSlot.Contains(item.Timestamp) {
-					belongsToExpiredWindow = true
-					break
-				}
-			}
-			if !belongsToExpiredWindow {
-				newData = append(newData, item)
-			}
-		}
-		if len(newData) != len(sw.data) {
-			sw.data = newData
 		}
 	}
 }

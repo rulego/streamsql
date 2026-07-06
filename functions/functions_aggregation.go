@@ -524,20 +524,32 @@ func (f *PercentileFunction) Validate(args []interface{}) error {
 }
 
 func (f *PercentileFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	values := make([]float64, len(args))
-	for i, arg := range args {
-		val, err := cast.ToFloat64E(arg)
-		if err != nil {
-			return nil, err
-		}
-		values[i] = val
+	if len(args) < 2 {
+		return nil, fmt.Errorf("percentile requires a percentile and at least one value")
 	}
-	sort.Float64s(values)
+	// args[0] is the percentile p in [0,1]; the remaining args are the data.
 	p, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
 	}
+	if p < 0 || p > 1 {
+		return nil, fmt.Errorf("percentile p must be in [0,1], got %v", p)
+	}
+	values := make([]float64, 0, len(args)-1)
+	for _, arg := range args[1:] {
+		val, err := cast.ToFloat64E(arg)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, val)
+	}
+	sort.Float64s(values)
 	index := int(math.Floor(p * float64(len(values)-1)))
+	if index < 0 {
+		index = 0
+	} else if index >= len(values) {
+		index = len(values) - 1
+	}
 	return values[index], nil
 }
 
