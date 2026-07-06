@@ -58,11 +58,6 @@ func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer func() {
-		if cancel != nil {
-			// cancel will be used in the returned struct
-		}
-	}()
 
 	// Get count parameter from params array
 	if len(config.Params) == 0 {
@@ -73,6 +68,7 @@ func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
 	countVal := config.Params[0]
 	threshold := cast.ToInt(countVal)
 	if threshold <= 0 {
+		cancel()
 		return nil, fmt.Errorf("threshold must be a positive integer, got: %v", countVal)
 	}
 

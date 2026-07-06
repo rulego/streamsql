@@ -97,12 +97,14 @@ func NewTumblingWindow(config types.WindowConfig) (*TumblingWindow, error) {
 
 	// Get size parameter from params array
 	if len(config.Params) == 0 {
+		cancel()
 		return nil, fmt.Errorf("tumbling window requires 'size' parameter")
 	}
 
 	sizeVal := config.Params[0]
 	size, err := cast.ToDurationE(sizeVal)
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("invalid size for tumbling window: %v", err)
 	}
 
