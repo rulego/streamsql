@@ -15,9 +15,12 @@ import (
 // ExprBridge bridges StreamSQL function system with expr-lang/expr
 type ExprBridge struct {
 	streamSQLFunctions map[string]Function
-	exprProgram        *vm.Program
-	exprEnv            map[string]interface{}
-	mutex              sync.RWMutex // Add read-write lock to protect concurrent access
+	// programCache caches compiled expr-lang programs keyed by expression source
+	// (prefixed by the env type), so repeated evaluation of the same expression
+	// compiles once and runs many times instead of recompiling per row.
+	programCache sync.Map
+	exprEnv      map[string]interface{}
+	mutex        sync.RWMutex // Add read-write lock to protect concurrent access
 }
 
 // NewExprBridge creates new expression bridge
@@ -122,6 +125,18 @@ func (bridge *ExprBridge) CreateEnhancedExprEnvironment(data map[string]interfac
 
 // CompileExpressionWithStreamSQLFunctions 编译表达式，包含StreamSQL函数
 func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression string, dataType interface{}) (*vm.Program, error) {
+	// Cache compiled programs by (env-type, expression). Compiling rebuilds all
+	// function options under a lock, so caching turns a per-row compile into a
+	// one-time cost. The env type is part of the key so mixed-type callers do
+	// not reuse a program type-inferred against a different environment.
+	cacheKey := expression
+	if dataType != nil {
+		cacheKey = fmt.Sprintf("%T|%s", dataType, expression)
+	}
+	if cached, ok := bridge.programCache.Load(cacheKey); ok {
+		return cached.(*vm.Program), nil
+	}
+
 	options := []expr.Option{
 		expr.Env(dataType),
 	}
@@ -151,7 +166,12 @@ func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression str
 		// 移除 expr.AsBool() 以允许返回任意类型的值
 	)
 
-	return expr.Compile(expression, options...)
+	program, err := expr.Compile(expression, options...)
+	if err != nil {
+		return nil, err
+	}
+	bridge.programCache.Store(cacheKey, program)
+	return program, nil
 }
 
 // EvaluateExpression 评估表达式，自动选择最合适的引擎
