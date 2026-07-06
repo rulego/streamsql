@@ -129,6 +129,22 @@ func TestCreateLegacyAggregatorPanic(t *testing.T) {
 	CreateLegacyAggregator("nonexistent_aggregator")
 }
 
+// TestCreateLegacyAggregatorPercentile verifies percentile aggregates without
+// panicking (H9: percentile was registered as a plain function that did not
+// implement AggregatorFunction, so CreateLegacyAggregator panicked).
+func TestCreateLegacyAggregatorPercentile(t *testing.T) {
+	agg := CreateLegacyAggregator(Percentile)
+	if agg == nil {
+		t.Fatal("CreateLegacyAggregator(percentile) returned nil")
+	}
+	agg.Add(1.0)
+	agg.Add(2.0)
+	agg.Add(3.0)
+	if r := agg.Result(); r == nil {
+		t.Error("percentile Result() returned nil")
+	}
+}
+
 // TestFunctionAggregatorWrapper 测试函数聚合器包装器
 func TestFunctionAggregatorWrapper(t *testing.T) {
 	// 创建一个测试聚合器函数

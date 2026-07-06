@@ -81,7 +81,7 @@ func registerBuiltinFunctions() {
 	_ = Register(NewCountFunction())
 	_ = Register(NewStdDevAggregatorFunction())
 	_ = Register(NewMedianAggregatorFunction())
-	_ = Register(NewPercentileFunction())
+	_ = Register(NewPercentileAggregatorFunction())
 	_ = Register(NewCollectFunction())
 	_ = Register(NewFirstValueFunction())
 	_ = Register(NewLastValueFunction())
