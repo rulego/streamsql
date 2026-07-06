@@ -607,6 +607,8 @@ func TestDateFormatConversion(t *testing.T) {
 	}{
 		{"YYYY-MM-DD", "2006-01-02"},
 		{"yyyy/MM/dd", "2006/01/02"}, // MM = month (uppercase M)
+		{"yyyy-MM-dd", "2006-01-02"}, // lowercase yyyy/dd accepted; MM month
+		{"yyyy-MM-dd HH:mm:ss", "2006-01-02 15:04:05"},
 		{"DD/MM/YYYY", "02/01/2006"},
 		{"HH:MI:SS", "15:04:05"},
 		{"YYYY-MM-DD HH:MI:SS", "2006-01-02 15:04:05"},
