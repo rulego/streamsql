@@ -252,18 +252,22 @@ func getArrayElement(v reflect.Value, index int) (interface{}, bool) {
 		return elem.Interface(), true
 
 	case reflect.Map:
-		// If data is Map, use index as key to access
-		key := reflect.ValueOf(index)
-		mapVal := v.MapIndex(key)
-		if mapVal.IsValid() {
-			return mapVal.Interface(), true
+		keyType := v.Type().Key()
+
+		// Try index as key if its type is assignable to the map key type
+		intKey := reflect.ValueOf(index)
+		if intKey.Type().AssignableTo(keyType) {
+			if mapVal := v.MapIndex(intKey); mapVal.IsValid() {
+				return mapVal.Interface(), true
+			}
 		}
 
-		// Try string form of index
+		// Try string form of index if assignable
 		strKey := reflect.ValueOf(strconv.Itoa(index))
-		mapVal = v.MapIndex(strKey)
-		if mapVal.IsValid() {
-			return mapVal.Interface(), true
+		if strKey.Type().AssignableTo(keyType) {
+			if mapVal := v.MapIndex(strKey); mapVal.IsValid() {
+				return mapVal.Interface(), true
+			}
 		}
 
 		return nil, false
@@ -279,27 +283,24 @@ func getMapValue(v reflect.Value, key, keyType string) (interface{}, bool) {
 		return nil, false
 	}
 
-	// First try string key
-	if keyType == "string" || v.Type().Key().Kind() == reflect.String {
-		mapVal := v.MapIndex(reflect.ValueOf(key))
-		if mapVal.IsValid() {
+	mapKeyType := v.Type().Key()
+
+	// Try string key if its type is assignable to the map key type
+	strKey := reflect.ValueOf(key)
+	if strKey.Type().AssignableTo(mapKeyType) {
+		if mapVal := v.MapIndex(strKey); mapVal.IsValid() {
 			return mapVal.Interface(), true
 		}
 	}
 
-	// If it's a numeric key
+	// If it's a numeric key, try int key
 	if keyType == "number" {
 		if num, err := strconv.Atoi(key); err == nil {
-			// Try int key
-			mapVal := v.MapIndex(reflect.ValueOf(num))
-			if mapVal.IsValid() {
-				return mapVal.Interface(), true
-			}
-
-			// Try string form of numeric key
-			mapVal = v.MapIndex(reflect.ValueOf(key))
-			if mapVal.IsValid() {
-				return mapVal.Interface(), true
+			intKey := reflect.ValueOf(num)
+			if intKey.Type().AssignableTo(mapKeyType) {
+				if mapVal := v.MapIndex(intKey); mapVal.IsValid() {
+					return mapVal.Interface(), true
+				}
 			}
 		}
 	}

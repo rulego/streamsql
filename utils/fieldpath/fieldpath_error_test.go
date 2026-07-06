@@ -859,6 +859,32 @@ func TestArrayAsMapAccess(t *testing.T) {
 	}
 }
 
+// TestTypedMapMismatchedKey verifies that accessing a typed map with a key
+// whose type does not match the map's key type returns not-found instead of
+// panicking inside reflect.MapIndex.
+func TestTypedMapMismatchedKey(t *testing.T) {
+	// JSON object decoded as map[string]interface{}, accessed via an array index.
+	data := map[string]interface{}{
+		"obj": map[string]interface{}{"name": "alice"},
+	}
+	if _, found := GetNestedField(data, "obj[0]"); found {
+		t.Error("expected not-found for string-key map accessed by index")
+	}
+
+	// int-key map accessed via a string key.
+	intKey := map[string]interface{}{
+		"imap": map[int]string{1: "v1"},
+	}
+	if _, found := GetNestedField(intKey, `imap["1"]`); found {
+		t.Error("expected not-found for int-key map accessed by string key")
+	}
+
+	// Positive control: normal string-key access still works.
+	if v, found := GetNestedField(data, `obj["name"]`); !found || v != "alice" {
+		t.Errorf("expected alice, got %v (found=%v)", v, found)
+	}
+}
+
 // TestComplexErrorScenarios 测试复杂的错误场景
 func TestComplexErrorScenarios(t *testing.T) {
 	// 测试解析失败时的回退机制
