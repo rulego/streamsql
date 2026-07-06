@@ -438,6 +438,9 @@ func (f *LpadFunction) Execute(ctx *FunctionContext, args []interface{}) (interf
 		return str, nil
 	}
 
+	if pad == "" {
+		pad = " "
+	}
 	padLen := length - strLen
 	padStr := strings.Repeat(pad, int(padLen/int64(len(pad))+1))
 	return padStr[:padLen] + str, nil
@@ -481,6 +484,9 @@ func (f *RpadFunction) Execute(ctx *FunctionContext, args []interface{}) (interf
 		return str, nil
 	}
 
+	if pad == "" {
+		pad = " "
+	}
 	padLen := length - strLen
 	padStr := strings.Repeat(pad, int(padLen/int64(len(pad))+1))
 	return str + padStr[:padLen], nil

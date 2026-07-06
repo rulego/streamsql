@@ -464,7 +464,7 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 		tok := p.lexer.NextToken()
 		if tok.Type == TokenGROUP || tok.Type == TokenEOF || tok.Type == TokenSliding ||
 			tok.Type == TokenTumbling || tok.Type == TokenCounting || tok.Type == TokenSession ||
-			tok.Type == TokenHAVING || tok.Type == TokenLIMIT {
+			tok.Type == TokenHAVING || tok.Type == TokenLIMIT || tok.Type == TokenWITH {
 			break
 		}
 		switch tok.Type {

@@ -234,7 +234,7 @@ func (cw *CountingWindow) Stop() {
 	cw.mu.Unlock()
 
 	if !stopped {
-		close(cw.triggerChan)
+		// 由 ctx 取消退出，不 close triggerChan 以免与并发 Add 发送冲突
 		cw.cancelFunc()
 	}
 }

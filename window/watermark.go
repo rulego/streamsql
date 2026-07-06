@@ -191,6 +191,9 @@ func (wm *Watermark) IsEventTimeLate(eventTime time.Time) bool {
 // Note: This alignment may cause the first window to start before the first data arrives,
 // which is expected behavior for event time windows to ensure consistent boundaries.
 func alignWindowStart(timestamp time.Time, windowSize time.Duration) time.Time {
+	if windowSize <= 0 {
+		return timestamp
+	}
 	// Convert to Unix timestamp in nanoseconds
 	unixNano := timestamp.UnixNano()
 	windowSizeNano := windowSize.Nanoseconds()

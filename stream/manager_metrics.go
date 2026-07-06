@@ -71,9 +71,15 @@ func (s *Stream) GetDetailedStats() map[string]interface{} {
 	basicStats := s.GetStats()
 
 	// Calculate usage rates
-	dataUsage := float64(basicStats[DataChanLen]) / float64(basicStats[DataChanCap]) * 100
-	resultUsage := float64(basicStats[ResultChanLen]) / float64(basicStats[ResultChanCap]) * 100
-	sinkUsage := float64(basicStats[SinkPoolLen]) / float64(basicStats[SinkPoolCap]) * 100
+	usage := func(length, capacity int64) float64 {
+		if capacity <= 0 {
+			return 0
+		}
+		return float64(length) / float64(capacity) * 100
+	}
+	dataUsage := usage(basicStats[DataChanLen], basicStats[DataChanCap])
+	resultUsage := usage(basicStats[ResultChanLen], basicStats[ResultChanCap])
+	sinkUsage := usage(basicStats[SinkPoolLen], basicStats[SinkPoolCap])
 
 	// Calculate efficiency metrics
 	var processRate float64 = 100.0
