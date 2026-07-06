@@ -284,6 +284,9 @@ func (ds *DropStrategy) ProcessData(data map[string]interface{}) {
 				logger.Warn("Data channel is full, dropping input data")
 				atomic.AddInt64(&ds.stream.droppedCount, 1)
 			}
+		case <-ds.stream.done:
+			timer.Stop()
+			return
 		}
 	}
 }

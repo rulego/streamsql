@@ -226,12 +226,9 @@ func (s *Stream) Stop() {
 		s.Window.Stop()
 	}
 
-	// Close dataChan to signal DataProcessor to exit
+	// Do not close dataChan: a close races with in-flight producers. Nil makes them stop.
 	s.dataChanMux.Lock()
-	if s.dataChan != nil {
-		close(s.dataChan)
-		s.dataChan = nil // Set to nil to prevent sending to closed channel
-	}
+	s.dataChan = nil
 	s.dataChanMux.Unlock()
 
 	// Stop and clean up data processing strategy resources
