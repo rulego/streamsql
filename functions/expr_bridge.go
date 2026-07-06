@@ -19,8 +19,12 @@ type ExprBridge struct {
 	// (prefixed by the env type), so repeated evaluation of the same expression
 	// compiles once and runs many times instead of recompiling per row.
 	programCache sync.Map
-	exprEnv      map[string]interface{}
-	mutex        sync.RWMutex // Add read-write lock to protect concurrent access
+	// preprocessCache caches the deterministic backtick/LIKE/IS-NULL
+	// preprocessing result per input expression, avoiding repeated
+	// ToUpper/Contains/regex scans on every row.
+	preprocessCache sync.Map
+	exprEnv         map[string]interface{}
+	mutex           sync.RWMutex // Add read-write lock to protect concurrent access
 }
 
 // NewExprBridge creates new expression bridge
@@ -134,6 +138,35 @@ func (bridge *ExprBridge) createDataEnv(data map[string]interface{}) map[string]
 	return env
 }
 
+// preprocessCached applies the deterministic backtick / LIKE / IS NULL
+// preprocessing, memoized per input expression. These transforms depend only
+// on the expression text, so caching avoids repeated ToUpper/Contains/regex
+// scans on every row. The data-dependent string-concat check is NOT cached and
+// stays in EvaluateExpression.
+func (bridge *ExprBridge) preprocessCached(expression string) string {
+	if v, ok := bridge.preprocessCache.Load(expression); ok {
+		return v.(string)
+	}
+	result := expression
+	if bridge.ContainsBacktickIdentifiers(result) {
+		if processed, err := bridge.PreprocessBacktickIdentifiers(result); err == nil {
+			result = processed
+		}
+	}
+	if bridge.ContainsLikeOperator(result) {
+		if processed, err := bridge.PreprocessLikeExpression(result); err == nil {
+			result = processed
+		}
+	}
+	if bridge.ContainsIsNullOperator(result) {
+		if processed, err := bridge.PreprocessIsNullExpression(result); err == nil {
+			result = processed
+		}
+	}
+	bridge.preprocessCache.Store(expression, result)
+	return result
+}
+
 // CompileExpressionWithStreamSQLFunctions 编译表达式，包含StreamSQL函数
 func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression string, dataType interface{}) (*vm.Program, error) {
 	// Cache compiled programs by (env-type, expression). Compiling rebuilds all
@@ -187,29 +220,8 @@ func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression str
 
 // EvaluateExpression 评估表达式，自动选择最合适的引擎
 func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]interface{}) (interface{}, error) {
-	// 首先预处理反引号标识符
-	if bridge.ContainsBacktickIdentifiers(expression) {
-		processedExpr, err := bridge.PreprocessBacktickIdentifiers(expression)
-		if err == nil {
-			expression = processedExpr
-		}
-	}
-
-	// 检查是否包含LIKE操作符，如果有则进行预处理
-	if bridge.ContainsLikeOperator(expression) {
-		processedExpr, err := bridge.PreprocessLikeExpression(expression)
-		if err == nil {
-			expression = processedExpr
-		}
-	}
-
-	// 检查是否包含IS NULL或IS NOT NULL操作符，如果有则进行预处理
-	if bridge.ContainsIsNullOperator(expression) {
-		processedExpr, err := bridge.PreprocessIsNullExpression(expression)
-		if err == nil {
-			expression = processedExpr
-		}
-	}
+	// 预处理（反引号 / LIKE / IS NULL）：仅依赖表达式文本，按输入表达式缓存。
+	expression = bridge.preprocessCached(expression)
 
 	// 检查是否包含字符串拼接模式
 	if bridge.isStringConcatenationExpression(expression, data) {
