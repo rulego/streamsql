@@ -900,9 +900,20 @@ func (p *Parser) parseLimit(stmt *SelectStatement) error {
 		return nil
 	}
 
-	// 直接解析输入字符串中的LIMIT子句
-	input := strings.ToUpper(p.input)
-	limitIndex := strings.LastIndex(input, "LIMIT")
+	// 在 token 流中查找真正的 LIMIT 关键字，避免误匹配标识符/字符串字面量中的子串
+	limitLexer := NewLexer(p.input)
+	limitLexer.SetErrorRecovery(NewErrorRecovery(nil))
+	limitIndex := -1
+	for {
+		tok := limitLexer.NextToken()
+		if tok.Type == TokenEOF {
+			break
+		}
+		if tok.Type == TokenLIMIT {
+			limitIndex = tok.Pos
+			break
+		}
+	}
 	if limitIndex == -1 {
 		return nil
 	}

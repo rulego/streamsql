@@ -509,6 +509,26 @@ func TestReadString(t *testing.T) {
 	}
 }
 
+// TestParseLimitNotSubstring verifies parseLimit does not treat "limit"
+// appearing inside an identifier or string literal as the LIMIT keyword (H7).
+func TestParseLimitNotSubstring(t *testing.T) {
+	cases := []string{
+		"SELECT * FROM sublimits",
+		"SELECT limited FROM t",
+		"SELECT name FROM t WHERE tag='LIMIT'",
+	}
+	for _, sql := range cases {
+		parser := NewParser(sql)
+		stmt := &SelectStatement{}
+		if err := parser.parseLimit(stmt); err != nil {
+			t.Errorf("parseLimit(%q) returned unexpected error: %v", sql, err)
+		}
+		if stmt.Limit != 0 {
+			t.Errorf("parseLimit(%q) set Limit=%d, want 0", sql, stmt.Limit)
+		}
+	}
+}
+
 // TestParseLimit 测试解析LIMIT子句函数
 func TestParseLimit(t *testing.T) {
 	// 测试正常LIMIT
