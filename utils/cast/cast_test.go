@@ -366,3 +366,17 @@ func TestToString(t *testing.T) {
 		})
 	}
 }
+
+func TestToInt64EFloatOverflow(t *testing.T) {
+	// 1e30 exceeds int64 range; must error rather than silently wrap.
+	if _, err := ToInt64E(1e30); err == nil {
+		t.Error("ToInt64E(1e30) expected error, got nil")
+	}
+	if _, err := ToInt64E(float32(1e30)); err == nil {
+		t.Error("ToInt64E(float32(1e30)) expected error, got nil")
+	}
+	// In-range float still converts.
+	if v, err := ToInt64E(42.0); err != nil || v != 42 {
+		t.Errorf("ToInt64E(42.0) = %v, err=%v, want 42", v, err)
+	}
+}

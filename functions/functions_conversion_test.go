@@ -222,3 +222,24 @@ func TestNewConversionFunctions(t *testing.T) {
 		})
 	}
 }
+
+func TestCastIntRanges(t *testing.T) {
+	fn, ok := Get("cast")
+	if !ok {
+		t.Fatal("cast function not found")
+	}
+
+	// int32 overflow must error instead of silently wrapping.
+	if _, err := fn.Execute(&FunctionContext{}, []interface{}{2147483648, "int32"}); err == nil {
+		t.Error(`cast(2147483648, "int32") expected error, got nil`)
+	}
+
+	// "int" returns int (not int32) on 64-bit platforms.
+	r, err := fn.Execute(&FunctionContext{}, []interface{}{100, "int"})
+	if err != nil {
+		t.Errorf(`cast(100, "int") unexpected error: %v`, err)
+	}
+	if _, ok := r.(int); !ok {
+		t.Errorf(`cast(100, "int") returned %T, want int`, r)
+	}
+}

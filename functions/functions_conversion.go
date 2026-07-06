@@ -34,10 +34,22 @@ func (f *CastFunction) Execute(ctx *FunctionContext, args []interface{}) (interf
 	switch targetType {
 	case "bigint", "int64":
 		return cast.ToInt64E(value)
-	case "int", "int32":
+	case "int":
 		val, err := cast.ToInt64E(value)
 		if err != nil {
 			return nil, err
+		}
+		if val > math.MaxInt || val < math.MinInt {
+			return nil, fmt.Errorf("value %d out of range for int", val)
+		}
+		return int(val), nil
+	case "int32":
+		val, err := cast.ToInt64E(value)
+		if err != nil {
+			return nil, err
+		}
+		if val > math.MaxInt32 || val < math.MinInt32 {
+			return nil, fmt.Errorf("value %d out of range for int32", val)
 		}
 		return int32(val), nil
 	case "float", "float64":

@@ -19,6 +19,7 @@ package cast
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 )
@@ -56,9 +57,16 @@ func ToIntE(value interface{}) (int, error) {
 	case uint64:
 		return int(v), nil
 	case float64:
+		if v > float64(math.MaxInt) || v < float64(math.MinInt) {
+			return 0, fmt.Errorf("value %v out of range for int", v)
+		}
 		return int(v), nil
 	case float32:
-		return int(v), nil
+		f := float64(v)
+		if f > float64(math.MaxInt) || f < float64(math.MinInt) {
+			return 0, fmt.Errorf("value %v out of range for int", v)
+		}
+		return int(f), nil
 	case string:
 		if i, err := strconv.Atoi(v); err == nil {
 			return i, nil
@@ -103,9 +111,16 @@ func ToInt64E(value interface{}) (int64, error) {
 	case uint64:
 		return int64(v), nil
 	case float64:
+		if v > float64(math.MaxInt64) || v < float64(math.MinInt64) {
+			return 0, fmt.Errorf("value %v out of range for int64", v)
+		}
 		return int64(v), nil
 	case float32:
-		return int64(v), nil
+		f := float64(v)
+		if f > float64(math.MaxInt64) || f < float64(math.MinInt64) {
+			return 0, fmt.Errorf("value %v out of range for int64", v)
+		}
+		return int64(f), nil
 	case string:
 		if i, err := strconv.Atoi(v); err == nil {
 			return int64(i), nil
