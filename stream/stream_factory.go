@@ -175,5 +175,8 @@ func (sf *StreamFactory) validatePerformanceConfig(config types.PerformanceConfi
 
 // startWorkerRoutines starts worker goroutines
 func (sf *StreamFactory) startWorkerRoutines(stream *Stream, perfConfig types.PerformanceConfig) {
-	go stream.startSinkWorkerPool(perfConfig.WorkerConfig.SinkWorkerCount)
+	// Start synchronously: startSinkWorkerPool only spawns goroutines and returns
+	// immediately, and calling it inline ensures the lifecycle Add for the workers
+	// happens before the stream is returned, so a subsequent Stop always joins them.
+	stream.startSinkWorkerPool(perfConfig.WorkerConfig.SinkWorkerCount)
 }

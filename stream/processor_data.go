@@ -304,6 +304,7 @@ func (dp *DataProcessor) startWindowProcessing() {
 
 	// Process window mode
 	go func() {
+		defer dp.stream.lifecycle.Done()
 		defer func() {
 			if r := recover(); r != nil {
 				logger.Error("Window processing goroutine panic recovered: %v", r)

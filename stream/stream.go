@@ -77,6 +77,11 @@ type Stream struct {
 	maxRetryRoutines int32        // Maximum retry goroutine limit
 	stopped          int32        // Stop status flag using atomic operations
 
+	// lifecycle tracks goroutines that run user code or sinks (data processor,
+	// window-output consumer, sink workers). Stop joins them so it returns only
+	// once no callback can still touch stream state.
+	lifecycle sync.WaitGroup
+
 	// Performance monitoring metrics
 	inputCount   int64 // Input data count
 	outputCount  int64 // Output result count
@@ -200,7 +205,17 @@ func convertToAggregationFields(selectFields map[string]aggregator.AggregateType
 func (s *Stream) Start() {
 	// Create data processor and start
 	processor := NewDataProcessor(s)
-	go processor.Process()
+	// Register tracked goroutines before spawning so Stop's join always observes
+	// them: one for the data processor, one for the window-output consumer of
+	// windowed queries.
+	s.lifecycle.Add(1)
+	if s.config.NeedWindow {
+		s.lifecycle.Add(1)
+	}
+	go func() {
+		defer s.lifecycle.Done()
+		processor.Process()
+	}()
 }
 
 // Emit adds data to stream processing pipeline
@@ -236,6 +251,33 @@ func (s *Stream) Stop() {
 		if err := s.dataStrategy.Stop(); err != nil {
 			logger.Error("Failed to stop data strategy: %v", err)
 		}
+	}
+
+	// Join all tracked goroutines so Stop returns only once no sink callback or
+	// pipeline goroutine can still touch stream state. Bounded by a grace period:
+	// a user sink that blocks forever cannot be interrupted (Go has no goroutine
+	// kill), so it is abandoned after the grace rather than hanging the caller
+	// (e.g. a rulego component Destroy).
+	s.waitLifecycle()
+}
+
+// defaultStopGrace is the maximum time Stop waits for goroutines to drain.
+// Only reached when a user sink blocks; well-behaved sinks drain in microseconds.
+const defaultStopGrace = 5 * time.Second
+
+// waitLifecycle blocks until every tracked goroutine exits or the grace period
+// elapses. If the grace elapses a sink is likely blocked; its goroutine (and the
+// watcher goroutine spawned here) continue until the sink returns.
+func (s *Stream) waitLifecycle() {
+	drained := make(chan struct{})
+	go func() {
+		s.lifecycle.Wait()
+		close(drained)
+	}()
+	select {
+	case <-drained:
+	case <-time.After(defaultStopGrace):
+		logger.Warn("Stream.Stop: goroutines did not exit within %s; a sink may be blocked", defaultStopGrace)
 	}
 }
 

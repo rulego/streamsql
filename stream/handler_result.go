@@ -40,8 +40,12 @@ func (s *Stream) startSinkWorkerPool(workerCount int) {
 		workerCount = 8 // Default value
 	}
 
+	// Register workers with the lifecycle tracker before spawning so Stop's join
+	// always observes the full count.
+	s.lifecycle.Add(workerCount)
 	for i := 0; i < workerCount; i++ {
 		go func(workerID int) {
+			defer s.lifecycle.Done()
 			for {
 				select {
 				case task := <-s.sinkWorkerPool:
@@ -187,9 +191,16 @@ func (s *Stream) submitSinkTask(sink func([]map[string]interface{}), results []m
 	case s.sinkWorkerPool <- task:
 		// Successfully submitted task
 	default:
-		// Worker pool is full, execute directly in current goroutine (degraded handling)
-		// This also helps with backpressure
-		task()
+		// Worker pool is full. During shutdown, drop instead of running inline:
+		// inline execution would block the pipeline goroutine that Stop is joining,
+		// delaying or preventing a clean drain.
+		select {
+		case <-s.done:
+			return
+		default:
+			// Degraded handling under load: execute in the calling goroutine.
+			task()
+		}
 	}
 }
 
