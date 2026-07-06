@@ -26,6 +26,7 @@ type SelectStatement struct {
 	GroupBy   []string
 	Limit     int
 	Having    string
+	OrderBy   []types.OrderByField
 }
 
 type Field struct {
@@ -167,6 +168,7 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		FieldExpressions:   expressions,
 		PostAggExpressions: postAggExpressions,
 		FieldOrder:         fieldOrder,
+		OrderBy:            s.OrderBy,
 	}
 
 	return &config, s.Condition, nil

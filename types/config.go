@@ -34,12 +34,27 @@ type Config struct {
 	Distinct   bool `json:"distinct"`
 
 	// Result control
-	Limit       int          `json:"limit"`
-	Projections []Projection `json:"projections"`
+	Limit       int            `json:"limit"`
+	Projections []Projection   `json:"projections"`
+	OrderBy     []OrderByField `json:"orderBy"` // ORDER BY sort keys, applied per emit batch
 
 	// Performance configuration
 	PerformanceConfig PerformanceConfig `json:"performanceConfig"`
 }
+
+// OrderByField represents a single ORDER BY sort key.
+type OrderByField struct {
+	Expression string        `json:"expression"` // result column name (v0.5: must match an output field)
+	Direction  SortDirection `json:"direction"`  // SortAsc (default) or SortDesc
+}
+
+// SortDirection selects ascending or descending order.
+type SortDirection string
+
+const (
+	SortAsc  SortDirection = "ASC"
+	SortDesc SortDirection = "DESC"
+)
 
 // TimeCharacteristic represents the time characteristic for window operations
 type TimeCharacteristic string

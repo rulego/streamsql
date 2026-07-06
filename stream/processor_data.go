@@ -366,6 +366,9 @@ func (dp *DataProcessor) processAggregationResults(results []map[string]interfac
 		finalResults = dp.applyHavingFilter(finalResults)
 	}
 
+	// Apply ORDER BY before LIMIT so LIMIT selects the top-N of the sorted order.
+	dp.stream.applyOrderBy(finalResults)
+
 	// Apply LIMIT restriction
 	if dp.stream.config.Limit > 0 && len(finalResults) > dp.stream.config.Limit {
 		finalResults = finalResults[:dp.stream.config.Limit]
@@ -541,6 +544,9 @@ func (dp *DataProcessor) processDirectData(data map[string]interface{}) {
 
 	// Check if any field contains unnest function result and expand to multiple rows
 	results := dp.expandUnnestResults(result, dataMap)
+
+	// Apply ORDER BY to the (possibly unnest-expanded) batch.
+	dp.stream.applyOrderBy(results)
 
 	// Non-blocking send result to resultChan
 	dp.stream.sendResultNonBlocking(results)

@@ -206,6 +206,13 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 		}
 	}
 
+	// 解析 ORDER BY 子句
+	if err := p.parseOrderBy(stmt); err != nil {
+		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
+			return nil, p.createDetailedError(err)
+		}
+	}
+
 	// 解析LIMIT子句
 	if err := p.parseLimit(stmt); err != nil {
 		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
@@ -464,7 +471,8 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 		tok := p.lexer.NextToken()
 		if tok.Type == TokenGROUP || tok.Type == TokenEOF || tok.Type == TokenSliding ||
 			tok.Type == TokenTumbling || tok.Type == TokenCounting || tok.Type == TokenSession ||
-			tok.Type == TokenHAVING || tok.Type == TokenLIMIT || tok.Type == TokenWITH {
+			tok.Type == TokenHAVING || tok.Type == TokenLIMIT || tok.Type == TokenWITH ||
+			tok.Type == TokenOrder {
 			break
 		}
 		switch tok.Type {
@@ -982,6 +990,88 @@ func (p *Parser) parseLimit(stmt *SelectStatement) error {
 	}
 
 	stmt.Limit = limit
+	return nil
+}
+
+// parseOrderBy 解析 ORDER BY 子句。用独立 lexer 扫描真正的 TokenOrder，
+// 避免误匹配标识符/字符串字面量中的 "ORDER" 子串（与 parseLimit 同样的稳健做法）。
+// v0.5：每个排序键为结果列名（标识符，可含点路径），后接可选 ASC/DESC，逗号分隔。
+func (p *Parser) parseOrderBy(stmt *SelectStatement) error {
+	// 用独立 lexer 定位真正的 ORDER 关键字位置
+	orderLexer := NewLexer(p.input)
+	orderLexer.SetErrorRecovery(NewErrorRecovery(nil))
+	orderPos := -1
+	for {
+		tok := orderLexer.NextToken()
+		if tok.Type == TokenEOF {
+			break
+		}
+		if tok.Type == TokenOrder {
+			orderPos = tok.Pos
+			break
+		}
+	}
+	if orderPos == -1 {
+		return nil // 无 ORDER BY 子句
+	}
+
+	// 从 ORDER 之后重新 lex，解析 BY 及字段列表
+	fieldLexer := NewLexer(p.input[orderPos+len("ORDER"):])
+	fieldLexer.SetErrorRecovery(NewErrorRecovery(nil))
+
+	if tok := fieldLexer.NextToken(); tok.Type != TokenBY {
+		// ORDER 后不是 BY，不当作 ORDER BY（例如列名含 ORDER 子串已被上面的 token 扫描排除）
+		return nil
+	}
+
+	var fields []types.OrderByField
+	for {
+		var exprBuilder strings.Builder
+		dir := types.SortAsc
+		done := false   // reached end of ORDER BY (EOF/LIMIT)
+		advance := false // a comma was consumed; another key follows
+
+		// Collect the field expression tokens.
+		for {
+			tok := fieldLexer.NextToken()
+			if tok.Type == TokenEOF || tok.Type == TokenLIMIT {
+				done = true
+				break
+			}
+			if tok.Type == TokenComma {
+				advance = true
+				break
+			}
+			// ASC/DESC 作为方向关键字（它们没有独立 token，按标识符值识别）
+			if tok.Type == TokenIdent {
+				upper := strings.ToUpper(tok.Value)
+				if upper == "ASC" || upper == "DESC" {
+					if upper == "DESC" {
+						dir = types.SortDesc
+					}
+					// 方向已消费，其后应为逗号或子句结束
+					sep := fieldLexer.NextToken()
+					if sep.Type == TokenComma {
+						advance = true
+					} else {
+						done = true
+					}
+					break
+				}
+			}
+			// 追加 token 值（不加分隔符，使 a.b / backtick 字段能正确重建）
+			exprBuilder.WriteString(tok.Value)
+		}
+
+		if exprStr := strings.TrimSpace(exprBuilder.String()); exprStr != "" {
+			fields = append(fields, types.OrderByField{Expression: exprStr, Direction: dir})
+		}
+		if done || !advance {
+			break
+		}
+	}
+
+	stmt.OrderBy = fields
 	return nil
 }
 
