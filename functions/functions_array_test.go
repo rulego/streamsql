@@ -204,6 +204,66 @@ func TestArrayFunctions(t *testing.T) {
 	}
 }
 
+// TestArrayFunctionsUnhashable verifies that array set functions handle
+// unhashable elements (nested slices, maps) without panicking.
+func TestArrayFunctionsUnhashable(t *testing.T) {
+	tests := []struct {
+		name     string
+		funcName string
+		args     []interface{}
+		expected interface{}
+	}{
+		{
+			name:     "distinct nested slices",
+			funcName: "array_distinct",
+			args:     []interface{}{[]interface{}{[]interface{}{"a", "b"}, []interface{}{"c", "d"}, []interface{}{"a", "b"}}},
+			expected: []interface{}{[]interface{}{"a", "b"}, []interface{}{"c", "d"}},
+		},
+		{
+			name:     "distinct maps",
+			funcName: "array_distinct",
+			args:     []interface{}{[]interface{}{map[string]interface{}{"x": 1}, map[string]interface{}{"x": 2}, map[string]interface{}{"x": 1}}},
+			expected: []interface{}{map[string]interface{}{"x": 1}, map[string]interface{}{"x": 2}},
+		},
+		{
+			name:     "intersect nested slices",
+			funcName: "array_intersect",
+			args:     []interface{}{[]interface{}{[]interface{}{1, 2}, []interface{}{3, 4}}, []interface{}{[]interface{}{3, 4}, []interface{}{5, 6}}},
+			expected: []interface{}{[]interface{}{3, 4}},
+		},
+		{
+			name:     "union nested slices",
+			funcName: "array_union",
+			args:     []interface{}{[]interface{}{[]interface{}{1}, []interface{}{2}}, []interface{}{[]interface{}{2}, []interface{}{3}}},
+			expected: []interface{}{[]interface{}{1}, []interface{}{2}, []interface{}{3}},
+		},
+		{
+			name:     "except nested slices",
+			funcName: "array_except",
+			args:     []interface{}{[]interface{}{[]interface{}{1}, []interface{}{2}, []interface{}{3}}, []interface{}{[]interface{}{2}}},
+			expected: []interface{}{[]interface{}{1}, []interface{}{3}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fn, exists := Get(tt.funcName)
+			if !exists {
+				t.Fatalf("Function %s not found", tt.funcName)
+			}
+
+			result, err := fn.Execute(&FunctionContext{}, tt.args)
+			if err != nil {
+				t.Fatalf("Execute() unexpected error: %v", err)
+			}
+
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("Execute() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
 // TestArrayFunctionErrors 测试数组函数的错误处理
 func TestArrayFunctionErrors(t *testing.T) {
 	tests := []struct {

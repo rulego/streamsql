@@ -127,6 +127,48 @@ func (f *ArrayRemoveFunction) Execute(ctx *FunctionContext, args []interface{}) 
 	return result, nil
 }
 
+// hashSafeSet is a set of interface{} values that tolerates unhashable elements
+// (slices, maps) by falling back to a reflect.DeepEqual linear scan.
+type hashSafeSet struct {
+	m     map[interface{}]bool
+	extra []interface{}
+}
+
+func newHashSafeSet() *hashSafeSet {
+	return &hashSafeSet{m: make(map[interface{}]bool)}
+}
+
+// has reports whether elem is in the set.
+func (s *hashSafeSet) has(elem interface{}) bool {
+	if elem == nil || reflect.TypeOf(elem).Comparable() {
+		return s.m[elem]
+	}
+	for _, e := range s.extra {
+		if reflect.DeepEqual(e, elem) {
+			return true
+		}
+	}
+	return false
+}
+
+// add inserts elem and reports whether it was newly added.
+func (s *hashSafeSet) add(elem interface{}) bool {
+	if elem == nil || reflect.TypeOf(elem).Comparable() {
+		if s.m[elem] {
+			return false
+		}
+		s.m[elem] = true
+		return true
+	}
+	for _, e := range s.extra {
+		if reflect.DeepEqual(e, elem) {
+			return false
+		}
+	}
+	s.extra = append(s.extra, elem)
+	return true
+}
+
 // ArrayDistinctFunction 数组去重
 type ArrayDistinctFunction struct {
 	*BaseFunction
@@ -150,13 +192,12 @@ func (f *ArrayDistinctFunction) Execute(ctx *FunctionContext, args []interface{}
 		return nil, fmt.Errorf("array_distinct requires array input")
 	}
 
-	seen := make(map[interface{}]bool)
-	result := make([]interface{}, 0) // 初始化为空切片而不是nil切片
+	seen := newHashSafeSet()
+	result := make([]interface{}, 0)
 
 	for i := 0; i < v.Len(); i++ {
 		elem := v.Index(i).Interface()
-		if !seen[elem] {
-			seen[elem] = true
+		if seen.add(elem) {
 			result = append(result, elem)
 		}
 	}
@@ -193,19 +234,18 @@ func (f *ArrayIntersectFunction) Execute(ctx *FunctionContext, args []interface{
 	}
 
 	// 创建第二个数组的元素集合
-	set2 := make(map[interface{}]bool)
+	set2 := newHashSafeSet()
 	for i := 0; i < v2.Len(); i++ {
-		set2[v2.Index(i).Interface()] = true
+		set2.add(v2.Index(i).Interface())
 	}
 
 	// 找交集
-	seen := make(map[interface{}]bool)
-	result := make([]interface{}, 0) // 初始化为空切片而不是nil切片
+	seen := newHashSafeSet()
+	result := make([]interface{}, 0)
 
 	for i := 0; i < v1.Len(); i++ {
 		elem := v1.Index(i).Interface()
-		if set2[elem] && !seen[elem] {
-			seen[elem] = true
+		if set2.has(elem) && seen.add(elem) {
 			result = append(result, elem)
 		}
 	}
@@ -241,14 +281,13 @@ func (f *ArrayUnionFunction) Execute(ctx *FunctionContext, args []interface{}) (
 		return nil, fmt.Errorf("array_union requires array input for second argument")
 	}
 
-	seen := make(map[interface{}]bool)
-	result := make([]interface{}, 0) // 初始化为空切片而不是nil切片
+	seen := newHashSafeSet()
+	result := make([]interface{}, 0)
 
 	// 添加第一个数组的元素
 	for i := 0; i < v1.Len(); i++ {
 		elem := v1.Index(i).Interface()
-		if !seen[elem] {
-			seen[elem] = true
+		if seen.add(elem) {
 			result = append(result, elem)
 		}
 	}
@@ -256,8 +295,7 @@ func (f *ArrayUnionFunction) Execute(ctx *FunctionContext, args []interface{}) (
 	// 添加第二个数组的元素
 	for i := 0; i < v2.Len(); i++ {
 		elem := v2.Index(i).Interface()
-		if !seen[elem] {
-			seen[elem] = true
+		if seen.add(elem) {
 			result = append(result, elem)
 		}
 	}
@@ -294,19 +332,18 @@ func (f *ArrayExceptFunction) Execute(ctx *FunctionContext, args []interface{}) 
 	}
 
 	// 创建第二个数组的元素集合
-	set2 := make(map[interface{}]bool)
+	set2 := newHashSafeSet()
 	for i := 0; i < v2.Len(); i++ {
-		set2[v2.Index(i).Interface()] = true
+		set2.add(v2.Index(i).Interface())
 	}
 
 	// 找差集
-	seen := make(map[interface{}]bool)
-	result := make([]interface{}, 0) // 初始化为空切片而不是nil切片
+	seen := newHashSafeSet()
+	result := make([]interface{}, 0)
 
 	for i := 0; i < v1.Len(); i++ {
 		elem := v1.Index(i).Interface()
-		if !set2[elem] && !seen[elem] {
-			seen[elem] = true
+		if !set2.has(elem) && seen.add(elem) {
 			result = append(result, elem)
 		}
 	}
