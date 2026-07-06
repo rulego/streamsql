@@ -123,6 +123,17 @@ func (bridge *ExprBridge) CreateEnhancedExprEnvironment(data map[string]interfac
 	return env
 }
 
+// createDataEnv returns a shallow copy of data for use as the expr-lang runtime
+// environment on the compiled-program path. A copy avoids mutating the caller's
+// map. Functions are compiled into the program, so they are not added here.
+func (bridge *ExprBridge) createDataEnv(data map[string]interface{}) map[string]interface{} {
+	env := make(map[string]interface{}, len(data))
+	for k, v := range data {
+		env[k] = v
+	}
+	return env
+}
+
 // CompileExpressionWithStreamSQLFunctions 编译表达式，包含StreamSQL函数
 func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression string, dataType interface{}) (*vm.Program, error) {
 	// Cache compiled programs by (env-type, expression). Compiling rebuilds all
@@ -211,8 +222,12 @@ func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]
 	// 尝试使用编译后的程序执行（包含StreamSQL函数）
 	program, err := bridge.CompileExpressionWithStreamSQLFunctions(expression, data)
 	if err == nil {
-		// 创建增强环境
-		env := bridge.CreateEnhancedExprEnvironment(data)
+		// Functions are compiled into the program via expr.Function, so the
+		// runtime env only needs the data — no need to rebuild dozens of
+		// function-wrapper closures per call. Expressions that still need
+		// env-level functions (e.g. streamsql_* aliases) fall through to the
+		// expr.Eval path below on Run error.
+		env := bridge.createDataEnv(data)
 		result, err := expr.Run(program, env)
 		if err == nil {
 			return result, nil

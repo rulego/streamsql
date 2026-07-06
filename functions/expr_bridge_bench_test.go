@@ -44,3 +44,23 @@ func BenchmarkExprBridge_Field(b *testing.B) {
 		"temperature": 25.7,
 	})
 }
+
+// Isolate the per-call environment construction cost.
+func BenchmarkExprBridge_CreateEnv(b *testing.B) {
+	bridge := GetExprBridge()
+	data := map[string]interface{}{"temperature": 25.7, "humidity": 65.0}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = bridge.CreateEnhancedExprEnvironment(data)
+	}
+}
+
+// Isolate ListAll (registry snapshot) cost.
+func BenchmarkExprBridge_ListAll(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_ = ListAll()
+	}
+}
+
