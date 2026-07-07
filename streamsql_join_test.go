@@ -13,6 +13,34 @@ func deviceMetaRows() []map[string]interface{} {
 	}
 }
 
+// TestJoinMultipleTables verifies a stream can JOIN several metadata tables;
+// each is registered separately and its columns are namespaced by its own alias.
+func TestJoinMultipleTables(t *testing.T) {
+	ssql := New()
+	defer ssql.Stop()
+	if err := ssql.Execute("SELECT deviceId, l.location, s.model FROM stream JOIN locations l ON deviceId = l.deviceId JOIN models s ON deviceId = s.deviceId"); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if _, err := ssql.RegisterTable("locations", "deviceId", []map[string]interface{}{
+		{"deviceId": "d1", "location": "plantA"},
+	}); err != nil {
+		t.Fatalf("RegisterTable locations: %v", err)
+	}
+	if _, err := ssql.RegisterTable("models", "deviceId", []map[string]interface{}{
+		{"deviceId": "d1", "model": "MX-1"},
+	}); err != nil {
+		t.Fatalf("RegisterTable models: %v", err)
+	}
+
+	got, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	if err != nil {
+		t.Fatalf("EmitSync: %v", err)
+	}
+	if got["location"] != "plantA" || got["model"] != "MX-1" || got["deviceId"] != "d1" {
+		t.Errorf("multi-table enrich got=%v, want location=plantA model=MX-1", got)
+	}
+}
+
 func TestJoinInnerEnrich(t *testing.T) {
 	ssql := New()
 	defer ssql.Stop()
