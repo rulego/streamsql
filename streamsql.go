@@ -287,6 +287,15 @@ func (s *Streamsql) Stream() *stream.Stream {
 	return s.stream
 }
 
+// TriggerWindow manually triggers the current window to emit immediately,
+// bypassing its normal time/count trigger. Intended for tests that need a
+// window to fire deterministically, and as an explicit flush hook.
+func (s *Streamsql) TriggerWindow() {
+	if s.stream != nil && s.stream.Window != nil {
+		s.stream.Window.Trigger()
+	}
+}
+
 // GetStats returns stream processing statistics
 func (s *Streamsql) GetStats() map[string]int64 {
 	if s.stream != nil {
