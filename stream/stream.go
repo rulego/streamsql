@@ -290,6 +290,23 @@ func (s *Stream) RegisterMemoryTable(name string, keyFields []string, rows []map
 	return src, nil
 }
 
+// JoinKeyFields returns the table-side key fields for a table by looking up the
+// JOIN config that references it. This lets RegisterTable auto-derive the index
+// key from the ON clause instead of requiring the caller to redeclare it.
+// Returns an error if no JOIN references the table.
+func (s *Stream) JoinKeyFields(table string) ([]string, error) {
+	for _, jc := range s.config.JoinConfigs {
+		if jc.Table == table {
+			fields := make([]string, len(jc.OnPairs))
+			for i, p := range jc.OnPairs {
+				fields[i] = p.TableField
+			}
+			return fields, nil
+		}
+	}
+	return nil, fmt.Errorf("table %q is not referenced by any JOIN ON clause", table)
+}
+
 // UpsertTableRow adds or replaces a row in a registered memory table.
 func (s *Stream) UpsertTableRow(name string, row map[string]interface{}) error {
 	src, ok := s.tables.get(name)

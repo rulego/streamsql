@@ -21,12 +21,12 @@ func TestJoinMultipleTables(t *testing.T) {
 	if err := ssql.Execute("SELECT deviceId, l.location, s.model FROM stream JOIN locations l ON deviceId = l.deviceId JOIN models s ON deviceId = s.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if _, err := ssql.RegisterTable("locations", "deviceId", []map[string]interface{}{
+	if _, err := ssql.RegisterTable("locations", []map[string]interface{}{
 		{"deviceId": "d1", "location": "plantA"},
 	}); err != nil {
 		t.Fatalf("RegisterTable locations: %v", err)
 	}
-	if _, err := ssql.RegisterTable("models", "deviceId", []map[string]interface{}{
+	if _, err := ssql.RegisterTable("models", []map[string]interface{}{
 		{"deviceId": "d1", "model": "MX-1"},
 	}); err != nil {
 		t.Fatalf("RegisterTable models: %v", err)
@@ -47,7 +47,7 @@ func TestJoinInnerEnrich(t *testing.T) {
 	if err := ssql.Execute("SELECT deviceId, m.location, m.type FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if _, err := ssql.RegisterTable("meta", "deviceId", deviceMetaRows()); err != nil {
+	if _, err := ssql.RegisterTable("meta", deviceMetaRows()); err != nil {
 		t.Fatalf("RegisterTable: %v", err)
 	}
 
@@ -67,7 +67,7 @@ func TestJoinInnerNoMatchDropped(t *testing.T) {
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if _, err := ssql.RegisterTable("meta", "deviceId", deviceMetaRows()); err != nil {
+	if _, err := ssql.RegisterTable("meta", deviceMetaRows()); err != nil {
 		t.Fatalf("RegisterTable: %v", err)
 	}
 
@@ -87,7 +87,7 @@ func TestJoinLeftNullFill(t *testing.T) {
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream LEFT JOIN meta m ON deviceId = m.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if _, err := ssql.RegisterTable("meta", "deviceId", deviceMetaRows()); err != nil {
+	if _, err := ssql.RegisterTable("meta", deviceMetaRows()); err != nil {
 		t.Fatalf("RegisterTable: %v", err)
 	}
 
@@ -116,8 +116,9 @@ func TestJoinCompositeKey(t *testing.T) {
 		{"deviceId": "d1", "tenant": "t1", "location": "plantA"},
 		{"deviceId": "d1", "tenant": "t2", "location": "plantB"},
 	}
-	if _, err := ssql.RegisterTableKeys("meta", []string{"deviceId", "tenant"}, rows); err != nil {
-		t.Fatalf("RegisterTableKeys: %v", err)
+	// Composite key auto-derived from the two ON equalities (deviceId, tenant).
+	if _, err := ssql.RegisterTable("meta", rows); err != nil {
+		t.Fatalf("RegisterTable: %v", err)
 	}
 
 	got, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d1", "tenant": "t2"})
@@ -126,6 +127,41 @@ func TestJoinCompositeKey(t *testing.T) {
 	}
 	if got["location"] != "plantB" {
 		t.Errorf("location=%v, want plantB (composite key)", got["location"])
+	}
+}
+
+// TestJoinExplicitKeyFields overrides the auto-derived key with explicit
+// keyFields (useful when the index column differs from the ON field, or to
+// register before the JOIN key is otherwise derivable).
+func TestJoinExplicitKeyFields(t *testing.T) {
+	ssql := New()
+	defer ssql.Stop()
+	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	// Explicit single key override.
+	if _, err := ssql.RegisterTable("meta", deviceMetaRows(), "deviceId"); err != nil {
+		t.Fatalf("RegisterTable: %v", err)
+	}
+	got, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	if err != nil {
+		t.Fatalf("EmitSync: %v", err)
+	}
+	if got["location"] != "plantA" {
+		t.Errorf("location=%v, want plantA", got["location"])
+	}
+}
+
+// TestJoinRegisterTableNotInJoin errors when auto-derive can't find the table in
+// any JOIN ON clause and no explicit keyFields were given.
+func TestJoinRegisterTableNotInJoin(t *testing.T) {
+	ssql := New()
+	defer ssql.Stop()
+	if err := ssql.Execute("SELECT deviceId FROM stream"); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if _, err := ssql.RegisterTable("meta", deviceMetaRows()); err == nil {
+		t.Error("expected error registering a table not referenced by any JOIN, got nil")
 	}
 }
 
@@ -149,7 +185,7 @@ func TestJoinConcurrentEmitAndUpsert(t *testing.T) {
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	src, err := ssql.RegisterTable("meta", "deviceId", deviceMetaRows())
+	src, err := ssql.RegisterTable("meta", deviceMetaRows())
 	if err != nil {
 		t.Fatalf("RegisterTable: %v", err)
 	}

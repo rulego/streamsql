@@ -416,26 +416,29 @@ func (s *Streamsql) ToChannel() <-chan []map[string]interface{} {
 	return nil
 }
 
-// RegisterTable registers an in-memory metadata table indexed by a single key
-// field, for use in stream-table JOIN. keyField must equal the table-side field
-// of the JOIN ON clause. Returns the source so callers can Upsert/Delete rows.
+// RegisterTable registers an in-memory metadata table for stream-table JOIN.
 //
-// Must be called after Execute. Example:
+// The index key is auto-derived from the JOIN ON clause's table-side field(s)
+// when keyFields is omitted, so callers do not redeclare what ON already states
+// (single or composite key both auto-derived). Pass keyFields explicitly to
+// override. Returns the source so callers can Upsert/Delete rows incrementally.
 //
-//	ssql.Execute(`SELECT s.deviceId, m.location FROM stream s JOIN meta m ON s.deviceId = m.deviceId`)
-//	ssql.RegisterTable("meta", "deviceId", rows)
-func (s *Streamsql) RegisterTable(name, keyField string, rows []map[string]interface{}) (*stream.MemoryTableSource, error) {
+// Must be called after Execute. Examples:
+//
+//	// Auto-derive key from ON (recommended): ON deviceId = m.deviceId
+//	ssql.RegisterTable("meta", rows)
+//	// Explicit composite key:
+//	ssql.RegisterTable("meta", rows, "deviceId", "tenant")
+func (s *Streamsql) RegisterTable(name string, rows []map[string]interface{}, keyFields ...string) (*stream.MemoryTableSource, error) {
 	if s.stream == nil {
 		return nil, fmt.Errorf("Execute must be called before RegisterTable")
 	}
-	return s.stream.RegisterMemoryTable(name, []string{keyField}, rows)
-}
-
-// RegisterTableKeys is like RegisterTable but indexes by multiple key fields
-// (composite JOIN key). keyFields order must match the JOIN ON table-side fields.
-func (s *Streamsql) RegisterTableKeys(name string, keyFields []string, rows []map[string]interface{}) (*stream.MemoryTableSource, error) {
-	if s.stream == nil {
-		return nil, fmt.Errorf("Execute must be called before RegisterTableKeys")
+	if len(keyFields) == 0 {
+		derived, err := s.stream.JoinKeyFields(name)
+		if err != nil {
+			return nil, err
+		}
+		keyFields = derived
 	}
 	return s.stream.RegisterMemoryTable(name, keyFields, rows)
 }
