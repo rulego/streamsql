@@ -346,6 +346,10 @@ func (sw *SessionWindow) checkExpiredSessions() {
 	sw.mu.Lock()
 	now := time.Now()
 	resultsToSend := sw.collectExpiredSessions(now)
+	// Processing-time path must also reap triggeredSessions kept for late data;
+	// otherwise, with allowedLateness > 0, they accumulate forever (the event-time
+	// path does this in checkAndTriggerSessions).
+	sw.closeExpiredSessions(now)
 	sw.mu.Unlock()
 
 	sw.sendResults(resultsToSend)
