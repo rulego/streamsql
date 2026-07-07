@@ -198,9 +198,10 @@ func (fc *fastCompare) evalMap(data map[string]interface{}) (bool, bool) {
 var fastAndOr = regexp.MustCompile(`\s*(&&|\|\|)\s*`)
 
 func tryFastCompound(expression string) *fastCompound {
-	// Conservative: only attempt when there is no grouping and no string
-	// literals, so a naive split on &&/|| cannot break a quoted token.
-	if strings.ContainsAny(expression, "()'\"") {
+	// Skip grouping (a flat split cannot honor parentheses). Quoted string
+	// literals are fine: if a literal contained &&/|| and got mis-split, each
+	// resulting part would fail the strict per-part regex below and we bail.
+	if strings.ContainsAny(expression, "()") {
 		return nil
 	}
 	hasAnd := strings.Contains(expression, "&&")
