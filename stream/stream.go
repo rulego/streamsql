@@ -360,12 +360,8 @@ func (s *Stream) ProcessSync(data map[string]interface{}) (map[string]interface{
 		return nil, fmt.Errorf("Synchronous processing is not supported for aggregation queries.")
 	}
 
-	// Apply filter condition
-	if s.filter != nil && !s.filter.Evaluate(data) {
-		return nil, nil // Doesn't match filter condition, return nil
-	}
-
-	// Directly process data and return result
+	// Directly process data and return result. processDirectDataSync applies the
+	// filter after JOIN enrichment so WHERE can reference joined columns.
 	return s.processDirectDataSync(data)
 }
 
@@ -388,6 +384,10 @@ func (s *Stream) processDirectDataSync(data map[string]interface{}) (map[string]
 			return nil, nil // INNER JOIN no match: filtered
 		}
 		dataMap = wm
+	}
+	// Apply WHERE on the (possibly enriched) data so metadata columns are visible.
+	if s.filter != nil && !s.filter.Evaluate(dataMap) {
+		return nil, nil
 	}
 
 	// Create result map, pre-allocate appropriate capacity

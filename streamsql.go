@@ -140,6 +140,13 @@ func (s *Streamsql) Execute(sql string) error {
 	// Get field order information from parsing result
 	s.fieldOrder = config.FieldOrder
 
+	// JOIN is transform-only in v0.5 (enrichment runs on the non-window path);
+	// reject JOIN combined with aggregation/window to avoid silent no-enrichment.
+	if len(config.JoinConfigs) > 0 && config.NeedWindow {
+		atomic.StoreInt32(&s.executed, 0)
+		return fmt.Errorf("JOIN with aggregation/window is not supported (v0.5: stream-table JOIN only)")
+	}
+
 	// Create stream processor based on performance mode
 	var streamInstance *stream.Stream
 

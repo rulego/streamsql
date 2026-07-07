@@ -186,8 +186,8 @@ func TestJoinUpsertTableAndDelete(t *testing.T) {
 	}
 }
 
-// TestJoinWithWhere verifies WHERE filtering and JOIN enrichment coexist
-// (WHERE applies to stream columns before enrichment).
+// TestJoinWithWhere verifies WHERE filtering on a STREAM column coexists with
+// enrichment (WHERE applies after enrichment, stream columns still visible).
 func TestJoinWithWhere(t *testing.T) {
 	ssql := New()
 	defer ssql.Stop()
@@ -207,6 +207,65 @@ func TestJoinWithWhere(t *testing.T) {
 	got, _ = ssql.EmitSync(map[string]interface{}{"deviceId": "d1", "temperature": 20})
 	if got != nil {
 		t.Errorf("filtered row got=%v, want nil", got)
+	}
+}
+
+// TestJoinWhereOnMetadata verifies WHERE can filter on a JOINED metadata column
+// (enrichment runs before filtering).
+func TestJoinWhereOnMetadata(t *testing.T) {
+	ssql := New()
+	defer ssql.Stop()
+	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId WHERE m.type = 'temp'"); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if _, err := ssql.RegisterTable("meta", deviceMetaRows()); err != nil {
+		t.Fatalf("RegisterTable: %v", err)
+	}
+
+	// d1 has type=temp -> passes WHERE m.type='temp'.
+	got, _ := ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	if got == nil || got["location"] != "plantA" {
+		t.Errorf("d1 should pass WHERE m.type='temp': got=%v", got)
+	}
+	// d2 has type=humid -> filtered out by WHERE on metadata column.
+	got, _ = ssql.EmitSync(map[string]interface{}{"deviceId": "d2"})
+	if got != nil {
+		t.Errorf("d2 should be filtered by WHERE m.type='temp': got=%v", got)
+	}
+}
+
+// TestJoinLeftWhereMetadataIsNull verifies LEFT JOIN + WHERE m.<col> IS NULL
+// selects stream rows with no metadata match.
+func TestJoinLeftWhereMetadataIsNull(t *testing.T) {
+	ssql := New()
+	defer ssql.Stop()
+	if err := ssql.Execute("SELECT deviceId FROM stream LEFT JOIN meta m ON deviceId = m.deviceId WHERE m.location IS NULL"); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if _, err := ssql.RegisterTable("meta", deviceMetaRows()); err != nil {
+		t.Fatalf("RegisterTable: %v", err)
+	}
+
+	// d9 has no metadata -> m.location NULL -> passes IS NULL.
+	got, _ := ssql.EmitSync(map[string]interface{}{"deviceId": "d9"})
+	if got == nil {
+		t.Error("unmatched LEFT row should pass WHERE m.location IS NULL")
+	}
+	// d1 matches -> m.location not NULL -> filtered out.
+	got, _ = ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	if got != nil {
+		t.Errorf("matched row should be filtered by WHERE m.location IS NULL: got=%v", got)
+	}
+}
+
+// TestJoinWithAggregationRejected verifies JOIN + aggregation is rejected at
+// Execute (v0.5: JOIN is transform-only).
+func TestJoinWithAggregationRejected(t *testing.T) {
+	ssql := New()
+	defer ssql.Stop()
+	err := ssql.Execute("SELECT m.location, AVG(temperature) FROM stream JOIN meta m ON deviceId = m.deviceId GROUP BY m.location")
+	if err == nil {
+		t.Error("expected error for JOIN + aggregation, got nil")
 	}
 }
 

@@ -7,6 +7,12 @@ import (
 	"github.com/rulego/streamsql/utils/fieldpath"
 )
 
+// emptyMetadataRow is a shared, never-mutated empty map used as the placeholder
+// for a LEFT JOIN table that found no match. Using a real (empty) map instead of
+// nil lets expr-lang/fieldpath traverse "alias.<col>" without error (missing key
+// -> nil), so WHERE "m.col IS NULL" and NULL-filled SELECT columns both work.
+var emptyMetadataRow = map[string]interface{}{}
+
 // hasJoin reports whether this stream has any JOIN configured, so callers skip
 // enrichment entirely on the common no-JOIN path (zero overhead).
 func (s *Stream) hasJoin() bool {
@@ -51,7 +57,7 @@ func (s *Stream) enrichJoin(data map[string]interface{}) (working map[string]int
 		case matched:
 			working[jc.Alias] = row
 		case jc.JoinType == "LEFT":
-			working[jc.Alias] = nil
+			working[jc.Alias] = emptyMetadataRow
 		default:
 			return nil, false, nil // INNER JOIN, no match: drop the row
 		}

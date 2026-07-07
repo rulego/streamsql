@@ -70,15 +70,16 @@ func (dp *DataProcessor) Process() {
 				// Channel is closed
 				return
 			}
-			// Apply filter conditions
-			if dp.stream.filter == nil || dp.stream.filter.Evaluate(data) {
-				if dp.stream.config.NeedWindow {
-					// Window mode, add data to window
+			if dp.stream.config.NeedWindow {
+				// Window mode: filter raw stream data, then window it. (JOIN is
+				// transform-only in v0.5 and rejected at Execute for aggregation.)
+				if dp.stream.filter == nil || dp.stream.filter.Evaluate(data) {
 					dp.stream.Window.Add(data)
-				} else {
-					// Non-window mode, process data directly and output
-					dp.processDirectData(data)
 				}
+			} else {
+				// Non-window mode: processDirectData does enrich(if JOIN) ->
+				// filter -> project, so WHERE can reference joined columns.
+				dp.processDirectData(data)
 			}
 		case <-dp.stream.done:
 			// Received close signal
@@ -515,8 +516,8 @@ func (dp *DataProcessor) applyHavingWithCondition(results []map[string]interface
 // Parameters:
 //   - data: data to be processed, must be map[string]interface{} type
 func (dp *DataProcessor) processDirectData(data map[string]interface{}) {
-	// Resolve stream-table JOINs before projection so SELECT can reference
-	// joined columns. No-JOIN queries skip this (zero overhead).
+	// Resolve stream-table JOINs before filtering so WHERE can reference joined
+	// columns. No-JOIN queries skip this (zero overhead).
 	dataMap := data
 	if dp.stream.hasJoin() {
 		wm, keep, jerr := dp.stream.enrichJoin(data)
@@ -528,6 +529,10 @@ func (dp *DataProcessor) processDirectData(data map[string]interface{}) {
 			return // INNER JOIN no match: drop the row
 		}
 		dataMap = wm
+	}
+	// Apply WHERE on the (possibly enriched) data so metadata columns are visible.
+	if dp.stream.filter != nil && !dp.stream.filter.Evaluate(dataMap) {
+		return
 	}
 
 	// Create result map, pre-allocate appropriate capacity
