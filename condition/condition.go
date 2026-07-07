@@ -3,6 +3,8 @@ package condition
 import (
 	"fmt"
 	"reflect"
+	"regexp"
+	"strconv"
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
@@ -14,6 +16,12 @@ type Condition interface {
 
 type ExprCondition struct {
 	program *vm.Program
+	// fast is a compiled fast-path for trivial `field OP literal` comparisons.
+	// When non-nil and the runtime value matches its assumed type, Evaluate
+	// skips the expr-lang VM (and its reflect-based map field fetch). Anything
+	// the fast path cannot handle falls back to expr-lang, so semantics are
+	// preserved exactly.
+	fast *fastCompare
 }
 
 func NewExprCondition(expression string) (Condition, error) {
@@ -50,15 +58,135 @@ func NewExprCondition(expression string) (Condition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ExprCondition{program: program}, nil
+	return &ExprCondition{program: program, fast: tryFastCompare(expression)}, nil
 }
 
 func (ec *ExprCondition) Evaluate(env interface{}) bool {
+	if ec.fast != nil {
+		if r, ok := ec.fast.eval(env); ok {
+			return r
+		}
+	}
 	result, err := expr.Run(ec.program, env)
 	if err != nil {
 		return false
 	}
 	return result.(bool)
+}
+
+// fastCompare is a compiled fast-path for a single `field OP literal`
+// comparison. It only fires when the field value's type matches the literal's
+// kind (numeric vs string); otherwise the caller falls back to expr-lang.
+type fastCompare struct {
+	field    string
+	op       string
+	numLit   float64
+	strLit   string
+	isString bool
+}
+
+var (
+	fastFieldOpNum = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\s*(>=|<=|!=|<>|==|=|>|<)\s*(-?\d+(?:\.\d+)?)\s*$`)
+	fastFieldOpStr = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\s*(>=|<=|!=|<>|==|=|>|<)\s*'([^']*)'\s*$`)
+)
+
+// tryFastCompare returns a fast-path for trivial comparisons, or nil if the
+// expression is not a simple `field OP literal` form.
+func tryFastCompare(expression string) *fastCompare {
+	if m := fastFieldOpNum.FindStringSubmatch(expression); m != nil {
+		n, err := strconv.ParseFloat(m[3], 64)
+		if err != nil {
+			return nil
+		}
+		return &fastCompare{field: m[1], op: m[2], numLit: n}
+	}
+	if m := fastFieldOpStr.FindStringSubmatch(expression); m != nil {
+		return &fastCompare{field: m[1], op: m[2], strLit: m[3], isString: true}
+	}
+	return nil
+}
+
+// eval evaluates the fast-path. The bool result is valid only when ok is true;
+// ok==false means "could not handle this value, fall back to expr-lang".
+func (fc *fastCompare) eval(env interface{}) (bool, bool) {
+	data, ok := env.(map[string]interface{})
+	if !ok {
+		return false, false
+	}
+	v, exists := data[fc.field]
+	if !exists || v == nil {
+		return false, false
+	}
+	if fc.isString {
+		s, ok := v.(string)
+		if !ok {
+			return false, false
+		}
+		return compareStr(s, fc.op, fc.strLit), true
+	}
+	f, ok := toFloat64Fast(v)
+	if !ok {
+		return false, false
+	}
+	return compareNum(f, fc.op, fc.numLit), true
+}
+
+func toFloat64Fast(v interface{}) (float64, bool) {
+	switch x := v.(type) {
+	case float64:
+		return x, true
+	case float32:
+		return float64(x), true
+	case int:
+		return float64(x), true
+	case int64:
+		return float64(x), true
+	case int32:
+		return float64(x), true
+	case uint:
+		return float64(x), true
+	case uint64:
+		return float64(x), true
+	case uint32:
+		return float64(x), true
+	}
+	return 0, false
+}
+
+func compareNum(a float64, op string, b float64) bool {
+	switch op {
+	case ">":
+		return a > b
+	case ">=":
+		return a >= b
+	case "<":
+		return a < b
+	case "<=":
+		return a <= b
+	case "=", "==":
+		return a == b
+	case "!=", "<>":
+		return a != b
+	}
+	return false
+}
+
+func compareStr(a, op, b string) bool {
+	switch op {
+	case "=", "==":
+		return a == b
+	case "!=", "<>":
+		return a != b
+	case ">":
+		return a > b
+	case ">=":
+		return a >= b
+	case "<":
+		return a < b
+	case "<=":
+		return a <= b
+	}
+	return false
 }
 
 // matchesLikePattern implements LIKE pattern matching.
