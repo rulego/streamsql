@@ -6,6 +6,31 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestExprFunctionGetsRowData is a regression test: the compiled evaluation path
+// bakes StreamSQL functions into the program with closures that do not carry the
+// per-row data. The expr() function reads the row to evaluate its dynamic
+// sub-expression, so it must be routed through the env path (which builds
+// data-capturing closures). Before the fix, expr() silently returned nil.
+func TestExprFunctionGetsRowData(t *testing.T) {
+	bridge := NewExprBridge()
+	data := map[string]interface{}{"temperature": 99.0, "humidity": 60.0}
+
+	// Field reference inside expr() must resolve against the row.
+	got, err := bridge.EvaluateExpression("expr('temperature')", data)
+	assert.NoError(t, err)
+	assert.Equal(t, 99.0, got)
+
+	// Arithmetic inside expr() must resolve fields too.
+	got, err = bridge.EvaluateExpression("expr('temperature * 2 + humidity')", data)
+	assert.NoError(t, err)
+	assert.Equal(t, 258.0, got)
+
+	// Mixed: regular function result composed with expr() result is unaffected.
+	got, err = bridge.EvaluateExpression("abs(-3) + expr('humidity')", data)
+	assert.NoError(t, err)
+	assert.Equal(t, 63.0, got)
+}
+
 func TestExprBridge(t *testing.T) {
 	bridge := NewExprBridge()
 

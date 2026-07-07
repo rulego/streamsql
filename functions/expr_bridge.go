@@ -228,21 +228,25 @@ func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]
 		}
 	}
 
-	// 尝试使用编译后的程序执行（包含StreamSQL函数）
-	program, err := bridge.CompileExpressionWithStreamSQLFunctions(expression, data)
-	if err == nil {
-		// Functions are compiled into the program via expr.Function, so the
-		// runtime env only needs the data. expr-lang evaluation is read-only
-		// (no assignment), so the caller's data map is passed directly instead
-		// of being copied per call. Expressions that still need env-level
-		// functions (e.g. streamsql_* aliases) fall through to expr.Eval below.
-		result, err := expr.Run(program, data)
+	// expr() 在运行期对当行数据求值动态子表达式。编译路径把 StreamSQL 函数烘焙进
+	// program 时，闭包的 ctx.Data 只携带函数包装、不含行数据，因此 expr() 必须走
+	// env 路径（其闭包捕获真实 data）。其余表达式走快速编译路径。
+	if !bridge.usesExprFunction(expression) {
+		program, err := bridge.CompileExpressionWithStreamSQLFunctions(expression, data)
 		if err == nil {
-			return result, nil
+			// Functions are compiled into the program via expr.Function, so the
+			// runtime env only needs the data. expr-lang evaluation is read-only
+			// (no assignment), so the caller's data map is passed directly instead
+			// of being copied per call. Expressions that still need env-level
+			// functions (e.g. streamsql_* aliases) fall through to expr.Eval below.
+			result, err := expr.Run(program, data)
+			if err == nil {
+				return result, nil
+			}
 		}
 	}
 
-	// 如果编译失败，尝试直接使用expr.Eval
+	// env 路径：expr() 的正确路径，也是编译失败时的回退。
 	env := bridge.CreateEnhancedExprEnvironment(data)
 	result, err := expr.Eval(expression, env)
 	if err != nil {
@@ -255,6 +259,18 @@ func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]
 	}
 
 	return result, nil
+}
+
+// exprCallPattern matches a call to the expr() function (case-insensitive),
+// allowing optional whitespace before the opening parenthesis. The leading word
+// boundary prevents matching identifiers like "myexpr(".
+var exprCallPattern = regexp.MustCompile(`(?i)\bexpr\s*\(`)
+
+// usesExprFunction reports whether the expression invokes expr(), the only
+// StreamSQL function that reads the per-row data context. Such expressions must
+// take the env path so the dynamic sub-expression is evaluated against the row.
+func (bridge *ExprBridge) usesExprFunction(expression string) bool {
+	return exprCallPattern.MatchString(expression)
 }
 
 // isStringConcatenationExpression 检查是否是字符串拼接表达式
