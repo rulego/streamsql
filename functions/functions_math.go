@@ -353,7 +353,11 @@ func (f *ExpFunction) Execute(ctx *FunctionContext, args []interface{}) (interfa
 	if err != nil {
 		return nil, err
 	}
-	return math.Exp(val), nil
+	result := math.Exp(val)
+	if math.IsNaN(result) || math.IsInf(result, 0) {
+		return nil, fmt.Errorf("exp(%v) out of range", val)
+	}
+	return result, nil
 }
 
 // FloorFunction 向下取整函数
@@ -723,5 +727,9 @@ func (f *PowerFunction) Execute(ctx *FunctionContext, args []interface{}) (inter
 	if err != nil {
 		return nil, err
 	}
-	return math.Pow(x, y), nil
+	result := math.Pow(x, y)
+	if math.IsNaN(result) || math.IsInf(result, 0) {
+		return nil, fmt.Errorf("pow(%v, %v) out of range", x, y)
+	}
+	return result, nil
 }

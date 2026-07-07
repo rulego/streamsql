@@ -176,6 +176,27 @@ func TestMathFunctions(t *testing.T) {
 			wantErr:  true,
 		},
 		{
+			name:     "exp overflow returns error",
+			funcName: "exp",
+			args:     []interface{}{1000},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
+			name:     "pow overflow returns error",
+			funcName: "pow",
+			args:     []interface{}{10, 400},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
+			name:     "pow negative base fractional exp returns error",
+			funcName: "pow",
+			args:     []interface{}{-2, 0.5},
+			expected: nil,
+			wantErr:  true,
+		},
+		{
 			name:     "log natural",
 			funcName: "log",
 			args:     []interface{}{10.0},

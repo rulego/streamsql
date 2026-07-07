@@ -182,6 +182,24 @@ func TestNewConversionFunctions(t *testing.T) {
 			args:     []interface{}{3.14159, -1},
 			wantErr:  true,
 		},
+		{
+			name:     "trunc nil input returns error",
+			funcName: "trunc",
+			args:     []interface{}{nil, 2},
+			wantErr:  true,
+		},
+		{
+			name:     "trunc non-numeric input returns error",
+			funcName: "trunc",
+			args:     []interface{}{"abc", 2},
+			wantErr:  true,
+		},
+		{
+			name:     "trunc precision too large returns error",
+			funcName: "trunc",
+			args:     []interface{}{3.14, 400},
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {

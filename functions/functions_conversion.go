@@ -448,19 +448,28 @@ func (f *TruncFunction) Execute(ctx *FunctionContext, args []interface{}) (inter
 		return nil, err
 	}
 
-	// 转换第一个参数为浮点数
-	num := cast.ToFloat64(args[0])
+	// 转换第一个参数为浮点数（NULL/非数值返回错误，不再静默当 0）
+	num, err := cast.ToFloat64E(args[0])
+	if err != nil {
+		return nil, err
+	}
 
 	// 转换第二个参数为整数（精度）
-	precision := cast.ToInt(args[1])
+	precision, err := cast.ToIntE(args[1])
+	if err != nil {
+		return nil, err
+	}
 
 	// 精度不能为负数
 	if precision < 0 {
 		return nil, fmt.Errorf("trunc precision cannot be negative")
 	}
 
-	// 计算截断
+	// 计算截断。precision 过大时 multiplier 溢出为 +Inf，截断无意义，报错。
 	multiplier := math.Pow(10, float64(precision))
+	if math.IsInf(multiplier, 0) {
+		return nil, fmt.Errorf("trunc precision %d too large", precision)
+	}
 	if num >= 0 {
 		return math.Floor(num*multiplier) / multiplier, nil
 	} else {
