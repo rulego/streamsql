@@ -1,0 +1,45 @@
+name: Benchmark
+
+# 性能回归门禁：每次 push/PR 跑 benchmark，与 gh-pages 上的基线对比。
+# 当前为"观察模式"（fail-on-alert: false）：退化只在 PR 留 comment，不阻断。
+# 待基线稳定（积累若干次运行）后，可将 fail-on-alert 改 true 启用阻断。
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+permissions:
+  contents: write    # 推送基线到 gh-pages
+  pull-requests: write  # PR 退化 comment
+
+jobs:
+  benchmark:
+    name: Performance regression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Run benchmarks
+        # 主路径 + ExprBridge + 窗口吞吐。固定 -count 与 -benchtime 便于可比。
+        run: go test -bench=. -benchmem -run='^$' -benchtime=2s -count=1 -timeout 300s . ./functions/ ./window/ > bench-output.txt 2>&1
+
+      - name: Compare and store baseline
+        uses: benchmark-action/github-action-bench@v1
+        with:
+          tool: 'go'
+          output-file-path: bench-output.txt
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench
+          # 仅 push 事件推送基线，PR 只对比不写。
+          auto-push: ${{ github.event_name == 'push' }}
+          comment-always: false
+          alert-threshold: '130%'   # 退化 >30% 告警
+          fail-on-alert: false      # 观察模式：不阻断
+          github-token: ${{ secrets.GITHUB_TOKEN }}
