@@ -44,6 +44,7 @@ const (
 	TokenMaxOutOfOrderness
 	TokenAllowedLateness
 	TokenIdleTimeout
+	TokenStateTTL
 	TokenOrder
 	TokenDISTINCT
 	TokenLIMIT
@@ -384,6 +385,8 @@ func (l *Lexer) lookupIdent(ident string) Token {
 		return Token{Type: TokenAllowedLateness, Value: ident}
 	case "IDLETIMEOUT":
 		return Token{Type: TokenIdleTimeout, Value: ident}
+	case "STATETTL":
+		return Token{Type: TokenStateTTL, Value: ident}
 	case "ORDER":
 		return Token{Type: TokenOrder, Value: ident}
 	case "DISTINCT":

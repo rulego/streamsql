@@ -999,6 +999,25 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 				// If parsing fails, silently ignore (keep default 0)
 			}
 		}
+		if valTok.Type == TokenStateTTL {
+			next := p.lexer.NextToken()
+			if next.Type == TokenEQ {
+				next = p.lexer.NextToken()
+				durationStr := next.Value
+				if strings.HasPrefix(durationStr, "'") && strings.HasSuffix(durationStr, "'") {
+					durationStr = strings.Trim(durationStr, "'")
+				}
+				if duration, err := cast.ToDurationE(durationStr); err == nil {
+					if stmt.Window.Type == "" {
+						stmt.Window = WindowDefinition{
+							CountStateTTL: duration,
+						}
+					} else {
+						stmt.Window.CountStateTTL = duration
+					}
+				}
+			}
+		}
 	}
 
 	return nil

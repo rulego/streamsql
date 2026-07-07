@@ -45,6 +45,7 @@ type WindowDefinition struct {
 	MaxOutOfOrderness time.Duration // Maximum allowed out-of-orderness for event time
 	AllowedLateness   time.Duration // Maximum allowed lateness for event time windows
 	IdleTimeout       time.Duration // Idle source timeout: when no data arrives within this duration, watermark advances based on processing time
+	CountStateTTL     time.Duration // Counting-window keyed state TTL; inactive keys reaped after this (0 = disabled)
 }
 
 // ToStreamConfig converts AST to Stream configuration
@@ -157,6 +158,7 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 			MaxOutOfOrderness:  s.Window.MaxOutOfOrderness,
 			AllowedLateness:    s.Window.AllowedLateness,
 			IdleTimeout:        s.Window.IdleTimeout,
+			CountStateTTL:      s.Window.CountStateTTL,
 			GroupByKeys:        extractGroupFields(s),
 		},
 		GroupFields:        extractGroupFields(s),

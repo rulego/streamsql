@@ -103,6 +103,7 @@ type WindowConfig struct {
 	WatermarkInterval  time.Duration      `json:"watermarkInterval"`  // Watermark update interval for event time (default: 200ms)
 	AllowedLateness    time.Duration      `json:"allowedLateness"`    // Maximum allowed lateness for event time windows (default: 0, meaning no late data accepted after window closes)
 	IdleTimeout time.Duration `json:"idleTimeout"` // Idle source timeout: when no data arrives within this duration, watermark advances based on processing time. Default 0 disables it — with EventTime windows an idle source stalls the watermark so triggered windows/sessions are never reaped (state accumulates). For long-running pipelines set a finite IdleTimeout (e.g. 60s) so state is eventually cleaned up.
+	CountStateTTL      time.Duration      `json:"countStateTtl"`      // Counting-window keyed state TTL: keys inactive longer than this are reaped (lazy, in the Start goroutine). Default 0 = disabled (Flink-aligned). Set via SQL STATETTL='24h'.
 	GroupByKeys        []string           `json:"groupByKeys"`        // Multiple grouping keys for keyed windows
 	PerformanceConfig  PerformanceConfig  `json:"performanceConfig"`  // Performance configuration
 	Callback           func([]Row)        `json:"-"`                  // Callback function (not serialized)

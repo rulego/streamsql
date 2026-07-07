@@ -48,9 +48,11 @@ type CountingWindow struct {
 	// than `threshold` rows, these grow unbounded over long runs. Count windows
 	// suit low-cardinality or steady-rate groupings; for high-cardinality sparse
 	// streams prefer a time-based window (tumbling/sliding/session reaps state).
-	keyedBuffer map[string][]types.Row
-	keyedCount  map[string]int
-	sentCount    int64
+	keyedBuffer   map[string][]types.Row
+	keyedCount    map[string]int
+	lastActive    map[string]time.Time
+	countStateTTL time.Duration
+	sentCount     int64
 	droppedCount int64
 	stopped      bool
 }
@@ -91,8 +93,10 @@ func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
 		ctx:         ctx,
 		cancelFunc:  cancel,
 		triggerChan: make(chan types.Row, bufferSize),
-		keyedBuffer: make(map[string][]types.Row),
-		keyedCount:  make(map[string]int),
+		keyedBuffer:   make(map[string][]types.Row),
+		keyedCount:    make(map[string]int),
+		lastActive:    make(map[string]time.Time),
+		countStateTTL: config.CountStateTTL,
 	}
 
 	// Set callback if provided
@@ -128,6 +132,20 @@ func (cw *CountingWindow) Start() {
 	go func() {
 		defer cw.cancelFunc()
 
+		// CountStateTTL > 0: reap inactive keys on a ticker that reuses this
+		// goroutine (no extra goroutine). nil tickChan disables reaping, so the
+		// default (TTL=0) behavior is unchanged.
+		var tickChan <-chan time.Time
+		if cw.countStateTTL > 0 {
+			interval := cw.countStateTTL / 2
+			if interval < time.Second {
+				interval = time.Second
+			}
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			tickChan = ticker.C
+		}
+
 		for {
 			select {
 			case row, ok := <-cw.triggerChan:
@@ -140,6 +158,7 @@ func (cw *CountingWindow) Start() {
 				buf := append(cw.keyedBuffer[key], row)
 				cw.keyedBuffer[key] = buf
 				cw.keyedCount[key] = len(buf)
+				cw.lastActive[key] = time.Now()
 				if cw.keyedCount[key] >= cw.threshold {
 					slot := cw.createSlot(buf[:cw.threshold])
 					data := make([]types.Row, cw.threshold)
@@ -155,6 +174,7 @@ func (cw *CountingWindow) Start() {
 						cw.keyedBuffer[key] = make([]types.Row, 0, cw.threshold)
 					}
 					cw.keyedCount[key] = len(cw.keyedBuffer[key])
+					delete(cw.lastActive, key) // window fired: key is no longer idle
 					cw.mu.Unlock()
 
 					if cw.callback != nil {
@@ -166,6 +186,8 @@ func (cw *CountingWindow) Start() {
 					cw.mu.Unlock()
 				}
 
+			case <-tickChan:
+				cw.reapIdleKeys(time.Now())
 			case <-cw.ctx.Done():
 				return
 			}
@@ -228,6 +250,21 @@ func (cw *CountingWindow) sendResult(data []types.Row) {
 func (cw *CountingWindow) Trigger() {
 	// Note: trigger logic has been merged into Start method to avoid data races
 	// This method is kept to satisfy Window interface requirements, but actual triggering is handled in Start method
+}
+
+// reapIdleKeys removes group keys whose last arrival is older than countStateTTL,
+// dropping their buffered rows. Called from the Start goroutine's ticker; the
+// caller guarantees countStateTTL > 0.
+func (cw *CountingWindow) reapIdleKeys(now time.Time) {
+	cw.mu.Lock()
+	defer cw.mu.Unlock()
+	for key, last := range cw.lastActive {
+		if now.Sub(last) > cw.countStateTTL {
+			delete(cw.keyedBuffer, key)
+			delete(cw.keyedCount, key)
+			delete(cw.lastActive, key)
+		}
+	}
 }
 
 func (cw *CountingWindow) Stop() {
