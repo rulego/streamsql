@@ -43,8 +43,13 @@ type CountingWindow struct {
 	ctx          context.Context
 	cancelFunc   context.CancelFunc
 	triggerChan  chan types.Row
-	keyedBuffer  map[string][]types.Row
-	keyedCount   map[string]int
+	// keyedBuffer/keyedCount accumulate rows per group key until threshold is hit.
+	// No eviction: with high-cardinality GroupByKeys where each key receives fewer
+	// than `threshold` rows, these grow unbounded over long runs. Count windows
+	// suit low-cardinality or steady-rate groupings; for high-cardinality sparse
+	// streams prefer a time-based window (tumbling/sliding/session reaps state).
+	keyedBuffer map[string][]types.Row
+	keyedCount  map[string]int
 	sentCount    int64
 	droppedCount int64
 	stopped      bool
