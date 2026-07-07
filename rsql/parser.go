@@ -305,8 +305,8 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 		currentToken = p.lexer.NextToken() // 消费 DISTINCT，移动到下一个 token
 	}
 
-	// 检查是否是SELECT *查询
-	if currentToken.Type == TokenIdent && currentToken.Value == "*" {
+	// 检查是否是SELECT *查询（词法器把 * 归为 TokenAsterisk，非 TokenIdent）
+	if currentToken.Type == TokenAsterisk {
 		stmt.SelectAll = true
 		// 添加一个特殊的字段标记SELECT *
 		stmt.Fields = append(stmt.Fields, Field{Expression: "*"})
