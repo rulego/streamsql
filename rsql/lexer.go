@@ -103,6 +103,27 @@ func (l *Lexer) GetPosition() (int, int, int) {
 	return l.pos, l.line, l.column
 }
 
+// lexerSnapshot captures the mutable lexer state so a token read can be
+// speculatively undone. All fields are package-private, so this stays in-package.
+type lexerSnapshot struct {
+	pos, readPos, line, column int
+	ch                         byte
+}
+
+// save returns a snapshot of the current lexer position.
+func (l *Lexer) save() lexerSnapshot {
+	return lexerSnapshot{pos: l.pos, readPos: l.readPos, line: l.line, column: l.column, ch: l.ch}
+}
+
+// restore rewinds the lexer to a previously saved snapshot.
+func (l *Lexer) restore(s lexerSnapshot) {
+	l.pos = s.pos
+	l.readPos = s.readPos
+	l.line = s.line
+	l.column = s.column
+	l.ch = s.ch
+}
+
 func (l *Lexer) NextToken() Token {
 	l.skipWhitespace()
 

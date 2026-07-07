@@ -112,6 +112,7 @@ func (sf *StreamFactory) createStreamInstance(config types.Config, win window.Wi
 		dataChan:         make(chan map[string]interface{}, perfConfig.BufferConfig.DataChannelSize),
 		config:           config,
 		Window:           win,
+		tables:           newTableStore(),
 		resultChan:       make(chan []map[string]interface{}, perfConfig.BufferConfig.ResultChannelSize),
 		seenResults:      &sync.Map{},
 		done:             make(chan struct{}),

@@ -17,16 +17,18 @@ import (
 )
 
 type SelectStatement struct {
-	Fields    []Field
-	Distinct  bool
-	SelectAll bool // Flag to indicate if this is a SELECT * query
-	Source    string
-	Condition string
-	Window    WindowDefinition
-	GroupBy   []string
-	Limit     int
-	Having    string
-	OrderBy   []types.OrderByField
+	Fields       []Field
+	Distinct     bool
+	SelectAll    bool // Flag to indicate if this is a SELECT * query
+	Source       string
+	SourceAlias  string // optional FROM alias (e.g. "s" in "FROM stream AS s")
+	Condition    string
+	Window       WindowDefinition
+	GroupBy      []string
+	Limit        int
+	Having       string
+	OrderBy      []types.OrderByField
+	JoinConfigs  []types.JoinConfig
 }
 
 type Field struct {
@@ -169,6 +171,8 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		PostAggExpressions: postAggExpressions,
 		FieldOrder:         fieldOrder,
 		OrderBy:            s.OrderBy,
+		JoinConfigs:        s.JoinConfigs,
+		SourceAlias:        s.SourceAlias,
 	}
 
 	return &config, s.Condition, nil

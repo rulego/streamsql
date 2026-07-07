@@ -59,6 +59,7 @@ type Stream struct {
 	filter         condition.Condition
 	Window         window.Window
 	aggregator     aggregator.Aggregator
+	tables         *tableStore
 	config         types.Config
 	sinks          []func([]map[string]interface{})
 	syncSinks      []func([]map[string]interface{}) // Synchronous sinks, executed sequentially
@@ -259,6 +260,48 @@ func (s *Stream) Stop() {
 	// kill), so it is abandoned after the grace rather than hanging the caller
 	// (e.g. a rulego component Destroy).
 	s.waitLifecycle()
+
+	// Release table sources (custom sources may own background refresh goroutines).
+	if s.tables != nil {
+		s.tables.closeAll()
+	}
+}
+
+// RegisterTableSource registers a custom table source for stream-table JOIN.
+// The source's Init runs here (it may load data from a file/DB/Redis).
+func (s *Stream) RegisterTableSource(src TableSource) error {
+	if s.tables == nil {
+		return fmt.Errorf("stream not initialized")
+	}
+	return s.tables.register(src)
+}
+
+// RegisterMemoryTable registers an in-memory table indexed by keyFields, for
+// stream-table JOIN. keyFields order must match the JOIN ON table-side fields.
+// Returns the source for incremental Upsert/Delete.
+func (s *Stream) RegisterMemoryTable(name string, keyFields []string, rows []map[string]interface{}) (*MemoryTableSource, error) {
+	if s.tables == nil {
+		return nil, fmt.Errorf("stream not initialized")
+	}
+	src := NewMemoryTableSource(name, keyFields, rows)
+	if err := s.tables.register(src); err != nil {
+		return nil, err
+	}
+	return src, nil
+}
+
+// UpsertTableRow adds or replaces a row in a registered memory table.
+func (s *Stream) UpsertTableRow(name string, row map[string]interface{}) error {
+	src, ok := s.tables.get(name)
+	if !ok {
+		return fmt.Errorf("table %q is not registered", name)
+	}
+	mts, ok := src.(*MemoryTableSource)
+	if !ok {
+		return fmt.Errorf("table %q is not an in-memory table", name)
+	}
+	mts.Upsert(row)
+	return nil
 }
 
 // defaultStopGrace is the maximum time Stop waits for goroutines to drain.
@@ -317,8 +360,18 @@ func (s *Stream) ProcessSync(data map[string]interface{}) (map[string]interface{
 //   - map[string]interface{}: processed result data
 //   - error: processing error
 func (s *Stream) processDirectDataSync(data map[string]interface{}) (map[string]interface{}, error) {
-	// Directly use the passed map, no type conversion needed
+	// Resolve stream-table JOINs before projection (no overhead when no JOIN).
 	dataMap := data
+	if s.hasJoin() {
+		wm, keep, jerr := s.enrichJoin(data)
+		if jerr != nil {
+			return nil, jerr
+		}
+		if !keep {
+			return nil, nil // INNER JOIN no match: filtered
+		}
+		dataMap = wm
+	}
 
 	// Create result map, pre-allocate appropriate capacity
 	estimatedSize := len(s.config.FieldExpressions) + len(s.config.SimpleFields)

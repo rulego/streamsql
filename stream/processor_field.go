@@ -41,11 +41,39 @@ func (s *Stream) compileFieldProcessInfo() {
 	// Compile SimpleFields information
 	for _, fieldSpec := range s.config.SimpleFields {
 		info := s.compileSimpleFieldInfo(fieldSpec)
+		// Strip a leading stream/table alias from the OUTPUT name so joined
+		// columns appear unqualified (e.g. "m.location" -> "location"). The
+		// full fieldName is kept for resolution. User aliases are left as-is.
+		info.outputName = s.stripJoinAlias(info.outputName)
+		info.alias = info.outputName
 		s.compiledFieldInfo[fieldSpec] = info
 	}
 
 	// Pre-compile expression field information
 	s.compileExpressionInfo()
+}
+
+// stripJoinAlias removes a leading stream/table alias ("m." / "s.") from an
+// output field name. Returns the name unchanged if it has no dot or its first
+// segment is not a known alias, so user aliases and genuine nested paths survive.
+func (s *Stream) stripJoinAlias(name string) string {
+	if !strings.Contains(name, ".") {
+		return name
+	}
+	parts := strings.SplitN(name, ".", 2)
+	first := parts[0]
+	if first == "" {
+		return name
+	}
+	if first == s.config.SourceAlias {
+		return parts[1]
+	}
+	for _, jc := range s.config.JoinConfigs {
+		if first == jc.Alias {
+			return parts[1]
+		}
+	}
+	return name
 }
 
 // compileSimpleFieldInfo compiles simple field information

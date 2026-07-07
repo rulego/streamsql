@@ -179,6 +179,13 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 		}
 	}
 
+	// 解析JOIN子句（流-表 JOIN，v0.5）
+	if err := p.parseJoin(stmt); err != nil {
+		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
+			return nil, p.createDetailedError(err)
+		}
+	}
+
 	// 解析WHERE子句
 	if err := p.parseWhere(stmt); err != nil {
 		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
@@ -602,7 +609,177 @@ func (p *Parser) parseFrom(stmt *SelectStatement) error {
 		return err
 	}
 	stmt.Source = tok.Value
+
+	// Optional alias: "FROM stream AS s" or "FROM stream s".
+	// A following JOIN/WHERE/GROUP/... keyword is not an alias.
+	snap := p.lexer.save()
+	next := p.lexer.NextToken()
+	switch {
+	case next.Type == TokenAS:
+		aliasTok := p.lexer.NextToken()
+		if aliasTok.Type == TokenIdent {
+			stmt.SourceAlias = aliasTok.Value
+		}
+	case next.Type == TokenIdent && !isClauseBoundaryIdent(next.Value):
+		stmt.SourceAlias = next.Value
+	default:
+		// Not an alias; put it back for the next clause parser.
+		p.lexer.restore(snap)
+	}
 	return nil
+}
+
+// isClauseBoundaryIdent reports whether an identifier-looking token value is a
+// keyword that starts a later clause (JOIN/WHERE/...) rather than a stream
+// alias. JOIN/ON/INNER/LEFT/RIGHT/FULL/CROSS are not lexer keywords, so they
+// arrive as TokenIdent and must be excluded from alias consumption here.
+func isClauseBoundaryIdent(value string) bool {
+	switch strings.ToUpper(value) {
+	case "JOIN", "INNER", "LEFT", "RIGHT", "FULL", "CROSS", "ON",
+		"WHERE", "GROUP", "HAVING", "ORDER", "LIMIT", "WITH":
+		return true
+	}
+	return false
+}
+
+// parseJoin parses zero or more "[INNER|LEFT] JOIN table [AS] alias ON ...".
+// It runs on the main lexer right after parseFrom, fully consuming each JOIN
+// clause and leaving the lexer positioned at the next clause keyword (WHERE/
+// GROUP/...). The lexer's save/restore is used to look ahead without committing.
+func (p *Parser) parseJoin(stmt *SelectStatement) error {
+	for {
+		snap := p.lexer.save()
+		tok := p.lexer.NextToken()
+		joinType := "INNER"
+
+		switch strings.ToUpper(tok.Value) {
+		case "INNER":
+			if j := p.lexer.NextToken(); strings.ToUpper(j.Value) != "JOIN" {
+				return fmt.Errorf("expected JOIN after INNER, got %q", j.Value)
+			}
+		case "LEFT":
+			// optional OUTER
+			outerSnap := p.lexer.save()
+			if o := p.lexer.NextToken(); strings.ToUpper(o.Value) != "OUTER" {
+				p.lexer.restore(outerSnap)
+			}
+			if j := p.lexer.NextToken(); strings.ToUpper(j.Value) != "JOIN" {
+				return fmt.Errorf("expected JOIN after LEFT, got %q", j.Value)
+			}
+			joinType = "LEFT"
+		case "JOIN":
+			// bare JOIN == INNER
+		default:
+			// Not a JOIN clause; restore and let the next clause parser handle it.
+			p.lexer.restore(snap)
+			return nil
+		}
+
+		// Table name.
+		tableTok := p.lexer.NextToken()
+		if tableTok.Type != TokenIdent {
+			return fmt.Errorf("expected table name after JOIN, got %q", tableTok.Value)
+		}
+		jc := types.JoinConfig{Table: tableTok.Value, JoinType: joinType}
+
+		// Optional alias: "AS m" or bare "m".
+		aliasSnap := p.lexer.save()
+		aliasTok := p.lexer.NextToken()
+		switch {
+		case aliasTok.Type == TokenAS:
+			a := p.lexer.NextToken()
+			if a.Type != TokenIdent {
+				return fmt.Errorf("expected alias after AS, got %q", a.Value)
+			}
+			jc.Alias = a.Value
+		case aliasTok.Type == TokenIdent && !isClauseBoundaryIdent(aliasTok.Value):
+			jc.Alias = aliasTok.Value
+		default:
+			p.lexer.restore(aliasSnap)
+		}
+		if jc.Alias == "" {
+			jc.Alias = jc.Table
+		}
+
+		// ON <field> = <field> [AND <field> = <field>]...
+		onTok := p.lexer.NextToken()
+		if strings.ToUpper(onTok.Value) != "ON" {
+			return fmt.Errorf("expected ON after JOIN table, got %q", onTok.Value)
+		}
+		for {
+			left, err := p.readJoinedFieldName()
+			if err != nil {
+				return err
+			}
+			eq := p.lexer.NextToken()
+			if eq.Type != TokenEQ {
+				return fmt.Errorf("expected = in JOIN ON, got %q", eq.Value)
+			}
+			right, err := p.readJoinedFieldName()
+			if err != nil {
+				return err
+			}
+			jc.OnPairs = append(jc.OnPairs, types.JoinOnPair{
+				StreamField: stripAliasPrefix(left, stmt.SourceAlias, jc.Alias),
+				TableField:  stripAliasPrefix(right, stmt.SourceAlias, jc.Alias),
+			})
+
+			// Continue on AND, otherwise stop and put the boundary token back.
+			andSnap := p.lexer.save()
+			andTok := p.lexer.NextToken()
+			if andTok.Type != TokenAND {
+				p.lexer.restore(andSnap)
+				break
+			}
+		}
+
+		stmt.JoinConfigs = append(stmt.JoinConfigs, jc)
+	}
+}
+
+// readJoinedFieldName reads a dotted field path from the lexer (e.g. "s.deviceId"
+// or "deviceId" or "m.profile.id"), used in JOIN ON clauses.
+func (p *Parser) readJoinedFieldName() (string, error) {
+	tok := p.lexer.NextToken()
+	if tok.Type != TokenIdent && tok.Type != TokenQuotedIdent {
+		return "", fmt.Errorf("expected field name in ON clause, got %q", tok.Value)
+	}
+	name := tok.Value
+	if len(name) >= 2 && name[0] == '`' && name[len(name)-1] == '`' {
+		name = name[1 : len(name)-1]
+	}
+	for {
+		dotSnap := p.lexer.save()
+		dot := p.lexer.NextToken()
+		if dot.Type != TokenDot {
+			p.lexer.restore(dotSnap)
+			break
+		}
+		part := p.lexer.NextToken()
+		if part.Type != TokenIdent && part.Type != TokenQuotedIdent {
+			return "", fmt.Errorf("expected field name after '.', got %q", part.Value)
+		}
+		pv := part.Value
+		if len(pv) >= 2 && pv[0] == '`' && pv[len(pv)-1] == '`' {
+			pv = pv[1 : len(pv)-1]
+		}
+		name += "." + pv
+	}
+	return name, nil
+}
+
+// stripAliasPrefix removes a leading "alias." qualifier so the stored field path
+// resolves directly against the stream row or matched table row. "s.deviceId"
+// (stream alias) -> "deviceId"; "m.location" (table alias) -> "location".
+// Which side a pair belongs to is determined by which alias it carries.
+func stripAliasPrefix(field, streamAlias, tableAlias string) string {
+	parts := strings.SplitN(field, ".", 2)
+	if len(parts) == 2 {
+		if parts[0] == streamAlias || parts[0] == tableAlias {
+			return parts[1]
+		}
+	}
+	return field
 }
 
 func (p *Parser) parseGroupBy(stmt *SelectStatement) error {

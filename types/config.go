@@ -38,8 +38,32 @@ type Config struct {
 	Projections []Projection   `json:"projections"`
 	OrderBy     []OrderByField `json:"orderBy"` // ORDER BY sort keys, applied per emit batch
 
+	// JoinConfigs describes stream-table JOINs (v0.5: metadata enrichment).
+	// Empty means no JOIN. Each entry references a registered table source by
+	// name and is resolved at row-processing time.
+	JoinConfigs []JoinConfig `json:"joinConfigs"`
+
+	// SourceAlias is the optional FROM alias (e.g. "s" in "FROM stream AS s").
+	// When set, stream fields can be qualified as "s.<field>" in SELECT/WHERE.
+	SourceAlias string `json:"sourceAlias"`
+
 	// Performance configuration
 	PerformanceConfig PerformanceConfig `json:"performanceConfig"`
+}
+
+// JoinConfig describes a single stream-table JOIN.
+type JoinConfig struct {
+	Table    string       // registered table source name
+	Alias    string       // table alias; matched columns are namespaced under it. Defaults to Table.
+	JoinType string       // "INNER" (default) or "LEFT"
+	OnPairs  []JoinOnPair // equality predicates linking stream and table fields
+}
+
+// JoinOnPair is one equality of a JOIN ON clause. StreamField is resolved
+// against the incoming stream row, TableField against the matched table row.
+type JoinOnPair struct {
+	StreamField string
+	TableField  string
 }
 
 // OrderByField represents a single ORDER BY sort key.

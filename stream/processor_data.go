@@ -515,8 +515,20 @@ func (dp *DataProcessor) applyHavingWithCondition(results []map[string]interface
 // Parameters:
 //   - data: data to be processed, must be map[string]interface{} type
 func (dp *DataProcessor) processDirectData(data map[string]interface{}) {
-	// Directly use the passed map data
+	// Resolve stream-table JOINs before projection so SELECT can reference
+	// joined columns. No-JOIN queries skip this (zero overhead).
 	dataMap := data
+	if dp.stream.hasJoin() {
+		wm, keep, jerr := dp.stream.enrichJoin(data)
+		if jerr != nil {
+			logger.Error("join enrichment error: %v", jerr)
+			return
+		}
+		if !keep {
+			return // INNER JOIN no match: drop the row
+		}
+		dataMap = wm
+	}
 
 	// Create result map, pre-allocate appropriate capacity
 	estimatedSize := len(dp.stream.config.FieldExpressions) + len(dp.stream.config.SimpleFields)

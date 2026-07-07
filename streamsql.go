@@ -415,3 +415,46 @@ func (s *Streamsql) ToChannel() <-chan []map[string]interface{} {
 	}
 	return nil
 }
+
+// RegisterTable registers an in-memory metadata table indexed by a single key
+// field, for use in stream-table JOIN. keyField must equal the table-side field
+// of the JOIN ON clause. Returns the source so callers can Upsert/Delete rows.
+//
+// Must be called after Execute. Example:
+//
+//	ssql.Execute(`SELECT s.deviceId, m.location FROM stream s JOIN meta m ON s.deviceId = m.deviceId`)
+//	ssql.RegisterTable("meta", "deviceId", rows)
+func (s *Streamsql) RegisterTable(name, keyField string, rows []map[string]interface{}) (*stream.MemoryTableSource, error) {
+	if s.stream == nil {
+		return nil, fmt.Errorf("Execute must be called before RegisterTable")
+	}
+	return s.stream.RegisterMemoryTable(name, []string{keyField}, rows)
+}
+
+// RegisterTableKeys is like RegisterTable but indexes by multiple key fields
+// (composite JOIN key). keyFields order must match the JOIN ON table-side fields.
+func (s *Streamsql) RegisterTableKeys(name string, keyFields []string, rows []map[string]interface{}) (*stream.MemoryTableSource, error) {
+	if s.stream == nil {
+		return nil, fmt.Errorf("Execute must be called before RegisterTableKeys")
+	}
+	return s.stream.RegisterMemoryTable(name, keyFields, rows)
+}
+
+// RegisterTableSource registers a custom table source (file/DB/Redis/HTTP). The
+// implementation owns data loading, refresh, and cleanup; Lookup must be
+// concurrency-safe. Must be called after Execute.
+func (s *Streamsql) RegisterTableSource(src stream.TableSource) error {
+	if s.stream == nil {
+		return fmt.Errorf("Execute must be called before RegisterTableSource")
+	}
+	return s.stream.RegisterTableSource(src)
+}
+
+// UpsertTable adds or replaces a row in a previously registered in-memory table.
+// Only affects rows emitted after the call (tables are snapshots).
+func (s *Streamsql) UpsertTable(name string, row map[string]interface{}) error {
+	if s.stream == nil {
+		return fmt.Errorf("Execute must be called before UpsertTable")
+	}
+	return s.stream.UpsertTableRow(name, row)
+}
