@@ -30,6 +30,7 @@ type expressionProcessInfo struct {
 	isFunctionCall          bool             // Whether it's a function call
 	hasNestedFields         bool             // Whether it contains nested fields
 	compiledExpr            *expr.Expression // Pre-compiled expression object
+	compiledExprFastPath    bool             // compiledExpr usable as fast path (no quotes/backticks): skip bridge per-row checks
 	needsBacktickPreprocess bool             // Whether backtick preprocessing is needed
 }
 
@@ -194,6 +195,13 @@ func (s *Stream) compileExpressionInfo() {
 			}
 			if compiledExpr, err := expr.NewExpression(exprToCompile); err == nil {
 				exprInfo.compiledExpr = compiledExpr
+				// Fast path: when compiledExpr is available and the expression has no
+				// quote/backtick characters (so it is not string concatenation or a
+				// quoted identifier), evaluate directly via compiledExpr and skip the
+				// bridge's per-row isStringConcatenation/usesExprFunction checks.
+				if !strings.ContainsAny(fieldExpr.Expression, "'\"`") {
+					exprInfo.compiledExprFastPath = true
+				}
 			}
 		}
 
@@ -241,6 +249,26 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]int
 			// Fallback to dynamic compilation
 			s.processExpressionFieldFallback(fieldName, dataMap, result)
 			return
+		}
+	} else if exprInfo.compiledExprFastPath {
+		// Fast path: pure arithmetic / field-reference expressions (no quotes) go
+		// straight through the custom expr engine, bypassing the bridge's per-row
+		// isStringConcatenation/usesExprFunction checks. Fall back to bridge on error.
+		exprResult, isNull, err := exprInfo.compiledExpr.EvaluateValueWithNull(dataMap)
+		if err == nil {
+			if isNull {
+				evalResult = nil
+			} else {
+				evalResult = exprResult
+			}
+		} else {
+			exprResult, berr := bridge.EvaluateExpression(exprInfo.processedExpr, dataMap)
+			if berr != nil {
+				logger.Error("Expression evaluation failed for field %s: %v", fieldName, berr)
+				result[fieldName] = nil
+				return
+			}
+			evalResult = exprResult
 		}
 	} else {
 		// Try using bridge processor for other expressions
