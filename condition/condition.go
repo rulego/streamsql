@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
@@ -17,11 +18,13 @@ type Condition interface {
 type ExprCondition struct {
 	program *vm.Program
 	// fast is a compiled fast-path for trivial `field OP literal` comparisons.
-	// When non-nil and the runtime value matches its assumed type, Evaluate
-	// skips the expr-lang VM (and its reflect-based map field fetch). Anything
-	// the fast path cannot handle falls back to expr-lang, so semantics are
+	// compound extends it to flat `a AND/OR b AND/OR ...` of such comparisons.
+	// When set and the runtime values match the assumed types, Evaluate skips
+	// the expr-lang VM (and its reflect-based map field fetch). Anything the
+	// fast path cannot handle falls back to expr-lang, so semantics are
 	// preserved exactly.
-	fast *fastCompare
+	fast     *fastCompare
+	compound *fastCompound
 }
 
 func NewExprCondition(expression string) (Condition, error) {
@@ -58,11 +61,21 @@ func NewExprCondition(expression string) (Condition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ExprCondition{program: program, fast: tryFastCompare(expression)}, nil
+	ec := &ExprCondition{program: program}
+	if fc := tryFastCompound(expression); fc != nil {
+		ec.compound = fc
+	} else if fc := tryFastCompare(expression); fc != nil {
+		ec.fast = fc
+	}
+	return ec, nil
 }
 
 func (ec *ExprCondition) Evaluate(env interface{}) bool {
-	if ec.fast != nil {
+	if ec.compound != nil {
+		if r, ok := ec.compound.eval(env); ok {
+			return r
+		}
+	} else if ec.fast != nil {
 		if r, ok := ec.fast.eval(env); ok {
 			return r
 		}
@@ -129,6 +142,92 @@ func (fc *fastCompare) eval(env interface{}) (bool, bool) {
 		return false, false
 	}
 	return compareNum(f, fc.op, fc.numLit), true
+}
+
+// fastCompound is a flat AND/OR chain of simple comparisons. It fires only when
+// every part fast-evaluates; if any part cannot (type mismatch/missing), the
+// whole condition falls back to expr-lang.
+type fastCompound struct {
+	op    string // "AND" or "OR"
+	parts []*fastCompare
+}
+
+func (fc *fastCompound) eval(env interface{}) (bool, bool) {
+	data, ok := env.(map[string]interface{})
+	if !ok {
+		return false, false
+	}
+	result := fc.op == "AND" // AND starts true, OR starts false
+	for _, p := range fc.parts {
+		r, ok := p.evalMap(data)
+		if !ok {
+			return false, false
+		}
+		if fc.op == "AND" {
+			result = result && r
+		} else {
+			result = result || r
+		}
+	}
+	return result, true
+}
+
+// evalMap is like eval but assumes env is already a map (used by fastCompound).
+func (fc *fastCompare) evalMap(data map[string]interface{}) (bool, bool) {
+	v, exists := data[fc.field]
+	if !exists || v == nil {
+		return false, false
+	}
+	if fc.isString {
+		s, ok := v.(string)
+		if !ok {
+			return false, false
+		}
+		return compareStr(s, fc.op, fc.strLit), true
+	}
+	f, ok := toFloat64Fast(v)
+	if !ok {
+		return false, false
+	}
+	return compareNum(f, fc.op, fc.numLit), true
+}
+
+// fastAndOr splits a flat condition on its sole logical operator (all && or
+// all ||). The rsql parser lowers SQL AND/OR to &&/|| before reaching here, so
+// we split on the C-style operators.
+var fastAndOr = regexp.MustCompile(`\s*(&&|\|\|)\s*`)
+
+func tryFastCompound(expression string) *fastCompound {
+	// Conservative: only attempt when there is no grouping and no string
+	// literals, so a naive split on &&/|| cannot break a quoted token.
+	if strings.ContainsAny(expression, "()'\"") {
+		return nil
+	}
+	hasAnd := strings.Contains(expression, "&&")
+	hasOr := strings.Contains(expression, "||")
+	var op string
+	if hasAnd && hasOr {
+		return nil // mixed logic — fall back
+	} else if hasAnd {
+		op = "AND"
+	} else if hasOr {
+		op = "OR"
+	} else {
+		return nil // single comparison handled by tryFastCompare
+	}
+	parts := fastAndOr.Split(expression, -1)
+	if len(parts) < 2 {
+		return nil
+	}
+	compares := make([]*fastCompare, 0, len(parts))
+	for _, p := range parts {
+		fc := tryFastCompare(p)
+		if fc == nil {
+			return nil
+		}
+		compares = append(compares, fc)
+	}
+	return &fastCompound{op: op, parts: compares}
 }
 
 func toFloat64Fast(v interface{}) (float64, bool) {

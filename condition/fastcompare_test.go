@@ -16,15 +16,20 @@ func TestFastCompareMatchesExprLang(t *testing.T) {
 		"status == 'active'",
 		"status != 'inactive'",
 		"label > 'm'",
+		// Flat compound (numeric only, no parens/quotes) -> fastCompound.
+		// rsql lowers AND/OR to &&/||, which is the form reaching NewExprCondition.
+		"temperature > 20 && humidity < 80",
+		"temperature > 20 || pressure > 1000",
+		"temperature > 20 && humidity < 80 && cnt >= 1",
 	}
 	rows := []map[string]interface{}{
-		{"temperature": 25.5, "cnt": int64(10), "status": "active", "label": "zebra"},
-		{"temperature": 20.0, "cnt": 9, "status": "inactive", "label": "apple"},
-		{"temperature": 30, "cnt": int(11), "status": "active", "label": "m"},
-		{"temperature": 19.9, "cnt": uint(10), "status": "", "label": "zzz"},
+		{"temperature": 25.5, "cnt": int64(10), "status": "active", "label": "zebra", "humidity": 60.0, "pressure": 1100},
+		{"temperature": 20.0, "cnt": 9, "status": "inactive", "label": "apple", "humidity": 90.0, "pressure": 900},
+		{"temperature": 30, "cnt": int(11), "status": "active", "label": "m", "humidity": 50, "pressure": 1001},
+		{"temperature": 19.9, "cnt": uint(10), "status": "", "label": "zzz", "humidity": 80, "pressure": 2000},
 		{"temperature": "hot", "status": 1}, // wrong types -> must fall back
 		{"humidity": 50},                    // field missing -> fall back
-		{"temperature": float32(21), "cnt": 10},
+		{"temperature": float32(21), "cnt": 10, "humidity": 70},
 	}
 
 	for _, condStr := range conditions {
