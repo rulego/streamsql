@@ -262,11 +262,11 @@ func (tw *TumblingWindow) Add(data interface{}) {
 }
 
 func (tw *TumblingWindow) createSlot(t time.Time) *types.TimeSlot {
-	// Create a new time slot (for processing time, no alignment needed)
-	// Processing time windows start immediately when the first data arrives,
-	// without alignment to any fixed boundary. This ensures windows start
-	// as soon as data processing begins.
-	start := t
+	// Processing-time windows align to epoch boundaries (like event time): a 1m
+	// window ends at whole-minute marks regardless of when the first data arrived.
+	// Matches Flink TumblingProcessingTimeWindows and eKuiper ("align to the
+	// nature time ... regardless of the rule start time").
+	start := alignWindowStart(t, tw.size)
 	end := start.Add(tw.size)
 	slot := types.NewTimeSlot(&start, &end)
 	return slot
@@ -762,13 +762,12 @@ func (tw *TumblingWindow) Trigger() {
 	// Processing time logic
 	// Calculate next window slot
 	next := tw.NextSlot()
-	// Retain data for next window
-	tms := next.Start.Add(-tw.size)
-	tme := next.End.Add(tw.size)
-	temp := types.NewTimeSlot(&tms, &tme)
+	// Retain data for the next and later windows (ts >= next start),
+	// dropping the just-emitted window. Mirrors sliding_window eviction.
+	nextStart := *next.Start
 	newData := make([]types.Row, 0)
 	for _, item := range tw.data {
-		if temp.Contains(item.Timestamp) {
+		if !item.Timestamp.Before(nextStart) {
 			newData = append(newData, item)
 		}
 	}

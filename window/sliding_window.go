@@ -804,8 +804,9 @@ func (sw *SlidingWindow) NextSlot() *types.TimeSlot {
 }
 
 func (sw *SlidingWindow) createSlot(t time.Time) *types.TimeSlot {
-	// Create a new time slot (for processing time, no alignment needed)
-	start := t
+	// Processing-time sliding windows align to the slide interval (like event
+	// time), so window boundaries land on epoch/slide marks.
+	start := alignWindowStart(t, sw.slide)
 	end := start.Add(sw.size)
 	slot := types.NewTimeSlot(&start, &end)
 	return slot

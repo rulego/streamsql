@@ -48,17 +48,18 @@ func TestSlidingWindow(t *testing.T) {
 	sw.Add(t_0)
 
 	// 验证每个窗口的数据
-	// 移除对齐后，窗口从第一个数据的时间开始
+	// 处理时间窗口对齐到 epoch（slide 边界）：t_3=16:46:56.789 对齐到 16:46:56.000
 	// 窗口大小2秒，滑动步长1秒
-	// 第一个窗口: [t_3, t_3 + 2秒) = [16:46:56.789, 16:46:58.789)
-	// 第二个窗口: [t_3 + 1秒, t_3 + 3秒) = [16:46:57.789, 16:46:59.789)
-	// 第三个窗口: [t_3 + 2秒, t_3 + 4秒) = [16:46:58.789, 16:47:00.789)
-	// 第四个窗口: [t_3 + 3秒, t_3 + 5秒) = [16:46:59.789, 16:47:01.789)
+	// 第一个窗口: [16:46:56.000, 16:46:58.000)
+	// 第二个窗口: [16:46:57.000, 16:46:59.000)
+	// 第三个窗口: [16:46:58.000, 16:47:00.000)
+	// 第四个窗口: [16:46:59.000, 16:47:01.000)
+	alignedStart := alignWindowStart(t_3.Ts, sw.slide)
 	expected := []TestResult{
-		{size: 2, data: []TestDate{t_3, t_2}, start: t_3.Ts, end: t_3.Ts.Add(sw.size)},
-		{size: 2, data: []TestDate{t_2, t_1}, start: t_3.Ts.Add(sw.slide), end: t_3.Ts.Add(sw.slide).Add(sw.size)},
-		{size: 2, data: []TestDate{t_1, t_0}, start: t_3.Ts.Add(2 * sw.slide), end: t_3.Ts.Add(2 * sw.slide).Add(sw.size)},
-		{size: 1, data: []TestDate{t_0}, start: t_3.Ts.Add(3 * sw.slide), end: t_3.Ts.Add(3 * sw.slide).Add(sw.size)},
+		{size: 2, data: []TestDate{t_3, t_2}, start: alignedStart, end: alignedStart.Add(sw.size)},
+		{size: 2, data: []TestDate{t_2, t_1}, start: alignedStart.Add(sw.slide), end: alignedStart.Add(sw.slide).Add(sw.size)},
+		{size: 2, data: []TestDate{t_1, t_0}, start: alignedStart.Add(2 * sw.slide), end: alignedStart.Add(2 * sw.slide).Add(sw.size)},
+		{size: 1, data: []TestDate{t_0}, start: alignedStart.Add(3 * sw.slide), end: alignedStart.Add(3 * sw.slide).Add(sw.size)},
 	}
 	// 等待一段时间，触发窗口
 	//time.Sleep(3 * time.Second)

@@ -293,32 +293,22 @@ END:
 		assert.LessOrEqual(t, cnt, 15.0, "窗口 %d 计数不应该超过15", i+1)
 	}
 
-	if windowResultsLen > 1 {
-		firstWindow := windowResultsCopy[0]
-		lastWindow := windowResultsCopy[windowResultsLen-1]
-
-		firstCnt := firstWindow[0]["cnt"].(float64)
-		lastCnt := lastWindow[0]["cnt"].(float64)
-		firstMin := firstWindow[0]["min_temp"].(float64)
-		lastMin := lastWindow[0]["min_temp"].(float64)
-
-		assert.GreaterOrEqual(t, firstCnt, lastCnt,
-			"第一个窗口应该包含不少于最后一个窗口的数据")
-		assert.LessOrEqual(t, firstMin, lastMin,
-			"第一个窗口的最小值应该小于等于最后一个窗口的最小值")
+	// D1 后处理时间窗口对齐到 epoch，窗口相位不再由首条数据决定，且并行负载下
+	// 结果接收顺序不确定——跨所有窗口聚合检查，不断言首个/末个接收到的窗口。
+	globalMin, globalMax := 14.0, 0.0
+	for _, res := range windowResultsCopy {
+		if len(res) == 0 {
+			continue
+		}
+		if mn, ok := res[0]["min_temp"].(float64); ok && mn < globalMin {
+			globalMin = mn
+		}
+		if mx, ok := res[0]["max_temp"].(float64); ok && mx > globalMax {
+			globalMax = mx
+		}
 	}
-
-	allCounts := make([]float64, windowResultsLen)
-	for i, res := range windowResultsCopy {
-		allCounts[i] = res[0]["cnt"].(float64)
-	}
-
-	for i := 1; i < len(allCounts); i++ {
-		prevCnt := allCounts[i-1]
-		currCnt := allCounts[i]
-		assert.GreaterOrEqual(t, prevCnt, currCnt,
-			"窗口计数应该递减或保持不变（由于窗口对齐，可能不完全递减）")
-	}
+	assert.LessOrEqual(t, globalMin, 2.0, "跨窗口全局最小值应较小（早期低温数据 temp=0）")
+	assert.GreaterOrEqual(t, globalMax, 12.0, "跨窗口全局最大值应较大（后期高温数据 temp=14）")
 }
 
 func TestSQLSlidingWindow_MultiKeyGrouped(t *testing.T) {
