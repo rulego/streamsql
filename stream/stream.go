@@ -78,6 +78,7 @@ type Stream struct {
 	activeRetries    int32        // Active retry count using atomic operations
 	maxRetryRoutines int32        // Maximum retry goroutine limit
 	stopped          int32        // Stop status flag using atomic operations
+	startMu          sync.Mutex   // serializes Start's stopped-check+Add with Stop's flag set
 
 	// lifecycle tracks goroutines that run user code or sinks (data processor,
 	// window-output consumer, sink workers). Stop joins them so it returns only
@@ -210,11 +211,19 @@ func (s *Stream) Start() {
 	processor := NewDataProcessor(s)
 	// Register tracked goroutines before spawning so Stop's join always observes
 	// them: one for the data processor, one for the window-output consumer of
-	// windowed queries.
+	// windowed queries. The stopped-check + Add is serialized with Stop's flag
+	// set so Add never races with Wait: a concurrent Start that observes stopped
+	// simply doesn't spawn.
+	s.startMu.Lock()
+	if atomic.LoadInt32(&s.stopped) != 0 {
+		s.startMu.Unlock()
+		return
+	}
 	s.lifecycle.Add(1)
 	if s.config.NeedWindow {
 		s.lifecycle.Add(1)
 	}
+	s.startMu.Unlock()
 	go func() {
 		defer s.lifecycle.Done()
 		processor.Process()
@@ -232,10 +241,14 @@ func (s *Stream) Emit(data map[string]any) {
 
 // Stop stops stream processing
 func (s *Stream) Stop() {
-	// Use atomic operation to prevent duplicate stops
+	// Set the stopped flag under startMu so a concurrent Start observes it before
+	// its lifecycle.Add — otherwise Add races with the Wait below.
+	s.startMu.Lock()
 	if !atomic.CompareAndSwapInt32(&s.stopped, 0, 1) {
+		s.startMu.Unlock()
 		return // Already stopped, return directly
 	}
+	s.startMu.Unlock()
 
 	close(s.done)
 
