@@ -46,6 +46,7 @@ type WindowDefinition struct {
 	AllowedLateness   time.Duration // Maximum allowed lateness for event time windows
 	IdleTimeout       time.Duration // Idle source timeout: when no data arrives within this duration, watermark advances based on processing time
 	CountStateTTL     time.Duration // Counting-window keyed state TTL; inactive keys reaped after this (0 = disabled)
+	TriggerCondition  string        // Global-window TRIGGER WHEN predicate (raw string)
 }
 
 // ToStreamConfig converts AST to Stream configuration
@@ -56,14 +57,22 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 
 	// Parse window configuration
 	windowType := window.TypeTumbling
-	if strings.ToUpper(s.Window.Type) == "TUMBLINGWINDOW" {
+	switch strings.ToUpper(s.Window.Type) {
+	case "TUMBLINGWINDOW":
 		windowType = window.TypeTumbling
-	} else if strings.ToUpper(s.Window.Type) == "SLIDINGWINDOW" {
+	case "SLIDINGWINDOW":
 		windowType = window.TypeSliding
-	} else if strings.ToUpper(s.Window.Type) == "COUNTINGWINDOW" {
+	case "COUNTINGWINDOW":
 		windowType = window.TypeCounting
-	} else if strings.ToUpper(s.Window.Type) == "SESSIONWINDOW" {
+	case "SESSIONWINDOW":
 		windowType = window.TypeSession
+	case "GLOBALWINDOW":
+		windowType = window.TypeGlobal
+		// Global window with no TRIGGER WHEN == Flink NeverTrigger: it would never
+		// emit. Reject at parse time rather than silently swallowing data.
+		if strings.TrimSpace(s.Window.TriggerCondition) == "" {
+			return nil, "", fmt.Errorf("GLOBAL WINDOW requires a TRIGGER WHEN clause (without it the window never emits)")
+		}
 	}
 
 	// Parse window parameters - now returns array directly
@@ -160,6 +169,10 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 			IdleTimeout:        s.Window.IdleTimeout,
 			CountStateTTL:      s.Window.CountStateTTL,
 			GroupByKeys:        extractGroupFields(s),
+			// Global-window fields (no-op for other window types).
+			TriggerCondition: s.Window.TriggerCondition,
+			SelectFields:     aggs,
+			FieldAlias:       fields,
 		},
 		GroupFields:        extractGroupFields(s),
 		SelectFields:       aggs,

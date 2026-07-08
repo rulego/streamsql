@@ -107,6 +107,15 @@ type WindowConfig struct {
 	GroupByKeys        []string           `json:"groupByKeys"`        // Multiple grouping keys for keyed windows
 	PerformanceConfig  PerformanceConfig  `json:"performanceConfig"`  // Performance configuration
 	Callback           func([]Row)        `json:"-"`                  // Callback function (not serialized)
+
+	// Global-window (B2). TriggerCondition is the TRIGGER WHEN predicate string
+	// (e.g. "COUNT(*) >= 1000"). SelectFields/FieldAlias mirror the SELECT
+	// aggregation map so the global window maintains running aggregate state per
+	// group without buffering raw rows (Flink GlobalWindows + NeverTrigger +
+	// custom trigger). Populated from the parsed SELECT for windowType=global only.
+	TriggerCondition string                              `json:"triggerCondition,omitempty"`
+	SelectFields     map[string]aggregator.AggregateType `json:"selectFields,omitempty"`
+	FieldAlias       map[string]string                   `json:"fieldAlias,omitempty"`
 }
 
 // FieldExpression field expression configuration

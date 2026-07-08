@@ -38,6 +38,9 @@ const (
 	TokenSliding
 	TokenCounting
 	TokenSession
+	TokenGlobal
+	TokenWindow
+	TokenTrigger
 	TokenWITH
 	TokenTimestamp
 	TokenTimeUnit
@@ -373,6 +376,12 @@ func (l *Lexer) lookupIdent(ident string) Token {
 		return Token{Type: TokenCounting, Value: ident}
 	case "SESSIONWINDOW":
 		return Token{Type: TokenSession, Value: ident}
+	case "GLOBAL":
+		return Token{Type: TokenGlobal, Value: ident}
+	case "WINDOW":
+		return Token{Type: TokenWindow, Value: ident}
+	case "TRIGGER":
+		return Token{Type: TokenTrigger, Value: ident}
 	case "WITH":
 		return Token{Type: TokenWITH, Value: ident}
 	case "TIMESTAMP":

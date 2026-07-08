@@ -31,6 +31,7 @@ const (
 	TypeSliding  = "sliding"
 	TypeCounting = "counting"
 	TypeSession  = "session"
+	TypeGlobal   = "global"
 )
 
 type Window interface {
@@ -55,6 +56,8 @@ func CreateWindow(config types.WindowConfig) (Window, error) {
 		return NewCountingWindow(config)
 	case TypeSession:
 		return NewSessionWindow(config)
+	case TypeGlobal:
+		return NewGlobalWindow(config)
 	default:
 		return nil, fmt.Errorf("unsupported window type: %s", config.Type)
 	}

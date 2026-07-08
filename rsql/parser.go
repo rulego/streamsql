@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rulego/streamsql/logger"
 	"github.com/rulego/streamsql/types"
 	"github.com/rulego/streamsql/utils/cast"
 )
@@ -478,6 +479,7 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 		tok := p.lexer.NextToken()
 		if tok.Type == TokenGROUP || tok.Type == TokenEOF || tok.Type == TokenSliding ||
 			tok.Type == TokenTumbling || tok.Type == TokenCounting || tok.Type == TokenSession ||
+			tok.Type == TokenGlobal ||
 			tok.Type == TokenHAVING || tok.Type == TokenLIMIT || tok.Type == TokenWITH ||
 			tok.Type == TokenOrder {
 			break
@@ -568,6 +570,72 @@ func (p *Parser) parseWindowFunction(stmt *SelectStatement, winType string) erro
 
 	stmt.Window.Params = params
 	stmt.Window.Type = winType
+	return nil
+}
+
+// parseGlobalWindow parses "GLOBAL WINDOW [TRIGGER WHEN <predicate>]".
+// Unlike other windows, the global window takes no parentheses/params; its
+// output is driven by the TRIGGER WHEN predicate (Flink GlobalWindows + custom
+// trigger). The predicate is collected as a raw string and evaluated at runtime
+// against the group's running aggregate values.
+//
+// Convention (same as parseWindowFunction): the GLOBAL keyword has already been
+// consumed by the caller (the parseGroupBy initial peek path consumes it via
+// parseWhere's leading NextToken; the loop path consumes it via its own
+// NextToken). This function starts by consuming WINDOW.
+func (p *Parser) parseGlobalWindow(stmt *SelectStatement) error {
+	// Expect WINDOW (GLOBAL already consumed by the caller).
+	wTok := p.lexer.NextToken()
+	if wTok.Type != TokenWindow {
+		return fmt.Errorf("expected WINDOW after GLOBAL, got %q", wTok.Value)
+	}
+	stmt.Window.Type = "GLOBALWINDOW"
+
+	// Optional TRIGGER WHEN <predicate>. Absence means NeverTrigger (validated
+	// later in ToStreamConfig as a parse error, since it would never output).
+	snap := p.lexer.save()
+	next := p.lexer.NextToken()
+	if next.Type != TokenTrigger {
+		// Not a TRIGGER clause; put the token back for the next parser.
+		p.lexer.restore(snap)
+		return nil
+	}
+	whenTok := p.lexer.NextToken()
+	if whenTok.Type != TokenWHEN {
+		return fmt.Errorf("expected WHEN after TRIGGER, got %q", whenTok.Value)
+	}
+
+	// Collect predicate tokens until a clause boundary. The boundary token is
+	// restored (not consumed) so the enclosing parseGroupBy loop and the
+	// downstream clause parsers (parseWith/parseHaving/...) can see it — same
+	// convention as parseWindowFunction leaving the token after ")" in place.
+	var parts []string
+	maxIter := 100
+	iter := 0
+	for {
+		iter++
+		if iter > maxIter {
+			return errors.New("TRIGGER WHEN predicate parsing exceeded maximum iterations")
+		}
+		snap := p.lexer.save()
+		t := p.lexer.NextToken()
+		if t.Type == TokenWITH || t.Type == TokenOrder || t.Type == TokenEOF ||
+			t.Type == TokenHAVING || t.Type == TokenLIMIT {
+			p.lexer.restore(snap)
+			break
+		}
+		switch t.Type {
+		case TokenEQ:
+			parts = append(parts, "==")
+		case TokenAND:
+			parts = append(parts, "&&")
+		case TokenOR:
+			parts = append(parts, "||")
+		default:
+			parts = append(parts, t.Value)
+		}
+	}
+	stmt.Window.TriggerCondition = strings.Join(parts, " ")
 	return nil
 }
 
@@ -785,7 +853,12 @@ func stripAliasPrefix(field, streamAlias, tableAlias string) string {
 func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 	tok := p.lexer.lookupIdent(p.lexer.readPreviousIdentifier())
 	hasWindowFunction := false
-	if tok.Type == TokenTumbling || tok.Type == TokenSliding || tok.Type == TokenCounting || tok.Type == TokenSession {
+	if tok.Type == TokenGlobal {
+		hasWindowFunction = true
+		if err := p.parseGlobalWindow(stmt); err != nil {
+			return err
+		}
+	} else if tok.Type == TokenTumbling || tok.Type == TokenSliding || tok.Type == TokenCounting || tok.Type == TokenSession {
 		hasWindowFunction = true
 		if err := p.parseWindowFunction(stmt, tok.Value); err != nil {
 			return err
@@ -826,6 +899,12 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 			break
 		}
 		if tok.Type == TokenComma {
+			continue
+		}
+		if tok.Type == TokenGlobal {
+			if err := p.parseGlobalWindow(stmt); err != nil {
+				return err
+			}
 			continue
 		}
 		if tok.Type == TokenTumbling || tok.Type == TokenSliding || tok.Type == TokenCounting || tok.Type == TokenSession {
@@ -880,6 +959,13 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 		}
 		if valTok.Type == TokenComma {
 			continue
+		}
+		// Unknown WITH parameters (plain identifiers rather than a recognized
+		// option keyword) are tolerated but surfaced, so typos don't silently
+		// drop configuration. The following = and value tokens are consumed by
+		// later loop iterations (none of the known-option branches match).
+		if valTok.Type == TokenIdent {
+			logger.Warn("WITH: ignoring unknown option %q (known: TIMESTAMP, TIMEUNIT, MAXOUTOFORDERNESS, ALLOWEDLATENESS, IDLETIMEOUT, STATETTL)", valTok.Value)
 		}
 
 		if valTok.Type == TokenTimestamp {

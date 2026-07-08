@@ -28,6 +28,7 @@ import (
 	"github.com/rulego/streamsql/functions"
 	"github.com/rulego/streamsql/logger"
 	"github.com/rulego/streamsql/types"
+	"github.com/rulego/streamsql/window"
 )
 
 // DataProcessor data processor responsible for processing data streams
@@ -331,6 +332,21 @@ func (dp *DataProcessor) startWindowProcessing() {
 
 // processWindowBatch processes window batch data
 func (dp *DataProcessor) processWindowBatch(batch []types.Row) {
+	// Global window maintains its own running aggregate and emits final result
+	// maps directly (FIRE_AND_PURGE per group); each Row.Data is already a
+	// complete result row, so skip the stream aggregator and go straight to
+	// HAVING/ORDER BY/LIMIT/sink dispatch.
+	if dp.stream.config.WindowConfig.Type == window.TypeGlobal {
+		results := make([]map[string]interface{}, 0, len(batch))
+		for _, item := range batch {
+			if m, ok := item.Data.(map[string]interface{}); ok {
+				results = append(results, m)
+			}
+		}
+		dp.processAggregationResults(results)
+		return
+	}
+
 	// Process window batch data
 	for _, item := range batch {
 		if err := dp.stream.aggregator.Put(WindowStartField, item.Slot.WindowStart()); err != nil {
