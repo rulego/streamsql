@@ -109,18 +109,41 @@ func TestStress_MemoryAndThroughput(t *testing.T) {
 			var peak runtime.MemStats
 			runtime.ReadMemStats(&peak)
 
-			// Let the window/aggregator/result pipeline flush remaining in-flight
-			// work before measuring retained heap, so backlog is not mistaken for a leak.
-			time.Sleep(500 * time.Millisecond)
-			runtime.GC()
-			var after runtime.MemStats
-			runtime.ReadMemStats(&after)
-
+			// Stop the background drain so the flush detector below is the sole
+			// reader. On a slow runner the single processor can still be flushing
+			// its backlog when a fixed sleep ends, so in-flight rows read as a
+			// false leak. Sample retained heap as the min over several drain+GC
+			// cycles: each cycle drains until the pipeline is quiet (1s no output,
+			// generous for slow CPUs), then GCs; in-flight backlog drops across
+			// cycles while a real leak stays high, so the min filters the transient.
 			close(ctxCancel)
+			results := ssql.Stream().GetResultsChan()
+			var retainedMB float64
+			for sample := 0; sample < 3; sample++ {
+				flushEnd := time.Now().Add(drainTimeout)
+				lastActivity := time.Now()
+			flushDrain:
+				for time.Now().Before(flushEnd) {
+					select {
+					case <-results:
+						lastActivity = time.Now()
+					case <-time.After(50 * time.Millisecond):
+						if time.Since(lastActivity) >= time.Second {
+							break flushDrain
+						}
+					}
+				}
+				runtime.GC()
+				var after runtime.MemStats
+				runtime.ReadMemStats(&after)
+				deltaMB := float64(after.HeapAlloc-baseline.HeapAlloc) / 1e6
+				if sample == 0 || deltaMB < retainedMB {
+					retainedMB = deltaMB
+				}
+			}
 
 			throughput := float64(produced) / ingestDuration.Seconds()
 			peakHeapMB := float64(peak.HeapAlloc) / 1e6
-			retainedMB := float64(after.HeapAlloc-baseline.HeapAlloc) / 1e6
 			perRowB := float64(peak.TotalAlloc-baseline.TotalAlloc) / float64(produced)
 
 			t.Logf("[%s] rows=%d producers=%d", sc.name, produced, producers)
