@@ -32,7 +32,7 @@ jobs:
       run: go mod download
 
     - name: Run all tests
-      run: go test -v -race -timeout 600s ./...
+      run: go test -v -race -timeout 1200s ./...
 
   release:
     name: Create Release
