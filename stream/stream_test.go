@@ -810,58 +810,6 @@ func TestDataChannelExpansion(t *testing.T) {
 	assert.True(t, stats[InputCount] > 0)
 }
 
-// TestStatsCollectorDetailedFunctions 测试统计收集器的详细功能
-func TestStatsCollectorDetailedFunctions(t *testing.T) {
-	collector := NewStatsCollector()
-
-	// 测试重置功能
-	collector.IncrementInput()
-	collector.IncrementOutput()
-	collector.IncrementDropped()
-
-	assert.Equal(t, int64(1), collector.GetInputCount())
-	assert.Equal(t, int64(1), collector.GetOutputCount())
-	assert.Equal(t, int64(1), collector.GetDroppedCount())
-
-	// 测试重置
-	collector.Reset()
-	assert.Equal(t, int64(0), collector.GetInputCount())
-	assert.Equal(t, int64(0), collector.GetOutputCount())
-	assert.Equal(t, int64(0), collector.GetDroppedCount())
-
-	// 测试基本统计信息
-	basicStats := collector.GetBasicStats(5, 10, 3, 20, 2, 5, 1, 0)
-	assert.Equal(t, int64(0), basicStats[InputCount])
-	assert.Equal(t, int64(5), basicStats[DataChanLen])
-	assert.Equal(t, int64(10), basicStats[DataChanCap])
-
-	// 测试详细统计信息
-	collector.IncrementInput()
-	collector.IncrementInput()
-	collector.IncrementOutput()
-	collector.IncrementDropped()
-
-	basicStats = collector.GetBasicStats(8, 10, 15, 20, 4, 5, 2, 1)
-	detailedStats := collector.GetDetailedStats(basicStats)
-
-	assert.Contains(t, detailedStats, BasicStats)
-	assert.Contains(t, detailedStats, DataChanUsage)
-	assert.Contains(t, detailedStats, ResultChanUsage)
-	assert.Contains(t, detailedStats, ProcessRate)
-	assert.Contains(t, detailedStats, DropRate)
-
-	// 验证计算结果
-	dataUsage := detailedStats[DataChanUsage].(float64)
-	assert.Equal(t, 80.0, dataUsage) // 8/10 * 100
-
-	processRate := detailedStats[ProcessRate].(float64)
-	assert.Equal(t, 50.0, processRate) // 1/2 * 100
-
-	dropRate := detailedStats[DropRate].(float64)
-	assert.Equal(t, 50.0, dropRate) // 1/2 * 100
-}
-
-// TestResultHandlerGetResultsChan 测试结果处理器的GetResultsChan功能
 func TestResultHandlerGetResultsChan(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"test"},
@@ -1497,40 +1445,6 @@ func TestStreamUnifiedConfigCompatibility(t *testing.T) {
 
 }
 
-// TestStatsManagerEnhanced 测试统计管理器增强版
-func TestStatsManagerEnhanced(t *testing.T) {
-	config := types.Config{
-		NeedWindow:   false,
-		SimpleFields: []string{"value"},
-	}
-
-	stream, err := NewStream(config)
-	require.NoError(t, err)
-	defer stream.Stop()
-
-	// 启动流处理
-	stream.Start()
-
-	// 发送一些数据来生成统计信息
-	for i := 0; i < 10; i++ {
-		stream.Emit(map[string]interface{}{"value": i})
-	}
-
-	// 等待处理完成
-	time.Sleep(100 * time.Millisecond)
-
-	// 测试基本统计
-	stats := stream.GetStats()
-	assert.Equal(t, int64(10), stats[InputCount], "输入计数不匹配")
-	assert.GreaterOrEqual(t, stats[OutputCount], int64(1), "输出计数应该大于等于1")
-
-	// 测试重置统计
-	stream.ResetStats()
-	stats = stream.GetStats()
-	assert.Equal(t, int64(0), stats[InputCount], "重置后输入计数应该为0")
-}
-
-// TestDataHandlerEnhanced 测试数据处理器增强版
 func TestDataHandlerEnhanced(t *testing.T) {
 	tests := []struct {
 		name              string

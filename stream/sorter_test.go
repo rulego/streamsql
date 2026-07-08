@@ -59,11 +59,16 @@ func TestSorter_MultiKey(t *testing.T) {
 	}
 	s.Sort(rows)
 	// a=1 group sorted by b desc: 3,2,1 ; a=2 group: 9,0
-	assert.Equal(t, 1, rows[0]["a"]); assert.Equal(t, 3, rows[0]["b"])
-	assert.Equal(t, 1, rows[1]["a"]); assert.Equal(t, 2, rows[1]["b"])
-	assert.Equal(t, 1, rows[2]["a"]); assert.Equal(t, 1, rows[2]["b"])
-	assert.Equal(t, 2, rows[3]["a"]); assert.Equal(t, 9, rows[3]["b"])
-	assert.Equal(t, 2, rows[4]["a"]); assert.Equal(t, 0, rows[4]["b"])
+	assert.Equal(t, 1, rows[0]["a"])
+	assert.Equal(t, 3, rows[0]["b"])
+	assert.Equal(t, 1, rows[1]["a"])
+	assert.Equal(t, 2, rows[1]["b"])
+	assert.Equal(t, 1, rows[2]["a"])
+	assert.Equal(t, 1, rows[2]["b"])
+	assert.Equal(t, 2, rows[3]["a"])
+	assert.Equal(t, 9, rows[3]["b"])
+	assert.Equal(t, 2, rows[4]["a"])
+	assert.Equal(t, 0, rows[4]["b"])
 }
 
 func TestSorter_MissingKeySortsFirst(t *testing.T) {

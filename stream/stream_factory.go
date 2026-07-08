@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/rulego/streamsql/metrics"
 	"github.com/rulego/streamsql/types"
 	"github.com/rulego/streamsql/window"
 )
@@ -108,6 +109,7 @@ func (sf *StreamFactory) createWindow(config types.Config) (window.Window, error
 // createStreamInstance creates Stream instance
 func (sf *StreamFactory) createStreamInstance(config types.Config, win window.Window) *Stream {
 	perfConfig := config.PerformanceConfig
+	reg := metrics.NewRegistry()
 	return &Stream{
 		dataChan:         make(chan map[string]interface{}, perfConfig.BufferConfig.DataChannelSize),
 		config:           config,
@@ -121,6 +123,10 @@ func (sf *StreamFactory) createStreamInstance(config types.Config, win window.Wi
 		blockingTimeout:  perfConfig.OverflowConfig.BlockTimeout,
 		overflowStrategy: perfConfig.OverflowConfig.Strategy,
 		maxRetryRoutines: int32(perfConfig.WorkerConfig.MaxRetryRoutines),
+		metricsRegistry:  reg,
+		mInput:           reg.Counter(InputCount),
+		mOutput:          reg.Counter(OutputCount),
+		mDropped:         reg.Counter(DroppedCount),
 	}
 }
 

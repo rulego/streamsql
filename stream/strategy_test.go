@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/rulego/streamsql/logger"
+	"github.com/rulego/streamsql/metrics"
 	"github.com/rulego/streamsql/types"
 	"github.com/stretchr/testify/require"
 )
@@ -201,8 +202,8 @@ func TestStrategyProcessData(t *testing.T) {
 			stream.Emit(testData)
 
 			// 验证输入计数增加
-			if stream.inputCount != 1 {
-				t.Errorf("Expected input count 1, got %d", stream.inputCount)
+			if stream.mInput.Value() != 1 {
+				t.Errorf("Expected input count 1, got %d", stream.mInput.Value())
 			}
 		})
 	}
@@ -290,11 +291,14 @@ func TestCustomStrategy(t *testing.T) {
 	mockStrategy := NewMockStrategy()
 
 	// 创建基本的Stream实例（不通过工厂）
+	reg := metrics.NewRegistry()
 	stream := &Stream{
-		dataChan:    make(chan map[string]interface{}, 10),
-		done:        make(chan struct{}),
-		inputCount:  0,
-		outputCount: 0,
+		dataChan:        make(chan map[string]interface{}, 10),
+		done:            make(chan struct{}),
+		metricsRegistry: reg,
+		mInput:          reg.Counter(InputCount),
+		mOutput:         reg.Counter(OutputCount),
+		mDropped:        reg.Counter(DroppedCount),
 	}
 
 	// 手动设置策略

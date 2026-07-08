@@ -579,11 +579,11 @@ func (dp *DataProcessor) expandUnnestResults(result map[string]interface{}, orig
 	if !dp.stream.hasUnnestFunction {
 		return []map[string]interface{}{result}
 	}
-	
+
 	if len(result) == 0 {
 		return []map[string]interface{}{result}
 	}
-	
+
 	for fieldName, fieldValue := range result {
 		if functions.IsUnnestResult(fieldValue) {
 			expandedRows := functions.ProcessUnnestResultWithFieldName(fieldValue, fieldName)
@@ -591,7 +591,7 @@ func (dp *DataProcessor) expandUnnestResults(result map[string]interface{}, orig
 			if len(expandedRows) == 0 {
 				return []map[string]interface{}{}
 			}
-			
+
 			results := make([]map[string]interface{}, len(expandedRows))
 			for i, unnestRow := range expandedRows {
 				newRow := make(map[string]interface{}, len(result)+len(unnestRow))
@@ -600,16 +600,16 @@ func (dp *DataProcessor) expandUnnestResults(result map[string]interface{}, orig
 						newRow[k] = v
 					}
 				}
-				
+
 				for k, v := range unnestRow {
 					newRow[k] = v
 				}
-				
+
 				results[i] = newRow
 			}
 			return results
 		}
 	}
-	
+
 	return []map[string]interface{}{result}
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/rulego/streamsql/condition"
 	"github.com/rulego/streamsql/functions"
 	"github.com/rulego/streamsql/logger"
+	"github.com/rulego/streamsql/metrics"
 	"github.com/rulego/streamsql/types"
 	"github.com/rulego/streamsql/window"
 )
@@ -83,10 +84,11 @@ type Stream struct {
 	// once no callback can still touch stream state.
 	lifecycle sync.WaitGroup
 
-	// Performance monitoring metrics
-	inputCount   int64 // Input data count
-	outputCount  int64 // Output result count
-	droppedCount int64 // Dropped data count
+	// Performance monitoring metrics (consolidated in metrics.Registry)
+	metricsRegistry *metrics.Registry
+	mInput          *metrics.Counter
+	mOutput         *metrics.Counter
+	mDropped        *metrics.Counter
 
 	// Log throttling fields for "Result channel is full" messages
 	lastDropLogTime int64 // Last time drop log was printed (unix timestamp)
@@ -223,7 +225,7 @@ func (s *Stream) Start() {
 // Parameters:
 //   - data: data to be processed, must be map[string]interface{} type
 func (s *Stream) Emit(data map[string]interface{}) {
-	atomic.AddInt64(&s.inputCount, 1)
+	s.mInput.Inc()
 	// Use strategy pattern to process data, providing better extensibility
 	s.dataStrategy.ProcessData(data)
 }
@@ -415,7 +417,7 @@ func (s *Stream) processDirectDataSync(data map[string]interface{}) (map[string]
 	}
 
 	// Increment output count
-	atomic.AddInt64(&s.outputCount, 1)
+	s.mOutput.Inc()
 
 	// Wrap result as array format, maintain consistency with async mode
 	results := []map[string]interface{}{result}

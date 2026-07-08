@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/rulego/streamsql/metrics"
 	"github.com/rulego/streamsql/rsql"
 	"github.com/rulego/streamsql/stream"
 	"github.com/rulego/streamsql/types"
@@ -310,6 +311,15 @@ func (s *Streamsql) GetDetailedStats() map[string]interface{} {
 		return s.stream.GetDetailedStats()
 	}
 	return make(map[string]interface{})
+}
+
+// Metrics returns the underlying metrics registry, or nil before Execute.
+// Callers can inspect named counters/gauges/histograms directly via the registry.
+func (s *Streamsql) Metrics() *metrics.Registry {
+	if s.stream != nil {
+		return s.stream.MetricsRegistry()
+	}
+	return nil
 }
 
 // Stop stops the stream processor and releases related resources.

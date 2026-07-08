@@ -233,7 +233,7 @@ func (ds *DropStrategy) ProcessData(data map[string]interface{}) {
 		default:
 			// Drop immediately
 			logger.Warn("Data channel is full, dropping input data")
-			atomic.AddInt64(&ds.stream.droppedCount, 1)
+			ds.stream.mDropped.Inc()
 			return
 		}
 
@@ -250,7 +250,7 @@ func (ds *DropStrategy) ProcessData(data map[string]interface{}) {
 			maxRetries = 1
 		default:
 			logger.Warn("Data channel is full, dropping input data")
-			atomic.AddInt64(&ds.stream.droppedCount, 1)
+			ds.stream.mDropped.Inc()
 			return
 		}
 
@@ -264,7 +264,7 @@ func (ds *DropStrategy) ProcessData(data map[string]interface{}) {
 			maxRetries = 1
 		default:
 			logger.Warn("Data channel is full, dropping input data")
-			atomic.AddInt64(&ds.stream.droppedCount, 1)
+			ds.stream.mDropped.Inc()
 			return
 		}
 	}
@@ -282,7 +282,7 @@ func (ds *DropStrategy) ProcessData(data map[string]interface{}) {
 			if retry == maxRetries-1 {
 				// Last retry failed, record drop
 				logger.Warn("Data channel is full, dropping input data")
-				atomic.AddInt64(&ds.stream.droppedCount, 1)
+				ds.stream.mDropped.Inc()
 			}
 		case <-ds.stream.done:
 			timer.Stop()

@@ -85,7 +85,7 @@ func (s *Stream) sendResultNonBlocking(results []map[string]interface{}) {
 	select {
 	case s.resultChan <- results:
 		// Successfully sent to result channel
-		atomic.AddInt64(&s.outputCount, 1)
+		s.mOutput.Inc()
 	default:
 		// Result channel is full, use intelligent backpressure control strategy
 		s.handleResultChannelBackpressure(results)
@@ -105,18 +105,18 @@ func (s *Stream) handleResultChannelBackpressure(results []map[string]interface{
 			// Clean one old result, then try to add new result
 			select {
 			case s.resultChan <- results:
-				atomic.AddInt64(&s.outputCount, 1)
+				s.mOutput.Inc()
 			default:
 				s.logDroppedDataWithThrottling()
-				atomic.AddInt64(&s.droppedCount, 1)
+				s.mDropped.Inc()
 			}
 		default:
 			s.logDroppedDataWithThrottling()
-			atomic.AddInt64(&s.droppedCount, 1)
+			s.mDropped.Inc()
 		}
 	} else {
 		s.logDroppedDataWithThrottling()
-		atomic.AddInt64(&s.droppedCount, 1)
+		s.mDropped.Inc()
 	}
 }
 
@@ -133,7 +133,7 @@ func (s *Stream) logDroppedDataWithThrottling() {
 		if atomic.CompareAndSwapInt64(&s.lastDropLogTime, lastLogTime, now) {
 			// Reset drop count and log the summary
 			atomic.StoreInt64(&s.dropLogCount, 0)
-			totalDropped := atomic.LoadInt64(&s.droppedCount)
+			totalDropped := s.mDropped.Value()
 			logger.Warn("Result channel is full, dropped %d data items in last period (total dropped: %d)", dropCount, totalDropped+1)
 		}
 	}

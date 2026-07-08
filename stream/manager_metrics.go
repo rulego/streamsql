@@ -18,20 +18,13 @@ package stream
 
 import (
 	"sync/atomic"
+
+	"github.com/rulego/streamsql/metrics"
 )
 
-// StatsManager manages statistics information
-type StatsManager struct {
-	stream         *Stream
-	statsCollector *StatsCollector
-}
-
-// NewStatsManager creates a new statistics manager
-func NewStatsManager(stream *Stream) *StatsManager {
-	return &StatsManager{
-		stream:         stream,
-		statsCollector: NewStatsCollector(),
-	}
+// MetricsRegistry returns the stream's metrics registry.
+func (s *Stream) MetricsRegistry() *metrics.Registry {
+	return s.metricsRegistry
 }
 
 // GetStats gets stream processing statistics (thread-safe version)
@@ -43,9 +36,9 @@ func (s *Stream) GetStats() map[string]int64 {
 	s.dataChanMux.RUnlock()
 
 	stats := map[string]int64{
-		InputCount:    atomic.LoadInt64(&s.inputCount),
-		OutputCount:   atomic.LoadInt64(&s.outputCount),
-		DroppedCount:  atomic.LoadInt64(&s.droppedCount),
+		InputCount:    s.mInput.Value(),
+		OutputCount:   s.mOutput.Value(),
+		DroppedCount:  s.mDropped.Value(),
 		DataChanLen:   dataChanLen,
 		DataChanCap:   dataChanCap,
 		ResultChanLen: int64(len(s.resultChan)),
@@ -105,7 +98,7 @@ func (s *Stream) GetDetailedStats() map[string]interface{} {
 
 // ResetStats resets statistics information
 func (s *Stream) ResetStats() {
-	atomic.StoreInt64(&s.inputCount, 0)
-	atomic.StoreInt64(&s.outputCount, 0)
-	atomic.StoreInt64(&s.droppedCount, 0)
+	s.mInput.Reset()
+	s.mOutput.Reset()
+	s.mDropped.Reset()
 }
