@@ -215,3 +215,78 @@ func TestGlobalWindow_MissingTriggerRejected(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.Error(t, err, "GLOBAL WINDOW without TRIGGER WHEN should be rejected")
 }
+
+// TestGlobalWindow_CompoundAndTrigger: TRIGGER WHEN with a compound AND
+// predicate fires only when BOTH clauses hold (count met but max below
+// threshold must NOT fire; crossing max fires). Exercises the full SQL path
+// for compound predicates (unit tests cover the predicate lowering in isolation).
+func TestGlobalWindow_CompoundAndTrigger(t *testing.T) {
+	t.Parallel()
+	ssql := streamsql.New()
+	defer ssql.Stop()
+
+	sql := `
+        SELECT deviceId, COUNT(*) AS cnt, MAX(value) AS maxv
+        FROM stream
+        GROUP BY deviceId, GLOBAL WINDOW TRIGGER WHEN COUNT(*) >= 2 AND MAX(value) > 5
+    `
+	require.NoError(t, ssql.Execute(sql))
+
+	ch := make(chan []map[string]interface{}, 4)
+	ssql.AddSink(func(results []map[string]interface{}) { ch <- results })
+
+	// value=1: count=1 (count clause false). value=2: count=2 but max=2 (max clause false).
+	// Neither fires. value=6: count=3 AND max=6 -> both true -> FIRE.
+	ssql.Emit(map[string]interface{}{"deviceId": "d1", "value": 1})
+	ssql.Emit(map[string]interface{}{"deviceId": "d1", "value": 2})
+
+	select {
+	case <-ch:
+		t.Fatal("must not fire while only one clause holds")
+	case <-time.After(300 * time.Millisecond):
+	}
+
+	ssql.Emit(map[string]interface{}{"deviceId": "d1", "value": 6})
+
+	select {
+	case res := <-ch:
+		require.Len(t, res, 1)
+		assert.Equal(t, float64(3), res[0]["cnt"])
+		assert.Equal(t, float64(6), res[0]["maxv"])
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for compound-AND fire")
+	}
+}
+
+// TestGlobalWindow_MultiAggregateSelect: SELECT with several aggregates
+// (COUNT/AVG/MAX) emits all of them when the TRIGGER WHEN threshold is hit,
+// and the trigger reuses the SELECT aggregates rather than double-counting.
+func TestGlobalWindow_MultiAggregateSelect(t *testing.T) {
+	t.Parallel()
+	ssql := streamsql.New()
+	defer ssql.Stop()
+
+	sql := `
+        SELECT deviceId, COUNT(*) AS cnt, AVG(value) AS avgv, MAX(value) AS maxv
+        FROM stream
+        GROUP BY deviceId, GLOBAL WINDOW TRIGGER WHEN COUNT(*) >= 3
+    `
+	require.NoError(t, ssql.Execute(sql))
+
+	ch := make(chan []map[string]interface{}, 4)
+	ssql.AddSink(func(results []map[string]interface{}) { ch <- results })
+
+	ssql.Emit(map[string]interface{}{"deviceId": "d1", "value": 10})
+	ssql.Emit(map[string]interface{}{"deviceId": "d1", "value": 20})
+	ssql.Emit(map[string]interface{}{"deviceId": "d1", "value": 30})
+
+	select {
+	case res := <-ch:
+		require.Len(t, res, 1)
+		assert.Equal(t, float64(3), res[0]["cnt"])
+		assert.Equal(t, float64(20), res[0]["avgv"]) // (10+20+30)/3
+		assert.Equal(t, float64(30), res[0]["maxv"])
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for multi-aggregate fire")
+	}
+}
