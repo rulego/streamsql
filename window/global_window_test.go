@@ -281,3 +281,127 @@ func waitFor(t *testing.T, cond func() bool) {
 		time.Sleep(5 * time.Millisecond)
 	}
 }
+
+// makeGlobalWindow is a thin helper for tests that want to vary SELECT fields.
+func makeGlobalWindow(t *testing.T, selectFields map[string]aggregator.AggregateType, fieldAlias map[string]string, trigger string) (*GlobalWindow, *[]map[string]interface{}) {
+	t.Helper()
+	cfg := types.WindowConfig{
+		Type:             TypeGlobal,
+		GroupByKeys:      []string{"deviceId"},
+		SelectFields:     selectFields,
+		FieldAlias:       fieldAlias,
+		TriggerCondition: trigger,
+	}
+	gw, err := NewGlobalWindow(cfg)
+	if err != nil {
+		t.Fatalf("NewGlobalWindow: %v", err)
+	}
+	got := gw.collectOnCallback()
+	gw.Start()
+	return gw, got
+}
+
+// TestGlobalWindow_CompoundAndTrigger covers a TRIGGER WHEN with AND between two
+// aggregates: it fires only when both hold, and emits both running values.
+func TestGlobalWindow_CompoundAndTrigger(t *testing.T) {
+	gw, got := makeGlobalWindow(t,
+		map[string]aggregator.AggregateType{"cnt": aggregator.Count, "mx": aggregator.Max},
+		map[string]string{"cnt": "*", "mx": "temp"},
+		"COUNT(*) >= 2 AND MAX(temp) > 50")
+	defer gw.Stop()
+
+	gw.Add(map[string]interface{}{"deviceId": "d1", "temp": float64(40)}) // cnt=1, mx=40: no fire
+	gw.Add(map[string]interface{}{"deviceId": "d1", "temp": float64(55)}) // cnt=2, mx=55: fire
+	waitFor(t, func() bool { return len(*got) > 0 })
+	if len(*got) != 1 {
+		t.Fatalf("expected 1 fire for compound AND, got %d", len(*got))
+	}
+	if c, _ := (*got)[0]["cnt"].(float64); c != 2 {
+		t.Errorf("cnt = %v, want 2", (*got)[0]["cnt"])
+	}
+	if mx, _ := (*got)[0]["mx"].(float64); mx != 55 {
+		t.Errorf("mx = %v, want 55", (*got)[0]["mx"])
+	}
+}
+
+// TestGlobalWindow_CompoundOrTrigger covers OR: either branch crossing the
+// threshold fires immediately.
+func TestGlobalWindow_CompoundOrTrigger(t *testing.T) {
+	gw, got := makeGlobalWindow(t,
+		map[string]aggregator.AggregateType{"cnt": aggregator.Count, "mx": aggregator.Max},
+		map[string]string{"cnt": "*", "mx": "temp"},
+		"COUNT(*) >= 5 OR MAX(temp) > 50")
+	defer gw.Stop()
+
+	gw.Add(map[string]interface{}{"deviceId": "d1", "temp": float64(55)}) // mx>50 fires at once
+	waitFor(t, func() bool { return len(*got) > 0 })
+	if len(*got) != 1 {
+		t.Fatalf("expected 1 fire for compound OR, got %d", len(*got))
+	}
+}
+
+// TestGlobalWindow_TriggerOnlyAggregate: the trigger aggregate is not in SELECT.
+// It must still drive firing, and the output carries only the SELECT fields.
+func TestGlobalWindow_TriggerOnlyAggregate(t *testing.T) {
+	gw, got := makeGlobalWindow(t,
+		map[string]aggregator.AggregateType{"cnt": aggregator.Count},
+		map[string]string{"cnt": "*"},
+		"SUM(amount) >= 100")
+	defer gw.Stop()
+
+	gw.Add(map[string]interface{}{"deviceId": "d1", "amount": float64(60)}) // sum=60: no
+	gw.Add(map[string]interface{}{"deviceId": "d1", "amount": float64(50)}) // sum=110: fire
+	waitFor(t, func() bool { return len(*got) > 0 })
+	if len(*got) != 1 {
+		t.Fatalf("expected 1 fire, got %d", len(*got))
+	}
+	if c, _ := (*got)[0]["cnt"].(float64); c != 2 {
+		t.Errorf("cnt = %v, want 2", (*got)[0]["cnt"])
+	}
+	if _, present := (*got)[0]["amount"]; present {
+		t.Errorf("trigger-only SUM should not appear in output, got %v", (*got)[0])
+	}
+}
+
+// TestGlobalWindow_EqualityTrigger: a bare = predicate (programmatic config)
+// must compile and fire, same as the == form the parser emits.
+func TestGlobalWindow_EqualityTrigger(t *testing.T) {
+	gw, got := makeGlobalWindow(t,
+		map[string]aggregator.AggregateType{"cnt": aggregator.Count},
+		map[string]string{"cnt": "*"},
+		"COUNT(*) = 3")
+	defer gw.Stop()
+	for i := 0; i < 3; i++ {
+		gw.Add(map[string]interface{}{"deviceId": "d1"})
+	}
+	waitFor(t, func() bool { return len(*got) > 0 })
+	if len(*got) != 1 {
+		t.Fatalf("expected 1 fire for bare = trigger, got %d", len(*got))
+	}
+}
+
+// TestNormalizeTriggerPredicate covers the SQL->expr-lang operator lowering.
+func TestNormalizeTriggerPredicate(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"COUNT(*) >= 10", "COUNT(*) >= 10"},
+		{"a AND b", "a && b"},
+		{"a OR b", "a || b"},
+		{"a and b or c", "a && b || c"},
+		{"COUNT(*) = 3", "COUNT(*) == 3"},
+		// already-expr-lang operators pass through unchanged.
+		{"a && b || c", "a && b || c"},
+		{"x == 3", "x == 3"},
+		{"x >= 3", "x >= 3"},
+		// quoted text and identifiers are preserved.
+		{"state == 'AND'", "state == 'AND'"},
+		{"`brand` = 1", "`brand` == 1"},
+		// field names containing and/or substrings are not split.
+		{"brand > 1", "brand > 1"},
+		{"sender >= 2", "sender >= 2"},
+	}
+	for _, c := range cases {
+		if got := normalizeTriggerPredicate(c.in); got != c.want {
+			t.Errorf("normalizeTriggerPredicate(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}

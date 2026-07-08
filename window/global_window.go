@@ -206,6 +206,12 @@ type triggerAggRef struct {
 // trigger-only ones), rewrites the predicate to use placeholders, and compiles
 // it with the condition engine.
 func (gw *GlobalWindow) buildTrigger(predicate string) error {
+	// Normalize SQL logical/equality operators to the expr-lang form the
+	// condition engine compiles. The rsql parser already lowers AND/OR/=, but a
+	// programmatic WindowConfig (rulego component config, tests) may pass them
+	// verbatim; without this, "a AND b" or "x = 3" fails to compile. Quoted
+	// literals are left untouched.
+	predicate = normalizeTriggerPredicate(predicate)
 	refs := gw.findAggCalls(predicate)
 	rewritten := predicate
 	gw.triggerSpecs = nil
@@ -270,6 +276,104 @@ func (gw *GlobalWindow) findAggCalls(predicate string) []triggerAggRefWithMatch 
 		})
 	}
 	return out
+}
+
+// normalizeTriggerPredicate rewrites SQL logical/equality operators to expr-lang
+// form: AND->&&, OR->||, and a bare '=' (not already part of ==, >=, <=, !=)
+// becomes '=='. String literals and backtick identifiers are skipped so
+// operator-like text inside them is preserved. Mirrors the lowering the rsql
+// parser applies, so SQL-sourced predicates are unaffected.
+func normalizeTriggerPredicate(s string) string {
+	var b strings.Builder
+	b.Grow(len(s) + 4)
+	inQuote := byte(0)
+	prev := byte(0)
+	n := len(s)
+	for i := 0; i < n; i++ {
+		c := s[i]
+		if inQuote != 0 {
+			b.WriteByte(c)
+			if c == inQuote {
+				inQuote = 0
+			}
+			prev = c
+			continue
+		}
+		switch c {
+		case '\'', '"', '`':
+			inQuote = c
+			b.WriteByte(c)
+			prev = c
+		case '=':
+			next := byte(0)
+			if i+1 < n {
+				next = s[i+1]
+			}
+			// Only a standalone '=' needs doubling; leave ==, >=, <=, != as-is.
+			if !isOpChar(prev) && !isOpChar(next) {
+				b.WriteString("==")
+				prev = '='
+			} else {
+				b.WriteByte(c)
+				prev = c
+			}
+		default:
+			if (c == 'A' || c == 'a') && hasWordAt(s, i, "and") && !isWordChar(prev) {
+				next := byte(0)
+				if i+3 < n {
+					next = s[i+3]
+				}
+				if !isWordChar(next) {
+					b.WriteString("&&")
+					i += 2
+					prev = '&'
+					continue
+				}
+			}
+			if (c == 'O' || c == 'o') && hasWordAt(s, i, "or") && !isWordChar(prev) {
+				next := byte(0)
+				if i+2 < n {
+					next = s[i+2]
+				}
+				if !isWordChar(next) {
+					b.WriteString("||")
+					i += 1
+					prev = '|'
+					continue
+				}
+			}
+			b.WriteByte(c)
+			prev = c
+		}
+	}
+	return b.String()
+}
+
+func hasWordAt(s string, i int, word string) bool {
+	if i+len(word) > len(s) {
+		return false
+	}
+	for j := 0; j < len(word); j++ {
+		if toLower(s[i+j]) != word[j] {
+			return false
+		}
+	}
+	return true
+}
+
+func toLower(c byte) byte {
+	if c >= 'A' && c <= 'Z' {
+		return c + 32
+	}
+	return c
+}
+
+func isWordChar(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
+}
+
+func isOpChar(c byte) bool {
+	return c == '=' || c == '>' || c == '<' || c == '!'
 }
 
 // findOutputSpec returns the index of an output aggregate matching type+field,
