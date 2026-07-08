@@ -1,9 +1,11 @@
-package streamsql
+package e2e
 
 import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/rulego/streamsql"
 )
 
 // TestDirectPathFilterUnchanged is a regression test pinning the WHERE filter
@@ -16,7 +18,7 @@ import (
 func TestDirectPathFilterUnchanged(t *testing.T) {
 	// Sync path (EmitSync): matching row projected, non-matching row nil.
 	t.Run("sync match and drop", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 		if err := ssql.Execute("SELECT deviceId, temperature FROM stream WHERE temperature > 30"); err != nil {
 			t.Fatalf("Execute: %v", err)
@@ -36,7 +38,7 @@ func TestDirectPathFilterUnchanged(t *testing.T) {
 
 	// Async path (Emit + AddSink): only matching rows reach the sink, in order.
 	t.Run("async only matching sinked", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 		if err := ssql.Execute("SELECT deviceId FROM stream WHERE temperature > 30"); err != nil {
 			t.Fatalf("Execute: %v", err)
@@ -81,7 +83,7 @@ func TestDirectPathFilterUnchanged(t *testing.T) {
 
 	// No WHERE: every row passes (filter is nil -> no drop).
 	t.Run("no where passes all", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 		if err := ssql.Execute("SELECT deviceId FROM stream"); err != nil {
 			t.Fatalf("Execute: %v", err)
@@ -96,14 +98,14 @@ func TestDirectPathFilterUnchanged(t *testing.T) {
 
 	// Compound WHERE (AND/OR with parentheses): precedence honored.
 	t.Run("compound where", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 		if err := ssql.Execute("SELECT deviceId FROM stream WHERE (temperature > 30 AND humidity < 80) OR deviceId = 'd9'"); err != nil {
 			t.Fatalf("Execute: %v", err)
 		}
-		pass := map[string]interface{}{"deviceId": "d1", "temperature": 35, "humidity": 60} // both AND branches true
+		pass := map[string]interface{}{"deviceId": "d1", "temperature": 35, "humidity": 60}   // both AND branches true
 		passOr := map[string]interface{}{"deviceId": "d9", "temperature": 10, "humidity": 99} // OR branch true
-		drop := map[string]interface{}{"deviceId": "d2", "temperature": 20, "humidity": 90}  // neither
+		drop := map[string]interface{}{"deviceId": "d2", "temperature": 20, "humidity": 90}   // neither
 
 		for _, row := range []map[string]interface{}{pass, passOr, drop} {
 			got, _ := ssql.EmitSync(row)

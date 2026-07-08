@@ -1,4 +1,4 @@
-package streamsql
+package e2e
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -105,7 +106,7 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// 创建StreamSQL实例
-			ssql := New()
+			ssql := streamsql.New()
 			defer ssql.Stop()
 
 			// 执行SQL
@@ -192,7 +193,7 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 
 // TestIsNullInAggregation 测试聚合查询中的IS NULL
 func TestIsNullInAggregation(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	// 聚合查询：统计非空值的数量
@@ -259,7 +260,7 @@ func TestIsNullInAggregation(t *testing.T) {
 
 // TestIsNullInHaving 测试HAVING子句中真正的IS NULL功能
 func TestIsNullInHaving(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	// 测试HAVING子句中的IS NULL：只返回平均值为NULL的设备类型
@@ -324,7 +325,7 @@ func TestIsNullInHaving(t *testing.T) {
 
 // TestIsNullInHavingWithIsNotNull 测试HAVING子句中的IS NOT NULL功能
 func TestIsNullInHavingWithIsNotNull(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	// 测试HAVING子句中的IS NOT NULL：只返回平均值不为NULL的设备类型
@@ -392,7 +393,7 @@ func TestIsNullInHavingWithIsNotNull(t *testing.T) {
 
 // TestIsNullWithOtherOperators 测试IS NULL与其他操作符的组合
 func TestIsNullWithOtherOperators(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	// 测试复杂的WHERE条件
@@ -561,7 +562,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// 创建StreamSQL实例
-			ssql := New()
+			ssql := streamsql.New()
 			defer ssql.Stop()
 
 			// 执行SQL
@@ -824,7 +825,7 @@ func TestNullComparisons(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// 创建StreamSQL实例
-			ssql := New()
+			ssql := streamsql.New()
 			defer ssql.Stop()
 
 			// 执行SQL
@@ -904,7 +905,7 @@ func TestNullComparisons(t *testing.T) {
 
 // TestNullComparisonInAggregation 测试聚合查询中的 = nil 和 != nil
 func TestNullComparisonInAggregation(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	// 聚合查询：统计非空值的数量
@@ -971,7 +972,7 @@ func TestNullComparisonInAggregation(t *testing.T) {
 
 // TestMixedNullComparisons 测试混合使用 IS NULL、= nil、= null、!= null 等语法
 func TestMixedNullComparisons(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	// 测试混合null比较语法

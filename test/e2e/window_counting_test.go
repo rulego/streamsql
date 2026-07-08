@@ -1,15 +1,16 @@
-package streamsql
+package e2e
 
 import (
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSQLCountingWindow_GroupByDevice(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	sql := `
@@ -49,7 +50,7 @@ func TestSQLCountingWindow_GroupByDevice(t *testing.T) {
 }
 
 func TestSQLCountingWindow_GroupedCounting_MixedDevices(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	sql := `
@@ -92,7 +93,7 @@ func TestSQLCountingWindow_GroupedCounting_MixedDevices(t *testing.T) {
 }
 
 func TestSQLCountingWindow_MultiKeyGroupedCounting(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	sql := `

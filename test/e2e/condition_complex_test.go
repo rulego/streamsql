@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-package streamsql
+package e2e
 
 import (
 	"testing"
+
+	"github.com/rulego/streamsql"
 )
 
 // TestComplexConditions 测试复杂条件和组合条件的支持
@@ -139,7 +141,7 @@ func TestComplexConditions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ssql := New()
+			ssql := streamsql.New()
 			err := ssql.Execute(tt.sql)
 			if err != nil {
 				t.Fatalf("Execute() failed: %v", err)
@@ -198,7 +200,7 @@ func TestComplexConditionsWithLike(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ssql := New()
+			ssql := streamsql.New()
 			err := ssql.Execute(tt.sql)
 			if err != nil {
 				t.Fatalf("Execute() failed: %v", err)
@@ -254,7 +256,7 @@ func TestComplexConditionsWithNullChecks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ssql := New()
+			ssql := streamsql.New()
 			err := ssql.Execute(tt.sql)
 			if err != nil {
 				t.Fatalf("Execute() failed: %v", err)

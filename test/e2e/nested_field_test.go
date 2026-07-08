@@ -1,10 +1,11 @@
-package streamsql
+package e2e
 
 import (
 	"context"
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -12,21 +13,21 @@ import (
 // TestComprehensiveNestedFieldAccess 全面测试嵌套字段访问功能
 func TestComprehensiveNestedFieldAccess(t *testing.T) {
 	t.Run("多层嵌套字段访问", func(t *testing.T) {
-		streamsql := New()
+		ssql := streamsql.New()
 		defer func() {
-			if streamsql != nil {
-				streamsql.Stop()
+			if ssql != nil {
+				ssql.Stop()
 			}
 		}()
 
 		// 测试多层嵌套字段访问
 		var rsql = "SELECT device.info.name as device_name, device.location.building as building, sensor.data.temperature as temp FROM stream"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err, "多层嵌套字段SQL应该能够执行")
 
 		require.NoError(t, err, "多层嵌套字段访问不应该出错")
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 
 		// 创建结果接收通道
 		resultChan := make(chan interface{}, 10)
@@ -95,21 +96,21 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 	})
 
 	t.Run("嵌套字段聚合查询", func(t *testing.T) {
-		streamsql := New()
+		ssql := streamsql.New()
 		defer func() {
-			if streamsql != nil {
-				streamsql.Stop()
+			if ssql != nil {
+				ssql.Stop()
 			}
 		}()
 
 		// 测试聚合查询中的嵌套字段
 		var rsql = "SELECT device.type, AVG(sensor.temperature) as avg_temp, COUNT(*) as cnt FROM stream GROUP BY device.type, TumblingWindow('1s')"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err, "嵌套字段聚合SQL应该能够执行")
 
 		require.NoError(t, err, "嵌套字段聚合查询不应该出错")
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 
 		// 创建结果接收通道
 		resultChan := make(chan interface{}, 10)
@@ -193,21 +194,21 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 	})
 
 	t.Run("复杂嵌套字段WHERE条件", func(t *testing.T) {
-		streamsql := New()
+		ssql := streamsql.New()
 		defer func() {
-			if streamsql != nil {
-				streamsql.Stop()
+			if ssql != nil {
+				ssql.Stop()
 			}
 		}()
 
 		// 测试复杂的WHERE条件
 		var rsql = "SELECT * FROM stream WHERE device.info.status = 'active' AND sensor.data.temperature > 25 AND device.location.building = 'A栋'"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err, "复杂嵌套字段WHERE SQL应该能够执行")
 
 		require.NoError(t, err, "复杂嵌套字段WHERE条件不应该出错")
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 
 		// 创建结果接收通道
 		resultChan := make(chan interface{}, 10)
@@ -316,20 +317,20 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 // TestArrayFieldAccess 测试数组字段访问功能
 func TestArrayFieldAccess(t *testing.T) {
 	t.Run("数组索引访问", func(t *testing.T) {
-		streamsql := New()
+		ssql := streamsql.New()
 		defer func() {
-			if streamsql != nil {
-				streamsql.Stop()
+			if ssql != nil {
+				ssql.Stop()
 			}
 		}()
 
 		// 测试数组索引访问
 		var rsql = "SELECT items[0].name as first_item_name, items[1].id as second_item_id, values[2] as third_value FROM stream"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err, "数组索引访问SQL应该能够执行")
 		require.NoError(t, err, "数组索引访问不应该出错")
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -378,18 +379,18 @@ func TestArrayFieldAccess(t *testing.T) {
 	})
 
 	t.Run("数组索引在WHERE条件中", func(t *testing.T) {
-		streamsql := New()
+		ssql := streamsql.New()
 		defer func() {
-			if streamsql != nil {
-				streamsql.Stop()
+			if ssql != nil {
+				ssql.Stop()
 			}
 		}()
 
 		var rsql = "SELECT * FROM stream WHERE tags[0] = 'urgent' AND scores[1] > 90"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		require.NoError(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -426,19 +427,19 @@ func TestArrayFieldAccess(t *testing.T) {
 	})
 
 	t.Run("嵌套数组聚合查询", func(t *testing.T) {
-		streamsql := New()
+		ssql := streamsql.New()
 		defer func() {
-			if streamsql != nil {
-				streamsql.Stop()
+			if ssql != nil {
+				ssql.Stop()
 			}
 		}()
 
 		// 测试聚合查询中的嵌套数组字段
 		var rsql = "SELECT device.type, AVG(sensors[0].temperature) as avg_temp FROM stream GROUP BY device.type, TumblingWindow('1s')"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err, "嵌套数组聚合SQL应该能够执行")
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result

@@ -1,8 +1,9 @@
-package streamsql
+package e2e
 
 import (
 	"testing"
 
+	"github.com/rulego/streamsql"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -51,7 +52,7 @@ func TestFunctionValidationIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ssql := New()
+			ssql := streamsql.New()
 			err := ssql.Execute(tt.sql)
 
 			if tt.expectError {
@@ -71,7 +72,7 @@ func TestFunctionValidationWithCustomFunctions(t *testing.T) {
 	sql := "SELECT custom_func(temperature) FROM stream"
 
 	// 在没有注册自定义函数时应该报错
-	ssql := New()
+	ssql := streamsql.New()
 	err := ssql.Execute(sql)
 	assert.Error(t, err, "Should error when custom function is not registered")
 	assert.Contains(t, err.Error(), "custom_func", "Error should mention the unknown function")

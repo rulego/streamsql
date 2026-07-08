@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package streamsql
+package e2e
 
 import (
 	"sync"
@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,7 +30,7 @@ import (
 // TestEmitSyncWithAddSink 测试EmitSync同时触发AddSink回调
 func TestEmitSyncWithAddSink(t *testing.T) {
 	t.Run("非聚合查询同步+异步结果", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		// 执行非聚合查询 - 测试反引号字段与字符串常量的混合用法
@@ -140,7 +141,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 	})
 
 	t.Run("聚合查询不支持EmitSync", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		// 执行聚合查询
@@ -161,7 +162,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 	})
 
 	t.Run("多个AddSink回调都被触发", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		// 执行非聚合查询
@@ -200,7 +201,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 	})
 
 	t.Run("过滤条件不匹配时AddSink不触发", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		// 执行带过滤条件的查询
@@ -229,7 +230,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 
 	// 新增测试：字符串常量与反引号字段的复杂混合用法
 	t.Run("字符串常量与反引号字段混合用法", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		// 测试包含多种字符串常量的SQL查询
@@ -261,7 +262,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 
 // TestEmitSyncPerformance 测试EmitSync性能（包括AddSink触发）
 func TestEmitSyncPerformance(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	sql := "SELECT temperature, humidity FROM stream WHERE temperature > 0"

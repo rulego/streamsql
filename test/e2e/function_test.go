@@ -1,10 +1,11 @@
-package streamsql
+package e2e
 
 import (
 	"context"
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql"
 	"github.com/rulego/streamsql/functions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,15 +14,15 @@ import (
 // TestFunctionIntegrationNonAggregation 测试非聚合函数在SQL中的集成
 func TestFunctionIntegrationNonAggregation(t *testing.T) {
 	t.Run("MathFunctions", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 测试多个数学函数：abs, sqrt, round
 		rsql := "SELECT device, abs(temperature) as abs_temp, sqrt(humidity) as sqrt_humidity, round(temperature) as rounded_temp FROM stream"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -59,15 +60,15 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 	})
 
 	t.Run("StringFunctions", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 测试字符串函数：upper, lower, concat, length
 		rsql := "SELECT upper(device) as upper_device, lower(location) as lower_location, concat(device, '-', location) as combined, length(device) as device_len FROM stream"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -101,15 +102,15 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 	})
 
 	t.Run("ConversionFunctions", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 测试转换函数：cast
 		rsql := "SELECT device, cast(temperature, 'int') as temp_int, cast(humidity, 'string') as humidity_str FROM stream"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -143,15 +144,15 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 	})
 
 	t.Run("DateTimeFunctions", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 测试日期时间函数：now, year, month, day
 		rsql := "SELECT device, now() as current_time, year(timestamp) as ts_year, month(timestamp) as ts_month FROM stream"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -186,15 +187,15 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 	})
 
 	t.Run("JSONFunctions", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 测试JSON函数：json_extract, json_valid
 		rsql := "SELECT device, json_extract(metadata, '$.type') as device_type, json_valid(metadata) as is_valid_json FROM stream"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -227,15 +228,15 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 	})
 
 	t.Run("JSONExtractMapSupport", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// Test json_extract with map input
 		rsql := "SELECT device, json_extract(properties, '$.color') as device_color FROM stream"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -270,15 +271,15 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 	})
 
 	t.Run("JSONExtractArrayAndNested", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// Test json_extract with array and nested structures
 		rsql := "SELECT device, json_extract(tags, '$[0]') as first_tag, json_extract(data, '$.users[0].name') as first_user_name FROM stream"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -317,18 +318,18 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 	})
 
 	t.Run("JSONExtractWithAggregation", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// Test json_extract nested in aggregation function
 		// json_extract returns interface{}, usually need cast to number for aggregation like sum/avg
 		// specific logic depends on whether aggregator handles string/interface conversion
 		// Here we assume json_extract returns float64 for numbers (from Unmarshal) or use cast
 		rsql := "SELECT count(json_extract(tags, '$[0]')) as tag_count, sum(cast(json_extract(data, '$.value'), 'float')) as total_value FROM stream GROUP BY device, TumblingWindow('1s')"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -376,15 +377,15 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 // TestFunctionIntegrationAggregation 测试聚合函数在SQL中的集成
 func TestFunctionIntegrationAggregation(t *testing.T) {
 	t.Run("BasicAggregationFunctions", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 测试基本聚合函数：sum, avg, min, max, count
 		rsql := "SELECT device, sum(temperature) as total_temp, avg(temperature) as avg_temp, min(temperature) as min_temp, max(temperature) as max_temp, count(temperature) as temp_count FROM stream GROUP BY device, TumblingWindow('1s')"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -440,15 +441,15 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 	})
 
 	t.Run("StatisticalAggregationFunctions", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 测试统计聚合函数：stddev, median, percentile
 		rsql := "SELECT device, stddev(temperature) as temp_stddev, median(temperature) as temp_median FROM stream GROUP BY device, TumblingWindow('1s')"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -493,15 +494,15 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 	})
 
 	t.Run("CollectionAggregationFunctions", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 测试集合聚合函数：collect, first_value, last_value
 		rsql := "SELECT device, collect(temperature) as temp_array, first_value(temperature) as first_temp, last_value(temperature) as last_temp FROM stream GROUP BY device, TumblingWindow('1s')"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -555,15 +556,15 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 // TestFunctionIntegrationMixed 测试混合函数场景
 func TestFunctionIntegrationMixed(t *testing.T) {
 	t.Run("AggregationWithNonAggregationFunctions", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 测试聚合函数与非聚合函数混合使用
 		rsql := "SELECT device, upper(device) as device_upper, avg(temperature) as avg_temp, round(avg(temperature), 2) as rounded_avg FROM stream GROUP BY device, TumblingWindow('1s')"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -625,15 +626,15 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 	})
 
 	t.Run("NestedFunctionCalls", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 测试嵌套函数调用
 		rsql := "SELECT device, upper(concat(device, '_', cast(round(temperature, 0), 'string'))) as device_temp_label FROM stream"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -666,15 +667,15 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 	})
 
 	t.Run("WindowFunctionsWithAggregation", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 测试窗口函数与聚合函数结合
 		rsql := "SELECT device, avg(temperature) as avg_temp, window_start() as start_time, window_end() as end_time FROM stream GROUP BY device, TumblingWindow('1s')"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -719,15 +720,15 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 func TestNestedFunctionSupport(t *testing.T) {
 	t.Run("NormalFunctionNestingAggregation", func(t *testing.T) {
 		// 测试普通函数嵌套聚合函数：round(avg(temperature), 2)
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 执行包含 round(avg(temperature), 2) 的查询
 		query := "SELECT device, round(avg(temperature), 2) as rounded_avg FROM stream GROUP BY device, TumblingWindow('1s')"
-		err := streamsql.Execute(query)
+		err := ssql.Execute(query)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -782,16 +783,16 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 	t.Run("AggregationNestingNormalFunction", func(t *testing.T) {
 		// 测试聚合函数嵌套普通函数：avg(round(temperature, 2))
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 执行包含 avg(round(temperature, 2)) 的查询
 		query := "SELECT device, avg(round(temperature, 2)) as avg_rounded FROM stream GROUP BY device, TumblingWindow('1s')"
 
-		err := streamsql.Execute(query)
+		err := ssql.Execute(query)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -846,15 +847,15 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 	t.Run("ComplexNestedFunctions", func(t *testing.T) {
 		// 测试更复杂的嵌套函数：round(avg(abs(temperature)), 1)
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 执行包含 round(avg(abs(temperature)), 1) 的查询
 		query := "SELECT device, round(avg(abs(temperature)), 1) as complex_result FROM stream GROUP BY device, TumblingWindow('1s')"
-		err := streamsql.Execute(query)
+		err := ssql.Execute(query)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -914,14 +915,14 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 	// 测试1: 字符串函数嵌套数学函数
 	t.Run("StringFunctionNestingMathFunction", func(t *testing.T) {
 		// 测试 upper(concat("temp_", round(temperature, 1)))
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		query := "SELECT device, upper(concat('temp_', round(temperature, 1))) as formatted_temp FROM stream"
-		err := streamsql.Execute(query)
+		err := ssql.Execute(query)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -952,15 +953,15 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 	// 测试2: 数学函数嵌套字符串函数
 	t.Run("MathFunctionNestingStringFunction", func(t *testing.T) {
 		// 测试 round(len(upper(device)), 0)
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		query := "SELECT device, round(len(upper(device)), 0) as device_length FROM stream"
 
-		err := streamsql.Execute(query)
+		err := ssql.Execute(query)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -991,15 +992,15 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 	// 测试3: 多层嵌套函数（3层）
 	t.Run("ThreeLevelNestedFunctions", func(t *testing.T) {
 		// 测试 abs(round(sqrt(temperature), 2))
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		query := "SELECT device, abs(round(sqrt(temperature), 2)) as processed_temp FROM stream"
 
-		err := streamsql.Execute(query)
+		err := ssql.Execute(query)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -1029,11 +1030,11 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 	// 测试6: 复杂的聚合函数嵌套 - 应该报错
 	t.Run("ComplexAggregationNesting", func(t *testing.T) {
 		// 测试 max(round(avg(temperature), 1)) - 这是嵌套聚合函数，应该报错
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		query := "SELECT device, max(round(avg(temperature), 1)) as max_rounded_avg FROM stream GROUP BY device, TumblingWindow('1s')"
-		err := streamsql.Execute(query)
+		err := ssql.Execute(query)
 		// 应该返回嵌套聚合函数错误
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "aggregate function calls cannot be nested")
@@ -1041,38 +1042,38 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 	// 测试7: 其他类型的嵌套聚合函数检测
 	t.Run("NestedAggregationDetection", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 测试 sum(count(*)) - 聚合函数嵌套聚合函数
 		query1 := "SELECT sum(count(*)) as nested_agg FROM stream GROUP BY device, TumblingWindow('1s')"
-		err1 := streamsql.Execute(query1)
+		err1 := ssql.Execute(query1)
 		assert.NotNil(t, err1)
 		assert.Contains(t, err1.Error(), "aggregate function calls cannot be nested")
 
 		// 测试 avg(min(temperature)) - 聚合函数嵌套聚合函数
 		query2 := "SELECT avg(min(temperature)) as nested_agg FROM stream GROUP BY device, TumblingWindow('1s')"
-		err2 := streamsql.Execute(query2)
+		err2 := ssql.Execute(query2)
 		assert.NotNil(t, err2)
 		assert.Contains(t, err2.Error(), "aggregate function calls cannot be nested")
 
 		// 测试 round(avg(temperature), 1) - 正常函数嵌套聚合函数，应该正常
 		query3 := "SELECT round(avg(temperature), 1) as normal_nesting FROM stream GROUP BY device, TumblingWindow('1s')"
-		err3 := streamsql.Execute(query3)
+		err3 := ssql.Execute(query3)
 		assert.Nil(t, err3) // 这种嵌套应该是允许的
 	})
 
 	// 测试7: 日期时间函数嵌套
 	t.Run("DateTimeFunctionNesting", func(t *testing.T) {
 		// 测试 year(date_add(created_at, 1, 'years'))
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		query := "SELECT device, year(date_add(created_at, 1, 'years')) as next_year FROM stream"
-		err := streamsql.Execute(query)
+		err := ssql.Execute(query)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -1103,14 +1104,14 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 	// 测试8: 错误的嵌套函数执行顺序
 	t.Run("ErrorHandlingInNestedFunctions", func(t *testing.T) {
 		// 测试 sqrt(len(invalid_field)) - 应该处理错误
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		query := "SELECT device, sqrt(len(invalid_field)) as error_result FROM stream"
-		err := streamsql.Execute(query)
+		err := ssql.Execute(query)
 		assert.Nil(t, err)
 
-		strm := streamsql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -1192,14 +1193,14 @@ func flattenUnnestRows(result []map[string]interface{}, alias string) []map[stri
 // - 示例: SELECT unnest(tags) as tag FROM stream
 func TestUnnestFunctionIntegration(t *testing.T) {
 	t.Run("PrimitiveArray", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		sql := "SELECT unnest(tags) as tag FROM stream"
 		err := ssql.Execute(sql)
 		require.NoError(t, err)
 
-		strm := ssql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -1242,7 +1243,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 	})
 
 	t.Run("CombinedColumns", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		// 测试组合列：SELECT id,unnest(tags) as tag FROM events
@@ -1250,7 +1251,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 		err := ssql.Execute(sql)
 		require.NoError(t, err)
 
-		strm := ssql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -1298,14 +1299,14 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 		}
 	})
 	t.Run("ObjectArray", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		sql := "SELECT unnest(props) as prop FROM stream"
 		err := ssql.Execute(sql)
 		require.NoError(t, err)
 
-		strm := ssql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -1342,14 +1343,14 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 	})
 
 	t.Run("EmptyArray", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		sql := "SELECT unnest(tags) as tag FROM stream"
 		err := ssql.Execute(sql)
 		require.NoError(t, err)
 
-		strm := ssql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
@@ -1377,14 +1378,14 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 	})
 
 	t.Run("NilArray", func(t *testing.T) {
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		sql := "SELECT unnest(tags) as tag FROM stream"
 		err := ssql.Execute(sql)
 		require.NoError(t, err)
 
-		strm := ssql.stream
+		strm := ssql.Stream()
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
 			resultChan <- result

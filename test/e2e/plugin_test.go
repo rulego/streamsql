@@ -1,4 +1,4 @@
-package streamsql
+package e2e
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql"
 	"github.com/rulego/streamsql/functions"
 	"github.com/stretchr/testify/assert"
 )
@@ -77,8 +78,8 @@ func TestPluginStyleCustomFunctions(t *testing.T) {
 
 func testStringFunctionsOnly(t *testing.T) {
 
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	sql := `
 		SELECT 
@@ -87,11 +88,11 @@ func testStringFunctionsOnly(t *testing.T) {
 		FROM stream
 	`
 
-	err := streamsql.Execute(sql)
+	err := ssql.Execute(sql)
 	assert.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result []map[string]interface{}) {
+	ssql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -101,7 +102,7 @@ func testStringFunctionsOnly(t *testing.T) {
 		"phone":       "13812345678",
 	}
 
-	streamsql.Emit(testData)
+	ssql.Emit(testData)
 	time.Sleep(300 * time.Millisecond)
 
 	select {
@@ -121,8 +122,8 @@ func testStringFunctionsOnly(t *testing.T) {
 
 func testConversionFunctionsOnly(t *testing.T) {
 
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	sql := `
 		SELECT 
@@ -131,11 +132,11 @@ func testConversionFunctionsOnly(t *testing.T) {
 		FROM stream
 	`
 
-	err := streamsql.Execute(sql)
+	err := ssql.Execute(sql)
 	assert.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result []map[string]interface{}) {
+	ssql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -144,7 +145,7 @@ func testConversionFunctionsOnly(t *testing.T) {
 		"user_id": "12345",
 	}
 
-	streamsql.Emit(testData)
+	ssql.Emit(testData)
 	time.Sleep(300 * time.Millisecond)
 
 	select {
@@ -165,8 +166,8 @@ func testConversionFunctionsOnly(t *testing.T) {
 
 func testMathFunctionsInAggregate(t *testing.T) {
 
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	sql := `
 		SELECT 
@@ -176,11 +177,11 @@ func testMathFunctionsInAggregate(t *testing.T) {
 		GROUP BY department, TumblingWindow('1s')
 	`
 
-	err := streamsql.Execute(sql)
+	err := ssql.Execute(sql)
 	assert.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result []map[string]interface{}) {
+	ssql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -199,11 +200,11 @@ func testMathFunctionsInAggregate(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		streamsql.Emit(data)
+		ssql.Emit(data)
 	}
 
 	time.Sleep(1 * time.Second)
-	streamsql.Stream().Window.Trigger()
+	ssql.TriggerWindow()
 	time.Sleep(500 * time.Millisecond)
 
 	select {
@@ -248,19 +249,19 @@ func TestRuntimeFunctionManagement(t *testing.T) {
 	assert.Equal(t, "temp_function", fn.GetName())
 
 	// 在SQL中使用
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	sql := `SELECT temp_function(value) as result FROM stream`
-	err = streamsql.Execute(sql)
+	err = ssql.Execute(sql)
 	assert.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result []map[string]interface{}) {
+	ssql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
-	streamsql.Emit(map[string]interface{}{"value": "test"})
+	ssql.Emit(map[string]interface{}{"value": "test"})
 	time.Sleep(300 * time.Millisecond)
 
 	select {
@@ -348,8 +349,8 @@ func TestCompleteSQLIntegration(t *testing.T) {
 	assert.NoError(t, err)
 	defer functions.Unregister("business_metric")
 
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	// 使用全新的函数在SQL中
 	sql := `
@@ -359,11 +360,11 @@ func TestCompleteSQLIntegration(t *testing.T) {
 		FROM stream
 	`
 
-	err = streamsql.Execute(sql)
+	err = ssql.Execute(sql)
 	assert.NoError(t, err)
 
 	resultChan := make(chan interface{}, 10)
-	streamsql.Stream().AddSink(func(result []map[string]interface{}) {
+	ssql.Stream().AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -373,7 +374,7 @@ func TestCompleteSQLIntegration(t *testing.T) {
 		"amount":      100.0,
 	}
 
-	streamsql.Emit(testData)
+	ssql.Emit(testData)
 	time.Sleep(300 * time.Millisecond)
 
 	select {

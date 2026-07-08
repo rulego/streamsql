@@ -1,4 +1,4 @@
-package streamsql
+package e2e
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +14,7 @@ import (
 // TestSQLTumblingWindow_ProcessingTime 测试处理时间的滚动窗口
 // 验证不使用 WITH 子句时，滚动窗口基于处理时间（系统时钟）工作
 func TestSQLTumblingWindow_ProcessingTime(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	sql := `
@@ -112,7 +113,7 @@ END:
 // TestSQLTumblingWindow_MaxOutOfOrderness 测试滚动窗口的最大延迟时间配置
 // 验证设置 MaxOutOfOrderness 后，延迟数据能否在允许的延迟范围内被正确处理
 func TestSQLTumblingWindow_MaxOutOfOrderness(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	// 使用 SQL 配置 MaxOutOfOrderness
@@ -260,7 +261,7 @@ END:
 // TestSQLTumblingWindow_AllowedLateness 测试滚动窗口的 AllowedLateness 配置
 // 验证窗口触发后，延迟数据能否在允许的延迟时间内更新窗口结果
 func TestSQLTumblingWindow_AllowedLateness(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	sql := `
@@ -415,7 +416,7 @@ func TestSQLTumblingWindow_BothConfigs(t *testing.T) {
 	// 启用调试日志（可选，用于排查问题）
 	// window.EnableDebug = true
 
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	sql := `
@@ -590,7 +591,7 @@ END:
 // TestSQLTumblingWindow_LateDataHandling 测试滚动窗口的延迟数据处理
 // 验证即使数据延迟到达，只要在允许的延迟范围内，也能正确统计到对应窗口
 func TestSQLTumblingWindow_LateDataHandling(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	sql := `
@@ -733,7 +734,7 @@ END:
 
 // TestSQLTumblingWindow_EventTimeWindowAlignment 测试事件时间窗口对齐到epoch
 func TestSQLTumblingWindow_EventTimeWindowAlignment(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	sql := `
@@ -842,7 +843,7 @@ END:
 
 // TestSQLTumblingWindow_WatermarkTriggerTiming 测试Watermark触发窗口的时机
 func TestSQLTumblingWindow_WatermarkTriggerTiming(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	sql := `
@@ -976,7 +977,7 @@ END:
 
 // TestSQLTumblingWindow_AllowedLatenessUpdate 测试AllowedLateness的延迟更新
 func TestSQLTumblingWindow_AllowedLatenessUpdate(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	sql := `
@@ -1160,7 +1161,7 @@ END:
 // TestSQLTumblingWindow_IdleSourceMechanism 测试Idle Source机制
 // 验证当数据源空闲时，watermark基于处理时间推进，窗口能够正常关闭
 func TestSQLTumblingWindow_IdleSourceMechanism(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	sql := `
@@ -1278,7 +1279,7 @@ END:
 // TestSQLTumblingWindow_IdleSourceDisabled 测试Idle Source机制未启用的情况
 // 验证当IdleTimeout=0（禁用）时，如果数据源空闲，窗口无法关闭
 func TestSQLTumblingWindow_IdleSourceDisabled(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 
 	sql := `

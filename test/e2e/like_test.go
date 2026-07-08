@@ -1,4 +1,4 @@
-package streamsql
+package e2e
 
 import (
 	"context"
@@ -7,22 +7,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestLikeOperatorInSQL 测试LIKE语法功能
 func TestLikeOperatorInSQL(t *testing.T) {
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	// 测试场景1：基本LIKE模式匹配 - 前缀匹配
 	t.Run("前缀匹配(prefix%)", func(t *testing.T) {
 		// 测试使用LIKE进行前缀匹配
 		var rsql = "SELECT deviceId, deviceType FROM stream WHERE deviceId LIKE 'sensor%'"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
-		strm := streamsql.stream
+		strm := ssql.Stream()
 
 		// 创建结果接收通道
 		resultChan := make(chan interface{}, 10)
@@ -77,13 +78,13 @@ func TestLikeOperatorInSQL(t *testing.T) {
 
 	// 测试场景2：后缀匹配
 	t.Run("后缀匹配(%suffix)", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		var rsql = "SELECT deviceId, status FROM stream WHERE status LIKE '%error'"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
-		strm := streamsql.stream
+		strm := ssql.Stream()
 
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
@@ -132,13 +133,13 @@ func TestLikeOperatorInSQL(t *testing.T) {
 
 	// 测试场景3：包含匹配
 	t.Run("包含匹配(%substring%)", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		var rsql = "SELECT deviceId, message FROM stream WHERE message LIKE '%alert%'"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
-		strm := streamsql.stream
+		strm := ssql.Stream()
 
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
@@ -187,13 +188,13 @@ func TestLikeOperatorInSQL(t *testing.T) {
 
 	// 测试场景4：单字符通配符
 	t.Run("单字符通配符(_)", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		var rsql = "SELECT deviceId, code FROM stream WHERE code LIKE 'E_0_'"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
-		strm := streamsql.stream
+		strm := ssql.Stream()
 
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
@@ -232,13 +233,13 @@ func TestLikeOperatorInSQL(t *testing.T) {
 
 	// 测试场景5：复杂模式
 	t.Run("复杂LIKE模式", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		var rsql = "SELECT deviceId, filename FROM stream WHERE filename LIKE '%.log'"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
-		strm := streamsql.stream
+		strm := ssql.Stream()
 
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
@@ -287,13 +288,13 @@ func TestLikeOperatorInSQL(t *testing.T) {
 
 	// 测试场景6：在聚合查询中使用LIKE
 	t.Run("聚合查询中的LIKE", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		var rsql = "SELECT deviceType, count(*) as device_count FROM stream WHERE deviceId LIKE 'sensor%' GROUP BY deviceType"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
-		strm := streamsql.stream
+		strm := ssql.Stream()
 
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
@@ -349,13 +350,13 @@ func TestLikeOperatorInSQL(t *testing.T) {
 
 	// 测试场景7：HAVING子句中的LIKE
 	t.Run("HAVING子句中的LIKE", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		var rsql = "SELECT deviceType, max(temperature) as max_temp FROM stream GROUP BY deviceType HAVING deviceType LIKE '%temp%'"
-		err := streamsql.Execute(rsql)
+		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
-		strm := streamsql.stream
+		strm := ssql.Stream()
 
 		resultChan := make(chan interface{}, 10)
 		strm.AddSink(func(result []map[string]interface{}) {
@@ -410,16 +411,16 @@ func TestLikeOperatorInSQL(t *testing.T) {
 func TestLikeFunctionEquivalence(t *testing.T) {
 	// 简化测试，重点验证LIKE功能已经正常工作
 	t.Run("LIKE语法工作正常验证", func(t *testing.T) {
-		streamsql := New()
-		defer streamsql.Stop()
+		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		// 使用LIKE的查询
 		var likeSQL = "SELECT deviceId FROM stream WHERE deviceId LIKE 'sensor%'"
-		err := streamsql.Execute(likeSQL)
+		err := ssql.Execute(likeSQL)
 		assert.Nil(t, err)
 
 		resultChan := make(chan interface{}, 10)
-		streamsql.stream.AddSink(func(result []map[string]interface{}) {
+		ssql.Stream().AddSink(func(result []map[string]interface{}) {
 			resultChan <- result
 		})
 
@@ -432,7 +433,7 @@ func TestLikeFunctionEquivalence(t *testing.T) {
 
 		// 添加数据
 		for _, data := range testData {
-			streamsql.stream.Emit(data)
+			ssql.Stream().Emit(data)
 		}
 
 		// 收集结果
@@ -511,22 +512,22 @@ func TestLikePatternMatching(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			// 直接使用内部函数进行测试
 			// 注意：这里我们需要通过SQL查询来测试，因为匹配函数是内部的
-			streamsql := New()
-			defer streamsql.Stop()
+			ssql := streamsql.New()
+			defer ssql.Stop()
 
 			// 构造SQL查询
 			rsql := fmt.Sprintf("SELECT value FROM stream WHERE value LIKE '%s'", test.pattern)
-			err := streamsql.Execute(rsql)
+			err := ssql.Execute(rsql)
 			assert.Nil(t, err)
 
 			resultChan := make(chan interface{}, 10)
-			streamsql.stream.AddSink(func(result []map[string]interface{}) {
+			ssql.Stream().AddSink(func(result []map[string]interface{}) {
 				resultChan <- result
 			})
 
 			// 添加测试数据
 			testData := map[string]interface{}{"value": test.text}
-			streamsql.stream.Emit(testData)
+			ssql.Stream().Emit(testData)
 
 			// 等待结果
 			timeout := time.After(1 * time.Second)

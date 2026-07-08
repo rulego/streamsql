@@ -1,10 +1,11 @@
-package streamsql
+package e2e
 
 import (
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,7 +16,7 @@ import (
 // the sink sees the batch.
 func runOrderByWindow(t *testing.T, sql string, emit []map[string]interface{}, want int) []map[string]interface{} {
 	t.Helper()
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	require.NoError(t, ssql.Execute(sql))
 
@@ -140,7 +141,7 @@ func TestIntegration_OrderBy_MultiKey(t *testing.T) {
 // must not break per-row processing (ordering a single-row batch is a no-op).
 func TestIntegration_OrderBy_NonWindowNoCrash(t *testing.T) {
 	sql := `SELECT deviceId, temperature FROM stream WHERE temperature > 20 ORDER BY temperature DESC`
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	require.NoError(t, ssql.Execute(sql))
 

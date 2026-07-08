@@ -1,4 +1,4 @@
-package streamsql
+package e2e
 
 import (
 	"context"
@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // 辅助函数：创建测试环境
-func createTestEnvironment(t *testing.T, rsql string) (*Streamsql, chan interface{}) {
-	ssql := New()
+func createTestEnvironment(t *testing.T, rsql string) (*streamsql.Streamsql, chan interface{}) {
+	ssql := streamsql.New()
 	t.Cleanup(func() { ssql.Stop() })
 
 	err := ssql.Execute(rsql)
@@ -38,7 +39,7 @@ func createTestEnvironment(t *testing.T, rsql string) (*Streamsql, chan interfac
 }
 
 // 辅助函数：发送测试数据并收集结果
-func sendDataAndCollectResults(t *testing.T, ssql *Streamsql, resultChan chan interface{}, testData []map[string]interface{}, windowSizeSeconds int) []map[string]interface{} {
+func sendDataAndCollectResults(t *testing.T, ssql *streamsql.Streamsql, resultChan chan interface{}, testData []map[string]interface{}, windowSizeSeconds int) []map[string]interface{} {
 	for _, data := range testData {
 		ssql.Emit(data)
 	}

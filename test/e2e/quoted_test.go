@@ -1,4 +1,4 @@
-package streamsql
+package e2e
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql"
 	"github.com/rulego/streamsql/functions"
 	"github.com/rulego/streamsql/utils/cast"
 	"github.com/stretchr/testify/assert"
@@ -21,15 +22,15 @@ type testCase struct {
 }
 
 // executeTestCase 执行单个测试用例的通用逻辑
-func executeTestCase(t *testing.T, streamsql *Streamsql, tc testCase) {
+func executeTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCase) {
 	t.Run(tc.name, func(t *testing.T) {
 		// 为每个测试用例创建新的Streamsql实例
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		err := ssql.Execute(tc.sql)
 		assert.Nil(t, err)
-		strm := ssql.stream
+		strm := ssql.Stream()
 
 		// 创建结果接收通道和互斥锁保护并发访问
 		resultChan := make(chan interface{}, 10)
@@ -93,15 +94,15 @@ func executeTestCase(t *testing.T, streamsql *Streamsql, tc testCase) {
 }
 
 // executeAggregationTestCase 执行聚合函数测试用例的通用逻辑
-func executeAggregationTestCase(t *testing.T, streamsql *Streamsql, tc testCase) {
+func executeAggregationTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCase) {
 	t.Run(tc.name, func(t *testing.T) {
 		// 为每个测试用例创建新的Streamsql实例
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		err := ssql.Execute(tc.sql)
 		assert.Nil(t, err)
-		strm := ssql.stream
+		strm := ssql.Stream()
 
 		// 创建结果接收通道
 		resultChan := make(chan interface{}, 10)
@@ -136,15 +137,15 @@ func executeAggregationTestCase(t *testing.T, streamsql *Streamsql, tc testCase)
 }
 
 // executeFunctionTestCase 执行函数测试用例的通用逻辑
-func executeFunctionTestCase(t *testing.T, streamsql *Streamsql, tc testCase) {
+func executeFunctionTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCase) {
 	t.Run(tc.name, func(t *testing.T) {
 		// 为每个测试用例创建新的Streamsql实例
-		ssql := New()
+		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		err := ssql.Execute(tc.sql)
 		assert.Nil(t, err)
-		strm := ssql.stream
+		strm := ssql.Stream()
 
 		// 创建结果接收通道
 		resultChan := make(chan interface{}, 10)
@@ -181,8 +182,8 @@ func TestQuotedIdentifiersAndStringLiterals(t *testing.T) {
 	registerTestFunctions(t)
 	defer unregisterTestFunctions()
 
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	// 通用测试数据
 	standardTestData := []map[string]interface{}{
@@ -265,14 +266,14 @@ func TestQuotedIdentifiersAndStringLiterals(t *testing.T) {
 
 	// 执行所有测试用例
 	for _, tc := range testCases {
-		executeTestCase(t, streamsql, tc)
+		executeTestCase(t, ssql, tc)
 	}
 }
 
 // TestStringConstantExpressions 测试字符串常量表达式
 func TestStringConstantExpressions(t *testing.T) {
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	// 通用测试数据
 	testData := []map[string]interface{}{
@@ -311,14 +312,14 @@ func TestStringConstantExpressions(t *testing.T) {
 
 	// 执行所有测试用例
 	for _, tc := range testCases {
-		executeTestCase(t, streamsql, tc)
+		executeTestCase(t, ssql, tc)
 	}
 }
 
 // TestAggregationWithQuotedIdentifiers 测试聚合函数与反引号标识符的结合使用
 func TestAggregationWithQuotedIdentifiers(t *testing.T) {
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	// 聚合测试数据
 	aggregationTestData := []map[string]interface{}{
@@ -354,7 +355,7 @@ func TestAggregationWithQuotedIdentifiers(t *testing.T) {
 
 	// 执行所有聚合测试用例
 	for _, tc := range testCases {
-		executeAggregationTestCase(t, streamsql, tc)
+		executeAggregationTestCase(t, ssql, tc)
 	}
 }
 
@@ -364,8 +365,8 @@ func TestCustomFunctionWithQuotedIdentifiers(t *testing.T) {
 	registerTestFunctions(t)
 	defer unregisterTestFunctions()
 
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	testCases := []testCase{
 		{
@@ -412,7 +413,7 @@ func TestCustomFunctionWithQuotedIdentifiers(t *testing.T) {
 
 	// 执行所有函数测试用例
 	for _, tc := range testCases {
-		executeFunctionTestCase(t, streamsql, tc)
+		executeFunctionTestCase(t, ssql, tc)
 	}
 }
 

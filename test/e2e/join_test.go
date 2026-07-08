@@ -1,8 +1,10 @@
-package streamsql
+package e2e
 
 import (
 	"sync"
 	"testing"
+
+	"github.com/rulego/streamsql"
 )
 
 // deviceMetaRows is a small metadata fixture used across JOIN tests.
@@ -16,7 +18,7 @@ func deviceMetaRows() []map[string]interface{} {
 // TestJoinMultipleTables verifies a stream can JOIN several metadata tables;
 // each is registered separately and its columns are namespaced by its own alias.
 func TestJoinMultipleTables(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, l.location, s.model FROM stream JOIN locations l ON deviceId = l.deviceId JOIN models s ON deviceId = s.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -42,7 +44,7 @@ func TestJoinMultipleTables(t *testing.T) {
 }
 
 func TestJoinInnerEnrich(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, m.location, m.type FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -62,7 +64,7 @@ func TestJoinInnerEnrich(t *testing.T) {
 }
 
 func TestJoinInnerNoMatchDropped(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -82,7 +84,7 @@ func TestJoinInnerNoMatchDropped(t *testing.T) {
 }
 
 func TestJoinLeftNullFill(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream LEFT JOIN meta m ON deviceId = m.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -107,7 +109,7 @@ func TestJoinLeftNullFill(t *testing.T) {
 }
 
 func TestJoinCompositeKey(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId AND tenant = m.tenant"); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -134,7 +136,7 @@ func TestJoinCompositeKey(t *testing.T) {
 // keyFields (useful when the index column differs from the ON field, or to
 // register before the JOIN key is otherwise derivable).
 func TestJoinExplicitKeyFields(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -155,7 +157,7 @@ func TestJoinExplicitKeyFields(t *testing.T) {
 // TestJoinRegisterTableNotInJoin errors when auto-derive can't find the table in
 // any JOIN ON clause and no explicit keyFields were given.
 func TestJoinRegisterTableNotInJoin(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId FROM stream"); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -166,7 +168,7 @@ func TestJoinRegisterTableNotInJoin(t *testing.T) {
 }
 
 func TestJoinUnregisteredTableErrors(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -180,7 +182,7 @@ func TestJoinUnregisteredTableErrors(t *testing.T) {
 // TestJoinConcurrentEmitAndUpsert verifies Lookup stays race-free under
 // concurrent reads (Emit) and writes (Upsert). Run with -race in CI.
 func TestJoinConcurrentEmitAndUpsert(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)

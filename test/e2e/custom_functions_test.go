@@ -1,4 +1,4 @@
-package streamsql
+package e2e
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql"
 	"github.com/rulego/streamsql/utils/cast"
 
 	"github.com/rulego/streamsql/aggregator"
@@ -55,8 +56,8 @@ func TestCustomMathFunctions(t *testing.T) {
 	defer functions.Unregister("distance")
 
 	// 测试在SQL中使用
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	sql := `
 		SELECT 
@@ -67,12 +68,12 @@ func TestCustomMathFunctions(t *testing.T) {
 		GROUP BY device, TumblingWindow('1s')
 	`
 
-	err = streamsql.Execute(sql)
+	err = ssql.Execute(sql)
 	assert.NoError(t, err)
 
 	// 创建结果接收通道
 	resultChan := make(chan interface{}, 10)
-	streamsql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -86,11 +87,11 @@ func TestCustomMathFunctions(t *testing.T) {
 		"y2":     4.0, // 距离应该是5
 	}
 
-	streamsql.Emit(testData)
+	ssql.Emit(testData)
 
 	// 等待窗口触发
 	time.Sleep(1 * time.Second)
-	streamsql.Stream().Window.Trigger()
+	ssql.TriggerWindow()
 	time.Sleep(500 * time.Millisecond)
 
 	// 验证结果
@@ -161,8 +162,8 @@ func TestCustomStringFunctions(t *testing.T) {
 	defer functions.Unregister("json_get")
 
 	// 测试在SQL中使用
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	sql := `
 		SELECT 
@@ -172,12 +173,12 @@ func TestCustomStringFunctions(t *testing.T) {
 		FROM stream
 	`
 
-	err = streamsql.Execute(sql)
+	err = ssql.Execute(sql)
 	assert.NoError(t, err)
 
 	// 创建结果接收通道
 	resultChan := make(chan interface{}, 10)
-	streamsql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -187,7 +188,7 @@ func TestCustomStringFunctions(t *testing.T) {
 		"metadata": `{"version":"1.0","type":"temperature"}`,
 	}
 
-	streamsql.Emit(testData)
+	ssql.Emit(testData)
 	time.Sleep(200 * time.Millisecond)
 
 	// 验证结果
@@ -295,8 +296,8 @@ func TestCustomAggregateFunctions(t *testing.T) {
 	defer functions.Unregister("mode_value")
 
 	// 测试在SQL中使用
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	sql := `
 		SELECT 
@@ -307,12 +308,12 @@ func TestCustomAggregateFunctions(t *testing.T) {
 		GROUP BY device, TumblingWindow('1s')
 	`
 
-	err := streamsql.Execute(sql)
+	err := ssql.Execute(sql)
 	assert.NoError(t, err)
 
 	// 创建结果接收通道
 	resultChan := make(chan interface{}, 10)
-	streamsql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -325,11 +326,11 @@ func TestCustomAggregateFunctions(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		streamsql.Emit(data)
+		ssql.Emit(data)
 	}
 
 	time.Sleep(1 * time.Second)
-	streamsql.Stream().Window.Trigger()
+	ssql.TriggerWindow()
 	time.Sleep(500 * time.Millisecond)
 
 	// 验证结果
@@ -530,8 +531,8 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 	defer functions.Unregister("celsius_to_fahrenheit")
 
 	// 测试在聚合SQL中使用
-	streamsql := New()
-	defer streamsql.Stop()
+	ssql := streamsql.New()
+	defer ssql.Stop()
 
 	sql := `
 		SELECT 
@@ -542,12 +543,12 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 		GROUP BY device, TumblingWindow('1s')
 	`
 
-	err = streamsql.Execute(sql)
+	err = ssql.Execute(sql)
 	assert.NoError(t, err)
 
 	// 创建结果接收通道
 	resultChan := make(chan interface{}, 10)
-	streamsql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]interface{}) {
 		resultChan <- result
 	})
 
@@ -558,11 +559,11 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		streamsql.Emit(data)
+		ssql.Emit(data)
 	}
 
 	time.Sleep(1 * time.Second)
-	streamsql.Stream().Window.Trigger()
+	ssql.TriggerWindow()
 	time.Sleep(500 * time.Millisecond)
 
 	// 验证结果

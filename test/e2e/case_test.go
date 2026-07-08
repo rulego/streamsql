@@ -1,4 +1,4 @@
-package streamsql
+package e2e
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rulego/streamsql"
 	"github.com/rulego/streamsql/rsql"
 	"github.com/stretchr/testify/assert"
 )
@@ -22,7 +23,7 @@ func TestCaseExpressionInSQL(t *testing.T) {
 	         WHERE temperature > 15`
 
 	// 创建StreamSQL实例
-	streamSQL := New()
+	streamSQL := streamsql.New()
 	defer streamSQL.Stop()
 
 	err := streamSQL.Execute(sql)
@@ -39,7 +40,7 @@ func TestCaseExpressionInSQL(t *testing.T) {
 	// 添加数据并获取结果
 	var results []map[string]interface{}
 	var resultsMutex sync.Mutex
-	streamSQL.stream.AddSink(func(result []map[string]interface{}) {
+	streamSQL.Stream().AddSink(func(result []map[string]interface{}) {
 		resultsMutex.Lock()
 		defer resultsMutex.Unlock()
 		results = append(results, result...)
@@ -71,7 +72,7 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 	         GROUP BY deviceId, TumblingWindow('1s')`
 
 	// 创建StreamSQL实例
-	streamSQL := New()
+	streamSQL := streamsql.New()
 	defer streamSQL.Stop()
 
 	err := streamSQL.Execute(sql)
@@ -89,7 +90,7 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 	// 添加数据并获取结果
 	var results []map[string]interface{}
 	var resultsMutex sync.Mutex
-	streamSQL.stream.AddSink(func(result []map[string]interface{}) {
+	streamSQL.Stream().AddSink(func(result []map[string]interface{}) {
 		resultsMutex.Lock()
 		defer resultsMutex.Unlock()
 		results = append(results, result...)
@@ -103,7 +104,7 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 	time.Sleep(1200 * time.Millisecond)
 
 	// 手动触发窗口
-	streamSQL.stream.Window.Trigger()
+	streamSQL.TriggerWindow()
 
 	// 等待结果
 	time.Sleep(100 * time.Millisecond)
@@ -247,7 +248,7 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// 创建StreamSQL实例
-			streamSQL := New()
+			streamSQL := streamsql.New()
 			defer streamSQL.Stop()
 
 			err := streamSQL.Execute(tc.sql)
@@ -256,7 +257,7 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 			// 添加数据并获取结果
 			var results []map[string]interface{}
 			var resultsMutex sync.Mutex
-			streamSQL.stream.AddSink(func(result []map[string]interface{}) {
+			streamSQL.Stream().AddSink(func(result []map[string]interface{}) {
 				resultsMutex.Lock()
 				defer resultsMutex.Unlock()
 				results = append(results, result...)
@@ -270,7 +271,7 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 			time.Sleep(1200 * time.Millisecond)
 
 			// 手动触发窗口
-			streamSQL.stream.Window.Trigger()
+			streamSQL.TriggerWindow()
 
 			// 等待结果
 			time.Sleep(100 * time.Millisecond)
@@ -363,10 +364,10 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			streamsql := New()
-			defer streamsql.Stop()
+			ssql := streamsql.New()
+			defer ssql.Stop()
 
-			err := streamsql.Execute(tt.sql)
+			err := ssql.Execute(tt.sql)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -379,7 +380,7 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 			}
 
 			// 如果执行成功，继续测试数据处理
-			strm := streamsql.stream
+			strm := ssql.Stream()
 
 			// 收集所有结果
 			var allResults []map[string]interface{}
@@ -531,13 +532,14 @@ func TestCaseExpressionAggregated(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			streamsql := New()
-			defer streamsql.Stop()
+			ssql := streamsql.New()
+			defer ssql.Stop()
 
-			err := streamsql.Execute(tt.sql)
+			err := ssql.Execute(tt.sql)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -549,7 +551,7 @@ func TestCaseExpressionAggregated(t *testing.T) {
 				return
 			}
 
-			strm := streamsql.stream
+			strm := ssql.Stream()
 
 			// 使用通道等待结果，避免固定等待时间
 			resultChan := make(chan interface{}, 5)
@@ -579,7 +581,7 @@ func TestCaseExpressionAggregated(t *testing.T) {
 			case <-time.After(1200 * time.Millisecond):
 				// 如果1.2秒内没有结果，手动触发窗口
 				if strm.Window != nil {
-					strm.Window.Trigger()
+					ssql.TriggerWindow()
 				}
 				// 再等待一点时间获取结果
 				select {
@@ -674,7 +676,7 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// 创建StreamSQL实例
-			ssql := New()
+			ssql := streamsql.New()
 			defer ssql.Stop()
 
 			// 执行SQL
@@ -792,7 +794,7 @@ func TestHavingWithCaseExpression(t *testing.T) {
 
 			// 如果解析成功，尝试创建StreamSQL实例
 			if !tt.wantErr && err == nil {
-				streamSQL := New()
+				streamSQL := streamsql.New()
 				defer streamSQL.Stop()
 
 				err = streamSQL.Execute(tt.sql)
@@ -815,7 +817,7 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 	        HAVING hot_count >= 2`
 
 	// 创建StreamSQL实例
-	streamSQL := New()
+	streamSQL := streamsql.New()
 	defer streamSQL.Stop()
 
 	err := streamSQL.Execute(sql)
@@ -843,7 +845,7 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 	// 添加数据并获取结果
 	var results []map[string]interface{}
 	var resultsMutex sync.Mutex
-	streamSQL.stream.AddSink(func(result []map[string]interface{}) {
+	streamSQL.Stream().AddSink(func(result []map[string]interface{}) {
 		resultsMutex.Lock()
 		defer resultsMutex.Unlock()
 		results = append(results, result...)
@@ -857,7 +859,7 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 	time.Sleep(2500 * time.Millisecond)
 
 	// 手动触发窗口
-	streamSQL.stream.Window.Trigger()
+	streamSQL.TriggerWindow()
 
 	// 等待结果
 	time.Sleep(200 * time.Millisecond)
@@ -909,7 +911,7 @@ func TestNegativeNumberInSQL(t *testing.T) {
 	              END as adjusted_temp
 	        FROM stream`
 
-	streamSQL := New()
+	streamSQL := streamsql.New()
 	defer streamSQL.Stop()
 
 	err := streamSQL.Execute(sql)
@@ -927,7 +929,7 @@ func TestNegativeNumberInSQL(t *testing.T) {
 	var results []map[string]interface{}
 	var resultsMutex sync.Mutex
 
-	streamSQL.stream.AddSink(func(result []map[string]interface{}) {
+	streamSQL.Stream().AddSink(func(result []map[string]interface{}) {
 		resultsMutex.Lock()
 		defer resultsMutex.Unlock()
 		results = append(results, result...)

@@ -1,12 +1,16 @@
-package streamsql
+package e2e
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/rulego/streamsql"
+)
 
 // TestSelectAllAsterisk 锁定 SELECT * 行为：返回输入行的全部字段。
 // 回归保护：parser 曾把 * 误判为 TokenIdent（实为 TokenAsterisk），
 // 导致 SelectAll 标志永不置真（死代码）。修复后 SELECT * 仍应输出所有字段。
 func TestSelectAllAsterisk(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT * FROM stream"); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -31,7 +35,7 @@ func TestSelectAllAsterisk(t *testing.T) {
 
 // TestSelectAllWithWhere 验证 SELECT * 与 WHERE 共存：先过滤再输出全部字段。
 func TestSelectAllWithWhere(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT * FROM stream WHERE temperature > 30"); err != nil {
 		t.Fatalf("Execute: %v", err)
