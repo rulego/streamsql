@@ -1,16 +1,18 @@
-package streamsql
+package e2e
 
 import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/rulego/streamsql"
 )
 
 // TestTriggerWindow 验证 TriggerWindow 手动触发窗口立即输出（不等自然触发）。
 // TumblingWindow('5s') ProcessingTime：Trigger 提前触发当前窗口（不等满 5s）。
 // 注：CountingWindow.Trigger 为空实现（按 count 触发，设计如此），故用 TumblingWindow 验证。
 func TestTriggerWindow(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, COUNT(*) AS cnt FROM stream GROUP BY deviceId, TumblingWindow('5s')"); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -51,7 +53,7 @@ func TestTriggerWindow(t *testing.T) {
 
 // TestTriggerWindowNoWindow 验证非窗口（直接路径）查询调 TriggerWindow 不 panic（无窗口可触发）。
 func TestTriggerWindowNoWindow(t *testing.T) {
-	ssql := New()
+	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId FROM stream"); err != nil {
 		t.Fatalf("Execute: %v", err)
