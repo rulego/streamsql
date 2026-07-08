@@ -35,7 +35,7 @@ func registerCustomFunctions() {
 		"数学函数",
 		"计算平方",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			val := cast.ToFloat64(args[0])
 			return val * val, nil
 		},
@@ -53,7 +53,7 @@ func registerCustomFunctions() {
 		"温度转换",
 		"华氏度转摄氏度",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			fahrenheit := cast.ToFloat64(args[0])
 			celsius := (fahrenheit - 32) * 5 / 9
 			return celsius, nil
@@ -72,7 +72,7 @@ func registerCustomFunctions() {
 		"几何计算",
 		"计算圆的面积",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			radius := cast.ToFloat64(args[0])
 			if radius < 0 {
 				return nil, fmt.Errorf("半径必须为正数")
@@ -127,12 +127,12 @@ func testBasicFiltering() {
 	}
 
 	// 添加结果处理函数
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 高温告警: %v\n", result)
 	})
 
 	// 发送测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceId": "sensor001", "temperature": 23.5}, // 不会触发告警
 		{"deviceId": "sensor002", "temperature": 28.3}, // 会触发告警
 		{"deviceId": "sensor003", "temperature": 31.2}, // 会触发告警
@@ -172,7 +172,7 @@ func testAggregation() {
 	}
 
 	// 处理聚合结果
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 聚合结果: %v\n", result)
 	})
 
@@ -180,7 +180,7 @@ func testAggregation() {
 	devices := []string{"sensor001", "sensor002", "sensor003"}
 	for i := 0; i < 8; i++ {
 		for _, device := range devices {
-			data := map[string]interface{}{
+			data := map[string]any{
 				"deviceId":    device,
 				"temperature": 20.0 + rand.Float64()*15, // 20-35度随机温度
 				"timestamp":   time.Now(),
@@ -221,13 +221,13 @@ func testSlidingWindow() {
 		return
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 滑动窗口分析: %v\n", result)
 	})
 
 	// 持续发送数据
 	for i := 0; i < 10; i++ {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"deviceId":    "sensor001",
 			"temperature": 20.0 + rand.Float64()*10,
 			"timestamp":   time.Now(),
@@ -262,42 +262,42 @@ func testNestedFields() {
 		return
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 嵌套字段结果: %v\n", result)
 	})
 
 	// 发送嵌套结构数据
-	complexData := []map[string]interface{}{
+	complexData := []map[string]any{
 		{
-			"device": map[string]interface{}{
-				"info": map[string]interface{}{
+			"device": map[string]any{
+				"info": map[string]any{
 					"name":   "温度传感器001",
 					"type":   "temperature",
 					"status": "active",
 				},
-				"location": map[string]interface{}{
+				"location": map[string]any{
 					"building": "A栋",
 					"floor":    "3F",
 				},
 			},
-			"sensor": map[string]interface{}{
+			"sensor": map[string]any{
 				"temperature": 28.5,
 				"humidity":    65.0,
 			},
 		},
 		{
-			"device": map[string]interface{}{
-				"info": map[string]interface{}{
+			"device": map[string]any{
+				"info": map[string]any{
 					"name":   "湿度传感器002",
 					"type":   "humidity",
 					"status": "inactive", // 不会匹配
 				},
-				"location": map[string]interface{}{
+				"location": map[string]any{
 					"building": "B栋",
 					"floor":    "2F",
 				},
 			},
-			"sensor": map[string]interface{}{
+			"sensor": map[string]any{
 				"temperature": 30.0,
 				"humidity":    70.0,
 			},
@@ -336,12 +336,12 @@ func testCustomFunctions() {
 		return
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 自定义函数结果: %v\n", result)
 	})
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{
 			"device":      "sensor1",
 			"value":       5.0,
@@ -396,7 +396,7 @@ func testComplexQuery() {
 		return
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 复杂查询结果: %v\n", result)
 	})
 
@@ -404,13 +404,13 @@ func testComplexQuery() {
 	locations := []string{"room-A", "room-B", "room-C"}
 	for i := 0; i < 12; i++ {
 		location := locations[i%len(locations)]
-		data := map[string]interface{}{
-			"device": map[string]interface{}{
+		data := map[string]any{
+			"device": map[string]any{
 				"location": location,
 				"status":   "online",
 				"radius":   1.0 + rand.Float64()*2.0, // 1-3的随机半径
 			},
-			"sensor": map[string]interface{}{
+			"sensor": map[string]any{
 				"temperature": 25.0 + rand.Float64()*10.0, // 25-35度
 				"humidity":    50.0 + rand.Float64()*30.0, // 50-80%
 			},

@@ -62,12 +62,12 @@ func demonstrateDataCleaning() {
 	}
 
 	// 结果处理
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  清洗后数据: %+v\n", result)
 	})
 
 	// 模拟脏数据输入
-	dirtyData := []map[string]interface{}{
+	dirtyData := []map[string]any{
 		{"deviceId": "sensor001", "deviceType": " temperature ", "temperature": 25.456789, "location": "room1", "status": 1},
 		{"deviceId": "sensor002", "deviceType": "humidity", "temperature": 60.123, "location": nil, "status": 0},
 		{"deviceId": "", "deviceType": "pressure", "temperature": nil, "location": "room2", "status": 2}, // 应被过滤
@@ -103,12 +103,12 @@ func demonstrateDataEnrichment() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  富化后数据: %+v\n", result)
 	})
 
 	// 原始数据
-	rawData := []map[string]interface{}{
+	rawData := []map[string]any{
 		{"deviceId": "sensor001", "temperature": 32.5, "humidity": 65, "location": "greenhouse"},
 		{"deviceId": "sensor002", "temperature": 12.0, "humidity": 45, "location": "warehouse"},
 		{"deviceId": "sensor003", "temperature": 22.8, "humidity": 70, "location": "office"},
@@ -147,12 +147,12 @@ func demonstrateRealTimeAlerting() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  🚨 告警事件: %+v\n", result)
 	})
 
 	// 模拟传感器数据（包含异常值）
-	sensorData := []map[string]interface{}{
+	sensorData := []map[string]any{
 		{"deviceId": "sensor001", "temperature": 25.0, "humidity": 60, "location": "room1"}, // 正常
 		{"deviceId": "sensor002", "temperature": 45.0, "humidity": 50, "location": "room2"}, // 高温告警
 		{"deviceId": "sensor003", "temperature": 20.0, "humidity": 95, "location": "room3"}, // 高湿度告警
@@ -191,12 +191,12 @@ func demonstrateDataFormatConversion() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  格式转换结果: %+v\n", result)
 	})
 
 	// 输入数据
-	inputData := []map[string]interface{}{
+	inputData := []map[string]any{
 		{"deviceId": "sensor001", "temperature": 25.5, "humidity": 60, "location": "warehouse-A"},
 		{"deviceId": "sensor002", "temperature": 22.0, "humidity": 55, "location": "warehouse-B"},
 	}
@@ -230,12 +230,12 @@ func demonstrateDataRouting() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  路由结果: %+v\n", result)
 	})
 
 	// 不同类型的设备数据
-	deviceData := []map[string]interface{}{
+	deviceData := []map[string]any{
 		{"deviceId": "temp001", "deviceType": "temperature", "temperature": 35.0, "humidity": 60},
 		{"deviceId": "hum001", "deviceType": "humidity", "temperature": 25.0, "humidity": 85},
 		{"deviceId": "press001", "deviceType": "pressure", "temperature": 22.0, "pressure": 1013.25},
@@ -273,50 +273,50 @@ func demonstrateNestedFieldProcessing() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  嵌套字段处理结果: %+v\n", result)
 	})
 
 	// 嵌套结构数据
-	nestedData := []map[string]interface{}{
+	nestedData := []map[string]any{
 		{
-			"device": map[string]interface{}{
-				"info": map[string]interface{}{
+			"device": map[string]any{
+				"info": map[string]any{
 					"id":   "sensor001",
 					"name": "Temperature Sensor 1",
 					"type": "sensor",
 				},
-				"location": map[string]interface{}{
+				"location": map[string]any{
 					"building": "Building-A",
 					"room":     "Room-101",
 				},
-				"config": map[string]interface{}{
+				"config": map[string]any{
 					"max_temp": 30.0,
 					"min_temp": 10.0,
 				},
 			},
-			"metrics": map[string]interface{}{
+			"metrics": map[string]any{
 				"temperature": 32.5,
 				"humidity":    65,
 			},
 		},
 		{
-			"device": map[string]interface{}{
-				"info": map[string]interface{}{
+			"device": map[string]any{
+				"info": map[string]any{
 					"id":   "sensor002",
 					"name": "Humidity Sensor 1",
 					"type": "sensor",
 				},
-				"location": map[string]interface{}{
+				"location": map[string]any{
 					"building": "Building-B",
 					"room":     "Room-201",
 				},
-				"config": map[string]interface{}{
+				"config": map[string]any{
 					"max_temp": 25.0,
 					"min_temp": 15.0,
 				},
 			},
-			"metrics": map[string]interface{}{
+			"metrics": map[string]any{
 				"temperature": 22.0,
 				"humidity":    70,
 			},
@@ -332,8 +332,8 @@ func demonstrateNestedFieldProcessing() {
 }
 
 // 生成随机测试数据的辅助函数
-func generateRandomSensorData(deviceId string) map[string]interface{} {
-	return map[string]interface{}{
+func generateRandomSensorData(deviceId string) map[string]any {
+	return map[string]any{
 		"deviceId":    deviceId,
 		"temperature": 15.0 + rand.Float64()*25.0, // 15-40度
 		"humidity":    30.0 + rand.Float64()*40.0, // 30-70%

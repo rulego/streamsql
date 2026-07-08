@@ -73,11 +73,11 @@ func (p *PostAggregationPlaceholder) New() AggregatorFunction {
 	return &PostAggregationPlaceholder{}
 }
 
-func (p *PostAggregationPlaceholder) Add(value interface{}) {
+func (p *PostAggregationPlaceholder) Add(value any) {
 	// Do nothing - this is just a placeholder
 }
 
-func (p *PostAggregationPlaceholder) Result() interface{} {
+func (p *PostAggregationPlaceholder) Result() any {
 	// Return nil - actual result will be computed in post-processing
 	return nil
 }
@@ -93,10 +93,10 @@ func (w *ExpressionAggregatorWrapper) New() AggregatorFunction {
 	}
 }
 
-func (w *ExpressionAggregatorWrapper) Add(value interface{}) {
+func (w *ExpressionAggregatorWrapper) Add(value any) {
 	w.function.Add(value)
 }
 
-func (w *ExpressionAggregatorWrapper) Result() interface{} {
+func (w *ExpressionAggregatorWrapper) Result() any {
 	return w.function.Result()
 }

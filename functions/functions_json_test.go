@@ -9,236 +9,236 @@ func TestJsonFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
 		funcName string
-		args     []interface{}
-		expected interface{}
+		args     []any
+		expected any
 		wantErr  bool
 	}{
 		{
 			name:     "to_json basic",
 			funcName: "to_json",
-			args:     []interface{}{map[string]interface{}{"name": "test", "value": 123}},
+			args:     []any{map[string]any{"name": "test", "value": 123}},
 			expected: `{"name":"test","value":123}`,
 		},
 		{
 			name:     "to_json array",
 			funcName: "to_json",
-			args:     []interface{}{[]interface{}{1, 2, 3}},
+			args:     []any{[]any{1, 2, 3}},
 			expected: `[1,2,3]`,
 		},
 		{
 			name:     "to_json string",
 			funcName: "to_json",
-			args:     []interface{}{"hello"},
+			args:     []any{"hello"},
 			expected: `"hello"`,
 		},
 		{
 			name:     "from_json basic",
 			funcName: "from_json",
-			args:     []interface{}{`{"name":"test","value":123}`},
-			expected: map[string]interface{}{"name": "test", "value": float64(123)},
+			args:     []any{`{"name":"test","value":123}`},
+			expected: map[string]any{"name": "test", "value": float64(123)},
 		},
 		{
 			name:     "from_json array",
 			funcName: "from_json",
-			args:     []interface{}{`[1,2,3]`},
-			expected: []interface{}{float64(1), float64(2), float64(3)},
+			args:     []any{`[1,2,3]`},
+			expected: []any{float64(1), float64(2), float64(3)},
 		},
 		{
 			name:     "from_json invalid",
 			funcName: "from_json",
-			args:     []interface{}{`{"name":"test"`},
+			args:     []any{`{"name":"test"`},
 			wantErr:  true,
 		},
 		{
 			name:     "from_json non-string",
 			funcName: "from_json",
-			args:     []interface{}{123},
+			args:     []any{123},
 			wantErr:  true,
 		},
 		{
 			name:     "json_extract basic",
 			funcName: "json_extract",
-			args:     []interface{}{`{"name":"test","value":123}`, "$.name"},
+			args:     []any{`{"name":"test","value":123}`, "$.name"},
 			expected: "test",
 		},
 		{
 			name:     "json_extract number",
 			funcName: "json_extract",
-			args:     []interface{}{`{"name":"test","value":123}`, "$.value"},
+			args:     []any{`{"name":"test","value":123}`, "$.value"},
 			expected: float64(123),
 		},
 		{
 			name:     "json_extract invalid json",
 			funcName: "json_extract",
-			args:     []interface{}{`{"name":"test"`, "$.name"},
+			args:     []any{`{"name":"test"`, "$.name"},
 			wantErr:  true,
 		},
 		{
 			name:     "json_extract non-string json",
 			funcName: "json_extract",
-			args:     []interface{}{123, "$.name"},
+			args:     []any{123, "$.name"},
 			wantErr:  true,
 		},
 		{
 			name:     "json_extract non-string path",
 			funcName: "json_extract",
-			args:     []interface{}{`{"name":"test"}`, 123},
+			args:     []any{`{"name":"test"}`, 123},
 			wantErr:  true,
 		},
 		{
 			name:     "json_extract invalid path",
 			funcName: "json_extract",
-			args:     []interface{}{`{"name":"test"}`, "invalid_path"},
+			args:     []any{`{"name":"test"}`, "invalid_path"},
 			expected: nil,
 		},
 		{
 			name:     "json_extract non-object",
 			funcName: "json_extract",
-			args:     []interface{}{`[1,2,3]`, "$.name"},
+			args:     []any{`[1,2,3]`, "$.name"},
 			expected: nil,
 		},
 		{
 			name:     "json_valid true",
 			funcName: "json_valid",
-			args:     []interface{}{`{"name":"test"}`},
+			args:     []any{`{"name":"test"}`},
 			expected: true,
 		},
 		{
 			name:     "json_valid false",
 			funcName: "json_valid",
-			args:     []interface{}{`{"name":"test"`},
+			args:     []any{`{"name":"test"`},
 			expected: false,
 		},
 		{
 			name:     "json_valid non-string",
 			funcName: "json_valid",
-			args:     []interface{}{123},
+			args:     []any{123},
 			expected: false,
 		},
 		{
 			name:     "json_type object",
 			funcName: "json_type",
-			args:     []interface{}{`{"name":"test"}`},
+			args:     []any{`{"name":"test"}`},
 			expected: "object",
 		},
 		{
 			name:     "json_type array",
 			funcName: "json_type",
-			args:     []interface{}{`[1,2,3]`},
+			args:     []any{`[1,2,3]`},
 			expected: "array",
 		},
 		{
 			name:     "json_type string",
 			funcName: "json_type",
-			args:     []interface{}{`"hello"`},
+			args:     []any{`"hello"`},
 			expected: "string",
 		},
 		{
 			name:     "json_type number",
 			funcName: "json_type",
-			args:     []interface{}{`123`},
+			args:     []any{`123`},
 			expected: "number",
 		},
 		{
 			name:     "json_type boolean",
 			funcName: "json_type",
-			args:     []interface{}{`true`},
+			args:     []any{`true`},
 			expected: "boolean",
 		},
 		{
 			name:     "json_type null",
 			funcName: "json_type",
-			args:     []interface{}{`null`},
+			args:     []any{`null`},
 			expected: "null",
 		},
 		{
 			name:     "json_type invalid",
 			funcName: "json_type",
-			args:     []interface{}{`{"name":"test"`},
+			args:     []any{`{"name":"test"`},
 			expected: "invalid",
 		},
 		{
 			name:     "json_type non-string",
 			funcName: "json_type",
-			args:     []interface{}{123},
+			args:     []any{123},
 			expected: "unknown",
 		},
 		{
 			name:     "json_length array",
 			funcName: "json_length",
-			args:     []interface{}{`[1,2,3]`},
+			args:     []any{`[1,2,3]`},
 			expected: 3,
 		},
 		{
 			name:     "json_length object",
 			funcName: "json_length",
-			args:     []interface{}{`{"a":1,"b":2}`},
+			args:     []any{`{"a":1,"b":2}`},
 			expected: 2,
 		},
 		{
 			name:     "json_length empty array",
 			funcName: "json_length",
-			args:     []interface{}{`[]`},
+			args:     []any{`[]`},
 			expected: 0,
 		},
 		{
 			name:     "json_length empty object",
 			funcName: "json_length",
-			args:     []interface{}{`{}`},
+			args:     []any{`{}`},
 			expected: 0,
 		},
 		{
 			name:     "json_length invalid json",
 			funcName: "json_length",
-			args:     []interface{}{`{"name":"test"`},
+			args:     []any{`{"name":"test"`},
 			wantErr:  true,
 		},
 		{
 			name:     "json_length non-string",
 			funcName: "json_length",
-			args:     []interface{}{123},
+			args:     []any{123},
 			wantErr:  true,
 		},
 		{
 			name:     "json_length string value",
 			funcName: "json_length",
-			args:     []interface{}{`"hello"`},
+			args:     []any{`"hello"`},
 			wantErr:  true,
 		},
 		{
 			name:     "json_extract map input",
 			funcName: "json_extract",
-			args:     []interface{}{map[string]interface{}{"name": "test", "value": 123}, "$.name"},
+			args:     []any{map[string]any{"name": "test", "value": 123}, "$.name"},
 			expected: "test",
 		},
 		{
 			name:     "json_extract map input number",
 			funcName: "json_extract",
-			args:     []interface{}{map[string]interface{}{"name": "test", "value": 123}, "$.value"},
+			args:     []any{map[string]any{"name": "test", "value": 123}, "$.value"},
 			expected: 123,
 		},
 		{
 			name:     "json_extract array input",
 			funcName: "json_extract",
-			args:     []interface{}{[]interface{}{10, 20, 30}, "$[1]"},
+			args:     []any{[]any{10, 20, 30}, "$[1]"},
 			expected: 20,
 		},
 		{
 			name:     "json_extract nested map",
 			funcName: "json_extract",
-			args:     []interface{}{`{"a": {"b": 100}}`, "$.a.b"},
+			args:     []any{`{"a": {"b": 100}}`, "$.a.b"},
 			expected: float64(100),
 		},
 		{
 			name:     "json_extract nested array",
 			funcName: "json_extract",
-			args:     []interface{}{`{"list": [1, 2, 3]}`, "$.list[2]"},
+			args:     []any{`{"list": [1, 2, 3]}`, "$.list[2]"},
 			expected: float64(3),
 		},
 		{
 			name:     "json_extract complex path",
 			funcName: "json_extract",
-			args:     []interface{}{map[string]interface{}{"users": []interface{}{map[string]interface{}{"id": 1}, map[string]interface{}{"id": 2}}}, "$.users[1].id"},
+			args:     []any{map[string]any{"users": []any{map[string]any{"id": 1}, map[string]any{"id": 2}}}, "$.users[1].id"},
 			expected: 2,
 		},
 	}
@@ -268,61 +268,61 @@ func TestJsonFunctionValidation(t *testing.T) {
 	tests := []struct {
 		name     string
 		funcName string
-		args     []interface{}
+		args     []any
 		wantErr  bool
 	}{
 		{
 			name:     "to_json no args",
 			funcName: "to_json",
-			args:     []interface{}{},
+			args:     []any{},
 			wantErr:  true,
 		},
 		{
 			name:     "to_json too many args",
 			funcName: "to_json",
-			args:     []interface{}{"test", "extra"},
+			args:     []any{"test", "extra"},
 			wantErr:  true,
 		},
 		{
 			name:     "from_json no args",
 			funcName: "from_json",
-			args:     []interface{}{},
+			args:     []any{},
 			wantErr:  true,
 		},
 		{
 			name:     "from_json too many args",
 			funcName: "from_json",
-			args:     []interface{}{"test", "extra"},
+			args:     []any{"test", "extra"},
 			wantErr:  true,
 		},
 		{
 			name:     "json_extract one arg",
 			funcName: "json_extract",
-			args:     []interface{}{"test"},
+			args:     []any{"test"},
 			wantErr:  true,
 		},
 		{
 			name:     "json_extract too many args",
 			funcName: "json_extract",
-			args:     []interface{}{"test", "path", "extra"},
+			args:     []any{"test", "path", "extra"},
 			wantErr:  true,
 		},
 		{
 			name:     "json_valid no args",
 			funcName: "json_valid",
-			args:     []interface{}{},
+			args:     []any{},
 			wantErr:  true,
 		},
 		{
 			name:     "json_type no args",
 			funcName: "json_type",
-			args:     []interface{}{},
+			args:     []any{},
 			wantErr:  true,
 		},
 		{
 			name:     "json_length no args",
 			funcName: "json_length",
-			args:     []interface{}{},
+			args:     []any{},
 			wantErr:  true,
 		},
 	}
@@ -408,12 +408,12 @@ func TestJsonFunctionCreation(t *testing.T) {
 			// Test argument validation through Validate method
 			// Most JSON functions require exactly 1 argument, except json_extract which needs 2
 			if tt.expectedName == "json_extract" {
-				err := fn.Validate([]interface{}{"test", "$.path"})
+				err := fn.Validate([]any{"test", "$.path"})
 				if err != nil {
 					t.Errorf("Function %s should accept 2 arguments: %v", tt.expectedName, err)
 				}
 			} else if tt.expectedName != "json_length" { // json_length might have different requirements
-				err := fn.Validate([]interface{}{"test"})
+				err := fn.Validate([]any{"test"})
 				if err != nil {
 					t.Errorf("Function %s should accept 1 argument: %v", tt.expectedName, err)
 				}
@@ -423,7 +423,7 @@ func TestJsonFunctionCreation(t *testing.T) {
 }
 
 // 辅助函数：比较结果
-func compareResults(a, b interface{}) bool {
+func compareResults(a, b any) bool {
 	if a == nil && b == nil {
 		return true
 	}
@@ -432,8 +432,8 @@ func compareResults(a, b interface{}) bool {
 	}
 
 	// 对于map类型的特殊处理
-	if mapA, okA := a.(map[string]interface{}); okA {
-		if mapB, okB := b.(map[string]interface{}); okB {
+	if mapA, okA := a.(map[string]any); okA {
+		if mapB, okB := b.(map[string]any); okB {
 			if len(mapA) != len(mapB) {
 				return false
 			}
@@ -447,8 +447,8 @@ func compareResults(a, b interface{}) bool {
 	}
 
 	// 对于slice类型的特殊处理
-	if sliceA, okA := a.([]interface{}); okA {
-		if sliceB, okB := b.([]interface{}); okB {
+	if sliceA, okA := a.([]any); okA {
+		if sliceB, okB := b.([]any); okB {
 			if len(sliceA) != len(sliceB) {
 				return false
 			}

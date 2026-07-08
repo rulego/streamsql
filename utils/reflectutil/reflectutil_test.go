@@ -192,7 +192,7 @@ func TestSafeFieldByNameWithPointer(t *testing.T) {
 
 // TestSafeFieldByNameWithInterface 测试接口类型
 func TestSafeFieldByNameWithInterface(t *testing.T) {
-	var testInterface interface{} = TestStruct{
+	var testInterface any = TestStruct{
 		Name:  "Interface Test",
 		Age:   35,
 		Email: "interface@test.com",

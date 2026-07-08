@@ -9,34 +9,34 @@ func TestNewConversionFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
 		funcName string
-		args     []interface{}
-		want     interface{}
+		args     []any
+		want     any
 		wantErr  bool
 	}{
 		// convert_tz 函数测试
 		{
 			name:     "convert_tz with time.Time",
 			funcName: "convert_tz",
-			args:     []interface{}{time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC), "Asia/Shanghai"},
+			args:     []any{time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC), "Asia/Shanghai"},
 			want:     time.Date(2023, 1, 1, 20, 0, 0, 0, time.FixedZone("CST", 8*3600)),
 			wantErr:  false,
 		},
 		{
 			name:     "convert_tz with string",
 			funcName: "convert_tz",
-			args:     []interface{}{"2023-01-01 12:00:00", "America/New_York"},
+			args:     []any{"2023-01-01 12:00:00", "America/New_York"},
 			wantErr:  false,
 		},
 		{
 			name:     "convert_tz invalid timezone",
 			funcName: "convert_tz",
-			args:     []interface{}{time.Now(), "Invalid/Timezone"},
+			args:     []any{time.Now(), "Invalid/Timezone"},
 			wantErr:  true,
 		},
 		{
 			name:     "convert_tz invalid time format",
 			funcName: "convert_tz",
-			args:     []interface{}{"invalid-time", "UTC"},
+			args:     []any{"invalid-time", "UTC"},
 			wantErr:  true,
 		},
 
@@ -44,21 +44,21 @@ func TestNewConversionFunctions(t *testing.T) {
 		{
 			name:     "to_seconds with time.Time",
 			funcName: "to_seconds",
-			args:     []interface{}{time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)},
+			args:     []any{time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)},
 			want:     int64(1672531200),
 			wantErr:  false,
 		},
 		{
 			name:     "to_seconds with string",
 			funcName: "to_seconds",
-			args:     []interface{}{"2023-01-01T00:00:00Z"},
+			args:     []any{"2023-01-01T00:00:00Z"},
 			want:     int64(1672531200),
 			wantErr:  false,
 		},
 		{
 			name:     "to_seconds invalid time format",
 			funcName: "to_seconds",
-			args:     []interface{}{"invalid-time"},
+			args:     []any{"invalid-time"},
 			wantErr:  true,
 		},
 
@@ -66,27 +66,27 @@ func TestNewConversionFunctions(t *testing.T) {
 		{
 			name:     "chr valid ASCII code",
 			funcName: "chr",
-			args:     []interface{}{65},
+			args:     []any{65},
 			want:     "A",
 			wantErr:  false,
 		},
 		{
 			name:     "chr space character",
 			funcName: "chr",
-			args:     []interface{}{32},
+			args:     []any{32},
 			want:     " ",
 			wantErr:  false,
 		},
 		{
 			name:     "chr invalid code negative",
 			funcName: "chr",
-			args:     []interface{}{-1},
+			args:     []any{-1},
 			wantErr:  true,
 		},
 		{
 			name:     "chr invalid code too large",
 			funcName: "chr",
-			args:     []interface{}{128},
+			args:     []any{128},
 			wantErr:  true,
 		},
 
@@ -94,7 +94,7 @@ func TestNewConversionFunctions(t *testing.T) {
 		{
 			name:     "trunc positive number",
 			funcName: "trunc",
-			args:     []interface{}{3.14159, 2},
+			args:     []any{3.14159, 2},
 			want:     3.14,
 			wantErr:  false,
 		},
@@ -103,28 +103,28 @@ func TestNewConversionFunctions(t *testing.T) {
 		{
 			name:     "url_encode basic",
 			funcName: "url_encode",
-			args:     []interface{}{"hello world"},
+			args:     []any{"hello world"},
 			want:     "hello+world",
 			wantErr:  false,
 		},
 		{
 			name:     "url_encode special chars",
 			funcName: "url_encode",
-			args:     []interface{}{"hello@world.com"},
+			args:     []any{"hello@world.com"},
 			want:     "hello%40world.com",
 			wantErr:  false,
 		},
 		{
 			name:     "url_encode empty",
 			funcName: "url_encode",
-			args:     []interface{}{""},
+			args:     []any{""},
 			want:     "",
 			wantErr:  false,
 		},
 		{
 			name:     "url_encode nil",
 			funcName: "url_encode",
-			args:     []interface{}{nil},
+			args:     []any{nil},
 			wantErr:  true,
 		},
 
@@ -132,72 +132,72 @@ func TestNewConversionFunctions(t *testing.T) {
 		{
 			name:     "url_decode basic",
 			funcName: "url_decode",
-			args:     []interface{}{"hello+world"},
+			args:     []any{"hello+world"},
 			want:     "hello world",
 			wantErr:  false,
 		},
 		{
 			name:     "url_decode special chars",
 			funcName: "url_decode",
-			args:     []interface{}{"hello%40world.com"},
+			args:     []any{"hello%40world.com"},
 			want:     "hello@world.com",
 			wantErr:  false,
 		},
 		{
 			name:     "url_decode empty",
 			funcName: "url_decode",
-			args:     []interface{}{""},
+			args:     []any{""},
 			want:     "",
 			wantErr:  false,
 		},
 		{
 			name:     "url_decode nil",
 			funcName: "url_decode",
-			args:     []interface{}{nil},
+			args:     []any{nil},
 			wantErr:  true,
 		},
 		{
 			name:     "url_decode invalid",
 			funcName: "url_decode",
-			args:     []interface{}{"hello%ZZ"},
+			args:     []any{"hello%ZZ"},
 			wantErr:  true,
 		},
 		{
 			name:     "trunc negative number",
 			funcName: "trunc",
-			args:     []interface{}{-3.14159, 3},
+			args:     []any{-3.14159, 3},
 			want:     -3.141,
 			wantErr:  false,
 		},
 		{
 			name:     "trunc zero precision",
 			funcName: "trunc",
-			args:     []interface{}{3.14159, 0},
+			args:     []any{3.14159, 0},
 			want:     3.0,
 			wantErr:  false,
 		},
 		{
 			name:     "trunc negative precision",
 			funcName: "trunc",
-			args:     []interface{}{3.14159, -1},
+			args:     []any{3.14159, -1},
 			wantErr:  true,
 		},
 		{
 			name:     "trunc nil input returns error",
 			funcName: "trunc",
-			args:     []interface{}{nil, 2},
+			args:     []any{nil, 2},
 			wantErr:  true,
 		},
 		{
 			name:     "trunc non-numeric input returns error",
 			funcName: "trunc",
-			args:     []interface{}{"abc", 2},
+			args:     []any{"abc", 2},
 			wantErr:  true,
 		},
 		{
 			name:     "trunc precision too large returns error",
 			funcName: "trunc",
-			args:     []interface{}{3.14, 400},
+			args:     []any{3.14, 400},
 			wantErr:  true,
 		},
 	}
@@ -248,12 +248,12 @@ func TestCastIntRanges(t *testing.T) {
 	}
 
 	// int32 overflow must error instead of silently wrapping.
-	if _, err := fn.Execute(&FunctionContext{}, []interface{}{2147483648, "int32"}); err == nil {
+	if _, err := fn.Execute(&FunctionContext{}, []any{2147483648, "int32"}); err == nil {
 		t.Error(`cast(2147483648, "int32") expected error, got nil`)
 	}
 
 	// "int" returns int (not int32) on 64-bit platforms.
-	r, err := fn.Execute(&FunctionContext{}, []interface{}{100, "int"})
+	r, err := fn.Execute(&FunctionContext{}, []any{100, "int"})
 	if err != nil {
 		t.Errorf(`cast(100, "int") unexpected error: %v`, err)
 	}

@@ -45,7 +45,7 @@ const (
 // Field is a structured key-value pair attached to a log entry.
 type Field struct {
 	Key   string
-	Value interface{}
+	Value any
 }
 
 // Field constructors cover the common value types so callers get typed
@@ -70,7 +70,7 @@ func Duration(k string, d time.Duration) Field { return Field{Key: k, Value: d.S
 
 // Any captures an arbitrary value under k. Prefer a typed constructor when one
 // exists; Any defers formatting to the renderer.
-func Any(k string, v interface{}) Field { return Field{Key: k, Value: v} }
+func Any(k string, v any) Field { return Field{Key: k, Value: v} }
 
 // StructuredLogger is the optional structured variant of Logger. Loggers that
 // implement it emit key-value context; the printf-style Logger methods remain
@@ -156,7 +156,7 @@ func renderText(ts string, level Level, msg string, fields []Field) string {
 
 // formatLogfmtValue renders a field value for the text format. Strings are
 // quoted only when they contain characters that would break logfmt parsing.
-func formatLogfmtValue(v interface{}) string {
+func formatLogfmtValue(v any) string {
 	switch x := v.(type) {
 	case nil:
 		return ""
@@ -196,7 +196,7 @@ func needsQuoting(s string) bool {
 }
 
 func renderJSON(ts string, level Level, msg string, fields []Field) string {
-	m := make(map[string]interface{}, len(fields)+3)
+	m := make(map[string]any, len(fields)+3)
 	m["ts"] = ts
 	m["level"] = level.String()
 	m["msg"] = msg
@@ -241,7 +241,7 @@ func WarnFields(msg string, fields ...Field)  { emitFields(defaultInstance.Warn,
 func ErrorFields(msg string, fields ...Field) { emitFields(defaultInstance.Error, msg, fields) }
 func DebugFields(msg string, fields ...Field) { emitFields(defaultInstance.Debug, msg, fields) }
 
-type printfFunc func(format string, args ...interface{})
+type printfFunc func(format string, args ...any)
 
 func emitFields(printf printfFunc, msg string, fields []Field) {
 	if len(fields) == 0 {

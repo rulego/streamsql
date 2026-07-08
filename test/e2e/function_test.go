@@ -24,13 +24,13 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := map[string]interface{}{
+		testData := map[string]any{
 			"device":      "test-device",
 			"temperature": -25.5,
 			"humidity":    64.0,
@@ -43,7 +43,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			require.Len(t, resultSlice, 1)
 
@@ -70,13 +70,13 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := map[string]interface{}{
+		testData := map[string]any{
 			"device":   "sensor01",
 			"location": "ROOM_A",
 		}
@@ -88,7 +88,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			require.Len(t, resultSlice, 1)
 
@@ -112,13 +112,13 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := map[string]interface{}{
+		testData := map[string]any{
 			"device":      "test-device",
 			"temperature": 25.7,
 			"humidity":    65.0,
@@ -131,7 +131,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			require.Len(t, resultSlice, 1)
 
@@ -154,14 +154,14 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
 		//testTime := time.Date(2025, 4, 15, 10, 30, 0, 0, time.UTC)
-		testData := map[string]interface{}{
+		testData := map[string]any{
 			"device":    "test-device",
 			"timestamp": "2025-08-25",
 		}
@@ -173,7 +173,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			require.Len(t, resultSlice, 1)
 
@@ -197,13 +197,13 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := map[string]interface{}{
+		testData := map[string]any{
 			"device":   "test-device",
 			"metadata": `{"type": "temperature_sensor", "version": "1.0"}`,
 		}
@@ -215,7 +215,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			require.Len(t, resultSlice, 1)
 
@@ -238,15 +238,15 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// Add test data with map
-		testData := map[string]interface{}{
+		testData := map[string]any{
 			"device": "test-device-map",
-			"properties": map[string]interface{}{
+			"properties": map[string]any{
 				"color":  "red",
 				"weight": 10,
 			},
@@ -259,7 +259,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			require.Len(t, resultSlice, 1)
 
@@ -281,19 +281,19 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// Add test data with complex structures
-		testData := map[string]interface{}{
+		testData := map[string]any{
 			"device": "complex-device",
-			"tags":   []interface{}{"tag1", "tag2"},
-			"data": map[string]interface{}{
-				"users": []interface{}{
-					map[string]interface{}{"name": "Alice", "age": 30},
-					map[string]interface{}{"name": "Bob", "age": 25},
+			"tags":   []any{"tag1", "tag2"},
+			"data": map[string]any{
+				"users": []any{
+					map[string]any{"name": "Alice", "age": 30},
+					map[string]any{"name": "Bob", "age": 25},
 				},
 			},
 		}
@@ -305,7 +305,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			require.Len(t, resultSlice, 1)
 
@@ -323,7 +323,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		defer ssql.Stop()
 
 		// Test json_extract nested in aggregation function
-		// json_extract returns interface{}, usually need cast to number for aggregation like sum/avg
+		// json_extract returns any, usually need cast to number for aggregation like sum/avg
 		// specific logic depends on whether aggregator handles string/interface conversion
 		// Here we assume json_extract returns float64 for numbers (from Unmarshal) or use cast
 		rsql := "SELECT count(json_extract(tags, '$[0]')) as tag_count, sum(cast(json_extract(data, '$.value'), 'float')) as total_value FROM stream GROUP BY device, TumblingWindow('1s')"
@@ -331,21 +331,21 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{
 				"device": "device1",
-				"tags":   []interface{}{"tag1", "tag2"},
-				"data":   map[string]interface{}{"value": 10},
+				"tags":   []any{"tag1", "tag2"},
+				"data":   map[string]any{"value": 10},
 			},
 			{
 				"device": "device1",
-				"tags":   []interface{}{"tag3"},
-				"data":   map[string]interface{}{"value": 20},
+				"tags":   []any{"tag3"},
+				"data":   map[string]any{"value": 20},
 			},
 		}
 
@@ -361,7 +361,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			require.Len(t, resultSlice, 1)
 
@@ -388,13 +388,13 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 20.0},
 			{"device": "sensor1", "temperature": 25.0},
 			{"device": "sensor1", "temperature": 30.0},
@@ -416,7 +416,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 2)
 
@@ -452,13 +452,13 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 10.0},
 			{"device": "sensor1", "temperature": 20.0},
 			{"device": "sensor1", "temperature": 30.0},
@@ -480,7 +480,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 1)
 
@@ -505,13 +505,13 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 20.0},
 			{"device": "sensor1", "temperature": 25.0},
 			{"device": "sensor1", "temperature": 30.0},
@@ -531,7 +531,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 1)
 
@@ -539,7 +539,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 			assert.Equal(t, "sensor1", item["device"])
 
 			// 验证collect函数返回的数组
-			tempArray, ok := item["temp_array"].([]interface{})
+			tempArray, ok := item["temp_array"].([]any)
 			assert.True(t, ok)
 			assert.Len(t, tempArray, 3)
 			assert.Contains(t, tempArray, 20.0)
@@ -568,13 +568,13 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 20.567},
 			{"device": "sensor1", "temperature": 25.234},
 			{"device": "sensor1", "temperature": 30.123},
@@ -594,7 +594,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 1)
 
@@ -638,13 +638,13 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := map[string]interface{}{
+		testData := map[string]any{
 			"device":      "sensor1",
 			"temperature": 25.7,
 		}
@@ -656,7 +656,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			require.Len(t, resultSlice, 1)
 
@@ -679,13 +679,13 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 20.0},
 			{"device": "sensor1", "temperature": 30.0},
 		}
@@ -704,7 +704,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 1)
 
@@ -733,13 +733,13 @@ func TestNestedFunctionSupport(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 20.567},
 			{"device": "sensor1", "temperature": 25.234},
 			{"device": "sensor1", "temperature": 30.123},
@@ -759,7 +759,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 1)
 
@@ -797,13 +797,13 @@ func TestNestedFunctionSupport(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 20.567}, // round(20.567, 2) = 20.57
 			{"device": "sensor1", "temperature": 25.234}, // round(25.234, 2) = 25.23
 			{"device": "sensor1", "temperature": 30.123}, // round(30.123, 2) = 30.12
@@ -823,7 +823,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 1)
 
@@ -860,13 +860,13 @@ func TestNestedFunctionSupport(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据（包含负数）
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"device": "sensor1", "temperature": -20.567}, // abs(-20.567) = 20.567
 			{"device": "sensor1", "temperature": 25.234},  // abs(25.234) = 25.234
 			{"device": "sensor1", "temperature": -30.123}, // abs(-30.123) = 30.123
@@ -886,7 +886,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 1)
 
@@ -928,13 +928,13 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		strm.Emit(map[string]interface{}{"device": "sensor1", "temperature": 25.67})
+		strm.Emit(map[string]any{"device": "sensor1", "temperature": 25.67})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -942,7 +942,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 1)
 
@@ -967,13 +967,13 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		strm.Emit(map[string]interface{}{"device": "sensor1"})
+		strm.Emit(map[string]any{"device": "sensor1"})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -981,7 +981,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 1)
 
@@ -1006,13 +1006,13 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		strm.Emit(map[string]interface{}{"device": "sensor1", "temperature": 16.0})
+		strm.Emit(map[string]any{"device": "sensor1", "temperature": 16.0})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -1020,7 +1020,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 1)
 
@@ -1079,13 +1079,13 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		strm.Emit(map[string]interface{}{"device": "sensor1", "created_at": "2023-12-25 15:30:45"})
+		strm.Emit(map[string]any{"device": "sensor1", "created_at": "2023-12-25 15:30:45"})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -1093,7 +1093,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 1)
 
@@ -1117,13 +1117,13 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 		assert.Nil(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据（不包含invalid_field）
-		strm.Emit(map[string]interface{}{"device": "sensor1", "temperature": 25.0})
+		strm.Emit(map[string]any{"device": "sensor1", "temperature": 25.0})
 
 		// 等待结果
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -1131,7 +1131,7 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 1)
 
@@ -1148,9 +1148,9 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 // flattenUnnestRows 将可能包含 unnest 结果的批次结果展开为多行，便于断言
 // 兼容两种形态：
-// 1) 当前实现：返回单行，其中 alias 字段为 []interface{}（需要在测试侧展开）
+// 1) 当前实现：返回单行，其中 alias 字段为 []any（需要在测试侧展开）
 // 2) 未来实现：引擎直接返回多行（此时原样返回）
-func flattenUnnestRows(result []map[string]interface{}, alias string) []map[string]interface{} {
+func flattenUnnestRows(result []map[string]any, alias string) []map[string]any {
 	// 如果已经是多行，直接返回
 	if len(result) > 1 {
 		return result
@@ -1159,7 +1159,7 @@ func flattenUnnestRows(result []map[string]interface{}, alias string) []map[stri
 		return result
 	}
 
-	// 形如：[{ alias: []interface{}{...} , ...}]
+	// 形如：[{ alias: []any{...} , ...}]
 	if v, ok := result[0][alias]; ok {
 		if functions.IsUnnestResult(v) {
 			// 使用ProcessUnnestResultWithFieldName保留字段名，并合并其他字段
@@ -1169,9 +1169,9 @@ func flattenUnnestRows(result []map[string]interface{}, alias string) []map[stri
 			}
 
 			// 将其他字段合并到每一行中
-			results := make([]map[string]interface{}, len(expandedRows))
+			results := make([]map[string]any, len(expandedRows))
 			for i, unnestRow := range expandedRows {
-				newRow := make(map[string]interface{}, len(result[0])+len(unnestRow))
+				newRow := make(map[string]any, len(result[0])+len(unnestRow))
 				// 复制原始行的其他字段（除了unnest字段）
 				for k, v := range result[0] {
 					if k != alias {
@@ -1207,13 +1207,13 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 输入为普通字符串数组
-		input := map[string]interface{}{
+		input := map[string]any{
 			"tags": []string{"a", "b", "c"},
 		}
 		strm.Emit(input)
@@ -1223,7 +1223,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 
 		select {
 		case raw := <-resultChan:
-			batch, ok := raw.([]map[string]interface{})
+			batch, ok := raw.([]map[string]any)
 			require.True(t, ok)
 			// 按两种形态规范化为多行
 			rows := flattenUnnestRows(batch, "tag")
@@ -1233,7 +1233,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 			for i, exp := range expected {
 				row := rows[i]
 				// 兼容两种字段命名：引擎直接展开可能使用别名(tag)，函数侧展开为默认字段(value)
-				var got interface{}
+				var got any
 				if v, ok := row["tag"]; ok {
 					got = v
 				} else if v, ok := row["value"]; ok {
@@ -1258,13 +1258,13 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 输入包含id字段和tags数组
-		input := map[string]interface{}{
+		input := map[string]any{
 			"id":   100,
 			"tags": []string{"a", "b", "c"},
 		}
@@ -1275,7 +1275,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 
 		select {
 		case raw := <-resultChan:
-			batch, ok := raw.([]map[string]interface{})
+			batch, ok := raw.([]map[string]any)
 			require.True(t, ok)
 			// 展开unnest结果
 			rows := flattenUnnestRows(batch, "tag")
@@ -1290,7 +1290,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 				assert.Equal(t, 100, row["id"], "row %d should have id=100", i)
 
 				// 验证tag字段
-				var gotTag interface{}
+				var gotTag any
 				if v, ok := row["tag"]; ok {
 					gotTag = v
 				} else if v, ok := row["value"]; ok {
@@ -1313,14 +1313,14 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 输入为对象数组
-		input := map[string]interface{}{
-			"props": []map[string]interface{}{
+		input := map[string]any{
+			"props": []map[string]any{
 				{"k": "x", "v": 1},
 				{"k": "y", "v": 2},
 			},
@@ -1332,7 +1332,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 
 		select {
 		case raw := <-resultChan:
-			batch, ok := raw.([]map[string]interface{})
+			batch, ok := raw.([]map[string]any)
 			require.True(t, ok)
 
 			rows := flattenUnnestRows(batch, "prop")
@@ -1357,13 +1357,13 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 空数组
-		input := map[string]interface{}{
+		input := map[string]any{
 			"tags": []string{},
 		}
 		strm.Emit(input)
@@ -1373,7 +1373,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 
 		select {
 		case raw := <-resultChan:
-			batch, ok := raw.([]map[string]interface{})
+			batch, ok := raw.([]map[string]any)
 			require.True(t, ok)
 
 			rows := flattenUnnestRows(batch, "tag")
@@ -1392,13 +1392,13 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// nil 值
-		input := map[string]interface{}{
+		input := map[string]any{
 			"tags": nil,
 		}
 		strm.Emit(input)
@@ -1408,7 +1408,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 
 		select {
 		case raw := <-resultChan:
-			batch, ok := raw.([]map[string]interface{})
+			batch, ok := raw.([]map[string]any)
 			require.True(t, ok)
 
 			rows := flattenUnnestRows(batch, "tag")
@@ -1421,11 +1421,11 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 
 // firstOf 辅助从行中读取字段值，兼容 prop 为对象的形态
 // 优先按 top-level 字段取值，若不存在则尝试从嵌套对象（如 prop[k]）获取
-func firstOf(row map[string]interface{}, topLevelKey string, nestedObjKey string, nestedField string) interface{} {
+func firstOf(row map[string]any, topLevelKey string, nestedObjKey string, nestedField string) any {
 	if v, ok := row[topLevelKey]; ok {
 		return v
 	}
-	if m, ok := row[nestedObjKey].(map[string]interface{}); ok {
+	if m, ok := row[nestedObjKey].(map[string]any); ok {
 		return m[nestedField]
 	}
 	return nil

@@ -14,7 +14,7 @@ import (
 func TestCountingWindowStateTTL_ReapsIdleKeys(t *testing.T) {
 	config := types.WindowConfig{
 		Type:          TypeCounting,
-		Params:        []interface{}{10},
+		Params:        []any{10},
 		GroupByKeys:   []string{"deviceId"},
 		CountStateTTL: time.Minute,
 	}
@@ -23,8 +23,8 @@ func TestCountingWindowStateTTL_ReapsIdleKeys(t *testing.T) {
 	cw.Start()
 	defer cw.Stop()
 
-	cw.Add(map[string]interface{}{"deviceId": "d1", "v": 1})
-	cw.Add(map[string]interface{}{"deviceId": "d2", "v": 1})
+	cw.Add(map[string]any{"deviceId": "d1", "v": 1})
+	cw.Add(map[string]any{"deviceId": "d2", "v": 1})
 	time.Sleep(80 * time.Millisecond) // let rows enter the Start goroutine
 
 	cw.mu.Lock()
@@ -45,7 +45,7 @@ func TestCountingWindowStateTTL_ReapsIdleKeys(t *testing.T) {
 func TestCountingWindowStateTTL_KeepsActiveKeys(t *testing.T) {
 	config := types.WindowConfig{
 		Type:          TypeCounting,
-		Params:        []interface{}{10},
+		Params:        []any{10},
 		GroupByKeys:   []string{"deviceId"},
 		CountStateTTL: time.Minute,
 	}
@@ -54,7 +54,7 @@ func TestCountingWindowStateTTL_KeepsActiveKeys(t *testing.T) {
 	cw.Start()
 	defer cw.Stop()
 
-	cw.Add(map[string]interface{}{"deviceId": "d1", "v": 1})
+	cw.Add(map[string]any{"deviceId": "d1", "v": 1})
 	time.Sleep(80 * time.Millisecond)
 
 	cw.mu.Lock()
@@ -73,7 +73,7 @@ func TestCountingWindowStateTTL_KeepsActiveKeys(t *testing.T) {
 func TestCountingWindowStateTTL_DisabledByDefault(t *testing.T) {
 	config := types.WindowConfig{
 		Type:        TypeCounting,
-		Params:      []interface{}{10},
+		Params:      []any{10},
 		GroupByKeys: []string{"deviceId"},
 	}
 	cw, err := NewCountingWindow(config)
@@ -83,8 +83,8 @@ func TestCountingWindowStateTTL_DisabledByDefault(t *testing.T) {
 	cw.Start()
 	defer cw.Stop()
 
-	cw.Add(map[string]interface{}{"deviceId": "d1", "v": 1})
-	cw.Add(map[string]interface{}{"deviceId": "d2", "v": 1})
+	cw.Add(map[string]any{"deviceId": "d1", "v": 1})
+	cw.Add(map[string]any{"deviceId": "d2", "v": 1})
 	time.Sleep(200 * time.Millisecond)
 
 	cw.mu.Lock()

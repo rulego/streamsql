@@ -17,18 +17,18 @@ import (
 )
 
 type SelectStatement struct {
-	Fields       []Field
-	Distinct     bool
-	SelectAll    bool // Flag to indicate if this is a SELECT * query
-	Source       string
-	SourceAlias  string // optional FROM alias (e.g. "s" in "FROM stream AS s")
-	Condition    string
-	Window       WindowDefinition
-	GroupBy      []string
-	Limit        int
-	Having       string
-	OrderBy      []types.OrderByField
-	JoinConfigs  []types.JoinConfig
+	Fields      []Field
+	Distinct    bool
+	SelectAll   bool // Flag to indicate if this is a SELECT * query
+	Source      string
+	SourceAlias string // optional FROM alias (e.g. "s" in "FROM stream AS s")
+	Condition   string
+	Window      WindowDefinition
+	GroupBy     []string
+	Limit       int
+	Having      string
+	OrderBy     []types.OrderByField
+	JoinConfigs []types.JoinConfig
 }
 
 type Field struct {
@@ -39,7 +39,7 @@ type Field struct {
 
 type WindowDefinition struct {
 	Type              string
-	Params            []interface{}
+	Params            []any
 	TsProp            string
 	TimeUnit          time.Duration
 	MaxOutOfOrderness time.Duration // Maximum allowed out-of-orderness for event time
@@ -104,7 +104,7 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 	if !needWindow && hasAggregation {
 		needWindow = true
 		windowType = window.TypeTumbling
-		params = []interface{}{10 * time.Second} // Default 10-second window
+		params = []any{10 * time.Second} // Default 10-second window
 	}
 
 	// If no aggregation functions, collect simple fields
@@ -733,12 +733,12 @@ func extractSimpleField(fieldExpr string) string {
 
 // validateWindowParams validates and converts window parameters based on window type
 // Returns validated parameters array with proper types
-func validateWindowParams(params []interface{}, windowType string) ([]interface{}, error) {
+func validateWindowParams(params []any, windowType string) ([]any, error) {
 	if len(params) == 0 {
 		return params, nil
 	}
 
-	validated := make([]interface{}, 0, len(params))
+	validated := make([]any, 0, len(params))
 
 	if windowType == window.TypeCounting {
 		// CountingWindow expects integer count as first parameter
@@ -769,7 +769,7 @@ func validateWindowParams(params []interface{}, windowType string) ([]interface{
 	// Helper function to convert a value to time.Duration
 	// For numeric types, treats them as seconds
 	// For strings, uses time.ParseDuration
-	convertToDuration := func(val interface{}) (time.Duration, error) {
+	convertToDuration := func(val any) (time.Duration, error) {
 		switch v := val.(type) {
 		case time.Duration:
 			return v, nil

@@ -26,7 +26,7 @@ func TestFastCompareMatchesExprLang(t *testing.T) {
 		// Literal containing && must NOT mis-split — falls back to expr-lang.
 		"msg == 'a && b'",
 	}
-	rows := []map[string]interface{}{
+	rows := []map[string]any{
 		{"temperature": 25.5, "cnt": int64(10), "status": "active", "label": "zebra", "humidity": 60.0, "pressure": 1100, "msg": "a && b"},
 		{"temperature": 20.0, "cnt": 9, "status": "inactive", "label": "apple", "humidity": 90.0, "pressure": 900, "msg": "plain"},
 		{"temperature": 30, "cnt": int(11), "status": "active", "label": "m", "humidity": 50, "pressure": 1001},

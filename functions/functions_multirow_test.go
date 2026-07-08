@@ -10,21 +10,21 @@ func TestUnnestFunction(t *testing.T) {
 	ctx := &FunctionContext{}
 
 	// 测试基本unnest功能
-	args := []interface{}{[]interface{}{"a", "b", "c"}}
+	args := []any{[]any{"a", "b", "c"}}
 	result, err := fn.Execute(ctx, args)
 	if err != nil {
 		t.Errorf("UnnestFunction should not return error: %v", err)
 	}
-	expected := []interface{}{
-		map[string]interface{}{
+	expected := []any{
+		map[string]any{
 			"__unnest_object__": true,
 			"__data__":          "a",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"__unnest_object__": true,
 			"__data__":          "b",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"__unnest_object__": true,
 			"__data__":          "c",
 		},
@@ -34,24 +34,24 @@ func TestUnnestFunction(t *testing.T) {
 	}
 
 	// 测试对象数组unnest
-	args = []interface{}{
-		[]interface{}{
-			map[string]interface{}{"name": "Alice", "age": 25},
-			map[string]interface{}{"name": "Bob", "age": 30},
+	args = []any{
+		[]any{
+			map[string]any{"name": "Alice", "age": 25},
+			map[string]any{"name": "Bob", "age": 30},
 		},
 	}
 	result, err = fn.Execute(ctx, args)
 	if err != nil {
 		t.Errorf("UnnestFunction should not return error: %v", err)
 	}
-	expected = []interface{}{
-		map[string]interface{}{
+	expected = []any{
+		map[string]any{
 			"__unnest_object__": true,
-			"__data__":          map[string]interface{}{"name": "Alice", "age": 25},
+			"__data__":          map[string]any{"name": "Alice", "age": 25},
 		},
-		map[string]interface{}{
+		map[string]any{
 			"__unnest_object__": true,
-			"__data__":          map[string]interface{}{"name": "Bob", "age": 30},
+			"__data__":          map[string]any{"name": "Bob", "age": 30},
 		},
 	}
 	if !reflect.DeepEqual(result, expected) {
@@ -59,14 +59,14 @@ func TestUnnestFunction(t *testing.T) {
 	}
 
 	// 测试空数组
-	args = []interface{}{[]interface{}{}}
+	args = []any{[]any{}}
 	result, err = fn.Execute(ctx, args)
 	if err != nil {
 		t.Errorf("UnnestFunction should not return error for empty array: %v", err)
 	}
 	// 空数组应该返回带有空标记的结果
-	expectedEmpty := []interface{}{
-		map[string]interface{}{
+	expectedEmpty := []any{
+		map[string]any{
 			"__unnest_object__": true,
 			"__empty_unnest__":  true,
 		},
@@ -76,14 +76,14 @@ func TestUnnestFunction(t *testing.T) {
 	}
 
 	// 测试nil参数
-	args = []interface{}{nil}
+	args = []any{nil}
 	result, err = fn.Execute(ctx, args)
 	if err != nil {
 		t.Errorf("UnnestFunction should not return error for nil: %v", err)
 	}
 	// nil应该返回带有空标记的结果
-	expectedNil := []interface{}{
-		map[string]interface{}{
+	expectedNil := []any{
+		map[string]any{
 			"__unnest_object__": true,
 			"__empty_unnest__":  true,
 		},
@@ -93,35 +93,35 @@ func TestUnnestFunction(t *testing.T) {
 	}
 
 	// 测试错误参数数量
-	args = []interface{}{}
+	args = []any{}
 	err = fn.Validate(args)
 	if err == nil {
 		t.Errorf("UnnestFunction should return error for no arguments")
 	}
 
 	// 测试非数组参数
-	args = []interface{}{"not an array"}
+	args = []any{"not an array"}
 	_, err = fn.Execute(ctx, args)
 	if err == nil {
 		t.Errorf("UnnestFunction should return error for non-array argument")
 	}
 
 	// 测试数组类型
-	args = []interface{}{[3]string{"x", "y", "z"}}
+	args = []any{[3]string{"x", "y", "z"}}
 	result, err = fn.Execute(ctx, args)
 	if err != nil {
 		t.Errorf("UnnestFunction should handle arrays: %v", err)
 	}
-	expected = []interface{}{
-		map[string]interface{}{
+	expected = []any{
+		map[string]any{
 			"__unnest_object__": true,
 			"__data__":          "x",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"__unnest_object__": true,
 			"__data__":          "y",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"__unnest_object__": true,
 			"__data__":          "z",
 		},
@@ -143,17 +143,17 @@ func TestUnnestFunctionCreation(t *testing.T) {
 	}
 
 	// Test argument validation through Validate method
-	err := fn.Validate([]interface{}{"test"})
+	err := fn.Validate([]any{"test"})
 	if err != nil {
 		t.Errorf("Validate should accept 1 argument: %v", err)
 	}
 
-	err = fn.Validate([]interface{}{})
+	err = fn.Validate([]any{})
 	if err == nil {
 		t.Error("Validate should reject 0 arguments")
 	}
 
-	err = fn.Validate([]interface{}{"arg1", "arg2"})
+	err = fn.Validate([]any{"arg1", "arg2"})
 	if err == nil {
 		t.Error("Validate should reject 2 arguments")
 	}
@@ -173,16 +173,16 @@ func TestUnnestFunctionCreation(t *testing.T) {
 
 func TestIsUnnestResult(t *testing.T) {
 	// 测试非unnest结果
-	normalSlice := []interface{}{"a", "b", "c"}
+	normalSlice := []any{"a", "b", "c"}
 	if IsUnnestResult(normalSlice) {
 		t.Errorf("IsUnnestResult should return false for normal slice")
 	}
 
 	// 测试unnest结果
-	unnestSlice := []interface{}{
-		map[string]interface{}{
+	unnestSlice := []any{
+		map[string]any{
 			"__unnest_object__": true,
-			"__data__": map[string]interface{}{
+			"__data__": map[string]any{
 				"name": "Alice",
 				"age":  25,
 			},
@@ -193,11 +193,11 @@ func TestIsUnnestResult(t *testing.T) {
 	}
 
 	// 测试混合结果
-	mixedSlice := []interface{}{
+	mixedSlice := []any{
 		"normal",
-		map[string]interface{}{
+		map[string]any{
 			"__unnest_object__": true,
-			"__data__": map[string]interface{}{
+			"__data__": map[string]any{
 				"name": "Bob",
 				"age":  30,
 			},
@@ -215,9 +215,9 @@ func TestIsUnnestResult(t *testing.T) {
 
 func TestProcessUnnestResult(t *testing.T) {
 	// 测试处理普通数组
-	normalSlice := []interface{}{"a", "b", "c"}
+	normalSlice := []any{"a", "b", "c"}
 	result := ProcessUnnestResult(normalSlice)
-	expected := []map[string]interface{}{
+	expected := []map[string]any{
 		{"value": "a"},
 		{"value": "b"},
 		{"value": "c"},
@@ -227,24 +227,24 @@ func TestProcessUnnestResult(t *testing.T) {
 	}
 
 	// 测试处理对象数组
-	objectSlice := []interface{}{
-		map[string]interface{}{
+	objectSlice := []any{
+		map[string]any{
 			"__unnest_object__": true,
-			"__data__": map[string]interface{}{
+			"__data__": map[string]any{
 				"name": "Alice",
 				"age":  25,
 			},
 		},
-		map[string]interface{}{
+		map[string]any{
 			"__unnest_object__": true,
-			"__data__": map[string]interface{}{
+			"__data__": map[string]any{
 				"name": "Bob",
 				"age":  30,
 			},
 		},
 	}
 	result = ProcessUnnestResult(objectSlice)
-	expected = []map[string]interface{}{
+	expected = []map[string]any{
 		{"name": "Alice", "age": 25},
 		{"name": "Bob", "age": 30},
 	}
@@ -253,11 +253,11 @@ func TestProcessUnnestResult(t *testing.T) {
 	}
 
 	// 测试混合数组
-	mixedSlice := []interface{}{
+	mixedSlice := []any{
 		"normal",
-		map[string]interface{}{
+		map[string]any{
 			"__unnest_object__": true,
-			"__data__": map[string]interface{}{
+			"__data__": map[string]any{
 				"name": "Charlie",
 				"age":  35,
 			},
@@ -265,7 +265,7 @@ func TestProcessUnnestResult(t *testing.T) {
 		"another",
 	}
 	result = ProcessUnnestResult(mixedSlice)
-	expected = []map[string]interface{}{
+	expected = []map[string]any{
 		{"value": "normal"},
 		{"name": "Charlie", "age": 35},
 		{"value": "another"},

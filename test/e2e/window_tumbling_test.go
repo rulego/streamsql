@@ -30,11 +30,11 @@ func TestSQLTumblingWindow_ProcessingTime(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 10)
+	ch := make(chan []map[string]any, 10)
 	defer close(ch)
-	windowResults := make([][]map[string]interface{}, 0)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -50,7 +50,7 @@ func TestSQLTumblingWindow_ProcessingTime(t *testing.T) {
 	// 使用处理时间：发送数据，不包含时间戳字段
 	// 滚动窗口基于数据到达的处理时间（系统时钟）来划分窗口
 	for i := 0; i < 10; i++ {
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"temperature": float64(i),
 		})
@@ -86,7 +86,7 @@ func TestSQLTumblingWindow_ProcessingTime(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -131,10 +131,10 @@ func TestSQLTumblingWindow_MaxOutOfOrderness(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 20)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -156,7 +156,7 @@ func TestSQLTumblingWindow_MaxOutOfOrderness(t *testing.T) {
 	t.Log("第一阶段：发送正常顺序的数据（事件时间 0-2000ms）")
 	for i := 0; i < 10; i++ {
 		eventTime := baseTime + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i), // 0-9
@@ -175,7 +175,7 @@ func TestSQLTumblingWindow_MaxOutOfOrderness(t *testing.T) {
 	lateDataTimes := []int64{500, 700, 900} // 延迟数据的事件时间（相对于 baseTime）
 	for i, lateTime := range lateDataTimes {
 		eventTime := baseTime + lateTime
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(20 + i), // 20-22，用于标识延迟数据
@@ -187,7 +187,7 @@ func TestSQLTumblingWindow_MaxOutOfOrderness(t *testing.T) {
 	t.Log("第三阶段：继续发送正常数据，推进 watermark")
 	for i := 10; i < 15; i++ {
 		eventTime := baseTime + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -225,7 +225,7 @@ func TestSQLTumblingWindow_MaxOutOfOrderness(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -279,10 +279,10 @@ func TestSQLTumblingWindow_AllowedLateness(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 20)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -300,7 +300,7 @@ func TestSQLTumblingWindow_AllowedLateness(t *testing.T) {
 	t.Log("第一阶段：发送正常顺序的数据（事件时间 0-2000ms）")
 	for i := 0; i < 10; i++ {
 		eventTime := baseTime + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i), // 0-9
@@ -318,7 +318,7 @@ func TestSQLTumblingWindow_AllowedLateness(t *testing.T) {
 	lateDataTimes := []int64{300, 600, 900} // 延迟数据的事件时间
 	for i, lateTime := range lateDataTimes {
 		eventTime := baseTime + lateTime
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(30 + i), // 30-32，用于标识延迟数据
@@ -330,7 +330,7 @@ func TestSQLTumblingWindow_AllowedLateness(t *testing.T) {
 	t.Log("第三阶段：继续发送正常数据，推进 watermark")
 	for i := 10; i < 15; i++ {
 		eventTime := baseTime + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -368,7 +368,7 @@ func TestSQLTumblingWindow_AllowedLateness(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -440,10 +440,10 @@ func TestSQLTumblingWindow_BothConfigs(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 20)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -469,7 +469,7 @@ func TestSQLTumblingWindow_BothConfigs(t *testing.T) {
 	t.Log("第一阶段：发送正常顺序的数据")
 	for i := 0; i < 10; i++ {
 		eventTime := baseTime + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i), // 0-9
@@ -488,7 +488,7 @@ func TestSQLTumblingWindow_BothConfigs(t *testing.T) {
 	lateDataTimes := []int64{400, 800, 1200} // 延迟数据的事件时间
 	for i, lateTime := range lateDataTimes {
 		eventTime := baseTime + lateTime
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(40 + i), // 40-42，用于标识延迟数据
@@ -505,7 +505,7 @@ func TestSQLTumblingWindow_BothConfigs(t *testing.T) {
 		if i == 10 && eventTime < requiredEventTimeForTrigger {
 			eventTime = requiredEventTimeForTrigger
 		}
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -543,7 +543,7 @@ func TestSQLTumblingWindow_BothConfigs(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -611,10 +611,10 @@ func TestSQLTumblingWindow_LateDataHandling(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 20)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -636,7 +636,7 @@ func TestSQLTumblingWindow_LateDataHandling(t *testing.T) {
 	t.Log("第一阶段：发送正常顺序的数据")
 	for i := 0; i < 10; i++ {
 		eventTime := baseTime + int64(i*200) // 每200ms一条数据
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i), // 温度值 0-9
@@ -656,7 +656,7 @@ func TestSQLTumblingWindow_LateDataHandling(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		// 延迟数据：事件时间比正常数据早，但仍在窗口范围内
 		eventTime := baseTime + int64(100+i*200) // 100ms, 300ms, 500ms
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(10 + i), // 温度值 10-12，用于区分延迟数据
@@ -668,7 +668,7 @@ func TestSQLTumblingWindow_LateDataHandling(t *testing.T) {
 	t.Log("第三阶段：继续发送正常数据，推进 watermark")
 	for i := 10; i < 15; i++ {
 		eventTime := baseTime + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -706,7 +706,7 @@ func TestSQLTumblingWindow_LateDataHandling(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -755,10 +755,10 @@ func TestSQLTumblingWindow_EventTimeWindowAlignment(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 20)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -775,7 +775,7 @@ func TestSQLTumblingWindow_EventTimeWindowAlignment(t *testing.T) {
 	// 第一个窗口应该对齐到小于等于baseTime的最大2秒倍数
 	for i := 0; i < 15; i++ {
 		eventTime := baseTime + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -812,7 +812,7 @@ func TestSQLTumblingWindow_EventTimeWindowAlignment(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -865,10 +865,10 @@ func TestSQLTumblingWindow_WatermarkTriggerTiming(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 20)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -892,7 +892,7 @@ func TestSQLTumblingWindow_WatermarkTriggerTiming(t *testing.T) {
 	// 发送数据，事件时间在第一个窗口内
 	for i := 0; i < 10; i++ {
 		eventTime := alignedStart + int64(i*200) // 在窗口内
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -903,7 +903,7 @@ func TestSQLTumblingWindow_WatermarkTriggerTiming(t *testing.T) {
 	// 发送一个事件时间刚好等于window_end的数据，推进watermark
 	// watermark = maxEventTime - maxOutOfOrderness = firstWindowEnd - 500
 	// 此时 watermark < firstWindowEnd，窗口不应该触发
-	ssql.Emit(map[string]interface{}{
+	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   firstWindowEnd,
 		"temperature": 100.0,
@@ -915,7 +915,7 @@ func TestSQLTumblingWindow_WatermarkTriggerTiming(t *testing.T) {
 	// 发送一个事件时间超过window_end的数据，推进watermark
 	// watermark = maxEventTime - maxOutOfOrderness = (firstWindowEnd + 1000) - 500 = firstWindowEnd + 500
 	// 此时 watermark >= firstWindowEnd，窗口应该触发
-	ssql.Emit(map[string]interface{}{
+	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   firstWindowEnd + 1000,
 		"temperature": 200.0,
@@ -950,7 +950,7 @@ func TestSQLTumblingWindow_WatermarkTriggerTiming(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -1002,10 +1002,10 @@ func TestSQLTumblingWindow_AllowedLatenessUpdate(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 20)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -1024,7 +1024,7 @@ func TestSQLTumblingWindow_AllowedLatenessUpdate(t *testing.T) {
 	t.Log("第一阶段：发送正常数据，触发第一个窗口")
 	for i := 0; i < 10; i++ {
 		eventTime := alignedStart + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i), // 0-9
@@ -1033,7 +1033,7 @@ func TestSQLTumblingWindow_AllowedLatenessUpdate(t *testing.T) {
 	}
 
 	// 推进watermark，触发第一个窗口
-	ssql.Emit(map[string]interface{}{
+	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   firstWindowEnd + 1000,
 		"temperature": 100.0,
@@ -1079,7 +1079,7 @@ func TestSQLTumblingWindow_AllowedLatenessUpdate(t *testing.T) {
 	lateDataTemps := []float64{30.0, 31.0, 32.0}
 	for i, lateTime := range lateDataTimes {
 		eventTime := alignedStart + lateTime
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": lateDataTemps[i],
@@ -1088,7 +1088,7 @@ func TestSQLTumblingWindow_AllowedLatenessUpdate(t *testing.T) {
 	}
 
 	// 继续发送正常数据，推进watermark（但不超过window_end + allowedLateness）
-	ssql.Emit(map[string]interface{}{
+	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   firstWindowEnd + allowedLatenessMs - 100, // 在allowedLateness范围内
 		"temperature": 200.0,
@@ -1124,7 +1124,7 @@ func TestSQLTumblingWindow_AllowedLatenessUpdate(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -1185,10 +1185,10 @@ func TestSQLTumblingWindow_IdleSourceMechanism(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 20)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -1211,7 +1211,7 @@ func TestSQLTumblingWindow_IdleSourceMechanism(t *testing.T) {
 	t.Log("第一阶段：发送数据，创建窗口")
 	for i := 0; i < 5; i++ {
 		eventTime := alignedStart + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -1251,7 +1251,7 @@ func TestSQLTumblingWindow_IdleSourceMechanism(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -1305,10 +1305,10 @@ func TestSQLTumblingWindow_IdleSourceDisabled(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 20)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -1325,7 +1325,7 @@ func TestSQLTumblingWindow_IdleSourceDisabled(t *testing.T) {
 	t.Log("发送数据，但事件时间不足以触发窗口")
 	for i := 0; i < 3; i++ {
 		eventTime := alignedStart + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),

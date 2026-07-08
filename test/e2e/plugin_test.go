@@ -26,7 +26,7 @@ func TestPluginStyleCustomFunctions(t *testing.T) {
 		"数据脱敏",
 		"手机号脱敏",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			phone := cast.ToString(args[0])
 			if len(phone) != 11 {
 				return phone, nil
@@ -44,7 +44,7 @@ func TestPluginStyleCustomFunctions(t *testing.T) {
 		"格式化",
 		"格式化ID",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			id := cast.ToString(args[0])
 			return "ID_" + id, nil
 		},
@@ -59,7 +59,7 @@ func TestPluginStyleCustomFunctions(t *testing.T) {
 		"业务计算",
 		"计算销售佣金",
 		2, 2,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			sales := cast.ToFloat64(args[0])
 			rate := cast.ToFloat64(args[1])
 			return sales * rate / 100, nil
@@ -94,13 +94,13 @@ func testStringFunctionsOnly(t *testing.T) {
 	err := ssql.Execute(sql)
 	assert.NoError(t, err)
 
-	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.Stream().AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := map[string]interface{}{
+	testData := map[string]any{
 		"employee_id": "E001",
 		"phone":       "13812345678",
 	}
@@ -110,7 +110,7 @@ func testStringFunctionsOnly(t *testing.T) {
 
 	select {
 	case result := <-resultChan:
-		resultSlice, ok := result.([]map[string]interface{})
+		resultSlice, ok := result.([]map[string]any)
 		assert.True(t, ok)
 		assert.Len(t, resultSlice, 1)
 
@@ -138,13 +138,13 @@ func testConversionFunctionsOnly(t *testing.T) {
 	err := ssql.Execute(sql)
 	assert.NoError(t, err)
 
-	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.Stream().AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := map[string]interface{}{
+	testData := map[string]any{
 		"user_id": "12345",
 	}
 
@@ -153,7 +153,7 @@ func testConversionFunctionsOnly(t *testing.T) {
 
 	select {
 	case result := <-resultChan:
-		resultSlice, ok := result.([]map[string]interface{})
+		resultSlice, ok := result.([]map[string]any)
 		assert.True(t, ok)
 		assert.Len(t, resultSlice, 1)
 
@@ -183,13 +183,13 @@ func testMathFunctionsInAggregate(t *testing.T) {
 	err := ssql.Execute(sql)
 	assert.NoError(t, err)
 
-	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.Stream().AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{
 			"department":      "sales",
 			"sales":           8000.0,
@@ -212,7 +212,7 @@ func testMathFunctionsInAggregate(t *testing.T) {
 
 	select {
 	case result := <-resultChan:
-		resultSlice, ok := result.([]map[string]interface{})
+		resultSlice, ok := result.([]map[string]any)
 		assert.True(t, ok)
 		assert.Len(t, resultSlice, 1)
 
@@ -239,7 +239,7 @@ func TestRuntimeFunctionManagement(t *testing.T) {
 		"临时函数",
 		"临时测试函数",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			val := cast.ToString(args[0])
 			return "TEMP_" + val, nil
 		},
@@ -259,17 +259,17 @@ func TestRuntimeFunctionManagement(t *testing.T) {
 	err = ssql.Execute(sql)
 	assert.NoError(t, err)
 
-	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.Stream().AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
-	ssql.Emit(map[string]interface{}{"value": "test"})
+	ssql.Emit(map[string]any{"value": "test"})
 	time.Sleep(300 * time.Millisecond)
 
 	select {
 	case result := <-resultChan:
-		resultSlice, ok := result.([]map[string]interface{})
+		resultSlice, ok := result.([]map[string]any)
 		assert.True(t, ok)
 		assert.Len(t, resultSlice, 1)
 		assert.Equal(t, "TEMP_test", resultSlice[0]["result"])
@@ -290,12 +290,12 @@ func TestRuntimeFunctionManagement(t *testing.T) {
 func TestFunctionPluginDiscovery(t *testing.T) {
 	// 注册不同类型的函数
 	functions.RegisterCustomFunction("plugin_math", functions.TypeMath, "插件", "数学插件", 1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			return args[0], nil
 		})
 
 	functions.RegisterCustomFunction("plugin_string", functions.TypeString, "插件", "字符串插件", 1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			return args[0], nil
 		})
 
@@ -332,7 +332,7 @@ func TestCompleteSQLIntegration(t *testing.T) {
 		"业务指标",
 		"计算业务指标",
 		2, 2,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			category := cast.ToString(args[0])
 			value := cast.ToFloat64(args[1])
 
@@ -366,12 +366,12 @@ func TestCompleteSQLIntegration(t *testing.T) {
 	err = ssql.Execute(sql)
 	assert.NoError(t, err)
 
-	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.Stream().AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
-	testData := map[string]interface{}{
+	testData := map[string]any{
 		"customer_id": "C001",
 		"tier":        "premium",
 		"amount":      100.0,
@@ -382,7 +382,7 @@ func TestCompleteSQLIntegration(t *testing.T) {
 
 	select {
 	case result := <-resultChan:
-		resultSlice, ok := result.([]map[string]interface{})
+		resultSlice, ok := result.([]map[string]any)
 		assert.True(t, ok)
 		assert.Len(t, resultSlice, 1)
 

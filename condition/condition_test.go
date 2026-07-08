@@ -60,55 +60,55 @@ func TestExprCondition_Evaluate(t *testing.T) {
 	tests := []struct {
 		name       string
 		expression string
-		env        map[string]interface{}
+		env        map[string]any
 		expected   bool
 	}{
 		{
 			name:       "数值比较 - 大于",
 			expression: "age > 18",
-			env:        map[string]interface{}{"age": 25},
+			env:        map[string]any{"age": 25},
 			expected:   true,
 		},
 		{
 			name:       "数值比较 - 小于等于",
 			expression: "age <= 18",
-			env:        map[string]interface{}{"age": 16},
+			env:        map[string]any{"age": 16},
 			expected:   true,
 		},
 		{
 			name:       "字符串相等比较",
 			expression: "name == 'John'",
-			env:        map[string]interface{}{"name": "John"},
+			env:        map[string]any{"name": "John"},
 			expected:   true,
 		},
 		{
 			name:       "字符串不等比较",
 			expression: "name != 'John'",
-			env:        map[string]interface{}{"name": "Jane"},
+			env:        map[string]any{"name": "Jane"},
 			expected:   true,
 		},
 		{
 			name:       "逻辑AND - 真",
 			expression: "age > 18 && active == true",
-			env:        map[string]interface{}{"age": 25, "active": true},
+			env:        map[string]any{"age": 25, "active": true},
 			expected:   true,
 		},
 		{
 			name:       "逻辑AND - 假",
 			expression: "age > 18 && active == true",
-			env:        map[string]interface{}{"age": 25, "active": false},
+			env:        map[string]any{"age": 25, "active": false},
 			expected:   false,
 		},
 		{
 			name:       "逻辑OR - 真",
 			expression: "age < 18 || vip == true",
-			env:        map[string]interface{}{"age": 25, "vip": true},
+			env:        map[string]any{"age": 25, "vip": true},
 			expected:   true,
 		},
 		{
 			name:       "逻辑OR - 假",
 			expression: "age < 18 || vip == true",
-			env:        map[string]interface{}{"age": 25, "vip": false},
+			env:        map[string]any{"age": 25, "vip": false},
 			expected:   false,
 		},
 	}
@@ -130,37 +130,37 @@ func TestExprCondition_IsNull(t *testing.T) {
 	tests := []struct {
 		name       string
 		expression string
-		env        map[string]interface{}
+		env        map[string]any
 		expected   bool
 	}{
 		{
 			name:       "is_null - 空值",
 			expression: "is_null(name)",
-			env:        map[string]interface{}{"name": nil},
+			env:        map[string]any{"name": nil},
 			expected:   true,
 		},
 		{
 			name:       "is_null - 非空值",
 			expression: "is_null(name)",
-			env:        map[string]interface{}{"name": "John"},
+			env:        map[string]any{"name": "John"},
 			expected:   false,
 		},
 		{
 			name:       "is_not_null - 空值",
 			expression: "is_not_null(name)",
-			env:        map[string]interface{}{"name": nil},
+			env:        map[string]any{"name": nil},
 			expected:   false,
 		},
 		{
 			name:       "is_not_null - 非空值",
 			expression: "is_not_null(name)",
-			env:        map[string]interface{}{"name": "John"},
+			env:        map[string]any{"name": "John"},
 			expected:   true,
 		},
 		{
 			name:       "is_null - 缺失字段",
 			expression: "is_null(missing_field)",
-			env:        map[string]interface{}{"name": "John"},
+			env:        map[string]any{"name": "John"},
 			expected:   true,
 		},
 	}
@@ -182,49 +182,49 @@ func TestExprCondition_LikeMatch(t *testing.T) {
 	tests := []struct {
 		name       string
 		expression string
-		env        map[string]interface{}
+		env        map[string]any
 		expected   bool
 	}{
 		{
 			name:       "LIKE - 前缀匹配",
 			expression: "like_match(name, 'John%')",
-			env:        map[string]interface{}{"name": "Johnson"},
+			env:        map[string]any{"name": "Johnson"},
 			expected:   true,
 		},
 		{
 			name:       "LIKE - 后缀匹配",
 			expression: "like_match(name, '%son')",
-			env:        map[string]interface{}{"name": "Johnson"},
+			env:        map[string]any{"name": "Johnson"},
 			expected:   true,
 		},
 		{
 			name:       "LIKE - 包含匹配",
 			expression: "like_match(name, '%oh%')",
-			env:        map[string]interface{}{"name": "Johnson"},
+			env:        map[string]any{"name": "Johnson"},
 			expected:   true,
 		},
 		{
 			name:       "LIKE - 单字符匹配",
 			expression: "like_match(name, 'J_hn')",
-			env:        map[string]interface{}{"name": "John"},
+			env:        map[string]any{"name": "John"},
 			expected:   true,
 		},
 		{
 			name:       "LIKE - 精确匹配",
 			expression: "like_match(name, 'John')",
-			env:        map[string]interface{}{"name": "John"},
+			env:        map[string]any{"name": "John"},
 			expected:   true,
 		},
 		{
 			name:       "LIKE - 不匹配",
 			expression: "like_match(name, 'Jane%')",
-			env:        map[string]interface{}{"name": "Johnson"},
+			env:        map[string]any{"name": "Johnson"},
 			expected:   false,
 		},
 		{
 			name:       "LIKE - 复杂模式",
 			expression: "like_match(email, '%@%.com')",
-			env:        map[string]interface{}{"email": "user@example.com"},
+			env:        map[string]any{"email": "user@example.com"},
 			expected:   true,
 		},
 	}
@@ -330,25 +330,25 @@ func TestExprCondition_ErrorHandling(t *testing.T) {
 	tests := []struct {
 		name       string
 		expression string
-		env        map[string]interface{}
+		env        map[string]any
 		expected   bool
 	}{
 		{
 			name:       "类型不匹配 - 返回false",
 			expression: "age > 'invalid'",
-			env:        map[string]interface{}{"age": 25},
+			env:        map[string]any{"age": 25},
 			expected:   false,
 		},
 		{
 			name:       "缺失字段 - 使用默认值",
 			expression: "missing_field == nil",
-			env:        map[string]interface{}{"age": 25},
+			env:        map[string]any{"age": 25},
 			expected:   true,
 		},
 		{
 			name:       "简单布尔比较",
 			expression: "true == true",
-			env:        map[string]interface{}{},
+			env:        map[string]any{},
 			expected:   true,
 		},
 	}
@@ -374,31 +374,31 @@ func TestExprCondition_ComplexExpressions(t *testing.T) {
 	tests := []struct {
 		name       string
 		expression string
-		env        map[string]interface{}
+		env        map[string]any
 		expected   bool
 	}{
 		{
 			name:       "嵌套逻辑表达式",
 			expression: "(age > 18 && age < 65) && (active == true || vip == true)",
-			env:        map[string]interface{}{"age": 30, "active": false, "vip": true},
+			env:        map[string]any{"age": 30, "active": false, "vip": true},
 			expected:   true,
 		},
 		{
 			name:       "多重条件组合",
 			expression: "(score >= 90 || (score >= 80 && bonus > 0)) && is_not_null(name)",
-			env:        map[string]interface{}{"score": 85, "bonus": 5, "name": "John"},
+			env:        map[string]any{"score": 85, "bonus": 5, "name": "John"},
 			expected:   true,
 		},
 		{
 			name:       "字符串和数值混合条件",
 			expression: "like_match(email, '%@gmail.com') && age >= 18",
-			env:        map[string]interface{}{"email": "user@gmail.com", "age": 25},
+			env:        map[string]any{"email": "user@gmail.com", "age": 25},
 			expected:   true,
 		},
 		{
 			name:       "空值检查组合",
 			expression: "is_not_null(name) && is_not_null(email) && age > 0",
-			env:        map[string]interface{}{"name": "John", "email": "john@example.com", "age": 25},
+			env:        map[string]any{"name": "John", "email": "john@example.com", "age": 25},
 			expected:   true,
 		},
 	}
@@ -420,14 +420,14 @@ func TestExprCondition_FunctionErrors(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected bool
 	}{
-		{"like_match类型错误", "like_match(123, 'pattern')", map[string]interface{}{}, false},
-		{"is_null正常使用", "is_null(field)", map[string]interface{}{"field": nil}, true},
-		{"is_null非空值", "is_null(field)", map[string]interface{}{"field": "value"}, false},
-		{"is_not_null正常使用", "is_not_null(field)", map[string]interface{}{"field": "value"}, true},
-		{"is_not_null空值", "is_not_null(field)", map[string]interface{}{"field": nil}, false},
+		{"like_match类型错误", "like_match(123, 'pattern')", map[string]any{}, false},
+		{"is_null正常使用", "is_null(field)", map[string]any{"field": nil}, true},
+		{"is_null非空值", "is_null(field)", map[string]any{"field": "value"}, false},
+		{"is_not_null正常使用", "is_not_null(field)", map[string]any{"field": "value"}, true},
+		{"is_not_null空值", "is_not_null(field)", map[string]any{"field": nil}, false},
 	}
 
 	for _, tt := range tests {
@@ -447,14 +447,14 @@ func TestExprCondition_AdvancedFeatures(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected bool
 	}{
-		{"复杂逻辑表达式", "(age > 18 && status == 'active') || (vip == true && score > 80)", map[string]interface{}{"age": 20, "status": "active", "vip": false, "score": 75}, true},
-		{"嵌套函数调用", "is_not_null(name) && like_match(name, 'John%')", map[string]interface{}{"name": "John Doe"}, true},
-		{"数值比较", "price >= 100.0 && price <= 500.0", map[string]interface{}{"price": 250.5}, true},
-		{"字符串操作", "like_match(email, '%@gmail.com') && is_not_null(phone)", map[string]interface{}{"email": "user@gmail.com", "phone": "123456789"}, true},
-		{"空值处理", "is_null(optional_field) || optional_field == 'default'", map[string]interface{}{"optional_field": nil}, true},
+		{"复杂逻辑表达式", "(age > 18 && status == 'active') || (vip == true && score > 80)", map[string]any{"age": 20, "status": "active", "vip": false, "score": 75}, true},
+		{"嵌套函数调用", "is_not_null(name) && like_match(name, 'John%')", map[string]any{"name": "John Doe"}, true},
+		{"数值比较", "price >= 100.0 && price <= 500.0", map[string]any{"price": 250.5}, true},
+		{"字符串操作", "like_match(email, '%@gmail.com') && is_not_null(phone)", map[string]any{"email": "user@gmail.com", "phone": "123456789"}, true},
+		{"空值处理", "is_null(optional_field) || optional_field == 'default'", map[string]any{"optional_field": nil}, true},
 	}
 
 	for _, tt := range tests {
@@ -474,15 +474,15 @@ func TestExprCondition_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected bool
 	}{
-		{"空字符串匹配", "like_match(text, '')", map[string]interface{}{"text": ""}, true},
-		{"通配符匹配", "like_match(text, '%')", map[string]interface{}{"text": "anything"}, true},
-		{"单字符匹配", "like_match(text, '_')", map[string]interface{}{"text": "a"}, true},
-		{"数值零值", "value == 0", map[string]interface{}{"value": 0}, true},
-		{"布尔值false", "flag == false", map[string]interface{}{"flag": false}, true},
-		{"未定义变量", "undefined_var == nil", map[string]interface{}{}, true},
+		{"空字符串匹配", "like_match(text, '')", map[string]any{"text": ""}, true},
+		{"通配符匹配", "like_match(text, '%')", map[string]any{"text": "anything"}, true},
+		{"单字符匹配", "like_match(text, '_')", map[string]any{"text": "a"}, true},
+		{"数值零值", "value == 0", map[string]any{"value": 0}, true},
+		{"布尔值false", "flag == false", map[string]any{"flag": false}, true},
+		{"未定义变量", "undefined_var == nil", map[string]any{}, true},
 	}
 
 	for _, tt := range tests {

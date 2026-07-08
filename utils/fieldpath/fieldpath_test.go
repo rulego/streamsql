@@ -120,54 +120,54 @@ func TestParseFieldPath(t *testing.T) {
 
 func TestGetNestedFieldComplex(t *testing.T) {
 	// 创建复杂的测试数据
-	testData := map[string]interface{}{
-		"users": []interface{}{
-			map[string]interface{}{
+	testData := map[string]any{
+		"users": []any{
+			map[string]any{
 				"id": 1,
-				"profile": map[string]interface{}{
+				"profile": map[string]any{
 					"name":  "Alice",
 					"email": "alice@example.com",
-					"preferences": map[string]interface{}{
+					"preferences": map[string]any{
 						"theme": "dark",
 						"lang":  "en",
 					},
 				},
-				"scores": []interface{}{95, 87, 92},
+				"scores": []any{95, 87, 92},
 			},
-			map[string]interface{}{
+			map[string]any{
 				"id": 2,
-				"profile": map[string]interface{}{
+				"profile": map[string]any{
 					"name":  "Bob",
 					"email": "bob@example.com",
 				},
-				"scores": []interface{}{88, 94, 89},
+				"scores": []any{88, 94, 89},
 			},
 		},
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"database": "mysql://localhost:3306",
 			"redis":    "redis://localhost:6379",
-			"settings": map[string]interface{}{
+			"settings": map[string]any{
 				"timeout": 5000,
 				"retries": 3,
 			},
 		},
-		"matrix": []interface{}{
-			[]interface{}{1, 2, 3},
-			[]interface{}{4, 5, 6},
-			[]interface{}{7, 8, 9},
+		"matrix": []any{
+			[]any{1, 2, 3},
+			[]any{4, 5, 6},
+			[]any{7, 8, 9},
 		},
 	}
 
 	tests := []struct {
 		name     string
 		path     string
-		expected interface{}
+		expected any
 		found    bool
 	}{
 		{
 			name:     "数组索引访问",
 			path:     "users[0]",
-			expected: testData["users"].([]interface{})[0],
+			expected: testData["users"].([]any)[0],
 			found:    true,
 		},
 		{
@@ -248,7 +248,7 @@ func TestGetNestedFieldComplex(t *testing.T) {
 
 func TestSetNestedFieldComplex(t *testing.T) {
 	t.Run("设置简单嵌套字段", func(t *testing.T) {
-		data := make(map[string]interface{})
+		data := make(map[string]any)
 		err := SetNestedField(data, "user.profile.name", "Alice")
 		assert.NoError(t, err)
 
@@ -258,8 +258,8 @@ func TestSetNestedFieldComplex(t *testing.T) {
 	})
 
 	t.Run("设置到现有数据", func(t *testing.T) {
-		data := map[string]interface{}{
-			"user": map[string]interface{}{
+		data := map[string]any{
+			"user": map[string]any{
 				"id": 1,
 			},
 		}
@@ -278,7 +278,7 @@ func TestSetNestedFieldComplex(t *testing.T) {
 	})
 
 	t.Run("覆盖非Map类型", func(t *testing.T) {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"user": "string_value",
 		}
 
@@ -474,7 +474,7 @@ func TestSetNestedFieldEdgeCases(t *testing.T) {
 	tests := []struct {
 		name      string
 		fieldPath string
-		value     interface{}
+		value     any
 		hasError  bool
 		errorMsg  string
 	}{
@@ -495,7 +495,7 @@ func TestSetNestedFieldEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data := make(map[string]interface{})
+			data := make(map[string]any)
 			err := SetNestedField(data, tt.fieldPath, tt.value)
 
 			if tt.hasError {
@@ -514,14 +514,14 @@ func TestSetNestedFieldEdgeCases(t *testing.T) {
 func TestGetNestedFieldEdgeCases(t *testing.T) {
 	tests := []struct {
 		name      string
-		data      interface{}
+		data      any
 		fieldPath string
-		expected  interface{}
+		expected  any
 		found     bool
 	}{
 		{
 			name:      "空字段路径",
-			data:      map[string]interface{}{"test": "value"},
+			data:      map[string]any{"test": "value"},
 			fieldPath: "",
 			expected:  nil,
 			found:     false,
@@ -535,8 +535,8 @@ func TestGetNestedFieldEdgeCases(t *testing.T) {
 		},
 		{
 			name: "数组越界访问",
-			data: map[string]interface{}{
-				"items": []interface{}{"a", "b"},
+			data: map[string]any{
+				"items": []any{"a", "b"},
 			},
 			fieldPath: "items[5]",
 			expected:  nil,
@@ -544,8 +544,8 @@ func TestGetNestedFieldEdgeCases(t *testing.T) {
 		},
 		{
 			name: "负数索引访问",
-			data: map[string]interface{}{
-				"items": []interface{}{"a", "b", "c"},
+			data: map[string]any{
+				"items": []any{"a", "b", "c"},
 			},
 			fieldPath: "items[-1]",
 			expected:  "c",
@@ -553,8 +553,8 @@ func TestGetNestedFieldEdgeCases(t *testing.T) {
 		},
 		{
 			name: "map中不存在的键",
-			data: map[string]interface{}{
-				"config": map[string]interface{}{"key1": "value1"},
+			data: map[string]any{
+				"config": map[string]any{"key1": "value1"},
 			},
 			fieldPath: "config['nonexistent']",
 			expected:  nil,

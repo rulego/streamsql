@@ -53,7 +53,7 @@ func TestStreamBasicOperations(t *testing.T) {
 				WindowConfig: types.WindowConfig{
 					Type:     "tumbling",
 					TimeUnit: 1000,
-					Params:   []interface{}{1 * time.Second},
+					Params:   []any{1 * time.Second},
 				},
 			},
 			testFunc:    "withWindow",
@@ -93,7 +93,7 @@ func TestStreamBasicOperations(t *testing.T) {
 
 			case "addData":
 				// 测试添加数据
-				testData := map[string]interface{}{
+				testData := map[string]any{
 					"name": "test",
 					"age":  25,
 				}
@@ -117,7 +117,7 @@ func TestStreamBasicOperations(t *testing.T) {
 					wg.Add(1)
 					go func(id int) {
 						defer wg.Done()
-						testData := map[string]interface{}{
+						testData := map[string]any{
 							"name": fmt.Sprintf("test_%d", id),
 							"age":  20 + id,
 						}
@@ -136,7 +136,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 		name           string
 		config         types.Config
 		filter         string
-		testData       []map[string]interface{}
+		testData       []map[string]any
 		expectedDevice string
 		expectedTemp   float64
 		expectedHum    float64
@@ -146,7 +146,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 			config: types.Config{
 				WindowConfig: types.WindowConfig{
 					Type:   "tumbling",
-					Params: []interface{}{500 * time.Millisecond},
+					Params: []any{500 * time.Millisecond},
 				},
 				GroupFields: []string{"device"},
 				SelectFields: map[string]aggregator.AggregateType{
@@ -156,7 +156,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 				NeedWindow: true,
 			},
 			filter: "device == 'aa' && temperature > 10",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"device": "aa", "temperature": 25.0, "humidity": 60},
 				{"device": "aa", "temperature": 30.0, "humidity": 55},
 				{"device": "bb", "temperature": 22.0, "humidity": 70},
@@ -170,7 +170,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 			config: types.Config{
 				WindowConfig: types.WindowConfig{
 					Type:   "tumbling",
-					Params: []interface{}{500 * time.Millisecond},
+					Params: []any{500 * time.Millisecond},
 				},
 				GroupFields: []string{"device"},
 				SelectFields: map[string]aggregator.AggregateType{
@@ -180,7 +180,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 				NeedWindow: true,
 			},
 			filter: "device == 'aa'",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"device": "aa", "temperature": 25.0},
 				{"device": "aa", "humidity": 60},
 				{"device": "aa", "temperature": 30.0},
@@ -205,8 +205,8 @@ func TestStreamBasicFunctionality(t *testing.T) {
 			}
 
 			// 添加 Sink 函数来捕获结果
-			resultChan := make(chan interface{}, 1)
-			strm.AddSink(func(result []map[string]interface{}) {
+			resultChan := make(chan any, 1)
+			strm.AddSink(func(result []map[string]any) {
 				select {
 				case resultChan <- result:
 				default:
@@ -228,7 +228,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 
-			var actual interface{}
+			var actual any
 			select {
 			case actual = <-resultChan:
 				cancel()
@@ -238,8 +238,8 @@ func TestStreamBasicFunctionality(t *testing.T) {
 
 			// 验证结果
 			require.NotNil(t, actual)
-			assert.IsType(t, []map[string]interface{}{}, actual)
-			resultMap := actual.([]map[string]interface{})
+			assert.IsType(t, []map[string]any{}, actual)
+			resultMap := actual.([]map[string]any)
 			require.Greater(t, len(resultMap), 0)
 
 			firstResult := resultMap[0]
@@ -255,7 +255,7 @@ func TestStreamWithoutFilter(t *testing.T) {
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
 			Type:   "sliding",
-			Params: []interface{}{2 * time.Second, 1 * time.Second},
+			Params: []any{2 * time.Second, 1 * time.Second},
 		},
 		GroupFields: []string{"device"},
 		SelectFields: map[string]aggregator.AggregateType{
@@ -271,7 +271,7 @@ func TestStreamWithoutFilter(t *testing.T) {
 
 	strm.Start()
 
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "aa", "temperature": 25.0, "humidity": 60},
 		{"device": "aa", "temperature": 30.0, "humidity": 55},
 		{"device": "bb", "temperature": 22.0, "humidity": 70},
@@ -282,8 +282,8 @@ func TestStreamWithoutFilter(t *testing.T) {
 	}
 
 	// 捕获结果
-	resultChan := make(chan interface{})
-	strm.AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any)
+	strm.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
@@ -293,7 +293,7 @@ func TestStreamWithoutFilter(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		cancel()
@@ -301,13 +301,13 @@ func TestStreamWithoutFilter(t *testing.T) {
 		t.Fatal("Timeout waiting for results")
 	}
 
-	expected := []map[string]interface{}{
+	expected := []map[string]any{
 		{"device": "aa", "temperature": 30.0, "humidity": 55.0},
 		{"device": "bb", "temperature": 22.0, "humidity": 70.0},
 	}
 
-	assert.IsType(t, []map[string]interface{}{}, actual)
-	resultSlice := actual.([]map[string]interface{})
+	assert.IsType(t, []map[string]any{}, actual)
+	resultSlice := actual.([]map[string]any)
 	assert.Len(t, resultSlice, 2)
 
 	for _, expectedResult := range expected {
@@ -339,7 +339,7 @@ func TestStreamRefactoring(t *testing.T) {
 	require.NoError(t, err)
 	defer stream.Stop()
 
-	testData := map[string]interface{}{
+	testData := map[string]any{
 		"name":     "test",
 		"age":      25,
 		"category": "A",
@@ -511,7 +511,7 @@ func TestStreamAggregationQuery(t *testing.T) {
 		NeedWindow: true,
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: []interface{}{5 * time.Second},
+			Params: []any{5 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)
@@ -556,7 +556,7 @@ func TestStreamSyncProcessing(t *testing.T) {
 	}()
 
 	// 测试同步处理数据
-	testData := map[string]interface{}{
+	testData := map[string]any{
 		"name": "test",
 		"age":  25,
 	}
@@ -616,7 +616,7 @@ func TestStreamConcurrency(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			for j := 0; j < numMessages; j++ {
-				data := map[string]interface{}{
+				data := map[string]any{
 					"name": fmt.Sprintf("user_%d_%d", id, j),
 					"age":  id + j,
 				}
@@ -651,7 +651,7 @@ func TestStreamPerformance(t *testing.T) {
 	// 测试大量数据处理
 	const numMessages = 1000
 	for i := 0; i < numMessages; i++ {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"name": fmt.Sprintf("user_%d", i),
 			"age":  i % 100,
 		}
@@ -675,7 +675,7 @@ func TestStreamLifecycle(t *testing.T) {
 
 	// 发送一些数据
 	for i := 0; i < 10; i++ {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"name": fmt.Sprintf("user_%d", i),
 			"age":  i,
 		}
@@ -728,7 +728,7 @@ func TestStreamWithWindowAndAggregation(t *testing.T) {
 		SimpleFields: []string{"name", "age"},
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: []interface{}{100 * time.Millisecond},
+			Params: []any{100 * time.Millisecond},
 		},
 		SelectFields: map[string]aggregator.AggregateType{
 			"avg_age": aggregator.Avg,
@@ -757,7 +757,7 @@ func TestStreamWithWindowAndAggregation(t *testing.T) {
 
 	// 发送数据
 	for i := 0; i < 50; i++ {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"name": fmt.Sprintf("user_%d", i),
 			"age":  i + 1,
 		}
@@ -794,7 +794,7 @@ func TestDataChannelExpansion(t *testing.T) {
 
 	// 发送数据测试通道功能
 	for i := 0; i < 8; i++ {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"name":  "test",
 			"value": i,
 		}
@@ -857,7 +857,7 @@ func TestConcurrentDataChannelExpansion(t *testing.T) {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			data := map[string]interface{}{
+			data := map[string]any{
 				"id":      id,
 				"message": "concurrent_expansion",
 			}
@@ -893,7 +893,7 @@ func TestExpandDataChannelDirectly(t *testing.T) {
 	// 填充通道到80%以上以触发扩容条件
 	for i := 0; i < 9; i++ {
 		select {
-		case stream.dataChan <- map[string]interface{}{"test": i}:
+		case stream.dataChan <- map[string]any{"test": i}:
 		default:
 			t.Fatal("Failed to fill channel")
 		}
@@ -942,7 +942,7 @@ func TestExpandDataChannelBelowThreshold(t *testing.T) {
 
 	// 只填充少量数据（低于80%阈值）
 	for i := 0; i < 3; i++ {
-		stream.dataChan <- map[string]interface{}{"test": i}
+		stream.dataChan <- map[string]any{"test": i}
 	}
 
 	originalCap := cap(stream.dataChan)
@@ -1048,7 +1048,7 @@ func TestStreamDataValidationEnhanced(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		data        map[string]interface{}
+		data        map[string]any
 		expectError bool
 	}{
 		{
@@ -1058,12 +1058,12 @@ func TestStreamDataValidationEnhanced(t *testing.T) {
 		},
 		{
 			name:        "空数据",
-			data:        map[string]interface{}{},
+			data:        map[string]any{},
 			expectError: false,
 		},
 		{
 			name: "无效时间戳类型",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"timestamp": "invalid",
 				"value":     1,
 			},
@@ -1071,7 +1071,7 @@ func TestStreamDataValidationEnhanced(t *testing.T) {
 		},
 		{
 			name: "负数值",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"value": -100,
 			},
 			expectError: false,
@@ -1111,9 +1111,9 @@ func TestStreamMemoryPressureEnhanced(t *testing.T) {
 	}
 
 	// 模拟大量数据
-	largeData := make([]map[string]interface{}, 1000)
+	largeData := make([]map[string]any, 1000)
 	for i := 0; i < 1000; i++ {
-		largeData[i] = map[string]interface{}{
+		largeData[i] = map[string]any{
 			"value": i,
 			"key":   "test",
 		}
@@ -1161,7 +1161,7 @@ func TestStreamWindowEdgeCasesEnhanced(t *testing.T) {
 				c := types.NewConfig()
 				c.WindowConfig = types.WindowConfig{
 					Type:     "tumbling",
-					Params:   []interface{}{1 * time.Nanosecond}, // 极小时间窗口
+					Params:   []any{1 * time.Nanosecond}, // 极小时间窗口
 					TimeUnit: 1 * time.Nanosecond,
 				}
 				c.NeedWindow = true
@@ -1175,7 +1175,7 @@ func TestStreamWindowEdgeCasesEnhanced(t *testing.T) {
 			config: types.Config{
 				WindowConfig: types.WindowConfig{
 					Type:     "tumbling",
-					Params:   []interface{}{8760 * time.Hour}, // 1年
+					Params:   []any{8760 * time.Hour}, // 1年
 					TimeUnit: 8760 * time.Hour,
 				},
 				NeedWindow:        true,
@@ -1188,7 +1188,7 @@ func TestStreamWindowEdgeCasesEnhanced(t *testing.T) {
 			config: types.Config{
 				WindowConfig: types.WindowConfig{
 					Type:     "sliding",
-					Params:   []interface{}{1 * time.Second, 1 * time.Millisecond}, // 很小的滑动间隔
+					Params:   []any{1 * time.Second, 1 * time.Millisecond}, // 很小的滑动间隔
 					TimeUnit: 1 * time.Second,
 				},
 				NeedWindow:        true,
@@ -1238,7 +1238,7 @@ func TestStreamUnifiedConfigIntegration(t *testing.T) {
 				NeedWindow: true,
 				WindowConfig: types.WindowConfig{
 					Type:   "tumbling",
-					Params: []interface{}{5 * time.Second},
+					Params: []any{5 * time.Second},
 				},
 				SelectFields: map[string]aggregator.AggregateType{
 					"value": aggregator.Count,
@@ -1276,7 +1276,7 @@ func TestStreamUnifiedConfigPerformanceImpact(t *testing.T) {
 				NeedWindow: true,
 				WindowConfig: types.WindowConfig{
 					Type:   "tumbling",
-					Params: []interface{}{time.Second},
+					Params: []any{time.Second},
 				},
 				SelectFields: map[string]aggregator.AggregateType{
 					"value": aggregator.Sum,
@@ -1295,7 +1295,7 @@ func TestStreamUnifiedConfigPerformanceImpact(t *testing.T) {
 			startTime := time.Now()
 
 			for i := 0; i < dataCount; i++ {
-				data := map[string]interface{}{
+				data := map[string]any{
 					"value":     i,
 					"timestamp": time.Now().Unix(),
 				}
@@ -1346,7 +1346,7 @@ func TestStreamUnifiedConfigErrorHandling(t *testing.T) {
 				NeedWindow: true,
 				WindowConfig: types.WindowConfig{
 					Type:   "invalid_window_type",
-					Params: []interface{}{5 * time.Second},
+					Params: []any{5 * time.Second},
 				},
 				SelectFields: map[string]aggregator.AggregateType{
 					"value": aggregator.Count,
@@ -1362,7 +1362,7 @@ func TestStreamUnifiedConfigErrorHandling(t *testing.T) {
 				NeedWindow: true,
 				WindowConfig: types.WindowConfig{
 					Type:   "tumbling",
-					Params: []interface{}{},
+					Params: []any{},
 				},
 				SelectFields: map[string]aggregator.AggregateType{
 					"value": aggregator.Count,
@@ -1378,7 +1378,7 @@ func TestStreamUnifiedConfigErrorHandling(t *testing.T) {
 				NeedWindow: true,
 				WindowConfig: types.WindowConfig{
 					Type:   "tumbling",
-					Params: []interface{}{5 * time.Second},
+					Params: []any{5 * time.Second},
 				},
 				SelectFields: map[string]aggregator.AggregateType{
 					"value": aggregator.Count,
@@ -1482,7 +1482,7 @@ func TestDataHandlerEnhanced(t *testing.T) {
 
 			// 快速发送大量数据
 			for i := 0; i < tt.dataCount; i++ {
-				stream.Emit(map[string]interface{}{"value": i})
+				stream.Emit(map[string]any{"value": i})
 			}
 
 			time.Sleep(100 * time.Millisecond)
@@ -1514,9 +1514,9 @@ func TestResultHandlerEnhanced(t *testing.T) {
 
 	// 测试Sink功能
 	var mu sync.Mutex
-	var receivedResults []interface{}
+	var receivedResults []any
 
-	stream.AddSink(func(result []map[string]interface{}) {
+	stream.AddSink(func(result []map[string]any) {
 		mu.Lock()
 		defer mu.Unlock()
 		receivedResults = append(receivedResults, result)
@@ -1525,7 +1525,7 @@ func TestResultHandlerEnhanced(t *testing.T) {
 	stream.Start()
 
 	// 发送测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"value": 1},
 		{"value": 2},
 		{"value": 3},
@@ -1545,8 +1545,8 @@ func TestResultHandlerEnhanced(t *testing.T) {
 
 	// 验证结果格式
 	for _, result := range receivedResults {
-		assert.IsType(t, []map[string]interface{}{}, result, "结果应该是map切片类型")
-		resultSlice := result.([]map[string]interface{})
+		assert.IsType(t, []map[string]any{}, result, "结果应该是map切片类型")
+		resultSlice := result.([]map[string]any)
 		assert.Greater(t, len(resultSlice), 0, "结果切片不应该为空")
 	}
 }
@@ -1700,7 +1700,7 @@ func TestStreamFactory_CreateStreamWithWindow(t *testing.T) {
 		NeedWindow:   true,
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: []interface{}{5 * time.Second},
+			Params: []any{5 * time.Second},
 		},
 	}
 
@@ -1739,7 +1739,7 @@ func TestStreamFactory_CreateWindow(t *testing.T) {
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: []interface{}{5 * time.Second},
+			Params: []any{5 * time.Second},
 		},
 		PerformanceConfig: types.DefaultPerformanceConfig(),
 	}

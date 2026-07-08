@@ -14,7 +14,7 @@ func main() {
 
 	// 1. 注册自定义函数：温度华氏度转摄氏度
 	err := functions.RegisterCustomFunction("fahrenheit_to_celsius", functions.TypeCustom, "温度转换", "华氏度转摄氏度", 1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			fahrenheit, err := cast.ToFloat64E(args[0])
 			if err != nil {
 				return nil, err
@@ -51,13 +51,13 @@ func main() {
 	fmt.Println("✓ SQL执行成功")
 
 	// 5. 添加结果监听器
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("📊 聚合结果: %v\n", result)
 	})
 
 	// 6. 模拟传感器数据
 	baseTime := time.Now()
-	sensorData := []map[string]interface{}{
+	sensorData := []map[string]any{
 		{"device": "sensor1", "temperature": 68.0, "humidity": 25.0, "ts": baseTime.UnixMicro()},       // 20°C, 湿度25%
 		{"device": "sensor1", "temperature": 86.0, "humidity": 36.0, "ts": baseTime.Unix()},            // 30°C, 湿度36%
 		{"device": "sensor2", "temperature": 32.0, "humidity": 49.0, "ts": baseTime.Unix()},            // 0°C, 湿度49%
@@ -106,9 +106,9 @@ func main() {
 }
 
 // 辅助函数：调用函数并返回结果
-func callFunction(name string, args ...interface{}) interface{} {
+func callFunction(name string, args ...any) any {
 	ctx := &functions.FunctionContext{
-		Data: make(map[string]interface{}),
+		Data: make(map[string]any),
 	}
 
 	result, err := functions.Execute(name, ctx, args)

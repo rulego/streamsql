@@ -375,14 +375,14 @@ func TestLoggerParameterFormatting(t *testing.T) {
 
 	tests := []struct {
 		format   string
-		args     []interface{}
+		args     []any
 		expected string
 	}{
 		{"simple message", nil, "simple message"},
-		{"message with %s", []interface{}{"string"}, "message with string"},
-		{"message with %d", []interface{}{42}, "message with 42"},
-		{"message with %v", []interface{}{true}, "message with true"},
-		{"multiple %s %d %v", []interface{}{"params", 123, false}, "multiple params 123 false"},
+		{"message with %s", []any{"string"}, "message with string"},
+		{"message with %d", []any{42}, "message with 42"},
+		{"message with %v", []any{true}, "message with true"},
+		{"multiple %s %d %v", []any{"params", 123, false}, "multiple params 123 false"},
 	}
 
 	for _, test := range tests {
@@ -460,7 +460,7 @@ func TestLoggerWithNilArgs(t *testing.T) {
 
 	// 测试空参数列表
 	buf.Reset()
-	logger.Info("message with empty args", []interface{}{}...)
+	logger.Info("message with empty args", []any{}...)
 	output = buf.String()
 	if !strings.Contains(output, "message with empty args") {
 		t.Errorf("Expected message in output, got: %s", output)

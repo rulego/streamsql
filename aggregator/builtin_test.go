@@ -44,7 +44,7 @@ func TestPostAggregationPlaceholder(t *testing.T) {
 		// 测试添加各种类型的值
 		newAgg.Add(100)
 		newAgg.Add("string_value")
-		newAgg.Add(map[string]interface{}{"key": "value"})
+		newAgg.Add(map[string]any{"key": "value"})
 
 		// 验证结果始终为nil
 		result := newAgg.Result()
@@ -89,7 +89,7 @@ func TestPostAggregationPlaceholder(t *testing.T) {
 		require.NotNil(t, agg)
 
 		// 添加测试数据
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"category": "A", "value": 10, "placeholder_field": "should_be_ignored"},
 			{"category": "A", "value": 20, "placeholder_field": "also_ignored"},
 			{"category": "B", "value": 30, "placeholder_field": 999},

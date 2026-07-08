@@ -16,11 +16,11 @@ func NewArrayLengthFunction() *ArrayLengthFunction {
 	}
 }
 
-func (f *ArrayLengthFunction) Validate(args []interface{}) error {
+func (f *ArrayLengthFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ArrayLengthFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ArrayLengthFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	array := args[0]
 	v := reflect.ValueOf(array)
 	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
@@ -40,11 +40,11 @@ func NewArrayContainsFunction() *ArrayContainsFunction {
 	}
 }
 
-func (f *ArrayContainsFunction) Validate(args []interface{}) error {
+func (f *ArrayContainsFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ArrayContainsFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ArrayContainsFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	array := args[0]
 	value := args[1]
 
@@ -72,11 +72,11 @@ func NewArrayPositionFunction() *ArrayPositionFunction {
 	}
 }
 
-func (f *ArrayPositionFunction) Validate(args []interface{}) error {
+func (f *ArrayPositionFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ArrayPositionFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ArrayPositionFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	array := args[0]
 	value := args[1]
 
@@ -104,11 +104,11 @@ func NewArrayRemoveFunction() *ArrayRemoveFunction {
 	}
 }
 
-func (f *ArrayRemoveFunction) Validate(args []interface{}) error {
+func (f *ArrayRemoveFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ArrayRemoveFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ArrayRemoveFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	array := args[0]
 	value := args[1]
 
@@ -117,7 +117,7 @@ func (f *ArrayRemoveFunction) Execute(ctx *FunctionContext, args []interface{}) 
 		return nil, fmt.Errorf("array_remove requires array input")
 	}
 
-	result := make([]interface{}, 0) // 初始化为空切片而不是nil切片
+	result := make([]any, 0) // 初始化为空切片而不是nil切片
 	for i := 0; i < v.Len(); i++ {
 		elem := v.Index(i).Interface()
 		if !reflect.DeepEqual(elem, value) {
@@ -127,19 +127,19 @@ func (f *ArrayRemoveFunction) Execute(ctx *FunctionContext, args []interface{}) 
 	return result, nil
 }
 
-// hashSafeSet is a set of interface{} values that tolerates unhashable elements
+// hashSafeSet is a set of any values that tolerates unhashable elements
 // (slices, maps) by falling back to a reflect.DeepEqual linear scan.
 type hashSafeSet struct {
-	m     map[interface{}]bool
-	extra []interface{}
+	m     map[any]bool
+	extra []any
 }
 
 func newHashSafeSet() *hashSafeSet {
-	return &hashSafeSet{m: make(map[interface{}]bool)}
+	return &hashSafeSet{m: make(map[any]bool)}
 }
 
 // has reports whether elem is in the set.
-func (s *hashSafeSet) has(elem interface{}) bool {
+func (s *hashSafeSet) has(elem any) bool {
 	if elem == nil || reflect.TypeOf(elem).Comparable() {
 		return s.m[elem]
 	}
@@ -152,7 +152,7 @@ func (s *hashSafeSet) has(elem interface{}) bool {
 }
 
 // add inserts elem and reports whether it was newly added.
-func (s *hashSafeSet) add(elem interface{}) bool {
+func (s *hashSafeSet) add(elem any) bool {
 	if elem == nil || reflect.TypeOf(elem).Comparable() {
 		if s.m[elem] {
 			return false
@@ -180,11 +180,11 @@ func NewArrayDistinctFunction() *ArrayDistinctFunction {
 	}
 }
 
-func (f *ArrayDistinctFunction) Validate(args []interface{}) error {
+func (f *ArrayDistinctFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ArrayDistinctFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ArrayDistinctFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	array := args[0]
 
 	v := reflect.ValueOf(array)
@@ -193,7 +193,7 @@ func (f *ArrayDistinctFunction) Execute(ctx *FunctionContext, args []interface{}
 	}
 
 	seen := newHashSafeSet()
-	result := make([]interface{}, 0)
+	result := make([]any, 0)
 
 	for i := 0; i < v.Len(); i++ {
 		elem := v.Index(i).Interface()
@@ -215,11 +215,11 @@ func NewArrayIntersectFunction() *ArrayIntersectFunction {
 	}
 }
 
-func (f *ArrayIntersectFunction) Validate(args []interface{}) error {
+func (f *ArrayIntersectFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ArrayIntersectFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ArrayIntersectFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	array1 := args[0]
 	array2 := args[1]
 
@@ -241,7 +241,7 @@ func (f *ArrayIntersectFunction) Execute(ctx *FunctionContext, args []interface{
 
 	// 找交集
 	seen := newHashSafeSet()
-	result := make([]interface{}, 0)
+	result := make([]any, 0)
 
 	for i := 0; i < v1.Len(); i++ {
 		elem := v1.Index(i).Interface()
@@ -263,11 +263,11 @@ func NewArrayUnionFunction() *ArrayUnionFunction {
 	}
 }
 
-func (f *ArrayUnionFunction) Validate(args []interface{}) error {
+func (f *ArrayUnionFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ArrayUnionFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ArrayUnionFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	array1 := args[0]
 	array2 := args[1]
 
@@ -282,7 +282,7 @@ func (f *ArrayUnionFunction) Execute(ctx *FunctionContext, args []interface{}) (
 	}
 
 	seen := newHashSafeSet()
-	result := make([]interface{}, 0)
+	result := make([]any, 0)
 
 	// 添加第一个数组的元素
 	for i := 0; i < v1.Len(); i++ {
@@ -313,11 +313,11 @@ func NewArrayExceptFunction() *ArrayExceptFunction {
 	}
 }
 
-func (f *ArrayExceptFunction) Validate(args []interface{}) error {
+func (f *ArrayExceptFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ArrayExceptFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ArrayExceptFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	array1 := args[0]
 	array2 := args[1]
 
@@ -339,7 +339,7 @@ func (f *ArrayExceptFunction) Execute(ctx *FunctionContext, args []interface{}) 
 
 	// 找差集
 	seen := newHashSafeSet()
-	result := make([]interface{}, 0)
+	result := make([]any, 0)
 
 	for i := 0; i < v1.Len(); i++ {
 		elem := v1.Index(i).Interface()

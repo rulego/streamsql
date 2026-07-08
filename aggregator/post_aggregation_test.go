@@ -326,7 +326,7 @@ func TestPostAggregationProcessor(t *testing.T) {
 	processor.AddExpression("result", "__sum_0__ + __count_1__", []string{"__sum_0__", "__count_1__"}, "__sum_0__ + __count_1__")
 
 	// 测试处理结果
-	results := []map[string]interface{}{
+	results := []map[string]any{
 		{
 			"__sum_0__":   100,
 			"__count_1__": 10,
@@ -354,13 +354,13 @@ func TestPostAggregationProcessor_ProcessResults(t *testing.T) {
 	require.NotNil(t, agg)
 
 	// 测试空结果
-	emptyResults := []map[string]interface{}{}
+	emptyResults := []map[string]any{}
 	processedEmpty, err := processor.ProcessResults(emptyResults)
 	assert.NoError(t, err)
 	assert.Empty(t, processedEmpty)
 
 	// 测试有数据的结果
-	results := []map[string]interface{}{
+	results := []map[string]any{
 		{"category": "A", "sum_value": 100},
 		{"category": "B", "sum_value": 200},
 	}
@@ -413,7 +413,7 @@ func TestEnhancedGroupAggregatorGetResults(t *testing.T) {
 	require.NotNil(t, agg)
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"category": "A", "value": 10},
 		{"category": "A", "value": 20},
 		{"category": "B", "value": 30},
@@ -489,25 +489,25 @@ func TestParseFunctionCall(t *testing.T) {
 	tests := []struct {
 		name         string
 		funcCall     string
-		expectedArgs []interface{}
+		expectedArgs []any
 		expectedErr  bool
 	}{
 		{
 			name:         "简单函数调用",
 			funcCall:     "SUM(value)",
-			expectedArgs: []interface{}{"value"},
+			expectedArgs: []any{"value"},
 			expectedErr:  false,
 		},
 		{
 			name:         "多参数函数调用",
 			funcCall:     "NTH_VALUE(value, 2)",
-			expectedArgs: []interface{}{"value", 2},
+			expectedArgs: []any{"value", 2},
 			expectedErr:  false,
 		},
 		{
 			name:         "无参数函数调用",
 			funcCall:     "NOW()",
-			expectedArgs: []interface{}{},
+			expectedArgs: []any{},
 			expectedErr:  false,
 		},
 		{
@@ -540,8 +540,8 @@ func TestParseFunctionCall(t *testing.T) {
 // mockAggregatorFunction 实现AggregatorFunction接口用于测试
 type mockAggregatorFunction struct {
 	name     string
-	result   interface{}
-	values   []interface{}
+	result   any
+	values   []any
 	minArgs  int
 	maxArgs  int
 	funcType functions.FunctionType
@@ -551,11 +551,11 @@ func (m *mockAggregatorFunction) New() functions.AggregatorFunction {
 	return &mockAggregatorFunction{}
 }
 
-func (m *mockAggregatorFunction) Add(value interface{}) {
+func (m *mockAggregatorFunction) Add(value any) {
 	m.values = append(m.values, value)
 }
 
-func (m *mockAggregatorFunction) Result() interface{} {
+func (m *mockAggregatorFunction) Result() any {
 	return m.result
 }
 
@@ -566,7 +566,7 @@ func (m *mockAggregatorFunction) Reset() {
 
 func (m *mockAggregatorFunction) Clone() functions.AggregatorFunction {
 	return &mockAggregatorFunction{
-		values: make([]interface{}, len(m.values)),
+		values: make([]any, len(m.values)),
 		result: m.result,
 	}
 }
@@ -594,11 +594,11 @@ func (m *mockAggregatorFunction) GetAliases() []string {
 	return []string{}
 }
 
-func (m *mockAggregatorFunction) Validate(args []interface{}) error {
+func (m *mockAggregatorFunction) Validate(args []any) error {
 	return nil
 }
 
-func (m *mockAggregatorFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+func (m *mockAggregatorFunction) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
 	return m.result, nil
 }
 
@@ -835,7 +835,7 @@ func TestPostAggregationComplexScenarios(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"category": "A", "value": 10.0},
 		{"category": "A", "value": 20.0},
 		{"category": "B", "value": 30.0},
@@ -879,7 +879,7 @@ func TestPerformanceOptimizations(t *testing.T) {
 		requiredFields := []string{"__sum_amount_placeholder_123__", "__avg_price_placeholder_456__"}
 		processor.AddExpression("test_expr", "sum(amount) + avg(price)", requiredFields, "__sum_amount_placeholder_123__ + __avg_price_placeholder_456__")
 
-		result := map[string]interface{}{
+		result := map[string]any{
 			"__sum_amount_placeholder_123__": 100.0,
 			"__avg_price_placeholder_456__":  50.0,
 		}
@@ -889,7 +889,7 @@ func TestPerformanceOptimizations(t *testing.T) {
 		assert.True(t, allPresent)
 
 		// 测试缺少字段的情况
-		incompleteResult := map[string]interface{}{
+		incompleteResult := map[string]any{
 			"__sum_amount_placeholder_123__": 100.0,
 		}
 		allPresent = processor.checkRequiredFields(incompleteResult, requiredFields)
@@ -901,7 +901,7 @@ func TestPerformanceOptimizations(t *testing.T) {
 		requiredFields := []string{"__sum_amount_placeholder_123__"}
 		processor.AddExpression("test_expr", "sum(amount) * 2", requiredFields, "__sum_amount_placeholder_123__ * 2")
 
-		result := map[string]interface{}{
+		result := map[string]any{
 			"__sum_amount_placeholder_123__": 100.0,
 		}
 
@@ -922,7 +922,7 @@ func TestPerformanceOptimizations(t *testing.T) {
 
 	t.Run("测试fieldsCache缓存功能", func(t *testing.T) {
 		processor := NewPostAggregationProcessor()
-		
+
 		// 添加表达式，测试缓存
 		requiredFields := []string{"__sum_amount_placeholder_123__"}
 		processor.AddExpression("expr1", "sum(amount)", requiredFields, "__sum_amount_placeholder_123__")
@@ -952,16 +952,16 @@ func TestPerformanceOptimizations(t *testing.T) {
 // TestProcessResultsPerformance 测试ProcessResults方法的性能优化
 func TestProcessResultsPerformance(t *testing.T) {
 	processor := NewPostAggregationProcessor()
-	
+
 	// 添加多个表达式
 	processor.AddExpression("calc1", "sum(amount) * 2", []string{"__sum_amount_placeholder_123__"}, "__sum_amount_placeholder_123__ * 2")
 	processor.AddExpression("calc2", "avg(price) + 10", []string{"__avg_price_placeholder_456__"}, "__avg_price_placeholder_456__ + 10")
 	processor.AddExpression("calc3", "max(value) - min(value)", []string{"__max_value_placeholder_789__", "__min_value_placeholder_012__"}, "__max_value_placeholder_789__ - __min_value_placeholder_012__")
 
 	// 创建大量测试数据
-	results := make([]map[string]interface{}, 100)
+	results := make([]map[string]any, 100)
 	for i := 0; i < 100; i++ {
-		results[i] = map[string]interface{}{
+		results[i] = map[string]any{
 			"__sum_amount_placeholder_123__": float64(i * 10),
 			"__avg_price_placeholder_456__":  float64(i * 5),
 			"__max_value_placeholder_789__":  float64(i * 20),
@@ -975,14 +975,14 @@ func TestProcessResultsPerformance(t *testing.T) {
 	assert.Len(t, processedResults, 100)
 
 	// 验证第一个结果
-	assert.Equal(t, 0.0, processedResults[0]["calc1"]) // 0 * 2 = 0
+	assert.Equal(t, 0.0, processedResults[0]["calc1"])  // 0 * 2 = 0
 	assert.Equal(t, 10.0, processedResults[0]["calc2"]) // 0 + 10 = 10
-	assert.Equal(t, 0.0, processedResults[0]["calc3"]) // 0 - 0 = 0
+	assert.Equal(t, 0.0, processedResults[0]["calc3"])  // 0 - 0 = 0
 
 	// 验证最后一个结果
 	lastIdx := len(processedResults) - 1
 	assert.Equal(t, 1980.0, processedResults[lastIdx]["calc1"]) // 99*10*2 = 1980
-	assert.Equal(t, 505.0, processedResults[lastIdx]["calc2"]) // 99*5+10 = 505
+	assert.Equal(t, 505.0, processedResults[lastIdx]["calc2"])  // 99*5+10 = 505
 	assert.Equal(t, 1881.0, processedResults[lastIdx]["calc3"]) // 99*20-99 = 1881
 
 	// 验证占位符字段已被清理

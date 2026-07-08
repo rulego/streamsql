@@ -64,7 +64,7 @@ func registerMathFunctions() {
 		"几何数学",
 		"计算两点间距离",
 		4, 4,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			x1 := cast.ToFloat64(args[0])
 			y1 := cast.ToFloat64(args[1])
 			x2 := cast.ToFloat64(args[2])
@@ -83,7 +83,7 @@ func registerMathFunctions() {
 		"温度转换",
 		"华氏度转摄氏度",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			fahrenheit := cast.ToFloat64(args[0])
 			celsius := (fahrenheit - 32) * 5 / 9
 			return celsius, nil
@@ -98,7 +98,7 @@ func registerMathFunctions() {
 		"几何计算",
 		"计算圆的面积",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			radius := cast.ToFloat64(args[0])
 			if radius < 0 {
 				return nil, fmt.Errorf("半径必须为正数")
@@ -121,12 +121,12 @@ func registerStringFunctions() {
 		"JSON处理",
 		"从JSON字符串中提取字段值",
 		2, 2,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			jsonStr := cast.ToString(args[0])
 
 			path := cast.ToString(args[1])
 
-			var data map[string]interface{}
+			var data map[string]any
 			if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
 				return nil, fmt.Errorf("invalid JSON: %v", err)
 			}
@@ -148,7 +148,7 @@ func registerStringFunctions() {
 		"字符串操作",
 		"反转字符串",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			str := cast.ToString(args[0])
 
 			runes := []rune(str)
@@ -168,7 +168,7 @@ func registerStringFunctions() {
 		"字符串操作",
 		"重复字符串N次",
 		2, 2,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			str := cast.ToString(args[0])
 
 			count := cast.ToInt64(args[1])
@@ -199,7 +199,7 @@ func registerConversionFunctions() {
 		"网络转换",
 		"将IP地址转换为整数",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			ipStr := cast.ToString(args[0])
 
 			ip := net.ParseIP(ipStr)
@@ -224,7 +224,7 @@ func registerConversionFunctions() {
 		"数据格式化",
 		"格式化字节大小为人类可读格式",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			bytes := cast.ToFloat64(args[0])
 
 			units := []string{"B", "KB", "MB", "GB", "TB"}
@@ -251,7 +251,7 @@ func registerDateTimeFunctions() {
 		"时间格式化",
 		"格式化时间戳为指定格式",
 		2, 2,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			timestamp := cast.ToInt64(args[0])
 
 			format := cast.ToString(args[1])
@@ -279,7 +279,7 @@ func registerDateTimeFunctions() {
 		"时间计算",
 		"计算两个时间戳的差值（秒）",
 		2, 2,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			timestamp1 := cast.ToInt64(args[0])
 
 			timestamp2 := cast.ToInt64(args[1])
@@ -323,7 +323,7 @@ func registerAnalyticalFunctions() {
 		"移动统计",
 		"计算移动平均值",
 		2, 2,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			// 这个函数需要状态管理，实际实现会比较复杂
 			// 这里只是一个示例
 			current := cast.ToFloat64(args[0])
@@ -360,11 +360,11 @@ func NewGeometricMeanFunction() *GeometricMeanFunction {
 	}
 }
 
-func (f *GeometricMeanFunction) Validate(args []interface{}) error {
+func (f *GeometricMeanFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *GeometricMeanFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+func (f *GeometricMeanFunction) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
 	// 批量执行模式
 	product := 1.0
 	for _, arg := range args {
@@ -388,7 +388,7 @@ func (f *GeometricMeanFunction) New() functions.AggregatorFunction {
 	}
 }
 
-func (f *GeometricMeanFunction) Add(value interface{}) {
+func (f *GeometricMeanFunction) Add(value any) {
 	val := cast.ToFloat64(value)
 	if val > 0 {
 		f.product *= val
@@ -396,7 +396,7 @@ func (f *GeometricMeanFunction) Add(value interface{}) {
 	}
 }
 
-func (f *GeometricMeanFunction) Result() interface{} {
+func (f *GeometricMeanFunction) Result() any {
 	if f.count == 0 {
 		return 0.0
 	}
@@ -427,13 +427,13 @@ func (g *GeometricMeanAggregator) New() aggregator.AggregatorFunction {
 	}
 }
 
-func (g *GeometricMeanAggregator) Add(value interface{}) {
+func (g *GeometricMeanAggregator) Add(value any) {
 	if val, err := cast.ToFloat64E(value); err == nil && val > 0 {
 		g.values = append(g.values, val)
 	}
 }
 
-func (g *GeometricMeanAggregator) Result() interface{} {
+func (g *GeometricMeanAggregator) Result() any {
 	if len(g.values) == 0 {
 		return 0.0
 	}
@@ -465,11 +465,11 @@ func NewModeFunction() *ModeFunction {
 	}
 }
 
-func (f *ModeFunction) Validate(args []interface{}) error {
+func (f *ModeFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ModeFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ModeFunction) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
 	// 批量执行模式
 	counts := make(map[string]int)
 	for _, arg := range args {
@@ -482,7 +482,7 @@ func (f *ModeFunction) Execute(ctx *functions.FunctionContext, args []interface{
 	}
 
 	maxCount := 0
-	var mode interface{}
+	var mode any
 	for key, count := range counts {
 		if count > maxCount {
 			maxCount = count
@@ -500,18 +500,18 @@ func (f *ModeFunction) New() functions.AggregatorFunction {
 	}
 }
 
-func (f *ModeFunction) Add(value interface{}) {
+func (f *ModeFunction) Add(value any) {
 	key := fmt.Sprintf("%v", value)
 	f.counts[key]++
 }
 
-func (f *ModeFunction) Result() interface{} {
+func (f *ModeFunction) Result() any {
 	if len(f.counts) == 0 {
 		return nil
 	}
 
 	maxCount := 0
-	var mode interface{}
+	var mode any
 	for key, count := range f.counts {
 		if count > maxCount {
 			maxCount = count
@@ -547,18 +547,18 @@ func (m *ModeAggregator) New() aggregator.AggregatorFunction {
 	}
 }
 
-func (m *ModeAggregator) Add(value interface{}) {
+func (m *ModeAggregator) Add(value any) {
 	key := fmt.Sprintf("%v", value)
 	m.counts[key]++
 }
 
-func (m *ModeAggregator) Result() interface{} {
+func (m *ModeAggregator) Result() any {
 	if len(m.counts) == 0 {
 		return nil
 	}
 
 	maxCount := 0
-	var mode interface{}
+	var mode any
 	for key, count := range m.counts {
 		if count > maxCount {
 			maxCount = count
@@ -609,7 +609,7 @@ func testMathFunctions(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{
 			"device":      "sensor1",
 			"temperature": 68.0, // 华氏度
@@ -625,7 +625,7 @@ func testMathFunctions(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加结果监听器
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 数学函数结果: %v\n", result)
 	})
 
@@ -659,7 +659,7 @@ func testStringFunctions(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{
 			"device":   "sensor1",
 			"metadata": `{"version":"1.0","type":"temperature"}`,
@@ -672,7 +672,7 @@ func testStringFunctions(ssql *streamsql.Streamsql) {
 		},
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 字符串函数结果: %v\n", result)
 	})
 
@@ -702,7 +702,7 @@ func testConversionFunctions(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{
 			"device":       "server1",
 			"client_ip":    "192.168.1.100",
@@ -715,7 +715,7 @@ func testConversionFunctions(ssql *streamsql.Streamsql) {
 		},
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 转换函数结果: %v\n", result)
 	})
 
@@ -746,14 +746,14 @@ func testAggregateFunctions(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1", "value": 2.0, "category": "A"},
 		{"device": "sensor1", "value": 8.0, "category": "A"},
 		{"device": "sensor1", "value": 32.0, "category": "B"},
 		{"device": "sensor1", "value": 128.0, "category": "A"},
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 聚合函数结果: %v\n", result)
 	})
 

@@ -68,7 +68,7 @@ func TestParseSmartParameters(t *testing.T) {
 func TestExpectTokenSuccess(t *testing.T) {
 	lexer := NewLexer("SELECT")
 	parser := &Parser{lexer: lexer, errorRecovery: NewErrorRecovery(&Parser{})}
-	
+
 	token, err := parser.expectToken(TokenSELECT, "test context")
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -83,7 +83,7 @@ func TestExpectTokenFailure(t *testing.T) {
 	lexer := NewLexer("FROM")
 	parser := &Parser{lexer: lexer}
 	parser.errorRecovery = NewErrorRecovery(parser)
-	
+
 	token, err := parser.expectToken(TokenSELECT, "test context")
 	if err == nil {
 		t.Error("Expected error, got none")
@@ -98,7 +98,7 @@ func TestExpectTokenWithRecovery(t *testing.T) {
 	lexer := NewLexer("FROM SELECT")
 	parser := &Parser{lexer: lexer}
 	parser.errorRecovery = NewErrorRecovery(parser)
-	
+
 	// 第一次调用应该失败
 	_, err := parser.expectToken(TokenSELECT, "test context")
 	if err == nil {
@@ -181,49 +181,49 @@ func TestExtractSimpleField(t *testing.T) {
 func TestParseWindowParams(t *testing.T) {
 	tests := []struct {
 		name        string
-		params      []interface{}
+		params      []any
 		windowType  string
 		expectError bool
 	}{
 		{
 			name:        "会话窗口参数",
-			params:      []interface{}{"10s", "5s"},
+			params:      []any{"10s", "5s"},
 			windowType:  "SESSIONWINDOW",
 			expectError: false,
 		},
 		{
 			name:        "滚动窗口参数",
-			params:      []interface{}{"30s"},
+			params:      []any{"30s"},
 			windowType:  "TUMBLINGWINDOW",
 			expectError: false,
 		},
 		{
 			name:        "滑动窗口参数",
-			params:      []interface{}{"60s", "30s"},
+			params:      []any{"60s", "30s"},
 			windowType:  "SLIDINGWINDOW",
 			expectError: false,
 		},
 		{
 			name:        "计数窗口参数",
-			params:      []interface{}{100},
+			params:      []any{100},
 			windowType:  "COUNTINGWINDOW",
 			expectError: false,
 		},
 		{
 			name:        "无效持续时间",
-			params:      []interface{}{"invalid"},
+			params:      []any{"invalid"},
 			windowType:  "TUMBLINGWINDOW",
 			expectError: true,
 		},
 		{
 			name:        "非字符串参数",
-			params:      []interface{}{123},
+			params:      []any{123},
 			windowType:  "TUMBLINGWINDOW",
 			expectError: false, // 整数参数会被视为秒数，这是有效的
 		},
 		{
 			name:        "空参数",
-			params:      []interface{}{},
+			params:      []any{},
 			windowType:  "TUMBLINGWINDOW",
 			expectError: false,
 		},
@@ -231,7 +231,7 @@ func TestParseWindowParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var result []interface{}
+			var result []any
 			var err error
 
 			// Convert window type to internal format
@@ -418,7 +418,7 @@ func TestFormatErrorContext(t *testing.T) {
 func TestConvertValue(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{"123", 123},
 		{"3.14", 3.14},
@@ -745,10 +745,10 @@ func TestBuildSelectFieldsWithExpressions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			aggMap, fieldMap, expressions, _, err := buildSelectFieldsWithExpressions(tt.fields)
-		if err != nil {
-			t.Errorf("buildSelectFieldsWithExpressions() error = %v", err)
-			return
-		}
+			if err != nil {
+				t.Errorf("buildSelectFieldsWithExpressions() error = %v", err)
+				return
+			}
 			tt.checkFunc(t, aggMap, fieldMap, expressions)
 		})
 	}

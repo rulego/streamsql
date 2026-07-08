@@ -23,11 +23,11 @@ func NewCastFunction() *CastFunction {
 	}
 }
 
-func (f *CastFunction) Validate(args []interface{}) error {
+func (f *CastFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CastFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CastFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	value := args[0]
 	targetType := cast.ToString(args[1])
 
@@ -74,11 +74,11 @@ func NewHex2DecFunction() *Hex2DecFunction {
 	}
 }
 
-func (f *Hex2DecFunction) Validate(args []interface{}) error {
+func (f *Hex2DecFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *Hex2DecFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *Hex2DecFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	hexStr := cast.ToString(args[0])
 
 	val, err := strconv.ParseInt(hexStr, 16, 64)
@@ -100,11 +100,11 @@ func NewDec2HexFunction() *Dec2HexFunction {
 	}
 }
 
-func (f *Dec2HexFunction) Validate(args []interface{}) error {
+func (f *Dec2HexFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *Dec2HexFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *Dec2HexFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToInt64E(args[0])
 	if err != nil {
 		return nil, err
@@ -124,7 +124,7 @@ func NewEncodeFunction() *EncodeFunction {
 	}
 }
 
-func (f *EncodeFunction) Validate(args []interface{}) error {
+func (f *EncodeFunction) Validate(args []any) error {
 	if err := f.ValidateArgCount(args); err != nil {
 		return err
 	}
@@ -140,7 +140,7 @@ func (f *EncodeFunction) Validate(args []interface{}) error {
 	}
 }
 
-func (f *EncodeFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *EncodeFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func NewDecodeFunction() *DecodeFunction {
 	}
 }
 
-func (f *DecodeFunction) Validate(args []interface{}) error {
+func (f *DecodeFunction) Validate(args []any) error {
 	if err := f.ValidateArgCount(args); err != nil {
 		return err
 	}
@@ -200,7 +200,7 @@ func (f *DecodeFunction) Validate(args []interface{}) error {
 	}
 }
 
-func (f *DecodeFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *DecodeFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}
@@ -243,11 +243,11 @@ func NewConvertTzFunction() *ConvertTzFunction {
 	}
 }
 
-func (f *ConvertTzFunction) Validate(args []interface{}) error {
+func (f *ConvertTzFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ConvertTzFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ConvertTzFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 获取时间值
 	var t time.Time
 	switch v := args[0].(type) {
@@ -302,11 +302,11 @@ func NewToSecondsFunction() *ToSecondsFunction {
 	}
 }
 
-func (f *ToSecondsFunction) Validate(args []interface{}) error {
+func (f *ToSecondsFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ToSecondsFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ToSecondsFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 获取时间值
 	var t time.Time
 	switch v := args[0].(type) {
@@ -348,11 +348,11 @@ func NewChrFunction() *ChrFunction {
 	}
 }
 
-func (f *ChrFunction) Validate(args []interface{}) error {
+func (f *ChrFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ChrFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ChrFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	code, err := cast.ToInt64E(args[0])
 	if err != nil {
 		return nil, err
@@ -376,11 +376,11 @@ func NewUrlEncodeFunction() *UrlEncodeFunction {
 	}
 }
 
-func (f *UrlEncodeFunction) Validate(args []interface{}) error {
+func (f *UrlEncodeFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *UrlEncodeFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *UrlEncodeFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}
@@ -404,11 +404,11 @@ func NewUrlDecodeFunction() *UrlDecodeFunction {
 	}
 }
 
-func (f *UrlDecodeFunction) Validate(args []interface{}) error {
+func (f *UrlDecodeFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *UrlDecodeFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *UrlDecodeFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}
@@ -438,12 +438,12 @@ func NewTruncFunction() *TruncFunction {
 }
 
 // Validate 验证参数
-func (f *TruncFunction) Validate(args []interface{}) error {
+func (f *TruncFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
 // Execute 执行函数
-func (f *TruncFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *TruncFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}

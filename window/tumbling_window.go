@@ -33,7 +33,7 @@ var EnableDebug = false
 
 // debugLog logs debug information only when EnableDebug is true
 // This function is optimized to avoid unnecessary string formatting when debug is disabled
-func debugLog(format string, args ...interface{}) {
+func debugLog(format string, args ...any) {
 	// Fast path: if debug is disabled, return immediately without evaluating args
 	// The compiler should optimize this check away when EnableDebug is a compile-time constant false
 	if !EnableDebug {
@@ -151,7 +151,7 @@ func NewTumblingWindow(config types.WindowConfig) (*TumblingWindow, error) {
 }
 
 // Add adds data to the tumbling window
-func (tw *TumblingWindow) Add(data interface{}) {
+func (tw *TumblingWindow) Add(data any) {
 	// Lock to ensure thread safety
 	tw.mu.Lock()
 	defer tw.mu.Unlock()

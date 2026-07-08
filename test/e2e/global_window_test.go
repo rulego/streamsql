@@ -40,13 +40,13 @@ func TestGlobalWindow_CountDrivenAlert(t *testing.T) {
     `
 	require.NoError(t, ssql.Execute(sql))
 
-	ch := make(chan []map[string]interface{}, 4)
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ch := make(chan []map[string]any, 4)
+	ssql.AddSink(func(results []map[string]any) {
 		ch <- results
 	})
 
 	for i := 0; i < 6; i++ {
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId": "sensorA",
 			"value":    i,
 		})
@@ -79,16 +79,16 @@ func TestGlobalWindow_FieldDrivenTrigger(t *testing.T) {
     `
 	require.NoError(t, ssql.Execute(sql))
 
-	ch := make(chan []map[string]interface{}, 4)
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ch := make(chan []map[string]any, 4)
+	ssql.AddSink(func(results []map[string]any) {
 		ch <- results
 	})
 
 	// Below threshold: no fire.
-	ssql.Emit(map[string]interface{}{"deviceId": "dev1", "temp": 40})
-	ssql.Emit(map[string]interface{}{"deviceId": "dev1", "temp": 45})
+	ssql.Emit(map[string]any{"deviceId": "dev1", "temp": 40})
+	ssql.Emit(map[string]any{"deviceId": "dev1", "temp": 45})
 	// Crosses threshold: fire with max=55.
-	ssql.Emit(map[string]interface{}{"deviceId": "dev1", "temp": 55})
+	ssql.Emit(map[string]any{"deviceId": "dev1", "temp": 55})
 
 	select {
 	case res := <-ch:
@@ -114,13 +114,13 @@ func TestGlobalWindow_NoGroupBy(t *testing.T) {
     `
 	require.NoError(t, ssql.Execute(sql))
 
-	ch := make(chan []map[string]interface{}, 4)
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ch := make(chan []map[string]any, 4)
+	ssql.AddSink(func(results []map[string]any) {
 		ch <- results
 	})
 
 	for i := 0; i < 4; i++ {
-		ssql.Emit(map[string]interface{}{"v": i})
+		ssql.Emit(map[string]any{"v": i})
 	}
 
 	select {
@@ -146,16 +146,16 @@ func TestGlobalWindow_MultiGroupIndependentFire(t *testing.T) {
     `
 	require.NoError(t, ssql.Execute(sql))
 
-	ch := make(chan []map[string]interface{}, 8)
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ch := make(chan []map[string]any, 8)
+	ssql.AddSink(func(results []map[string]any) {
 		ch <- results
 	})
 
 	// Interleave; each device hits cnt=2 on its own.
-	ssql.Emit(map[string]interface{}{"deviceId": "x"})
-	ssql.Emit(map[string]interface{}{"deviceId": "y"})
-	ssql.Emit(map[string]interface{}{"deviceId": "x"}) // x fires
-	ssql.Emit(map[string]interface{}{"deviceId": "y"}) // y fires
+	ssql.Emit(map[string]any{"deviceId": "x"})
+	ssql.Emit(map[string]any{"deviceId": "y"})
+	ssql.Emit(map[string]any{"deviceId": "x"}) // x fires
+	ssql.Emit(map[string]any{"deviceId": "y"}) // y fires
 
 	fired := map[string]int{}
 	for i := 0; i < 2; i++ {
@@ -187,13 +187,13 @@ func TestGlobalWindow_WithStateTTL(t *testing.T) {
     `
 	require.NoError(t, ssql.Execute(sql))
 
-	ch := make(chan []map[string]interface{}, 4)
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ch := make(chan []map[string]any, 4)
+	ssql.AddSink(func(results []map[string]any) {
 		ch <- results
 	})
 
-	ssql.Emit(map[string]interface{}{"deviceId": "d"})
-	ssql.Emit(map[string]interface{}{"deviceId": "d"})
+	ssql.Emit(map[string]any{"deviceId": "d"})
+	ssql.Emit(map[string]any{"deviceId": "d"})
 
 	select {
 	case res := <-ch:
@@ -232,13 +232,13 @@ func TestGlobalWindow_CompoundAndTrigger(t *testing.T) {
     `
 	require.NoError(t, ssql.Execute(sql))
 
-	ch := make(chan []map[string]interface{}, 4)
-	ssql.AddSink(func(results []map[string]interface{}) { ch <- results })
+	ch := make(chan []map[string]any, 4)
+	ssql.AddSink(func(results []map[string]any) { ch <- results })
 
 	// value=1: count=1 (count clause false). value=2: count=2 but max=2 (max clause false).
 	// Neither fires. value=6: count=3 AND max=6 -> both true -> FIRE.
-	ssql.Emit(map[string]interface{}{"deviceId": "d1", "value": 1})
-	ssql.Emit(map[string]interface{}{"deviceId": "d1", "value": 2})
+	ssql.Emit(map[string]any{"deviceId": "d1", "value": 1})
+	ssql.Emit(map[string]any{"deviceId": "d1", "value": 2})
 
 	select {
 	case <-ch:
@@ -246,7 +246,7 @@ func TestGlobalWindow_CompoundAndTrigger(t *testing.T) {
 	case <-time.After(300 * time.Millisecond):
 	}
 
-	ssql.Emit(map[string]interface{}{"deviceId": "d1", "value": 6})
+	ssql.Emit(map[string]any{"deviceId": "d1", "value": 6})
 
 	select {
 	case res := <-ch:
@@ -273,12 +273,12 @@ func TestGlobalWindow_MultiAggregateSelect(t *testing.T) {
     `
 	require.NoError(t, ssql.Execute(sql))
 
-	ch := make(chan []map[string]interface{}, 4)
-	ssql.AddSink(func(results []map[string]interface{}) { ch <- results })
+	ch := make(chan []map[string]any, 4)
+	ssql.AddSink(func(results []map[string]any) { ch <- results })
 
-	ssql.Emit(map[string]interface{}{"deviceId": "d1", "value": 10})
-	ssql.Emit(map[string]interface{}{"deviceId": "d1", "value": 20})
-	ssql.Emit(map[string]interface{}{"deviceId": "d1", "value": 30})
+	ssql.Emit(map[string]any{"deviceId": "d1", "value": 10})
+	ssql.Emit(map[string]any{"deviceId": "d1", "value": 20})
+	ssql.Emit(map[string]any{"deviceId": "d1", "value": 30})
 
 	select {
 	case res := <-ch:

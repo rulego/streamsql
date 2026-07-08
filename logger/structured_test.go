@@ -37,7 +37,7 @@ func TestStructured_TextFormatQuotesSpaces(t *testing.T) {
 func TestStructured_JSONFormat(t *testing.T) {
 	l, buf := captureLogger(INFO, JSONFormat)
 	l.InfoFields("window fired", String("deviceId", "d1"), Int("rows", 42))
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	require.NoError(t, json.Unmarshal(buf.Bytes(), &parsed))
 	assert.Equal(t, "window fired", parsed["msg"])
 	assert.Equal(t, "INFO", parsed["level"])
@@ -57,7 +57,7 @@ func TestStructured_LevelFiltering(t *testing.T) {
 func TestStructured_ErrFieldNilSafe(t *testing.T) {
 	l, buf := captureLogger(INFO, JSONFormat)
 	l.ErrorFields("bad row", Err(nil)) // must not panic
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	require.NoError(t, json.Unmarshal(buf.Bytes(), &parsed))
 	assert.Contains(t, parsed, "error")
 
@@ -86,11 +86,11 @@ func TestStructured_DiscardLoggerNoOp(t *testing.T) {
 // the package-level fallback path.
 type printfOnly struct{ b bytes.Buffer }
 
-func (p *printfOnly) Debug(format string, a ...interface{}) { p.b.WriteString("D ") }
-func (p *printfOnly) Info(format string, a ...interface{})  { p.b.WriteString("I ") }
-func (p *printfOnly) Warn(format string, a ...interface{})  { p.b.WriteString("W ") }
-func (p *printfOnly) Error(format string, a ...interface{}) { p.b.WriteString("E ") }
-func (p *printfOnly) SetLevel(Level)                         {}
+func (p *printfOnly) Debug(format string, a ...any) { p.b.WriteString("D ") }
+func (p *printfOnly) Info(format string, a ...any)  { p.b.WriteString("I ") }
+func (p *printfOnly) Warn(format string, a ...any)  { p.b.WriteString("W ") }
+func (p *printfOnly) Error(format string, a ...any) { p.b.WriteString("E ") }
+func (p *printfOnly) SetLevel(Level)                {}
 
 func TestStructured_PackageLevelWithStructuredDefault(t *testing.T) {
 	var buf bytes.Buffer

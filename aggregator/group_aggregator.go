@@ -13,12 +13,12 @@ import (
 
 // Aggregator aggregator interface
 type Aggregator interface {
-	Add(data interface{}) error
-	Put(key string, val interface{}) error
-	GetResults() ([]map[string]interface{}, error)
+	Add(data any) error
+	Put(key string, val any) error
+	GetResults() ([]map[string]any, error)
 	Reset()
 	// RegisterExpression registers expression evaluator
-	RegisterExpression(field, expression string, fields []string, evaluator func(data interface{}) (interface{}, error))
+	RegisterExpression(field, expression string, fields []string, evaluator func(data any) (any, error))
 }
 
 // AggregationField defines configuration for a single aggregation field
@@ -34,7 +34,7 @@ type GroupAggregator struct {
 	aggregators       map[string]AggregatorFunction
 	groups            map[string]map[string]AggregatorFunction
 	mu                sync.RWMutex
-	context           map[string]interface{}
+	context           map[string]any
 	// Expression evaluators
 	expressions map[string]*ExpressionEvaluator
 }
@@ -44,7 +44,7 @@ type ExpressionEvaluator struct {
 	Expression   string   // Complete expression
 	Field        string   // Primary field name
 	Fields       []string // All fields referenced in expression
-	evaluateFunc func(data interface{}) (interface{}, error)
+	evaluateFunc func(data any) (any, error)
 }
 
 // NewGroupAggregator creates a new group aggregator
@@ -70,7 +70,7 @@ func NewGroupAggregator(groupFields []string, aggregationFields []AggregationFie
 }
 
 // RegisterExpression registers expression evaluator
-func (ga *GroupAggregator) RegisterExpression(field, expression string, fields []string, evaluator func(data interface{}) (interface{}, error)) {
+func (ga *GroupAggregator) RegisterExpression(field, expression string, fields []string, evaluator func(data any) (any, error)) {
 	ga.mu.Lock()
 	defer ga.mu.Unlock()
 
@@ -82,11 +82,11 @@ func (ga *GroupAggregator) RegisterExpression(field, expression string, fields [
 	}
 }
 
-func (ga *GroupAggregator) Put(key string, val interface{}) error {
+func (ga *GroupAggregator) Put(key string, val any) error {
 	ga.mu.Lock()
 	defer ga.mu.Unlock()
 	if ga.context == nil {
-		ga.context = make(map[string]interface{})
+		ga.context = make(map[string]any)
 	}
 	ga.context[key] = val
 	return nil
@@ -146,7 +146,7 @@ func (ga *GroupAggregator) shouldAllowNullValues(aggType AggregateType) bool {
 	return aggType == FirstValue || aggType == LastValue
 }
 
-func (ga *GroupAggregator) Add(data interface{}) error {
+func (ga *GroupAggregator) Add(data any) error {
 	ga.mu.Lock()
 	defer ga.mu.Unlock()
 
@@ -158,8 +158,8 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 	var v reflect.Value
 
 	switch data.(type) {
-	case map[string]interface{}:
-		dataMap := data.(map[string]interface{})
+	case map[string]any:
+		dataMap := data.(map[string]any)
 		v = reflect.ValueOf(dataMap)
 	default:
 		v = reflect.ValueOf(data)
@@ -174,7 +174,7 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 
 	key := ""
 	for _, field := range ga.groupFields {
-		var fieldVal interface{}
+		var fieldVal any
 		var found bool
 
 		// Check if it's a nested field
@@ -254,7 +254,7 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 		}
 
 		// Get field value - supports nested fields
-		var fieldVal interface{}
+		var fieldVal any
 		var found bool
 
 		if fieldpath.IsNestedField(inputField) {
@@ -325,21 +325,21 @@ func (ga *GroupAggregator) Add(data interface{}) error {
 	return nil
 }
 
-func (ga *GroupAggregator) GetResults() ([]map[string]interface{}, error) {
+func (ga *GroupAggregator) GetResults() ([]map[string]any, error) {
 	ga.mu.RLock()
 	defer ga.mu.RUnlock()
 
 	// 如果既没有分组字段又没有聚合字段，但有数据被添加过，返回一个空的结果行
 	if len(ga.aggregationFields) == 0 && len(ga.groupFields) == 0 {
 		if len(ga.groups) > 0 {
-			return []map[string]interface{}{{}}, nil
+			return []map[string]any{{}}, nil
 		}
-		return []map[string]interface{}{}, nil
+		return []map[string]any{}, nil
 	}
 
-	result := make([]map[string]interface{}, 0, len(ga.groups))
+	result := make([]map[string]any, 0, len(ga.groups))
 	for key, aggregators := range ga.groups {
-		group := make(map[string]interface{})
+		group := make(map[string]any)
 		fields := strings.Split(key, "|")
 		for i, field := range ga.groupFields {
 			if i < len(fields) {

@@ -24,7 +24,7 @@ import (
 // TestRow 测试 Row 结构体的基本功能
 func TestRow(t *testing.T) {
 	testTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
-	testData := map[string]interface{}{
+	testData := map[string]any{
 		"user_id": 123,
 		"amount":  99.99,
 		"status":  "active",
@@ -55,9 +55,9 @@ func TestRow(t *testing.T) {
 		t.Error("Expected Data to be non-nil")
 	}
 
-	dataMap, ok := row.Data.(map[string]interface{})
+	dataMap, ok := row.Data.(map[string]any)
 	if !ok {
-		t.Error("Expected Data to be a map[string]interface{}")
+		t.Error("Expected Data to be a map[string]any")
 	}
 
 	if dataMap["user_id"] != 123 {

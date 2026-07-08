@@ -142,7 +142,7 @@ StreamSQL AST representation:
 
 	type WindowDefinition struct {
 		Type     string
-		Params   []interface{}
+		Params   []any
 		TsProp   string
 		TimeUnit time.Duration
 	}

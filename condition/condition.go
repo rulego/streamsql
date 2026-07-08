@@ -12,7 +12,7 @@ import (
 )
 
 type Condition interface {
-	Evaluate(env interface{}) bool
+	Evaluate(env any) bool
 }
 
 type ExprCondition struct {
@@ -70,7 +70,7 @@ func NewExprCondition(expression string) (Condition, error) {
 	return ec, nil
 }
 
-func (ec *ExprCondition) Evaluate(env interface{}) bool {
+func (ec *ExprCondition) Evaluate(env any) bool {
 	if ec.compound != nil {
 		if r, ok := ec.compound.eval(env); ok {
 			return r
@@ -121,8 +121,8 @@ func tryFastCompare(expression string) *fastCompare {
 
 // eval evaluates the fast-path. The bool result is valid only when ok is true;
 // ok==false means "could not handle this value, fall back to expr-lang".
-func (fc *fastCompare) eval(env interface{}) (bool, bool) {
-	data, ok := env.(map[string]interface{})
+func (fc *fastCompare) eval(env any) (bool, bool) {
+	data, ok := env.(map[string]any)
 	if !ok {
 		return false, false
 	}
@@ -152,8 +152,8 @@ type fastCompound struct {
 	parts []*fastCompare
 }
 
-func (fc *fastCompound) eval(env interface{}) (bool, bool) {
-	data, ok := env.(map[string]interface{})
+func (fc *fastCompound) eval(env any) (bool, bool) {
+	data, ok := env.(map[string]any)
 	if !ok {
 		return false, false
 	}
@@ -173,7 +173,7 @@ func (fc *fastCompound) eval(env interface{}) (bool, bool) {
 }
 
 // evalMap is like eval but assumes env is already a map (used by fastCompound).
-func (fc *fastCompare) evalMap(data map[string]interface{}) (bool, bool) {
+func (fc *fastCompare) evalMap(data map[string]any) (bool, bool) {
 	v, exists := data[fc.field]
 	if !exists || v == nil {
 		return false, false
@@ -231,7 +231,7 @@ func tryFastCompound(expression string) *fastCompound {
 	return &fastCompound{op: op, parts: compares}
 }
 
-func toFloat64Fast(v interface{}) (float64, bool) {
+func toFloat64Fast(v any) (float64, bool) {
 	switch x := v.(type) {
 	case float64:
 		return x, true
@@ -322,7 +322,7 @@ func matchesLikePattern(text, pattern string) bool {
 // isNilValue reports whether v is nil, including typed-nil values (e.g.
 // (*int)(nil)) which compare != nil under Go's == operator but should be
 // treated as NULL by is_null/is_not_null.
-func isNilValue(v interface{}) bool {
+func isNilValue(v any) bool {
 	if v == nil {
 		return true
 	}

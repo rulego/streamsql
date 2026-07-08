@@ -24,7 +24,7 @@ import (
 // Metric is implemented by all registry instruments.
 type Metric interface {
 	Name() string
-	SnapshotValue() interface{}
+	SnapshotValue() any
 }
 
 // Registry is a named collection of metrics.
@@ -107,9 +107,9 @@ func (r *Registry) Names() []string {
 }
 
 // Snapshot returns name -> snapshot value for every registered metric.
-func (r *Registry) Snapshot() map[string]interface{} {
+func (r *Registry) Snapshot() map[string]any {
 	r.mu.RLock()
-	out := make(map[string]interface{}, len(r.metrics))
+	out := make(map[string]any, len(r.metrics))
 	for n, m := range r.metrics {
 		out[n] = m.SnapshotValue()
 	}

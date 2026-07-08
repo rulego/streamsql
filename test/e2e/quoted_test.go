@@ -16,9 +16,9 @@ import (
 type testCase struct {
 	name        string
 	sql         string
-	testData    []map[string]interface{}
+	testData    []map[string]any
 	expectedLen int
-	validator   func(t *testing.T, results []map[string]interface{})
+	validator   func(t *testing.T, results []map[string]any)
 }
 
 // executeTestCase 执行单个测试用例的通用逻辑
@@ -33,11 +33,11 @@ func executeTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCase) {
 		strm := ssql.Stream()
 
 		// 创建结果接收通道和互斥锁保护并发访问
-		resultChan := make(chan interface{}, 10)
-		var results []map[string]interface{}
+		resultChan := make(chan any, 10)
+		var results []map[string]any
 		var resultsMutex sync.Mutex
 
-		strm.AddSink(func(result []map[string]interface{}) {
+		strm.AddSink(func(result []map[string]any) {
 			select {
 			case resultChan <- result:
 			default:
@@ -67,9 +67,9 @@ func executeTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCase) {
 			select {
 			case result := <-resultChan:
 				resultsMutex.Lock()
-				if resultSlice, ok := result.([]map[string]interface{}); ok {
+				if resultSlice, ok := result.([]map[string]any); ok {
 					results = append(results, resultSlice...)
-				} else if resultMap, ok := result.(map[string]interface{}); ok {
+				} else if resultMap, ok := result.(map[string]any); ok {
 					results = append(results, resultMap)
 				}
 				resultsMutex.Unlock()
@@ -81,7 +81,7 @@ func executeTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCase) {
 	checkResults:
 		// 验证结果长度（使用互斥锁保护）
 		resultsMutex.Lock()
-		finalResults := make([]map[string]interface{}, len(results))
+		finalResults := make([]map[string]any, len(results))
 		copy(finalResults, results)
 		resultsMutex.Unlock()
 
@@ -105,8 +105,8 @@ func executeAggregationTestCase(t *testing.T, ssql *streamsql.Streamsql, tc test
 		strm := ssql.Stream()
 
 		// 创建结果接收通道
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			select {
 			case resultChan <- result:
 			default:
@@ -128,7 +128,7 @@ func executeAggregationTestCase(t *testing.T, ssql *streamsql.Streamsql, tc test
 		select {
 		case result := <-resultChan:
 			if tc.validator != nil {
-				tc.validator(t, result.([]map[string]interface{}))
+				tc.validator(t, result.([]map[string]any))
 			}
 		case <-time.After(3 * time.Second):
 			t.Fatal("测试超时")
@@ -148,8 +148,8 @@ func executeFunctionTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCas
 		strm := ssql.Stream()
 
 		// 创建结果接收通道
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			select {
 			case resultChan <- result:
 			default:
@@ -168,7 +168,7 @@ func executeFunctionTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCas
 		select {
 		case result := <-resultChan:
 			if tc.validator != nil {
-				tc.validator(t, result.([]map[string]interface{}))
+				tc.validator(t, result.([]map[string]any))
 			}
 		case <-time.After(2 * time.Second):
 			t.Fatal("测试超时")
@@ -189,7 +189,7 @@ func TestQuotedIdentifiersAndStringLiterals(t *testing.T) {
 	defer ssql.Stop()
 
 	// 通用测试数据
-	standardTestData := []map[string]interface{}{
+	standardTestData := []map[string]any{
 		{"deviceId": "sensor001", "deviceType": "temperature"},
 		{"deviceId": "device002", "deviceType": "humidity"},
 		{"deviceId": "sensor003", "deviceType": "pressure"},
@@ -202,7 +202,7 @@ func TestQuotedIdentifiersAndStringLiterals(t *testing.T) {
 			sql:         "SELECT `deviceId`, `deviceType` FROM stream WHERE `deviceId` LIKE 'sensor%'",
 			testData:    standardTestData,
 			expectedLen: 2,
-			validator: func(t *testing.T, results []map[string]interface{}) {
+			validator: func(t *testing.T, results []map[string]any) {
 				for _, result := range results {
 					deviceId := result["deviceId"].(string)
 					assert.True(t, deviceId == "sensor001" || deviceId == "sensor003")
@@ -214,7 +214,7 @@ func TestQuotedIdentifiersAndStringLiterals(t *testing.T) {
 			sql:         "SELECT deviceId, deviceType, 'constant_value' as test FROM stream WHERE deviceId = 'sensor001'",
 			testData:    standardTestData,
 			expectedLen: 1,
-			validator: func(t *testing.T, results []map[string]interface{}) {
+			validator: func(t *testing.T, results []map[string]any) {
 				if len(results) > 0 {
 					resultMap := results[0]
 					assert.Equal(t, "sensor001", resultMap["deviceId"])
@@ -228,7 +228,7 @@ func TestQuotedIdentifiersAndStringLiterals(t *testing.T) {
 			sql:         `SELECT deviceId, deviceType, "another_constant" as test FROM stream WHERE deviceType = "temperature"`,
 			testData:    standardTestData,
 			expectedLen: 1,
-			validator: func(t *testing.T, results []map[string]interface{}) {
+			validator: func(t *testing.T, results []map[string]any) {
 				if len(results) > 0 {
 					resultMap := results[0]
 					assert.Equal(t, "sensor001", resultMap["deviceId"])
@@ -242,7 +242,7 @@ func TestQuotedIdentifiersAndStringLiterals(t *testing.T) {
 			sql:         "SELECT `deviceId`, `deviceType`, 'mixed_test' as test_field,'normal' FROM stream WHERE `deviceId` = 'sensor001'",
 			testData:    standardTestData,
 			expectedLen: 1,
-			validator: func(t *testing.T, results []map[string]interface{}) {
+			validator: func(t *testing.T, results []map[string]any) {
 				for _, result := range results {
 					deviceId := result["deviceId"].(string)
 					assert.True(t, deviceId == "sensor001")
@@ -255,9 +255,9 @@ func TestQuotedIdentifiersAndStringLiterals(t *testing.T) {
 		{
 			name:        "字符串常量一致性验证",
 			sql:         `SELECT 'single_quote' as test1, "double_quote" as test2 FROM stream LIMIT 1`,
-			testData:    []map[string]interface{}{{"deviceId": "test001", "deviceType": "test"}},
+			testData:    []map[string]any{{"deviceId": "test001", "deviceType": "test"}},
 			expectedLen: 1,
-			validator: func(t *testing.T, results []map[string]interface{}) {
+			validator: func(t *testing.T, results []map[string]any) {
 				if len(results) > 0 {
 					resultMap := results[0]
 					assert.Equal(t, "single_quote", resultMap["test1"])
@@ -279,15 +279,15 @@ func TestStringConstantExpressions(t *testing.T) {
 	defer ssql.Stop()
 
 	// 通用测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceId": "sensor001", "deviceType": "temperature"},
 		{"deviceId": "device002", "deviceType": "humidity"},
 		{"deviceId": "sensor003", "deviceType": "pressure"},
 	}
 
 	// 字符串常量验证函数
-	stringConstantValidator := func(expectedValue string) func(t *testing.T, results []map[string]interface{}) {
-		return func(t *testing.T, results []map[string]interface{}) {
+	stringConstantValidator := func(expectedValue string) func(t *testing.T, results []map[string]any) {
+		return func(t *testing.T, results []map[string]any) {
 			for _, result := range results {
 				deviceId := result["deviceId"].(string)
 				assert.True(t, deviceId == "sensor001" || deviceId == "sensor003")
@@ -325,14 +325,14 @@ func TestAggregationWithQuotedIdentifiers(t *testing.T) {
 	defer ssql.Stop()
 
 	// 聚合测试数据
-	aggregationTestData := []map[string]interface{}{
+	aggregationTestData := []map[string]any{
 		{"deviceId": "sensor001", "temperature": 25.5},
 		{"deviceId": "sensor001", "temperature": 26.0},
 		{"deviceId": "sensor002", "temperature": 30.0},
 	}
 
 	// 聚合结果验证函数
-	aggregationValidator := func(t *testing.T, results []map[string]interface{}) {
+	aggregationValidator := func(t *testing.T, results []map[string]any) {
 		resultSlice := results
 		assert.Len(t, resultSlice, 2) // 应该有两个设备的聚合结果
 
@@ -375,8 +375,8 @@ func TestCustomFunctionWithQuotedIdentifiers(t *testing.T) {
 		{
 			name:     "函数参数：字段值vs字符串常量",
 			sql:      "SELECT deviceId, func01(temperature) as squared_temp, func02('temperature') as string_length FROM stream WHERE deviceId = 'sensor001'",
-			testData: []map[string]interface{}{{"deviceId": "sensor001", "temperature": 5.0}, {"deviceId": "sensor002", "temperature": 10.0}},
-			validator: func(t *testing.T, results []map[string]interface{}) {
+			testData: []map[string]any{{"deviceId": "sensor001", "temperature": 5.0}, {"deviceId": "sensor002", "temperature": 10.0}},
+			validator: func(t *testing.T, results []map[string]any) {
 				resultSlice := results
 				assert.Len(t, resultSlice, 1)
 				item := resultSlice[0]
@@ -388,8 +388,8 @@ func TestCustomFunctionWithQuotedIdentifiers(t *testing.T) {
 		{
 			name:     "反引号标识符作为函数参数",
 			sql:      "SELECT deviceId, func01(temperature) as squared_temp, get_type(deviceId) as device_type FROM stream WHERE deviceId = 'sensor001'",
-			testData: []map[string]interface{}{{"deviceId": "sensor001", "temperature": 6.0}, {"deviceId": "sensor002", "temperature": 8.0}},
-			validator: func(t *testing.T, results []map[string]interface{}) {
+			testData: []map[string]any{{"deviceId": "sensor001", "temperature": 6.0}, {"deviceId": "sensor002", "temperature": 8.0}},
+			validator: func(t *testing.T, results []map[string]any) {
 				resultSlice := results
 				assert.Len(t, resultSlice, 1)
 				item := resultSlice[0]
@@ -401,8 +401,8 @@ func TestCustomFunctionWithQuotedIdentifiers(t *testing.T) {
 		{
 			name:     "混合使用字段值和字符串常量",
 			sql:      `SELECT deviceId, func01(temperature) as field_result, func02("constant_string") as const_result, get_type('literal') as literal_type FROM stream LIMIT 1`,
-			testData: []map[string]interface{}{{"deviceId": "test001", "temperature": 7.0}},
-			validator: func(t *testing.T, results []map[string]interface{}) {
+			testData: []map[string]any{{"deviceId": "test001", "temperature": 7.0}},
+			validator: func(t *testing.T, results []map[string]any) {
 				resultSlice := results
 				assert.Len(t, resultSlice, 1)
 				item := resultSlice[0]
@@ -429,7 +429,7 @@ func registerTestFunctions(t *testing.T) {
 		"测试函数",
 		"计算数值的平方",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			val := cast.ToFloat64(args[0])
 			return val * val, nil
 		},
@@ -443,7 +443,7 @@ func registerTestFunctions(t *testing.T) {
 		"测试函数",
 		"计算字符串长度",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			str := cast.ToString(args[0])
 			return len(str), nil
 		},
@@ -457,7 +457,7 @@ func registerTestFunctions(t *testing.T) {
 		"测试函数",
 		"获取参数类型",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			return fmt.Sprintf("%T:%v", args[0], args[0]), nil
 		},
 	)

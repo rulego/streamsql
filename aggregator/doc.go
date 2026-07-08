@@ -57,17 +57,17 @@ Supported aggregation functions (re-exported from functions package):
 Main aggregation interfaces:
 
 	type Aggregator interface {
-		Add(data interface{}) error
-		Put(key string, val interface{}) error
-		GetResults() ([]map[string]interface{}, error)
+		Add(data any) error
+		Put(key string, val any) error
+		GetResults() ([]map[string]any, error)
 		Reset()
-		RegisterExpression(field, expression string, fields []string, evaluator func(data interface{}) (interface{}, error))
+		RegisterExpression(field, expression string, fields []string, evaluator func(data any) (any, error))
 	}
 
 	type AggregatorFunction interface {
 		New() AggregatorFunction
-		Add(value interface{})
-		Result() interface{}
+		Add(value any)
+		Result() any
 	}
 
 # Aggregation Configuration
@@ -95,7 +95,7 @@ Basic group aggregation:
 	aggregator := NewGroupAggregator([]string{"location"}, aggFields)
 
 	// Add data
-	data := map[string]interface{}{
+	data := map[string]any{
 		"location": "room1",
 		"temperature": 25.5,
 		"humidity": 60,
@@ -113,7 +113,7 @@ Expression-based aggregation:
 		"comfort_index",
 		"temperature * 0.7 + humidity * 0.3",
 		[]string{"temperature", "humidity"},
-		func(data interface{}) (interface{}, error) {
+		func(data any) (any, error) {
 			// Custom evaluation logic
 			return evaluateComfortIndex(data)
 		},

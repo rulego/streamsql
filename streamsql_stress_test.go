@@ -89,7 +89,7 @@ func TestStress_MemoryAndThroughput(t *testing.T) {
 				go func(pid int) {
 					defer wg.Done()
 					for i := 0; i < rowsPerProducer; i++ {
-						ssql.Emit(map[string]interface{}{
+						ssql.Emit(map[string]any{
 							"deviceId":    fmt.Sprintf("dev%d", (pid*rowsPerProducer+i)%5), // 5 keys
 							"temperature": 25.0,
 						})

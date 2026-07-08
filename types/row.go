@@ -26,7 +26,7 @@ type RowEvent interface {
 
 type Row struct {
 	Timestamp time.Time
-	Data      interface{}
+	Data      any
 	Slot      *TimeSlot
 }
 

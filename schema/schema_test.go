@@ -30,7 +30,7 @@ func TestInferType(t *testing.T) {
 	now := time.Now()
 	tests := []struct {
 		name string
-		in   interface{}
+		in   any
 		want DataType
 	}{
 		{"nil", nil, TypeAny},
@@ -41,11 +41,11 @@ func TestInferType(t *testing.T) {
 		{"bool", true, TypeBool},
 		{"string", "x", TypeString},
 		{"time", now, TypeTime},
-		{"array", []interface{}{1, 2}, TypeArray},
-		{"map", map[string]interface{}{"a": 1}, TypeMap},
+		{"array", []any{1, 2}, TypeArray},
+		{"map", map[string]any{"a": 1}, TypeMap},
 		{"unknown struct", struct{}{}, TypeAny},
 		{"typed int slice", []int{1}, TypeAny},
-		{"int-keyed map", map[int]interface{}{1: 2}, TypeAny},
+		{"int-keyed map", map[int]any{1: 2}, TypeAny},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -138,33 +138,33 @@ func TestSchema_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
 		schema  Schema
-		data    map[string]interface{}
+		data    map[string]any
 		wantErr bool
 	}{
-		{"all types match", sch, map[string]interface{}{
+		{"all types match", sch, map[string]any{
 			"id": int(1), "name": "n", "score": float64(2.5),
-			"tags": []interface{}{"a"}, "meta": map[string]interface{}{"k": "v"},
+			"tags": []any{"a"}, "meta": map[string]any{"k": "v"},
 			"at": now, "anything": struct{}{},
 		}, false},
-		{"optional fields missing", sch, map[string]interface{}{"id": int(1)}, false},
-		{"required-with-default missing", reqWithDefault, map[string]interface{}{}, false},
-		{"required-with-default present wrong type", reqWithDefault, map[string]interface{}{"id": "bad"}, true},
-		{"numeric int into float field", sch, map[string]interface{}{"id": int(1), "score": int(5)}, false},
-		{"numeric int64 into float field", sch, map[string]interface{}{"id": int(1), "score": int64(5)}, false},
-		{"numeric float into int field", sch, map[string]interface{}{"id": float64(5)}, false},
-		{"nested map value", sch, map[string]interface{}{
+		{"optional fields missing", sch, map[string]any{"id": int(1)}, false},
+		{"required-with-default missing", reqWithDefault, map[string]any{}, false},
+		{"required-with-default present wrong type", reqWithDefault, map[string]any{"id": "bad"}, true},
+		{"numeric int into float field", sch, map[string]any{"id": int(1), "score": int(5)}, false},
+		{"numeric int64 into float field", sch, map[string]any{"id": int(1), "score": int64(5)}, false},
+		{"numeric float into int field", sch, map[string]any{"id": float64(5)}, false},
+		{"nested map value", sch, map[string]any{
 			"id":   int(1),
-			"meta": map[string]interface{}{"nested": map[string]interface{}{"deep": 1}},
+			"meta": map[string]any{"nested": map[string]any{"deep": 1}},
 		}, false},
-		{"nil into TypeAny", sch, map[string]interface{}{"id": int(1), "anything": nil}, false},
-		{"strict allows declared only", strictSch, map[string]interface{}{"id": int(1)}, false},
+		{"nil into TypeAny", sch, map[string]any{"id": int(1), "anything": nil}, false},
+		{"strict allows declared only", strictSch, map[string]any{"id": int(1)}, false},
 
-		{"required missing", sch, map[string]interface{}{}, true},
-		{"type mismatch string into int", sch, map[string]interface{}{"id": "nope"}, true},
-		{"type mismatch nil into string", sch, map[string]interface{}{"id": int(1), "name": nil}, true},
-		{"type mismatch array into map", sch, map[string]interface{}{"id": int(1), "meta": []interface{}{1}}, true},
-		{"strict rejects unknown", strictSch, map[string]interface{}{"id": int(1), "extra": 1}, true},
-		{"lenient ignores unknown", sch, map[string]interface{}{"id": int(1), "who": "knows"}, false},
+		{"required missing", sch, map[string]any{}, true},
+		{"type mismatch string into int", sch, map[string]any{"id": "nope"}, true},
+		{"type mismatch nil into string", sch, map[string]any{"id": int(1), "name": nil}, true},
+		{"type mismatch array into map", sch, map[string]any{"id": int(1), "meta": []any{1}}, true},
+		{"strict rejects unknown", strictSch, map[string]any{"id": int(1), "extra": 1}, true},
+		{"lenient ignores unknown", sch, map[string]any{"id": int(1), "who": "knows"}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -188,7 +188,7 @@ func TestSchema_Validate_Aggregates(t *testing.T) {
 		Strict: true,
 	}
 	// "c" is unknown (strict), "a" present but wrong type, "b" missing required.
-	err := sch.Validate(map[string]interface{}{"c": 1, "a": "bad"})
+	err := sch.Validate(map[string]any{"c": 1, "a": "bad"})
 	require.Error(t, err)
 
 	msg := err.Error()

@@ -24,7 +24,7 @@ type ExprBridge struct {
 	// preprocessing result per input expression, avoiding repeated
 	// ToUpper/Contains/regex scans on every row.
 	preprocessCache sync.Map
-	exprEnv         map[string]interface{}
+	exprEnv         map[string]any
 	mutex           sync.RWMutex // Add read-write lock to protect concurrent access
 }
 
@@ -32,7 +32,7 @@ type ExprBridge struct {
 func NewExprBridge() *ExprBridge {
 	return &ExprBridge{
 		streamSQLFunctions: make(map[string]Function), // Initialize as empty, dynamically get
-		exprEnv:            make(map[string]interface{}),
+		exprEnv:            make(map[string]any),
 	}
 }
 
@@ -51,8 +51,8 @@ func (bridge *ExprBridge) RegisterStreamSQLFunctionsToExpr() []expr.Option {
 		// To avoid closure issues, use immediately executed function
 		function := fn
 
-		wrappedFunc := func(function Function) func(params ...interface{}) (interface{}, error) {
-			return func(params ...interface{}) (interface{}, error) {
+		wrappedFunc := func(function Function) func(params ...any) (any, error) {
+			return func(params ...any) (any, error) {
 				ctx := &FunctionContext{
 					Data: bridge.exprEnv,
 				}
@@ -79,12 +79,12 @@ func (bridge *ExprBridge) RegisterStreamSQLFunctionsToExpr() []expr.Option {
 }
 
 // CreateEnhancedExprEnvironment creates enhanced expr execution environment
-func (bridge *ExprBridge) CreateEnhancedExprEnvironment(data map[string]interface{}) map[string]interface{} {
+func (bridge *ExprBridge) CreateEnhancedExprEnvironment(data map[string]any) map[string]any {
 	bridge.mutex.RLock()
 	defer bridge.mutex.RUnlock()
 
 	// Merge data and function environment
-	env := make(map[string]interface{})
+	env := make(map[string]any)
 
 	// Add user data
 	for k, v := range data {
@@ -99,8 +99,8 @@ func (bridge *ExprBridge) CreateEnhancedExprEnvironment(data map[string]interfac
 		// Ensure closure captures correct function instance
 		function := fn
 
-		wrappedFunc := func(function Function) func(params ...interface{}) (interface{}, error) {
-			return func(params ...interface{}) (interface{}, error) {
+		wrappedFunc := func(function Function) func(params ...any) (any, error) {
+			return func(params ...any) (any, error) {
 				ctx := &FunctionContext{
 					Data: data, // Use current data context
 				}
@@ -158,7 +158,7 @@ func (bridge *ExprBridge) preprocessCached(expression string) string {
 }
 
 // CompileExpressionWithStreamSQLFunctions 编译表达式，包含StreamSQL函数
-func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression string, dataType interface{}) (*vm.Program, error) {
+func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression string, dataType any) (*vm.Program, error) {
 	// Cache compiled programs by expression source. A program is reusable while
 	// the env type is unchanged, so the entry stores the reflect.Type it was
 	// compiled against and recompiles only if a different type appears. Keying
@@ -216,7 +216,7 @@ type progCacheEntry struct {
 }
 
 // EvaluateExpression 评估表达式，自动选择最合适的引擎
-func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]interface{}) (interface{}, error) {
+func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]any) (any, error) {
 	// 预处理（反引号 / LIKE / IS NULL）：仅依赖表达式文本，按输入表达式缓存。
 	expression = bridge.preprocessCached(expression)
 
@@ -274,7 +274,7 @@ func (bridge *ExprBridge) usesExprFunction(expression string) bool {
 }
 
 // isStringConcatenationExpression 检查是否是字符串拼接表达式
-func (bridge *ExprBridge) isStringConcatenationExpression(expression string, data map[string]interface{}) bool {
+func (bridge *ExprBridge) isStringConcatenationExpression(expression string, data map[string]any) bool {
 	// 如果表达式包含 + 操作符
 	if !strings.Contains(expression, "+") {
 		return false
@@ -304,7 +304,7 @@ func (bridge *ExprBridge) isStringConcatenationExpression(expression string, dat
 }
 
 // fallbackToCustomExpr 回退到自定义表达式系统
-func (bridge *ExprBridge) fallbackToCustomExpr(expression string, data map[string]interface{}) (interface{}, error) {
+func (bridge *ExprBridge) fallbackToCustomExpr(expression string, data map[string]any) (any, error) {
 	// 尝试处理字符串拼接表达式
 	result, err := bridge.evaluateStringConcatenation(expression, data)
 	if err == nil {
@@ -321,7 +321,7 @@ func (bridge *ExprBridge) fallbackToCustomExpr(expression string, data map[strin
 }
 
 // evaluateStringConcatenation 处理字符串拼接表达式
-func (bridge *ExprBridge) evaluateStringConcatenation(expression string, data map[string]interface{}) (interface{}, error) {
+func (bridge *ExprBridge) evaluateStringConcatenation(expression string, data map[string]any) (any, error) {
 	// 检查是否是字符串拼接表达式 (包含 + 和字符串字面量)
 	if !strings.Contains(expression, "+") {
 		return nil, fmt.Errorf("not a concatenation expression")
@@ -360,7 +360,7 @@ func (bridge *ExprBridge) evaluateStringConcatenation(expression string, data ma
 }
 
 // evaluateSimpleNumericExpression 处理简单的数值表达式
-func (bridge *ExprBridge) evaluateSimpleNumericExpression(expression string, data map[string]interface{}) (interface{}, error) {
+func (bridge *ExprBridge) evaluateSimpleNumericExpression(expression string, data map[string]any) (any, error) {
 	expression = strings.TrimSpace(expression)
 
 	// 处理简单的字段引用
@@ -646,7 +646,7 @@ func (bridge *ExprBridge) matchesLikePattern(text, pattern string) bool {
 }
 
 // toFloat64 将值转换为float64
-func (bridge *ExprBridge) toFloat64(val interface{}) (float64, error) {
+func (bridge *ExprBridge) toFloat64(val any) (float64, error) {
 	switch v := val.(type) {
 	case float64:
 		return v, nil
@@ -666,17 +666,17 @@ func (bridge *ExprBridge) toFloat64(val interface{}) (float64, error) {
 }
 
 // GetFunctionInfo 获取函数信息，统一两个系统的函数
-func (bridge *ExprBridge) GetFunctionInfo() map[string]interface{} {
+func (bridge *ExprBridge) GetFunctionInfo() map[string]any {
 	bridge.mutex.RLock()
 	defer bridge.mutex.RUnlock()
 
-	info := make(map[string]interface{})
+	info := make(map[string]any)
 
 	// StreamSQL函数信息 - 动态获取所有当前注册的函数
-	streamSQLFuncs := make(map[string]interface{})
+	streamSQLFuncs := make(map[string]any)
 	allFunctions := ListAll() // 动态获取所有注册的函数
 	for name, fn := range allFunctions {
-		streamSQLFuncs[name] = map[string]interface{}{
+		streamSQLFuncs[name] = map[string]any{
 			"name":        fn.GetName(),
 			"type":        fn.GetType(),
 			"category":    fn.GetCategory(),
@@ -687,53 +687,53 @@ func (bridge *ExprBridge) GetFunctionInfo() map[string]interface{} {
 	info["streamsql"] = streamSQLFuncs
 
 	// expr-lang/expr内置函数（列出主要的）
-	exprBuiltins := map[string]interface{}{
+	exprBuiltins := map[string]any{
 		// 数学函数
-		"abs":   map[string]interface{}{"category": "math", "description": "absolute value", "source": "expr-lang"},
-		"ceil":  map[string]interface{}{"category": "math", "description": "ceiling", "source": "expr-lang"},
-		"floor": map[string]interface{}{"category": "math", "description": "floor", "source": "expr-lang"},
-		"round": map[string]interface{}{"category": "math", "description": "round", "source": "expr-lang"},
-		"max":   map[string]interface{}{"category": "math", "description": "maximum", "source": "expr-lang"},
-		"min":   map[string]interface{}{"category": "math", "description": "minimum", "source": "expr-lang"},
+		"abs":   map[string]any{"category": "math", "description": "absolute value", "source": "expr-lang"},
+		"ceil":  map[string]any{"category": "math", "description": "ceiling", "source": "expr-lang"},
+		"floor": map[string]any{"category": "math", "description": "floor", "source": "expr-lang"},
+		"round": map[string]any{"category": "math", "description": "round", "source": "expr-lang"},
+		"max":   map[string]any{"category": "math", "description": "maximum", "source": "expr-lang"},
+		"min":   map[string]any{"category": "math", "description": "minimum", "source": "expr-lang"},
 
 		// 字符串函数
-		"trim":      map[string]interface{}{"category": "string", "description": "trim whitespace", "source": "expr-lang"},
-		"upper":     map[string]interface{}{"category": "string", "description": "to uppercase", "source": "expr-lang"},
-		"lower":     map[string]interface{}{"category": "string", "description": "to lowercase", "source": "expr-lang"},
-		"split":     map[string]interface{}{"category": "string", "description": "split string", "source": "expr-lang"},
-		"replace":   map[string]interface{}{"category": "string", "description": "replace substring", "source": "expr-lang"},
-		"indexOf":   map[string]interface{}{"category": "string", "description": "find index", "source": "expr-lang"},
-		"hasPrefix": map[string]interface{}{"category": "string", "description": "check prefix", "source": "expr-lang"},
-		"hasSuffix": map[string]interface{}{"category": "string", "description": "check suffix", "source": "expr-lang"},
+		"trim":      map[string]any{"category": "string", "description": "trim whitespace", "source": "expr-lang"},
+		"upper":     map[string]any{"category": "string", "description": "to uppercase", "source": "expr-lang"},
+		"lower":     map[string]any{"category": "string", "description": "to lowercase", "source": "expr-lang"},
+		"split":     map[string]any{"category": "string", "description": "split string", "source": "expr-lang"},
+		"replace":   map[string]any{"category": "string", "description": "replace substring", "source": "expr-lang"},
+		"indexOf":   map[string]any{"category": "string", "description": "find index", "source": "expr-lang"},
+		"hasPrefix": map[string]any{"category": "string", "description": "check prefix", "source": "expr-lang"},
+		"hasSuffix": map[string]any{"category": "string", "description": "check suffix", "source": "expr-lang"},
 
 		// 数组/集合函数
-		"all":     map[string]interface{}{"category": "array", "description": "all elements satisfy", "source": "expr-lang"},
-		"any":     map[string]interface{}{"category": "array", "description": "any element satisfies", "source": "expr-lang"},
-		"filter":  map[string]interface{}{"category": "array", "description": "filter elements", "source": "expr-lang"},
-		"map":     map[string]interface{}{"category": "array", "description": "transform elements", "source": "expr-lang"},
-		"find":    map[string]interface{}{"category": "array", "description": "find element", "source": "expr-lang"},
-		"count":   map[string]interface{}{"category": "array", "description": "count elements", "source": "expr-lang"},
-		"concat":  map[string]interface{}{"category": "array", "description": "concatenate arrays", "source": "expr-lang"},
-		"flatten": map[string]interface{}{"category": "array", "description": "flatten array", "source": "expr-lang"},
+		"all":     map[string]any{"category": "array", "description": "all elements satisfy", "source": "expr-lang"},
+		"any":     map[string]any{"category": "array", "description": "any element satisfies", "source": "expr-lang"},
+		"filter":  map[string]any{"category": "array", "description": "filter elements", "source": "expr-lang"},
+		"map":     map[string]any{"category": "array", "description": "transform elements", "source": "expr-lang"},
+		"find":    map[string]any{"category": "array", "description": "find element", "source": "expr-lang"},
+		"count":   map[string]any{"category": "array", "description": "count elements", "source": "expr-lang"},
+		"concat":  map[string]any{"category": "array", "description": "concatenate arrays", "source": "expr-lang"},
+		"flatten": map[string]any{"category": "array", "description": "flatten array", "source": "expr-lang"},
 
 		// 时间函数
-		"now":      map[string]interface{}{"category": "datetime", "description": "current time", "source": "expr-lang"},
-		"duration": map[string]interface{}{"category": "datetime", "description": "parse duration", "source": "expr-lang"},
-		"date":     map[string]interface{}{"category": "datetime", "description": "parse date", "source": "expr-lang"},
+		"now":      map[string]any{"category": "datetime", "description": "current time", "source": "expr-lang"},
+		"duration": map[string]any{"category": "datetime", "description": "parse duration", "source": "expr-lang"},
+		"date":     map[string]any{"category": "datetime", "description": "parse date", "source": "expr-lang"},
 
 		// 类型转换
-		"int":    map[string]interface{}{"category": "conversion", "description": "to integer", "source": "expr-lang"},
-		"float":  map[string]interface{}{"category": "conversion", "description": "to float", "source": "expr-lang"},
-		"string": map[string]interface{}{"category": "conversion", "description": "to string", "source": "expr-lang"},
-		"type":   map[string]interface{}{"category": "conversion", "description": "get type", "source": "expr-lang"},
+		"int":    map[string]any{"category": "conversion", "description": "to integer", "source": "expr-lang"},
+		"float":  map[string]any{"category": "conversion", "description": "to float", "source": "expr-lang"},
+		"string": map[string]any{"category": "conversion", "description": "to string", "source": "expr-lang"},
+		"type":   map[string]any{"category": "conversion", "description": "get type", "source": "expr-lang"},
 
 		// JSON处理
-		"toJSON":   map[string]interface{}{"category": "json", "description": "to JSON", "source": "expr-lang"},
-		"fromJSON": map[string]interface{}{"category": "json", "description": "from JSON", "source": "expr-lang"},
+		"toJSON":   map[string]any{"category": "json", "description": "to JSON", "source": "expr-lang"},
+		"fromJSON": map[string]any{"category": "json", "description": "from JSON", "source": "expr-lang"},
 
 		// Base64编码
-		"toBase64":   map[string]interface{}{"category": "encoding", "description": "to Base64", "source": "expr-lang"},
-		"fromBase64": map[string]interface{}{"category": "encoding", "description": "from Base64", "source": "expr-lang"},
+		"toBase64":   map[string]any{"category": "encoding", "description": "to Base64", "source": "expr-lang"},
+		"fromBase64": map[string]any{"category": "encoding", "description": "from Base64", "source": "expr-lang"},
 	}
 	info["expr-lang"] = exprBuiltins
 
@@ -741,7 +741,7 @@ func (bridge *ExprBridge) GetFunctionInfo() map[string]interface{} {
 }
 
 // ResolveFunction 解析函数调用，优先使用StreamSQL函数
-func (bridge *ExprBridge) ResolveFunction(name string) (interface{}, bool, string) {
+func (bridge *ExprBridge) ResolveFunction(name string) (any, bool, string) {
 	bridge.mutex.RLock()
 	defer bridge.mutex.RUnlock()
 
@@ -821,11 +821,11 @@ func GetExprBridge() *ExprBridge {
 }
 
 // 便捷函数：直接评估表达式
-func EvaluateWithBridge(expression string, data map[string]interface{}) (interface{}, error) {
+func EvaluateWithBridge(expression string, data map[string]any) (any, error) {
 	return GetExprBridge().EvaluateExpression(expression, data)
 }
 
 // 便捷函数：获取所有可用函数信息
-func GetAllAvailableFunctions() map[string]interface{} {
+func GetAllAvailableFunctions() map[string]any {
 	return GetExprBridge().GetFunctionInfo()
 }

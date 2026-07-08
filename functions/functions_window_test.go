@@ -23,8 +23,8 @@ func TestNewWindowFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
 		funcName string
-		args     []interface{}
-		want     interface{}
+		args     []any
+		want     any
 		wantErr  bool
 		setup    func(fn AggregatorFunction)
 	}{
@@ -32,7 +32,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "first_value basic",
 			funcName: "first_value",
-			args:     []interface{}{"test"},
+			args:     []any{"test"},
 			want:     "first",
 			wantErr:  false,
 			setup: func(fn AggregatorFunction) {
@@ -44,7 +44,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "first_value empty",
 			funcName: "first_value",
-			args:     []interface{}{"test"},
+			args:     []any{"test"},
 			want:     nil,
 			wantErr:  false,
 			setup:    func(fn AggregatorFunction) {},
@@ -54,7 +54,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "last_value basic",
 			funcName: "last_value",
-			args:     []interface{}{"test"},
+			args:     []any{"test"},
 			want:     "third",
 			wantErr:  false,
 			setup: func(fn AggregatorFunction) {
@@ -66,7 +66,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "last_value empty",
 			funcName: "last_value",
-			args:     []interface{}{"test"},
+			args:     []any{"test"},
 			want:     nil,
 			wantErr:  false,
 			setup:    func(fn AggregatorFunction) {},
@@ -76,7 +76,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "lag default offset",
 			funcName: "lag",
-			args:     []interface{}{"test"},
+			args:     []any{"test"},
 			want:     "second",
 			wantErr:  false,
 			setup: func(fn AggregatorFunction) {
@@ -88,7 +88,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "lag with offset 2",
 			funcName: "lag",
-			args:     []interface{}{"test", 2},
+			args:     []any{"test", 2},
 			want:     "first",
 			wantErr:  false,
 			setup: func(fn AggregatorFunction) {
@@ -100,7 +100,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "lag with default value",
 			funcName: "lag",
-			args:     []interface{}{"test", 5, "default"},
+			args:     []any{"test", 5, "default"},
 			want:     "default",
 			wantErr:  false,
 			setup: func(fn AggregatorFunction) {
@@ -111,7 +111,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "lag invalid offset type",
 			funcName: "lag",
-			args:     []interface{}{"test", "invalid"},
+			args:     []any{"test", "invalid"},
 			wantErr:  true,
 			setup:    func(fn AggregatorFunction) {},
 		},
@@ -120,7 +120,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "lead default offset",
 			funcName: "lead",
-			args:     []interface{}{"test"},
+			args:     []any{"test"},
 			want:     nil, // Lead函数简化实现返回nil
 			wantErr:  false,
 			setup: func(fn AggregatorFunction) {
@@ -132,7 +132,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "lead with default value",
 			funcName: "lead",
-			args:     []interface{}{"test", 1, "default"},
+			args:     []any{"test", 1, "default"},
 			want:     "default",
 			wantErr:  false,
 			setup:    func(fn AggregatorFunction) {},
@@ -140,7 +140,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "lead invalid offset type",
 			funcName: "lead",
-			args:     []interface{}{"test", "invalid"},
+			args:     []any{"test", "invalid"},
 			wantErr:  true,
 			setup:    func(fn AggregatorFunction) {},
 		},
@@ -149,7 +149,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "nth_value first",
 			funcName: "nth_value",
-			args:     []interface{}{"test", 1},
+			args:     []any{"test", 1},
 			want:     "first",
 			wantErr:  false,
 			setup: func(fn AggregatorFunction) {
@@ -161,7 +161,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "nth_value second",
 			funcName: "nth_value",
-			args:     []interface{}{"test", 2},
+			args:     []any{"test", 2},
 			want:     "second",
 			wantErr:  false,
 			setup: func(fn AggregatorFunction) {
@@ -173,7 +173,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "nth_value out of range",
 			funcName: "nth_value",
-			args:     []interface{}{"test", 5},
+			args:     []any{"test", 5},
 			want:     nil,
 			wantErr:  false,
 			setup: func(fn AggregatorFunction) {
@@ -184,21 +184,21 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "nth_value invalid n type",
 			funcName: "nth_value",
-			args:     []interface{}{"test", "invalid"},
+			args:     []any{"test", "invalid"},
 			wantErr:  true,
 			setup:    func(fn AggregatorFunction) {},
 		},
 		{
 			name:     "nth_value zero n",
 			funcName: "nth_value",
-			args:     []interface{}{"test", 0},
+			args:     []any{"test", 0},
 			wantErr:  true,
 			setup:    func(fn AggregatorFunction) {},
 		},
 		{
 			name:     "nth_value negative n",
 			funcName: "nth_value",
-			args:     []interface{}{"test", -1},
+			args:     []any{"test", -1},
 			wantErr:  true,
 			setup:    func(fn AggregatorFunction) {},
 		},
@@ -281,7 +281,7 @@ func TestWindowFunctionBasics(t *testing.T) {
 		}
 
 		// 测试行号递增
-		result1, err := rowNumFunc.Execute(nil, []interface{}{})
+		result1, err := rowNumFunc.Execute(nil, []any{})
 		if err != nil {
 			t.Errorf("Execute() error = %v", err)
 		}
@@ -289,7 +289,7 @@ func TestWindowFunctionBasics(t *testing.T) {
 			t.Errorf("First call should return 1, got %v", result1)
 		}
 
-		result2, err := rowNumFunc.Execute(nil, []interface{}{})
+		result2, err := rowNumFunc.Execute(nil, []any{})
 		if err != nil {
 			t.Errorf("Execute() error = %v", err)
 		}
@@ -312,15 +312,15 @@ func TestWindowFunctionBasics(t *testing.T) {
 
 		// 测试无窗口信息时的行为
 		ctx := &FunctionContext{
-			Data: map[string]interface{}{},
+			Data: map[string]any{},
 		}
-		_, err := windowStartFunc.Execute(ctx, []interface{}{})
+		_, err := windowStartFunc.Execute(ctx, []any{})
 		if err != nil {
 			t.Errorf("Execute() error = %v", err)
 		}
 		// 无窗口信息时应该返回nil或默认值
 
-		_, err = windowEndFunc.Execute(ctx, []interface{}{})
+		_, err = windowEndFunc.Execute(ctx, []any{})
 		if err != nil {
 			t.Errorf("Execute() error = %v", err)
 		}
@@ -373,7 +373,7 @@ func TestExpressionFunction(t *testing.T) {
 	ctx := &FunctionContext{}
 
 	// 测试Execute方法
-	_, err := fn.Execute(ctx, []interface{}{"x + y", 1, 2})
+	_, err := fn.Execute(ctx, []any{"x + y", 1, 2})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -405,7 +405,7 @@ func TestExpressionAggregatorFunction(t *testing.T) {
 	ctx := &FunctionContext{}
 
 	// 测试Execute方法
-	_, err := fn.Execute(ctx, []interface{}{"sum(x)", 1, 2, 3})
+	_, err := fn.Execute(ctx, []any{"sum(x)", 1, 2, 3})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -515,10 +515,10 @@ func TestNthValueFunction(t *testing.T) {
 func TestWindowFunctionEdgeCases(t *testing.T) {
 	// LeadFunction Validate/Execute边界
 	lead := NewLeadFunction()
-	if err := lead.Validate([]interface{}{}); err == nil {
+	if err := lead.Validate([]any{}); err == nil {
 		t.Error("LeadFunction.Validate should fail for insufficient args")
 	}
-	_, err := lead.Execute(nil, []interface{}{})
+	_, err := lead.Execute(nil, []any{})
 	if err == nil {
 		t.Error("LeadFunction.Execute should fail for empty args")
 	}
@@ -528,10 +528,10 @@ func TestWindowFunctionEdgeCases(t *testing.T) {
 
 	// NthValueFunction Validate/Execute边界
 	nth := NewNthValueFunction()
-	if err := nth.Validate([]interface{}{}); err == nil {
+	if err := nth.Validate([]any{}); err == nil {
 		t.Error("NthValueFunction.Validate should fail for insufficient args")
 	}
-	_, err = nth.Execute(nil, []interface{}{})
+	_, err = nth.Execute(nil, []any{})
 	if err == nil {
 		t.Error("NthValueFunction.Execute should fail for empty args")
 	}
@@ -541,10 +541,10 @@ func TestWindowFunctionEdgeCases(t *testing.T) {
 
 	// FirstValueFunction Validate/Execute边界
 	first := NewFirstValueFunction()
-	if err := first.Validate([]interface{}{}); err == nil {
+	if err := first.Validate([]any{}); err == nil {
 		t.Error("FirstValueFunction.Validate should fail for insufficient args")
 	}
-	_, err = first.Execute(nil, []interface{}{})
+	_, err = first.Execute(nil, []any{})
 	if err == nil {
 		t.Error("FirstValueFunction.Execute should fail for empty args")
 	}
@@ -554,10 +554,10 @@ func TestWindowFunctionEdgeCases(t *testing.T) {
 
 	// LastValueFunction Validate/Execute边界
 	last := NewLastValueFunction()
-	if err := last.Validate([]interface{}{}); err == nil {
+	if err := last.Validate([]any{}); err == nil {
 		t.Error("LastValueFunction.Validate should fail for insufficient args")
 	}
-	_, err = last.Execute(nil, []interface{}{})
+	_, err = last.Execute(nil, []any{})
 	if err == nil {
 		t.Error("LastValueFunction.Execute should fail for empty args")
 	}

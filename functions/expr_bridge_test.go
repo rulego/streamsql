@@ -13,7 +13,7 @@ import (
 // data-capturing closures). Before the fix, expr() silently returned nil.
 func TestExprFunctionGetsRowData(t *testing.T) {
 	bridge := NewExprBridge()
-	data := map[string]interface{}{"temperature": 99.0, "humidity": 60.0}
+	data := map[string]any{"temperature": 99.0, "humidity": 60.0}
 
 	// Field reference inside expr() must resolve against the row.
 	got, err := bridge.EvaluateExpression("expr('temperature')", data)
@@ -36,7 +36,7 @@ func TestExprBridge(t *testing.T) {
 
 	t.Run("StreamSQL Functions Available", func(t *testing.T) {
 		// 测试StreamSQL函数是否可用
-		data := map[string]interface{}{
+		data := map[string]any{
 			"temperature": 25.5,
 			"humidity":    60,
 		}
@@ -53,7 +53,7 @@ func TestExprBridge(t *testing.T) {
 	})
 
 	t.Run("Expr-Lang Functions Available", func(t *testing.T) {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"numbers": []int{1, 2, 3, 4, 5},
 			"text":    "Hello World",
 		}
@@ -70,7 +70,7 @@ func TestExprBridge(t *testing.T) {
 	})
 
 	t.Run("Mixed Functions", func(t *testing.T) {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"values": []float64{-3.5, 2.1, -1.8, 4.2},
 		}
 
@@ -102,13 +102,13 @@ func TestExprBridge(t *testing.T) {
 		info := bridge.GetFunctionInfo()
 
 		// 验证包含StreamSQL函数信息
-		streamSQLFuncs, ok := info["streamsql"].(map[string]interface{})
+		streamSQLFuncs, ok := info["streamsql"].(map[string]any)
 		assert.True(t, ok)
 		assert.Contains(t, streamSQLFuncs, "abs")
 		assert.Contains(t, streamSQLFuncs, "encode")
 
 		// 验证包含expr-lang函数信息
-		exprLangFuncs, ok := info["expr-lang"].(map[string]interface{})
+		exprLangFuncs, ok := info["expr-lang"].(map[string]any)
 		assert.True(t, ok)
 		assert.Contains(t, exprLangFuncs, "trim")
 		assert.Contains(t, exprLangFuncs, "filter")
@@ -116,7 +116,7 @@ func TestExprBridge(t *testing.T) {
 }
 
 func TestEvaluateWithBridge(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"x": 3.5,
 		"y": -2.1,
 	}
@@ -140,21 +140,21 @@ func TestGetAllAvailableFunctions(t *testing.T) {
 	assert.Contains(t, info, "expr-lang")
 
 	// 验证函数数量合理
-	streamSQLFuncs := info["streamsql"].(map[string]interface{})
+	streamSQLFuncs := info["streamsql"].(map[string]any)
 	t.Logf("StreamSQL functions count: %d", len(streamSQLFuncs))
 	// for name := range streamSQLFuncs {
 	// 	t.Logf("StreamSQL function: %s", name)
 	// }
 	assert.GreaterOrEqual(t, len(streamSQLFuncs), 1) // 至少应该有一个函数
 
-	exprLangFuncs := info["expr-lang"].(map[string]interface{})
+	exprLangFuncs := info["expr-lang"].(map[string]any)
 	t.Logf("Expr-lang functions count: %d", len(exprLangFuncs))
 	assert.GreaterOrEqual(t, len(exprLangFuncs), 1) // 至少应该有一个函数
 }
 
 func TestFunctionConflictResolution(t *testing.T) {
 	bridge := NewExprBridge()
-	data := map[string]interface{}{
+	data := map[string]any{
 		"value": -5.5,
 	}
 
@@ -176,7 +176,7 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 	bridge := NewExprBridge()
 
 	t.Run("String Concatenation Detection", func(t *testing.T) {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"name": "John",
 			"age":  25,
 		}
@@ -190,7 +190,7 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 	})
 
 	t.Run("Fallback to Custom Expression", func(t *testing.T) {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"text": "hello",
 		}
 
@@ -201,7 +201,7 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 	})
 
 	t.Run("String Concatenation Evaluation", func(t *testing.T) {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"first":  "Hello",
 			"second": "World",
 		}
@@ -213,7 +213,7 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 	})
 
 	t.Run("Simple Numeric Expression", func(t *testing.T) {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"x": 10,
 			"y": 5,
 		}
@@ -324,77 +324,77 @@ func TestExprBridgeComplexExpressions(t *testing.T) {
 	tests := []struct {
 		name       string
 		expression string
-		data       map[string]interface{}
-		expected   interface{}
+		data       map[string]any
+		expected   any
 		wantErr    bool
 	}{
 		{
 			name:       "math_and_string",
 			expression: "length('test')",
-			data:       map[string]interface{}{},
+			data:       map[string]any{},
 			expected:   4,
 			wantErr:    false,
 		},
 		{
 			name:       "nested_function_calls",
 			expression: "abs(sqrt(16) - 5)",
-			data:       map[string]interface{}{},
+			data:       map[string]any{},
 			expected:   float64(1),
 			wantErr:    false,
 		},
 		{
 			name:       "array_operations",
 			expression: "array_length([1, 2, 3, 4])",
-			data:       map[string]interface{}{},
+			data:       map[string]any{},
 			expected:   4,
 			wantErr:    false,
 		},
 		{
 			name:       "string_with_variables",
 			expression: "upper(name)",
-			data:       map[string]interface{}{"name": "john"},
+			data:       map[string]any{"name": "john"},
 			expected:   "JOHN",
 			wantErr:    false,
 		},
 		{
 			name:       "conditional_expression",
 			expression: "age > 18 ? 'adult' : 'minor'",
-			data:       map[string]interface{}{"age": 25},
+			data:       map[string]any{"age": 25},
 			expected:   "adult",
 			wantErr:    false,
 		},
 		{
 			name:       "complex_math",
 			expression: "power(2, 3) + mod(10, 3)",
-			data:       map[string]interface{}{},
+			data:       map[string]any{},
 			expected:   float64(9),
 			wantErr:    false,
 		},
 		{
 			name:       "array_contains_check",
 			expression: "array_contains([1, 2, 3], 2)",
-			data:       map[string]interface{}{},
+			data:       map[string]any{},
 			expected:   true,
 			wantErr:    false,
 		},
 		{
 			name:       "string_concatenation",
 			expression: "concat(first_name, ' ', last_name)",
-			data:       map[string]interface{}{"first_name": "John", "last_name": "Doe"},
+			data:       map[string]any{"first_name": "John", "last_name": "Doe"},
 			expected:   "John Doe",
 			wantErr:    false,
 		},
 		{
 			name:       "invalid_function",
 			expression: "nonexistent_function(1)",
-			data:       map[string]interface{}{},
+			data:       map[string]any{},
 			expected:   nil,
 			wantErr:    true,
 		},
 		{
 			name:       "invalid_syntax",
 			expression: "length(",
-			data:       map[string]interface{}{},
+			data:       map[string]any{},
 			expected:   nil,
 			wantErr:    true,
 		},

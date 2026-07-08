@@ -30,7 +30,7 @@ func TestCustomMathFunctions(t *testing.T) {
 		"数学函数",
 		"计算平方",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			val := cast.ToFloat64(args[0])
 			return val * val, nil
 		},
@@ -45,7 +45,7 @@ func TestCustomMathFunctions(t *testing.T) {
 		"几何数学",
 		"计算两点间距离",
 		4, 4,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			x1 := cast.ToFloat64(args[0])
 			y1 := cast.ToFloat64(args[1])
 			x2 := cast.ToFloat64(args[2])
@@ -75,13 +75,13 @@ func TestCustomMathFunctions(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
-	ssql.AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := map[string]interface{}{
+	testData := map[string]any{
 		"device": "sensor1",
 		"value":  5.0,
 		"x1":     0.0,
@@ -100,7 +100,7 @@ func TestCustomMathFunctions(t *testing.T) {
 	// 验证结果
 	select {
 	case result := <-resultChan:
-		resultSlice, ok := result.([]map[string]interface{})
+		resultSlice, ok := result.([]map[string]any)
 		assert.True(t, ok)
 		assert.Len(t, resultSlice, 1)
 
@@ -122,7 +122,7 @@ func TestCustomStringFunctions(t *testing.T) {
 		"字符串函数",
 		"反转字符串",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			str := cast.ToString(args[0])
 
 			runes := []rune(str)
@@ -143,12 +143,12 @@ func TestCustomStringFunctions(t *testing.T) {
 		"JSON处理",
 		"从JSON字符串中提取字段值",
 		2, 2,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			jsonStr := cast.ToString(args[0])
 
 			key := cast.ToString(args[1])
 
-			var data map[string]interface{}
+			var data map[string]any
 			if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
 				return nil, fmt.Errorf("invalid JSON: %v", err)
 			}
@@ -180,13 +180,13 @@ func TestCustomStringFunctions(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
-	ssql.AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := map[string]interface{}{
+	testData := map[string]any{
 		"device":   "sensor1",
 		"metadata": `{"version":"1.0","type":"temperature"}`,
 	}
@@ -197,7 +197,7 @@ func TestCustomStringFunctions(t *testing.T) {
 	// 验证结果
 	select {
 	case result := <-resultChan:
-		resultSlice, ok := result.([]map[string]interface{})
+		resultSlice, ok := result.([]map[string]any)
 		assert.True(t, ok)
 		assert.Len(t, resultSlice, 1)
 
@@ -219,7 +219,7 @@ func TestCustomConversionFunctions(t *testing.T) {
 		"网络转换",
 		"将IP地址转换为整数",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			ipStr := cast.ToString(args[0])
 
 			ip := net.ParseIP(ipStr)
@@ -245,7 +245,7 @@ func TestCustomConversionFunctions(t *testing.T) {
 		"数据格式化",
 		"格式化字节大小为人类可读格式",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			bytes := cast.ToFloat64(args[0])
 
 			units := []string{"B", "KB", "MB", "GB", "TB"}
@@ -262,13 +262,13 @@ func TestCustomConversionFunctions(t *testing.T) {
 	defer functions.Unregister("format_bytes")
 
 	// 测试函数直接调用
-	ctx := &functions.FunctionContext{Data: make(map[string]interface{})}
+	ctx := &functions.FunctionContext{Data: make(map[string]any)}
 
 	// 测试IP转换
 	ipFunc, exists := functions.Get("ip_to_num")
 	assert.True(t, exists)
 
-	result, err := ipFunc.Execute(ctx, []interface{}{"192.168.1.100"})
+	result, err := ipFunc.Execute(ctx, []any{"192.168.1.100"})
 	assert.NoError(t, err)
 	expectedIP := int64(192)<<24 + int64(168)<<16 + int64(1)<<8 + int64(100)
 	assert.Equal(t, expectedIP, result)
@@ -277,7 +277,7 @@ func TestCustomConversionFunctions(t *testing.T) {
 	bytesFunc, exists := functions.Get("format_bytes")
 	assert.True(t, exists)
 
-	result, err = bytesFunc.Execute(ctx, []interface{}{1073741824}) // 1GB
+	result, err = bytesFunc.Execute(ctx, []any{1073741824}) // 1GB
 	assert.NoError(t, err)
 	assert.Equal(t, "1.00 GB", result)
 }
@@ -315,13 +315,13 @@ func TestCustomAggregateFunctions(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
-	ssql.AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1", "value": 2.0, "category": "A"},
 		{"device": "sensor1", "value": 8.0, "category": "A"},
 		{"device": "sensor1", "value": 32.0, "category": "B"},
@@ -339,7 +339,7 @@ func TestCustomAggregateFunctions(t *testing.T) {
 	// 验证结果
 	select {
 	case result := <-resultChan:
-		resultSlice, ok := result.([]map[string]interface{})
+		resultSlice, ok := result.([]map[string]any)
 		assert.True(t, ok)
 		assert.Len(t, resultSlice, 1)
 
@@ -377,11 +377,11 @@ func NewGeometricMeanFunction() *GeometricMeanFunction {
 	}
 }
 
-func (f *GeometricMeanFunction) Validate(args []interface{}) error {
+func (f *GeometricMeanFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *GeometricMeanFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+func (f *GeometricMeanFunction) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
 	return nil, nil // 实际逻辑在聚合器中
 }
 
@@ -394,13 +394,13 @@ func (g *GeometricMeanAggregator) New() aggregator.AggregatorFunction {
 	return &GeometricMeanAggregator{values: make([]float64, 0)}
 }
 
-func (g *GeometricMeanAggregator) Add(value interface{}) {
+func (g *GeometricMeanAggregator) Add(value any) {
 	if val := cast.ToFloat64(value); val > 0 {
 		g.values = append(g.values, val)
 	}
 }
 
-func (g *GeometricMeanAggregator) Result() interface{} {
+func (g *GeometricMeanAggregator) Result() any {
 	if len(g.values) == 0 {
 		return 0.0
 	}
@@ -430,11 +430,11 @@ func NewModeFunction() *ModeFunction {
 	}
 }
 
-func (f *ModeFunction) Validate(args []interface{}) error {
+func (f *ModeFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ModeFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ModeFunction) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
 	return nil, nil // 实际逻辑在聚合器中
 }
 
@@ -447,18 +447,18 @@ func (m *ModeAggregator) New() aggregator.AggregatorFunction {
 	return &ModeAggregator{counts: make(map[string]int)}
 }
 
-func (m *ModeAggregator) Add(value interface{}) {
+func (m *ModeAggregator) Add(value any) {
 	key := fmt.Sprintf("%v", value)
 	m.counts[key]++
 }
 
-func (m *ModeAggregator) Result() interface{} {
+func (m *ModeAggregator) Result() any {
 	if len(m.counts) == 0 {
 		return nil
 	}
 
 	maxCount := 0
-	var mode interface{}
+	var mode any
 
 	for key, count := range m.counts {
 		if count > maxCount {
@@ -479,7 +479,7 @@ func TestFunctionManagement(t *testing.T) {
 		"测试函数",
 		"用于测试的函数",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			return args[0], nil
 		},
 	)
@@ -524,7 +524,7 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 		"温度转换",
 		"摄氏度转华氏度",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			celsius := cast.ToFloat64(args[0])
 			fahrenheit := celsius*9/5 + 32
 			return fahrenheit, nil
@@ -550,13 +550,13 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
-	ssql.AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据（摄氏度）
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "thermometer", "temperature": 0.0},   // 32°F
 		{"device": "thermometer", "temperature": 100.0}, // 212°F
 	}
@@ -572,7 +572,7 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 	// 验证结果
 	select {
 	case result := <-resultChan:
-		resultSlice, ok := result.([]map[string]interface{})
+		resultSlice, ok := result.([]map[string]any)
 		assert.True(t, ok)
 		assert.Len(t, resultSlice, 1)
 
@@ -603,7 +603,7 @@ func TestDebugCustomFunctions(t *testing.T) {
 		"数学函数",
 		"计算平方",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			val := cast.ToFloat64(args[0])
 			fmt.Printf("Square function called with: %v, result: %v\n", val, val*val)
 			return val * val, nil
@@ -626,7 +626,7 @@ func TestDebugCustomFunctions(t *testing.T) {
 	fmt.Printf("Expression fields: %v\n", fields)
 
 	// 测试表达式计算
-	data := map[string]interface{}{"value": 5.0}
+	data := map[string]any{"value": 5.0}
 	result, err := expr.Evaluate(data)
 	assert.NoError(t, err)
 	fmt.Printf("Expression result: %v\n", result)
@@ -650,7 +650,7 @@ func TestDebugMultiParameterFunction(t *testing.T) {
 		"几何数学",
 		"计算两点间距离",
 		4, 4,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			x1 := cast.ToFloat64(args[0])
 			y1 := cast.ToFloat64(args[1])
 			x2 := cast.ToFloat64(args[2])
@@ -669,7 +669,7 @@ func TestDebugMultiParameterFunction(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 测试表达式计算
-	data := map[string]interface{}{
+	data := map[string]any{
 		"x1": 0.0,
 		"y1": 0.0,
 		"x2": 3.0,

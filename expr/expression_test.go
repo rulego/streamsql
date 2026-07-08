@@ -12,39 +12,39 @@ func TestExpressionEvaluation(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected float64
 		hasError bool
 	}{
 		// Basic arithmetic tests
-		{"Simple Addition", "a + b", map[string]interface{}{"a": 5, "b": 3}, 8, false},
-		{"Simple Subtraction", "a - b", map[string]interface{}{"a": 5, "b": 3}, 2, false},
-		{"Simple Multiplication", "a * b", map[string]interface{}{"a": 5, "b": 3}, 15, false},
-		{"Simple Division", "a / b", map[string]interface{}{"a": 6, "b": 3}, 2, false},
-		{"Modulo", "a % b", map[string]interface{}{"a": 7, "b": 4}, 3, false},
-		{"Power", "a ^ b", map[string]interface{}{"a": 2, "b": 3}, 8, false},
+		{"Simple Addition", "a + b", map[string]any{"a": 5, "b": 3}, 8, false},
+		{"Simple Subtraction", "a - b", map[string]any{"a": 5, "b": 3}, 2, false},
+		{"Simple Multiplication", "a * b", map[string]any{"a": 5, "b": 3}, 15, false},
+		{"Simple Division", "a / b", map[string]any{"a": 6, "b": 3}, 2, false},
+		{"Modulo", "a % b", map[string]any{"a": 7, "b": 4}, 3, false},
+		{"Power", "a ^ b", map[string]any{"a": 2, "b": 3}, 8, false},
 
 		// Compound expression tests
-		{"Complex Expression", "a + b * c", map[string]interface{}{"a": 5, "b": 3, "c": 2}, 11, false},
-		{"Complex Expression With Parentheses", "(a + b) * c", map[string]interface{}{"a": 5, "b": 3, "c": 2}, 16, false},
-		{"Multiple Operations", "a + b * c - d / e", map[string]interface{}{"a": 5, "b": 3, "c": 2, "d": 8, "e": 4}, 9, false},
+		{"Complex Expression", "a + b * c", map[string]any{"a": 5, "b": 3, "c": 2}, 11, false},
+		{"Complex Expression With Parentheses", "(a + b) * c", map[string]any{"a": 5, "b": 3, "c": 2}, 16, false},
+		{"Multiple Operations", "a + b * c - d / e", map[string]any{"a": 5, "b": 3, "c": 2, "d": 8, "e": 4}, 9, false},
 
 		// Function call tests
-		{"Abs Function", "abs(a - b)", map[string]interface{}{"a": 3, "b": 5}, 2, false},
-		{"Sqrt Function", "sqrt(a)", map[string]interface{}{"a": 16}, 4, false},
-		{"Round Function", "round(a)", map[string]interface{}{"a": 3.7}, 4, false},
+		{"Abs Function", "abs(a - b)", map[string]any{"a": 3, "b": 5}, 2, false},
+		{"Sqrt Function", "sqrt(a)", map[string]any{"a": 16}, 4, false},
+		{"Round Function", "round(a)", map[string]any{"a": 3.7}, 4, false},
 
 		// Conversion tests
-		{"String to Number", "a + b", map[string]interface{}{"a": "5", "b": 3}, 8, false},
+		{"String to Number", "a + b", map[string]any{"a": "5", "b": 3}, 8, false},
 
 		// Complex expression tests
-		{"Temperature Conversion", "temperature * 1.8 + 32", map[string]interface{}{"temperature": 25}, 77, false},
-		{"Complex Math", "sqrt(abs(a * b - c / d))", map[string]interface{}{"a": 10, "b": 2, "c": 5, "d": 1}, 3.872983346207417, false},
+		{"Temperature Conversion", "temperature * 1.8 + 32", map[string]any{"temperature": 25}, 77, false},
+		{"Complex Math", "sqrt(abs(a * b - c / d))", map[string]any{"a": 10, "b": 2, "c": 5, "d": 1}, 3.872983346207417, false},
 
 		// Error tests
-		{"Division by Zero", "a / b", map[string]interface{}{"a": 5, "b": 0}, 0, true},
-		{"Missing Field", "a + b", map[string]interface{}{"a": 5}, 0, true},
-		{"Invalid Function", "unknown(a)", map[string]interface{}{"a": 5}, 0, true},
+		{"Division by Zero", "a / b", map[string]any{"a": 5, "b": 0}, 0, true},
+		{"Missing Field", "a + b", map[string]any{"a": 5}, 0, true},
+		{"Invalid Function", "unknown(a)", map[string]any{"a": 5}, 0, true},
 	}
 
 	for _, tt := range tests {
@@ -68,112 +68,112 @@ func TestCaseExpressionParsing(t *testing.T) {
 	tests := []struct {
 		name     string
 		exprStr  string
-		data     map[string]interface{}
+		data     map[string]any
 		expected float64
 		wantErr  bool
 	}{
 		{
 			name:     "Simple search CASE expression",
 			exprStr:  "CASE WHEN temperature > 30 THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": 35.0},
+			data:     map[string]any{"temperature": 35.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "Simple CASE expression - value matching",
 			exprStr:  "CASE status WHEN 'active' THEN 1 WHEN 'inactive' THEN 0 ELSE -1 END",
-			data:     map[string]interface{}{"status": "active"},
+			data:     map[string]any{"status": "active"},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "CASE expression - ELSE branch",
 			exprStr:  "CASE WHEN temperature > 50 THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": 25.5},
+			data:     map[string]any{"temperature": 25.5},
 			expected: 0.0,
 			wantErr:  false,
 		},
 		{
 			name:     "Complex search CASE expression",
 			exprStr:  "CASE WHEN temperature > 30 THEN 'HOT' WHEN temperature > 20 THEN 'WARM' ELSE 'COLD' END",
-			data:     map[string]interface{}{"temperature": 25.0},
+			data:     map[string]any{"temperature": 25.0},
 			expected: 4.0, // Length of string "WARM"
 			wantErr:  false,
 		},
 		{
 			name:     "Simple CASE with numeric comparison",
 			exprStr:  "CASE temperature WHEN 25 THEN 1 WHEN 30 THEN 2 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": 30.0},
+			data:     map[string]any{"temperature": 30.0},
 			expected: 2.0,
 			wantErr:  false,
 		},
 		{
 			name:     "Boolean CASE expression",
 			exprStr:  "CASE WHEN temperature > 25 AND humidity > 50 THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": 30.0, "humidity": 60.0},
+			data:     map[string]any{"temperature": 30.0, "humidity": 60.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "Multi-condition CASE expression with AND",
 			exprStr:  "CASE WHEN temperature > 30 AND humidity < 60 THEN 1 WHEN temperature > 20 THEN 2 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": 35.0, "humidity": 50.0},
+			data:     map[string]any{"temperature": 35.0, "humidity": 50.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "Multi-condition CASE expression with OR",
 			exprStr:  "CASE WHEN temperature > 40 OR humidity > 80 THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": 25.0, "humidity": 85.0},
+			data:     map[string]any{"temperature": 25.0, "humidity": 85.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "Function call in CASE - ABS",
 			exprStr:  "CASE WHEN ABS(temperature) > 30 THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": -35.0},
+			data:     map[string]any{"temperature": -35.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "Function call in CASE - ROUND",
 			exprStr:  "CASE WHEN ROUND(temperature) = 25 THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": 24.7},
+			data:     map[string]any{"temperature": 24.7},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "Complex condition combination",
 			exprStr:  "CASE WHEN temperature > 30 AND (humidity > 60 OR pressure < 1000) THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": 35.0, "humidity": 55.0, "pressure": 950.0},
+			data:     map[string]any{"temperature": 35.0, "humidity": 55.0, "pressure": 950.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "Arithmetic expression in CASE",
 			exprStr:  "CASE WHEN temperature * 1.8 + 32 > 100 THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": 40.0}, // 40*1.8+32 = 104
+			data:     map[string]any{"temperature": 40.0}, // 40*1.8+32 = 104
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "String function in CASE",
 			exprStr:  "CASE WHEN LENGTH(device_name) > 5 THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"device_name": "sensor123"},
+			data:     map[string]any{"device_name": "sensor123"},
 			expected: 1.0, // LENGTH function works normally, "sensor123" length is 9 > 5, returns 1
 			wantErr:  false,
 		},
 		{
 			name:     "Simple CASE with function",
 			exprStr:  "CASE ABS(temperature) WHEN 30 THEN 1 WHEN 25 THEN 2 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": -30.0},
+			data:     map[string]any{"temperature": -30.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "Function in CASE result",
 			exprStr:  "CASE WHEN temperature > 30 THEN ABS(temperature) ELSE ROUND(temperature) END",
-			data:     map[string]interface{}{"temperature": 35.5},
+			data:     map[string]any{"temperature": 35.5},
 			expected: 35.5,
 			wantErr:  false,
 		},
@@ -252,42 +252,42 @@ func TestCaseExpressionWithNullComparisons(t *testing.T) {
 	tests := []struct {
 		name     string
 		exprStr  string
-		data     map[string]interface{}
-		expected interface{} // 使用interface{}以支持NULL值
+		data     map[string]any
+		expected any // 使用any以支持NULL值
 		isNull   bool
 	}{
 		{
 			name:     "NULL值在CASE条件中 - 应该走ELSE分支",
 			exprStr:  "CASE WHEN temperature > 30 THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": nil},
+			data:     map[string]any{"temperature": nil},
 			expected: 0.0,
 			isNull:   false,
 		},
 		{
 			name:     "IS NULL条件 - 应该匹配",
 			exprStr:  "CASE WHEN temperature IS NULL THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": nil},
+			data:     map[string]any{"temperature": nil},
 			expected: 1.0,
 			isNull:   false,
 		},
 		{
 			name:     "IS NOT NULL条件 - 不应该匹配",
 			exprStr:  "CASE WHEN temperature IS NOT NULL THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": nil},
+			data:     map[string]any{"temperature": nil},
 			expected: 0.0,
 			isNull:   false,
 		},
 		{
 			name:     "CASE表达式返回NULL",
 			exprStr:  "CASE WHEN temperature > 30 THEN temperature ELSE NULL END",
-			data:     map[string]interface{}{"temperature": 25.0},
+			data:     map[string]any{"temperature": 25.0},
 			expected: nil,
 			isNull:   true,
 		},
 		{
 			name:     "CASE表达式返回有效值",
 			exprStr:  "CASE WHEN temperature > 30 THEN temperature ELSE NULL END",
-			data:     map[string]interface{}{"temperature": 35.0},
+			data:     map[string]any{"temperature": 35.0},
 			expected: 35.0,
 			isNull:   false,
 		},
@@ -317,56 +317,56 @@ func TestNegativeNumberSupport(t *testing.T) {
 	tests := []struct {
 		name     string
 		exprStr  string
-		data     map[string]interface{}
+		data     map[string]any
 		expected float64
 		wantErr  bool
 	}{
 		{
 			name:     "负数常量在THEN中",
 			exprStr:  "CASE WHEN temperature > 0 THEN 1 ELSE -1 END",
-			data:     map[string]interface{}{"temperature": -5.0},
+			data:     map[string]any{"temperature": -5.0},
 			expected: -1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "负数常量在WHEN中",
 			exprStr:  "CASE WHEN temperature < -10 THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": -15.0},
+			data:     map[string]any{"temperature": -15.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "负数小数",
 			exprStr:  "CASE WHEN temperature > 0 THEN 1.5 ELSE -2.5 END",
-			data:     map[string]interface{}{"temperature": -1.0},
+			data:     map[string]any{"temperature": -1.0},
 			expected: -2.5,
 			wantErr:  false,
 		},
 		{
 			name:     "负数在算术表达式中",
 			exprStr:  "CASE WHEN temperature + (-10) > 0 THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": 15.0},
+			data:     map[string]any{"temperature": 15.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "负数与函数",
 			exprStr:  "CASE WHEN ABS(temperature) > 10 THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": -15.0},
+			data:     map[string]any{"temperature": -15.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "负数在简单CASE中",
 			exprStr:  "CASE temperature WHEN -10 THEN 1 WHEN -20 THEN 2 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": -10.0},
+			data:     map[string]any{"temperature": -10.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
 		{
 			name:     "负零",
 			exprStr:  "CASE WHEN temperature = -0 THEN 1 ELSE 0 END",
-			data:     map[string]interface{}{"temperature": 0.0},
+			data:     map[string]any{"temperature": 0.0},
 			expected: 1.0,
 			wantErr:  false,
 		},
@@ -374,21 +374,21 @@ func TestNegativeNumberSupport(t *testing.T) {
 		{
 			name:     "直接负数",
 			exprStr:  "-5",
-			data:     map[string]interface{}{},
+			data:     map[string]any{},
 			expected: -5.0,
 			wantErr:  false,
 		},
 		{
 			name:     "负数加法",
 			exprStr:  "-5 + 3",
-			data:     map[string]interface{}{},
+			data:     map[string]any{},
 			expected: -2.0,
 			wantErr:  false,
 		},
 		{
 			name:     "负数乘法",
 			exprStr:  "-3 * 4",
-			data:     map[string]interface{}{},
+			data:     map[string]any{},
 			expected: -12.0,
 			wantErr:  false,
 		},
@@ -529,14 +529,14 @@ func TestExpressionOperatorPrecedence(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected float64
 	}{
-		{"Addition and Multiplication", "2 + 3 * 4", map[string]interface{}{}, 14},  // 2 + (3 * 4) = 14
-		{"Subtraction and Division", "10 - 8 / 2", map[string]interface{}{}, 6},     // 10 - (8 / 2) = 6
-		{"Power and Multiplication", "2 * 3 ^ 2", map[string]interface{}{}, 18},     // 2 * (3 ^ 2) = 18
-		{"Parentheses Override", "(2 + 3) * 4", map[string]interface{}{}, 20},       // (2 + 3) * 4 = 20
-		{"Complex Expression", "2 + 3 * 4 - 5 / 2", map[string]interface{}{}, 11.5}, // 2 + (3 * 4) - (5 / 2) = 11.5
+		{"Addition and Multiplication", "2 + 3 * 4", map[string]any{}, 14},  // 2 + (3 * 4) = 14
+		{"Subtraction and Division", "10 - 8 / 2", map[string]any{}, 6},     // 10 - (8 / 2) = 6
+		{"Power and Multiplication", "2 * 3 ^ 2", map[string]any{}, 18},     // 2 * (3 ^ 2) = 18
+		{"Parentheses Override", "(2 + 3) * 4", map[string]any{}, 20},       // (2 + 3) * 4 = 20
+		{"Complex Expression", "2 + 3 * 4 - 5 / 2", map[string]any{}, 11.5}, // 2 + (3 * 4) - (5 / 2) = 11.5
 	}
 
 	for _, tt := range tests {
@@ -556,32 +556,32 @@ func TestExpressionFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected float64
 		wantErr  bool
 	}{
-		{"ABS Positive", "abs(5)", map[string]interface{}{}, 5, false},
-		{"ABS Negative", "abs(-5)", map[string]interface{}{}, 5, false},
-		{"ABS Zero", "abs(0)", map[string]interface{}{}, 0, false},
-		{"SQRT Valid", "sqrt(16)", map[string]interface{}{}, 4, false},
-		{"SQRT Zero", "sqrt(0)", map[string]interface{}{}, 0, false},
-		{"SQRT Negative", "sqrt(-1)", map[string]interface{}{}, 0, true},
-		{"ROUND Positive", "round(3.7)", map[string]interface{}{}, 4, false},
-		{"ROUND Negative", "round(-3.7)", map[string]interface{}{}, -4, false},
-		{"ROUND Half", "round(3.5)", map[string]interface{}{}, 4, false},
-		{"FLOOR Positive", "floor(3.7)", map[string]interface{}{}, 3, false},
-		{"FLOOR Negative", "floor(-3.7)", map[string]interface{}{}, -4, false},
-		{"CEIL Positive", "ceil(3.2)", map[string]interface{}{}, 4, false},
-		{"CEIL Negative", "ceil(-3.2)", map[string]interface{}{}, -3, false},
-		{"MAX Two Values", "max(5, 3)", map[string]interface{}{}, 5, false},
-		{"MIN Two Values", "min(5, 3)", map[string]interface{}{}, 3, false},
-		{"POW Function", "pow(2, 3)", map[string]interface{}{}, 8, false},
-		{"LOG Function", "log(10)", map[string]interface{}{}, math.Log10(10), false},
-		{"LOG10 Function", "log10(100)", map[string]interface{}{}, 2, false},
-		{"EXP Function", "exp(1)", map[string]interface{}{}, math.E, false},
-		{"SIN Function", "sin(0)", map[string]interface{}{}, 0, false},
-		{"COS Function", "cos(0)", map[string]interface{}{}, 1, false},
-		{"TAN Function", "tan(0)", map[string]interface{}{}, 0, false},
+		{"ABS Positive", "abs(5)", map[string]any{}, 5, false},
+		{"ABS Negative", "abs(-5)", map[string]any{}, 5, false},
+		{"ABS Zero", "abs(0)", map[string]any{}, 0, false},
+		{"SQRT Valid", "sqrt(16)", map[string]any{}, 4, false},
+		{"SQRT Zero", "sqrt(0)", map[string]any{}, 0, false},
+		{"SQRT Negative", "sqrt(-1)", map[string]any{}, 0, true},
+		{"ROUND Positive", "round(3.7)", map[string]any{}, 4, false},
+		{"ROUND Negative", "round(-3.7)", map[string]any{}, -4, false},
+		{"ROUND Half", "round(3.5)", map[string]any{}, 4, false},
+		{"FLOOR Positive", "floor(3.7)", map[string]any{}, 3, false},
+		{"FLOOR Negative", "floor(-3.7)", map[string]any{}, -4, false},
+		{"CEIL Positive", "ceil(3.2)", map[string]any{}, 4, false},
+		{"CEIL Negative", "ceil(-3.2)", map[string]any{}, -3, false},
+		{"MAX Two Values", "max(5, 3)", map[string]any{}, 5, false},
+		{"MIN Two Values", "min(5, 3)", map[string]any{}, 3, false},
+		{"POW Function", "pow(2, 3)", map[string]any{}, 8, false},
+		{"LOG Function", "log(10)", map[string]any{}, math.Log10(10), false},
+		{"LOG10 Function", "log10(100)", map[string]any{}, 2, false},
+		{"EXP Function", "exp(1)", map[string]any{}, math.E, false},
+		{"SIN Function", "sin(0)", map[string]any{}, 0, false},
+		{"COS Function", "cos(0)", map[string]any{}, 1, false},
+		{"TAN Function", "tan(0)", map[string]any{}, 0, false},
 	}
 
 	for _, tt := range tests {
@@ -605,18 +605,18 @@ func TestExpressionDataTypeConversion(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected float64
 		wantErr  bool
 	}{
-		{"String to Number", "a + 5", map[string]interface{}{"a": "10"}, 15, false},
-		{"Integer to Float", "a + 3.5", map[string]interface{}{"a": 5}, 8.5, false},
-		{"Float to Float", "a + b", map[string]interface{}{"a": 3.14, "b": 2.86}, 6.0, false},
-		{"Boolean True", "a + 1", map[string]interface{}{"a": true}, 2, false},
-		{"Boolean False", "a + 1", map[string]interface{}{"a": false}, 1, false},
-		{"Invalid String", "a + 5", map[string]interface{}{"a": "invalid"}, 0, true},
-		{"Nil Value", "a + 5", map[string]interface{}{"a": nil}, 0, true},
-		{"Complex Type", "a + 5", map[string]interface{}{"a": map[string]interface{}{}}, 0, true},
+		{"String to Number", "a + 5", map[string]any{"a": "10"}, 15, false},
+		{"Integer to Float", "a + 3.5", map[string]any{"a": 5}, 8.5, false},
+		{"Float to Float", "a + b", map[string]any{"a": 3.14, "b": 2.86}, 6.0, false},
+		{"Boolean True", "a + 1", map[string]any{"a": true}, 2, false},
+		{"Boolean False", "a + 1", map[string]any{"a": false}, 1, false},
+		{"Invalid String", "a + 5", map[string]any{"a": "invalid"}, 0, true},
+		{"Nil Value", "a + 5", map[string]any{"a": nil}, 0, true},
+		{"Complex Type", "a + 5", map[string]any{"a": map[string]any{}}, 0, true},
 	}
 
 	for _, tt := range tests {
@@ -640,19 +640,19 @@ func TestExpressionEdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected float64
 		wantErr  bool
 	}{
-		{"Very Large Number", "a + 1", map[string]interface{}{"a": 1e308}, 1e308 + 1, false},
-		{"Very Small Number", "a + 1", map[string]interface{}{"a": 1e-308}, 1, false},
-		{"Infinity", "a + 1", map[string]interface{}{"a": math.Inf(1)}, math.Inf(1), false},
-		{"Negative Infinity", "a + 1", map[string]interface{}{"a": math.Inf(-1)}, math.Inf(-1), false},
-		{"NaN", "a + 1", map[string]interface{}{"a": math.NaN()}, 0, true},
-		{"Division by Zero", "5 / 0", map[string]interface{}{}, 0, true},
-		{"Modulo by Zero", "5 % 0", map[string]interface{}{}, 0, true},
-		{"Zero Power Zero", "0 ^ 0", map[string]interface{}{}, 1, false}, // 0^0 = 1 by convention
-		{"Negative Power", "2 ^ -3", map[string]interface{}{}, 0.125, false},
+		{"Very Large Number", "a + 1", map[string]any{"a": 1e308}, 1e308 + 1, false},
+		{"Very Small Number", "a + 1", map[string]any{"a": 1e-308}, 1, false},
+		{"Infinity", "a + 1", map[string]any{"a": math.Inf(1)}, math.Inf(1), false},
+		{"Negative Infinity", "a + 1", map[string]any{"a": math.Inf(-1)}, math.Inf(-1), false},
+		{"NaN", "a + 1", map[string]any{"a": math.NaN()}, 0, true},
+		{"Division by Zero", "5 / 0", map[string]any{}, 0, true},
+		{"Modulo by Zero", "5 % 0", map[string]any{}, 0, true},
+		{"Zero Power Zero", "0 ^ 0", map[string]any{}, 1, false}, // 0^0 = 1 by convention
+		{"Negative Power", "2 ^ -3", map[string]any{}, 0.125, false},
 	}
 
 	for _, tt := range tests {
@@ -686,7 +686,7 @@ func TestExpressionConcurrency(t *testing.T) {
 
 	for i := 0; i < numGoroutines; i++ {
 		go func(index int) {
-			data := map[string]interface{}{
+			data := map[string]any{
 				"a": float64(index),
 				"b": float64(index * 2),
 				"c": float64(index * 3),
@@ -711,25 +711,25 @@ func TestExpressionComplexNesting(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected float64
 	}{
 		{
 			"Deeply Nested Parentheses",
 			"((a + b) * (c - d)) / ((e + f) * (g - h))",
-			map[string]interface{}{"a": 1, "b": 2, "c": 5, "d": 3, "e": 2, "f": 3, "g": 7, "h": 2},
+			map[string]any{"a": 1, "b": 2, "c": 5, "d": 3, "e": 2, "f": 3, "g": 7, "h": 2},
 			0.24, // ((1+2)*(5-3))/((2+3)*(7-2)) = (3*2)/(5*5) = 6/25 = 0.24
 		},
 		{
 			"Nested Functions",
 			"sqrt(abs(a - b) + pow(c, 2))",
-			map[string]interface{}{"a": 3, "b": 7, "c": 3},
+			map[string]any{"a": 3, "b": 7, "c": 3},
 			3.606, // sqrt(abs(3-7) + pow(3,2)) = sqrt(4 + 9) = sqrt(13) ≈ 3.606
 		},
 		{
 			"Mixed Operations",
 			"a * b + c / d - e % f + pow(g, h)",
-			map[string]interface{}{"a": 2, "b": 3, "c": 8, "d": 2, "e": 7, "f": 3, "g": 2, "h": 3},
+			map[string]any{"a": 2, "b": 3, "c": 8, "d": 2, "e": 7, "f": 3, "g": 2, "h": 3},
 			17, // 2*3 + 8/2 - 7%3 + pow(2,3) = 6 + 4 - 1 + 8 = 17
 		},
 	}
@@ -751,16 +751,16 @@ func TestExpressionStringHandling(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected float64
 		wantErr  bool
 	}{
-		{"String Length", "len(name)", map[string]interface{}{"name": "hello"}, 5, false},
-		{"Empty String Length", "len(name)", map[string]interface{}{"name": ""}, 0, false},
-		{"String Comparison Equal", "name == 'test'", map[string]interface{}{"name": "test"}, 1, false},
-		{"String Comparison Not Equal", "name != 'test'", map[string]interface{}{"name": "hello"}, 1, false},
-		{"String to Number Conversion", "val + 10", map[string]interface{}{"val": "5"}, 15, false},
-		{"Invalid String to Number", "val + 10", map[string]interface{}{"val": "abc"}, 0, true},
+		{"String Length", "len(name)", map[string]any{"name": "hello"}, 5, false},
+		{"Empty String Length", "len(name)", map[string]any{"name": ""}, 0, false},
+		{"String Comparison Equal", "name == 'test'", map[string]any{"name": "test"}, 1, false},
+		{"String Comparison Not Equal", "name != 'test'", map[string]any{"name": "hello"}, 1, false},
+		{"String to Number Conversion", "val + 10", map[string]any{"val": "5"}, 15, false},
+		{"Invalid String to Number", "val + 10", map[string]any{"val": "abc"}, 0, true},
 	}
 
 	for _, tt := range tests {
@@ -785,7 +785,7 @@ func TestExpressionPerformance(t *testing.T) {
 	expr, err := NewExpression("sqrt(pow(a, 2) + pow(b, 2)) + abs(c - d) * (e + f) / (g + 1)")
 	require.NoError(t, err, "Expression parsing should not fail")
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"a": 3.0, "b": 4.0, "c": 10.0, "d": 7.0, "e": 2.0, "f": 3.0, "g": 4.0,
 	}
 
@@ -810,7 +810,7 @@ func TestExpressionMemoryUsage(t *testing.T) {
 	}
 
 	// 验证所有表达式都能正常工作
-	data := map[string]interface{}{"a": 1, "b": 2, "c": 3}
+	data := map[string]any{"a": 1, "b": 2, "c": 3}
 	for i, expr := range expressions {
 		result, err := expr.Evaluate(data)
 		assert.NoError(t, err, "Expression %d evaluation should not fail", i)
@@ -826,22 +826,22 @@ func TestEvaluateWithExprLang(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		data        map[string]interface{}
+		data        map[string]any
 		expectError bool
 	}{
 		{
 			name:        "valid expression",
-			data:        map[string]interface{}{"a": 1.0, "b": 2.0},
+			data:        map[string]any{"a": 1.0, "b": 2.0},
 			expectError: false,
 		},
 		{
 			name:        "missing variables",
-			data:        map[string]interface{}{},
+			data:        map[string]any{},
 			expectError: true,
 		},
 		{
 			name:        "invalid expression",
-			data:        map[string]interface{}{"a": 1.0},
+			data:        map[string]any{"a": 1.0},
 			expectError: true,
 		},
 	}
@@ -1076,42 +1076,42 @@ func TestEvaluateBool(t *testing.T) {
 	tests := []struct {
 		name     string
 		expr     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected bool
 		hasError bool
 	}{
 		{
 			name:     "true condition",
 			expr:     "field1 > 0",
-			data:     map[string]interface{}{"field1": 5},
+			data:     map[string]any{"field1": 5},
 			expected: true,
 			hasError: false,
 		},
 		{
 			name:     "false condition",
 			expr:     "field1 > 10",
-			data:     map[string]interface{}{"field1": 5},
+			data:     map[string]any{"field1": 5},
 			expected: false,
 			hasError: false,
 		},
 		{
 			name:     "zero value",
 			expr:     "field1",
-			data:     map[string]interface{}{"field1": 0},
+			data:     map[string]any{"field1": 0},
 			expected: false,
 			hasError: false,
 		},
 		{
 			name:     "non-zero value",
 			expr:     "field1",
-			data:     map[string]interface{}{"field1": 1},
+			data:     map[string]any{"field1": 1},
 			expected: true,
 			hasError: false,
 		},
 		{
 			name:     "missing field",
 			expr:     "field1 > 0",
-			data:     map[string]interface{}{},
+			data:     map[string]any{},
 			expected: false,
 			hasError: true,
 		},
@@ -1145,28 +1145,28 @@ func TestEvaluateValueWithNull(t *testing.T) {
 	tests := []struct {
 		name        string
 		expr        string
-		data        map[string]interface{}
+		data        map[string]any
 		expectNull  bool
 		expectError bool
 	}{
 		{
 			name:        "valid expression",
 			expr:        "field1 + field2",
-			data:        map[string]interface{}{"field1": 1, "field2": 2},
+			data:        map[string]any{"field1": 1, "field2": 2},
 			expectNull:  false,
 			expectError: false,
 		},
 		{
 			name:        "missing field",
 			expr:        "field1 + field2",
-			data:        map[string]interface{}{"field1": 1},
+			data:        map[string]any{"field1": 1},
 			expectNull:  false, // 实际行为：返回nil但isNull为false
 			expectError: false,
 		},
 		{
 			name:        "invalid expression",
 			expr:        "field1 + field2 +", // 使用无效语法
-			data:        map[string]interface{}{},
+			data:        map[string]any{},
 			expectNull:  false,
 			expectError: true,
 		},

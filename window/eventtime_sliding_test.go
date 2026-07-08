@@ -29,7 +29,7 @@ func newEventTimeSliding(t *testing.T, size, slide, maxOutOfOrderness, allowedLa
 	t.Helper()
 	sw, err := NewSlidingWindow(types.WindowConfig{
 		Type:               TypeSliding,
-		Params:             []interface{}{size, slide},
+		Params:             []any{size, slide},
 		TsProp:             "ts",
 		TimeCharacteristic: types.EventTime,
 		MaxOutOfOrderness:  maxOutOfOrderness,

@@ -70,44 +70,44 @@ func demonstrateBasicNestedAccess(ssql *streamsql.Streamsql) {
 	}
 
 	// 准备测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{
-			"device": map[string]interface{}{
-				"info": map[string]interface{}{
+			"device": map[string]any{
+				"info": map[string]any{
 					"name": "温度传感器-001",
 					"type": "temperature",
 				},
 				"location": "room-A",
 			},
-			"sensor": map[string]interface{}{
+			"sensor": map[string]any{
 				"temperature": 25.5,
 				"humidity":    60.2,
 			},
 			"timestamp": time.Now().Unix(),
 		},
 		{
-			"device": map[string]interface{}{
-				"info": map[string]interface{}{
+			"device": map[string]any{
+				"info": map[string]any{
 					"name": "温度传感器-002",
 					"type": "temperature",
 				},
 				"location": "room-B", // 不匹配条件
 			},
-			"sensor": map[string]interface{}{
+			"sensor": map[string]any{
 				"temperature": 30.0,
 				"humidity":    55.8,
 			},
 			"timestamp": time.Now().Unix(),
 		},
 		{
-			"device": map[string]interface{}{
-				"info": map[string]interface{}{
+			"device": map[string]any{
+				"info": map[string]any{
 					"name": "温度传感器-003",
 					"type": "temperature",
 				},
 				"location": "room-A",
 			},
-			"sensor": map[string]interface{}{
+			"sensor": map[string]any{
 				"temperature": 15.0, // 不匹配条件
 				"humidity":    65.3,
 			},
@@ -119,7 +119,7 @@ func demonstrateBasicNestedAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		defer wg.Done()
 
 		fmt.Println("  📋 基础嵌套字段访问结果:")
@@ -165,7 +165,7 @@ func demonstrateNestedAggregation(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		defer wg.Done()
 
 		fmt.Println("  📈 嵌套字段聚合结果:")
@@ -188,15 +188,15 @@ func demonstrateNestedAggregation(ssql *streamsql.Streamsql) {
 		for i := 0; i < 9; i++ {
 			location := locations[rand.Intn(len(locations))]
 
-			data := map[string]interface{}{
-				"device": map[string]interface{}{
-					"info": map[string]interface{}{
+			data := map[string]any{
+				"device": map[string]any{
+					"info": map[string]any{
 						"name": fmt.Sprintf("sensor-%03d", i+1),
 						"type": "environment",
 					},
 					"location": location,
 				},
-				"sensor": map[string]interface{}{
+				"sensor": map[string]any{
 					"temperature": 18.0 + rand.Float64()*15.0, // 18-33°C
 					"humidity":    40.0 + rand.Float64()*30.0, // 40-70%
 				},
@@ -243,24 +243,24 @@ func demonstrateArrayAccess(ssql *streamsql.Streamsql) {
 	}
 
 	// 准备测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{
 			"device": "工业传感器-001",
-			"sensors": []interface{}{
-				map[string]interface{}{"temperature": 25.5, "humidity": 60.2},
-				map[string]interface{}{"temperature": 26.8, "humidity": 58.7},
-				map[string]interface{}{"temperature": 24.1, "humidity": 62.1},
+			"sensors": []any{
+				map[string]any{"temperature": 25.5, "humidity": 60.2},
+				map[string]any{"temperature": 26.8, "humidity": 58.7},
+				map[string]any{"temperature": 24.1, "humidity": 62.1},
 			},
-			"data":      []interface{}{"status_ok", "battery_95%", "signal_strong", "location_A1"},
+			"data":      []any{"status_ok", "battery_95%", "signal_strong", "location_A1"},
 			"timestamp": time.Now().Unix(),
 		},
 		{
 			"device": "环境监测器-002",
-			"sensors": []interface{}{
-				map[string]interface{}{"temperature": 22.3, "humidity": 65.8},
-				map[string]interface{}{"temperature": 23.1, "humidity": 63.2},
+			"sensors": []any{
+				map[string]any{"temperature": 22.3, "humidity": 65.8},
+				map[string]any{"temperature": 23.1, "humidity": 63.2},
 			},
-			"data":      []interface{}{"status_warning", "battery_78%", "signal_weak"},
+			"data":      []any{"status_warning", "battery_78%", "signal_weak"},
 			"timestamp": time.Now().Unix(),
 		},
 	}
@@ -269,7 +269,7 @@ func demonstrateArrayAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		defer wg.Done()
 
 		fmt.Println("  📋 数组索引访问结果:")
@@ -310,20 +310,20 @@ func demonstrateMapKeyAccess(ssql *streamsql.Streamsql) {
 	}
 
 	// 准备测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{
 			"device_id": "gateway-001",
-			"config": map[string]interface{}{
+			"config": map[string]any{
 				"host":     "192.168.1.100",
 				"port":     8080,
 				"protocol": "https",
 			},
-			"settings": map[string]interface{}{
+			"settings": map[string]any{
 				"enable_ssl":  true,
 				"timeout":     30,
 				"max_retries": 3,
 			},
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"version":    "v2.1.3",
 				"build_date": "2023-12-01",
 				"vendor":     "TechCorp",
@@ -331,17 +331,17 @@ func demonstrateMapKeyAccess(ssql *streamsql.Streamsql) {
 		},
 		{
 			"device_id": "gateway-002",
-			"config": map[string]interface{}{
+			"config": map[string]any{
 				"host":     "192.168.1.101",
 				"port":     8443,
 				"protocol": "https",
 			},
-			"settings": map[string]interface{}{
+			"settings": map[string]any{
 				"enable_ssl":  false,
 				"timeout":     60,
 				"max_retries": 5,
 			},
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"version":    "v2.0.8",
 				"build_date": "2023-11-15",
 				"vendor":     "TechCorp",
@@ -353,7 +353,7 @@ func demonstrateMapKeyAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		defer wg.Done()
 
 		fmt.Println("  🗝️ Map键访问结果:")
@@ -395,34 +395,34 @@ func demonstrateComplexMixedAccess(ssql *streamsql.Streamsql) {
 	}
 
 	// 准备复杂嵌套数据
-	testData := map[string]interface{}{
+	testData := map[string]any{
 		"building": "智能大厦A座",
-		"floors": []interface{}{
+		"floors": []any{
 			// 第一层
-			map[string]interface{}{
+			map[string]any{
 				"floor_number": 1,
-				"rooms": []interface{}{
-					map[string]interface{}{"name": "大厅", "type": "public"},
-					map[string]interface{}{"name": "接待室", "type": "office"},
-					map[string]interface{}{"name": "会议室A", "type": "meeting"},
-					map[string]interface{}{"name": "休息区", "type": "lounge"},
+				"rooms": []any{
+					map[string]any{"name": "大厅", "type": "public"},
+					map[string]any{"name": "接待室", "type": "office"},
+					map[string]any{"name": "会议室A", "type": "meeting"},
+					map[string]any{"name": "休息区", "type": "lounge"},
 				},
 			},
 			// 第二层
-			map[string]interface{}{
+			map[string]any{
 				"floor_number": 2,
-				"sensors": []interface{}{
-					map[string]interface{}{
+				"sensors": []any{
+					map[string]any{
 						"id": "sensor-201",
-						"readings": map[string]interface{}{
+						"readings": map[string]any{
 							"temperature": 23.5,
 							"humidity":    58.2,
 							"co2":         420,
 						},
 					},
-					map[string]interface{}{
+					map[string]any{
 						"id": "sensor-202",
-						"readings": map[string]interface{}{
+						"readings": map[string]any{
 							"temperature": 24.1,
 							"humidity":    60.8,
 							"co2":         380,
@@ -431,18 +431,18 @@ func demonstrateComplexMixedAccess(ssql *streamsql.Streamsql) {
 				},
 			},
 		},
-		"metadata": map[string]interface{}{
-			"building_info": map[string]interface{}{
+		"metadata": map[string]any{
+			"building_info": map[string]any{
 				"architect":    "张建筑师",
 				"year_built":   2020,
 				"total_floors": 25,
 			},
 			"owner": "科技园管委会",
 		},
-		"alerts": []interface{}{
-			map[string]interface{}{"level": "info", "message": "系统启动完成"},
-			map[string]interface{}{"level": "warning", "message": "传感器信号弱"},
-			map[string]interface{}{"level": "info", "message": "定期维护提醒"},
+		"alerts": []any{
+			map[string]any{"level": "info", "message": "系统启动完成"},
+			map[string]any{"level": "warning", "message": "传感器信号弱"},
+			map[string]any{"level": "info", "message": "定期维护提醒"},
 		},
 	}
 
@@ -450,7 +450,7 @@ func demonstrateComplexMixedAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		defer wg.Done()
 
 		fmt.Println("  🔄 混合复杂访问结果:")
@@ -489,18 +489,18 @@ func demonstrateNegativeIndexAccess(ssql *streamsql.Streamsql) {
 	}
 
 	// 准备测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{
 			"device_name": "温度监测器-Alpha",
-			"readings":    []interface{}{18.5, 19.2, 20.1, 21.3, 22.8, 23.5},                    // [-1] = 23.5
-			"history":     []interface{}{"boot", "calibration", "running", "alert", "resolved"}, // [-2] = "alert"
-			"tags":        []interface{}{"indoor", "critical", "monitored"},                     // [-1] = "monitored"
+			"readings":    []any{18.5, 19.2, 20.1, 21.3, 22.8, 23.5},                    // [-1] = 23.5
+			"history":     []any{"boot", "calibration", "running", "alert", "resolved"}, // [-2] = "alert"
+			"tags":        []any{"indoor", "critical", "monitored"},                     // [-1] = "monitored"
 		},
 		{
 			"device_name": "湿度传感器-Beta",
-			"readings":    []interface{}{45.2, 47.8, 52.1, 48.9},        // [-1] = 48.9
-			"history":     []interface{}{"init", "testing", "deployed"}, // [-2] = "testing"
-			"tags":        []interface{}{"outdoor", "backup"},           // [-1] = "backup"
+			"readings":    []any{45.2, 47.8, 52.1, 48.9},        // [-1] = 48.9
+			"history":     []any{"init", "testing", "deployed"}, // [-2] = "testing"
+			"tags":        []any{"outdoor", "backup"},           // [-1] = "backup"
 		},
 	}
 
@@ -508,7 +508,7 @@ func demonstrateNegativeIndexAccess(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		defer wg.Done()
 
 		fmt.Println("  ⬅️ 负数索引访问结果:")
@@ -554,7 +554,7 @@ func demonstrateArrayIndexAggregation(ssql *streamsql.Streamsql) {
 	wg.Add(1)
 
 	// 设置结果回调
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		defer wg.Done()
 
 		fmt.Println("  📈 数组索引聚合计算结果:")
@@ -577,15 +577,15 @@ func demonstrateArrayIndexAggregation(ssql *streamsql.Streamsql) {
 		for i := 0; i < 12; i++ {
 			location := locations[rand.Intn(len(locations))]
 
-			data := map[string]interface{}{
+			data := map[string]any{
 				"device_id": fmt.Sprintf("device-%03d", i+1),
 				"location":  location,
-				"sensors": []interface{}{
-					map[string]interface{}{
+				"sensors": []any{
+					map[string]any{
 						"temperature": 20.0 + rand.Float64()*10.0, // 20-30°C
 						"humidity":    50.0 + rand.Float64()*20.0, // 50-70%
 					},
-					map[string]interface{}{
+					map[string]any{
 						"temperature": 18.0 + rand.Float64()*12.0, // 18-30°C
 						"humidity":    45.0 + rand.Float64()*25.0, // 45-70%
 					},

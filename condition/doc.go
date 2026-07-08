@@ -36,7 +36,7 @@ matching and NULL checking.
 Unified interface for condition evaluation:
 
 	type Condition interface {
-		Evaluate(env interface{}) bool
+		Evaluate(env any) bool
 	}
 
 # Custom Functions
@@ -59,7 +59,7 @@ Basic condition evaluation:
 		log.Fatal(err)
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"age": 25,
 		"status": "active",
 	}
@@ -69,13 +69,13 @@ Basic condition evaluation:
 LIKE pattern matching:
 
 	condition, err := NewExprCondition("like_match(name, 'John%')")
-	data := map[string]interface{}{"name": "John Smith"}
+	data := map[string]any{"name": "John Smith"}
 	result := condition.Evaluate(data) // returns true
 
 NULL checking:
 
 	condition, err := NewExprCondition("is_not_null(email)")
-	data := map[string]interface{}{"email": "user@example.com"}
+	data := map[string]any{"email": "user@example.com"}
 	result := condition.Evaluate(data) // returns true
 
 Complex conditions:

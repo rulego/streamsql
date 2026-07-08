@@ -22,19 +22,19 @@ func NewAggregatorAdapter(name string) (*AggregatorAdapter, error) {
 }
 
 // New creates a new aggregator instance
-func (a *AggregatorAdapter) New() interface{} {
+func (a *AggregatorAdapter) New() any {
 	return &AggregatorAdapter{
 		aggFunc: a.aggFunc.New(),
 	}
 }
 
 // Add adds a value
-func (a *AggregatorAdapter) Add(value interface{}) {
+func (a *AggregatorAdapter) Add(value any) {
 	a.aggFunc.Add(value)
 }
 
 // Result returns the result
-func (a *AggregatorAdapter) Result() interface{} {
+func (a *AggregatorAdapter) Result() any {
 	return a.aggFunc.Result()
 }
 
@@ -64,7 +64,7 @@ func NewAnalyticalAdapter(name string) (*AnalyticalAdapter, error) {
 }
 
 // Execute executes the analytical function
-func (a *AnalyticalAdapter) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (a *AnalyticalAdapter) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return a.analFunc.Execute(ctx, args)
 }
 
@@ -82,7 +82,7 @@ func (a *AnalyticalAdapter) Clone() *AnalyticalAdapter {
 
 // Global adapter registry
 var (
-	aggregatorAdapters = make(map[string]func() interface{})
+	aggregatorAdapters = make(map[string]func() any)
 	analyticalAdapters = make(map[string]func() *AnalyticalAdapter)
 	adapterMutex       sync.RWMutex
 )
@@ -92,7 +92,7 @@ func RegisterAggregatorAdapter(name string) error {
 	adapterMutex.Lock()
 	defer adapterMutex.Unlock()
 
-	aggregatorAdapters[name] = func() interface{} {
+	aggregatorAdapters[name] = func() any {
 		adapter, err := NewAggregatorAdapter(name)
 		if err != nil {
 			return nil
@@ -118,7 +118,7 @@ func RegisterAnalyticalAdapter(name string) error {
 }
 
 // GetAggregatorAdapter gets aggregator adapter
-func GetAggregatorAdapter(name string) (func() interface{}, bool) {
+func GetAggregatorAdapter(name string) (func() any, bool) {
 	adapterMutex.RLock()
 	defer adapterMutex.RUnlock()
 
@@ -136,7 +136,7 @@ func GetAnalyticalAdapter(name string) (func() *AnalyticalAdapter, bool) {
 }
 
 // CreateBuiltinAggregatorFromFunctions creates aggregator from functions module
-func CreateBuiltinAggregatorFromFunctions(aggType string) interface{} {
+func CreateBuiltinAggregatorFromFunctions(aggType string) any {
 	// First try to get from adapter registry
 	if constructor, exists := GetAggregatorAdapter(aggType); exists {
 		return constructor()

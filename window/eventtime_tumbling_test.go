@@ -26,15 +26,15 @@ import (
 )
 
 // etRow builds event-time data carrying a time.Time under key "ts".
-func etRow(ts time.Time, v int) map[string]interface{} {
-	return map[string]interface{}{"ts": ts, "v": v}
+func etRow(ts time.Time, v int) map[string]any {
+	return map[string]any{"ts": ts, "v": v}
 }
 
 func newEventTimeTumbling(t *testing.T, size, maxOutOfOrderness, allowedLateness time.Duration) *TumblingWindow {
 	t.Helper()
 	tw, err := NewTumblingWindow(types.WindowConfig{
 		Type:               TypeTumbling,
-		Params:             []interface{}{size},
+		Params:             []any{size},
 		TsProp:             "ts",
 		TimeCharacteristic: types.EventTime,
 		MaxOutOfOrderness:  maxOutOfOrderness,

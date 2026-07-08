@@ -25,7 +25,7 @@ import (
 func TestToInt(t *testing.T) {
 	tests := []struct {
 		name   string
-		input  interface{}
+		input  any
 		expect int
 		hasErr bool
 	}{
@@ -64,7 +64,7 @@ func TestToInt(t *testing.T) {
 func TestToBoolENumericTypes(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    interface{}
+		input    any
 		expected bool
 		hasError bool
 	}{
@@ -146,20 +146,20 @@ func (ts testStringer) String() string {
 // TestToStringEComplexTypes 测试ToStringE函数的复杂类型
 func TestToStringEComplexTypes(t *testing.T) {
 
-	// 测试map[interface{}]interface{}类型
-	mapInterfaceInterface := map[interface{}]interface{}{
+	// 测试map[any]any类型
+	mapInterfaceInterface := map[any]any{
 		"key1": "value1",
 		123:    "value2",
 	}
 
 	tests := []struct {
 		name     string
-		input    interface{}
+		input    any
 		expected string
 		hasErr   bool
 	}{
 		{"fmt.Stringer", testStringer{"test string"}, "test string", false},
-		{"map[interface{}]interface{}", mapInterfaceInterface, "{\"123\":\"value2\",\"key1\":\"value1\"}", false},
+		{"map[any]any", mapInterfaceInterface, "{\"123\":\"value2\",\"key1\":\"value1\"}", false},
 	}
 
 	for _, tt := range tests {
@@ -170,7 +170,7 @@ func TestToStringEComplexTypes(t *testing.T) {
 			}
 			if !tt.hasErr {
 				// 对于JSON序列化的结果，由于map的顺序不确定，我们检查是否包含关键内容
-				if tt.name == "map[interface{}]interface{}" {
+				if tt.name == "map[any]any" {
 					if len(got) == 0 || got[0] != '{' || got[len(got)-1] != '}' {
 						t.Errorf("ToStringE() = %v, expected JSON format", got)
 					}
@@ -185,7 +185,7 @@ func TestToStringEComplexTypes(t *testing.T) {
 func TestToInt64(t *testing.T) {
 	tests := []struct {
 		name   string
-		input  interface{}
+		input  any
 		expect int64
 		hasErr bool
 	}{
@@ -222,7 +222,7 @@ func TestToInt64(t *testing.T) {
 func TestToDurationE(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    interface{}
+		input    any
 		expected time.Duration
 		hasErr   bool
 	}{
@@ -258,7 +258,7 @@ func TestToDurationE(t *testing.T) {
 func TestToBool(t *testing.T) {
 	tests := []struct {
 		name   string
-		input  interface{}
+		input  any
 		expect bool
 		hasErr bool
 	}{
@@ -294,7 +294,7 @@ func TestToBool(t *testing.T) {
 func TestToFloat64(t *testing.T) {
 	tests := []struct {
 		name   string
-		input  interface{}
+		input  any
 		expect float64
 		hasErr bool
 	}{
@@ -326,7 +326,7 @@ func TestToFloat64(t *testing.T) {
 func TestToString(t *testing.T) {
 	tests := []struct {
 		name   string
-		input  interface{}
+		input  any
 		expect string
 		hasErr bool
 	}{

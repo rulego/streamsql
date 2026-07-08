@@ -66,7 +66,7 @@ Basic stream data processing:
 		}
 
 		// Add result processing callback
-		ssql.AddSink(func(result []map[string]interface{}) {
+		ssql.AddSink(func(result []map[string]any) {
 			fmt.Printf("Aggregation result: %v\n", result)
 		})
 
@@ -79,7 +79,7 @@ Basic stream data processing:
 				select {
 				case <-ticker.C:
 					// Generate random device data
-					data := map[string]interface{}{
+					data := map[string]any{
 						"deviceId":    fmt.Sprintf("device%d", rand.Intn(3)+1),
 						"temperature": 20.0 + rand.Float64()*10,
 						"humidity":    50.0 + rand.Float64()*20,
@@ -191,7 +191,7 @@ StreamSQL supports plugin-based custom functions with runtime dynamic registrati
 		"Temperature conversion",
 		"Fahrenheit to Celsius",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			f, _ := functions.ConvertToFloat64(args[0])
 			return (f - 32) * 5 / 9, nil
 		},

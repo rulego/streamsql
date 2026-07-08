@@ -15,8 +15,8 @@ import (
 // window's start).
 func TestCloseExpiredWindowsKeepsOverlappingData(t *testing.T) {
 	sw, err := NewSlidingWindow(types.WindowConfig{
-		Params:          []interface{}{2 * time.Second, 500 * time.Millisecond},
-		TsProp:          "Ts",
+		Params:             []any{2 * time.Second, 500 * time.Millisecond},
+		TsProp:             "Ts",
 		TimeUnit:           time.Millisecond,
 		TimeCharacteristic: types.EventTime,
 		AllowedLateness:    200 * time.Millisecond,
@@ -30,7 +30,7 @@ func TestCloseExpiredWindowsKeepsOverlappingData(t *testing.T) {
 	// C=[1s,3s), D=[1.5s,3.5s). Window A has triggered and expired; the row
 	// is still needed by B/C/D.
 	rowTime := base.Add(1500 * time.Millisecond)
-	row := types.Row{Timestamp: rowTime, Data: map[string]interface{}{"v": 1}}
+	row := types.Row{Timestamp: rowTime, Data: map[string]any{"v": 1}}
 
 	// Expired window A = [0, 2s), closeTime in the past.
 	aStart := base

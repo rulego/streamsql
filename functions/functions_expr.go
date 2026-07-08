@@ -17,11 +17,11 @@ func NewExprFunction() *ExprFunction {
 	}
 }
 
-func (f *ExprFunction) Validate(args []interface{}) error {
+func (f *ExprFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ExprFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ExprFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("expr function requires exactly 1 argument")
 	}

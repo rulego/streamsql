@@ -27,10 +27,10 @@ func TestSQLSlidingWindow_ProcessingTime(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 10)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 10)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -44,7 +44,7 @@ func TestSQLSlidingWindow_ProcessingTime(t *testing.T) {
 	done := make(chan bool, 1) // buffered: send never blocks (the signal is not awaited)
 	go func() {
 		for i := 0; i < 15; i++ { // 发送15条数据，约3秒
-			ssql.Emit(map[string]interface{}{
+			ssql.Emit(map[string]any{
 				"deviceId":    "sensor001",
 				"temperature": i,
 			})
@@ -56,7 +56,7 @@ func TestSQLSlidingWindow_ProcessingTime(t *testing.T) {
 	// 等待窗口触发（第一个窗口应该在2秒后触发）
 	time.Sleep(3 * time.Second)
 
-	results := make([][]map[string]interface{}, 0)
+	results := make([][]map[string]any, 0)
 	timeout := time.After(3 * time.Second)
 	for {
 		select {
@@ -73,7 +73,7 @@ END:
 	assert.Greater(t, len(results), 0, "应该至少触发一个窗口")
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 	require.Greater(t, windowResultsLen, 0, "应该至少有一个窗口结果")
@@ -132,9 +132,9 @@ func TestSQLSlidingWindow_WithAggregations(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
+	ch := make(chan []map[string]any, 20)
 	defer close(ch)
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -146,7 +146,7 @@ func TestSQLSlidingWindow_WithAggregations(t *testing.T) {
 	// 使用处理时间，每200ms发送一条数据
 	for i := 0; i < 15; i++ {
 		temperature := float64(i)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"temperature": temperature,
 		})
@@ -155,7 +155,7 @@ func TestSQLSlidingWindow_WithAggregations(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
-	results := make([][]map[string]interface{}, 0)
+	results := make([][]map[string]any, 0)
 	timeout := time.After(3 * time.Second)
 	for {
 		select {
@@ -222,10 +222,10 @@ func TestSQLSlidingWindow_MultipleWindowsAlignment(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 20)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -236,7 +236,7 @@ func TestSQLSlidingWindow_MultipleWindowsAlignment(t *testing.T) {
 
 	// 使用处理时间，每200ms发送一条数据
 	for i := 0; i < 15; i++ {
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"temperature": float64(i),
 		})
@@ -262,7 +262,7 @@ func TestSQLSlidingWindow_MultipleWindowsAlignment(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 	require.Greater(t, windowResultsLen, 0, "应该至少触发一个窗口")
@@ -328,9 +328,9 @@ func TestSQLSlidingWindow_MultiKeyGrouped(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
+	ch := make(chan []map[string]any, 20)
 	defer close(ch)
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -341,22 +341,22 @@ func TestSQLSlidingWindow_MultiKeyGrouped(t *testing.T) {
 
 	// 使用处理时间，每200ms发送一组数据
 	for i := 0; i < 8; i++ {
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "A",
 			"region":      "R1",
 			"temperature": float64(i),
 		})
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "B",
 			"region":      "R1",
 			"temperature": float64(i + 10),
 		})
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "A",
 			"region":      "R2",
 			"temperature": float64(i + 20),
 		})
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "B",
 			"region":      "R2",
 			"temperature": float64(i + 30),
@@ -437,11 +437,11 @@ func TestSQLSlidingWindow_FirstWindowTiming(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
+	ch := make(chan []map[string]any, 20)
 	defer close(ch)
 	windowTimings := make([]time.Time, 0)
 	var windowTimingsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -461,7 +461,7 @@ func TestSQLSlidingWindow_FirstWindowTiming(t *testing.T) {
 
 	// 使用事件时间，每200ms发送一条数据，共发送10条
 	for i := 0; i < 10; i++ {
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"timestamp":   baseTime + int64(i*200), // 添加timestamp字段
 			"temperature": float64(i),
@@ -472,7 +472,7 @@ func TestSQLSlidingWindow_FirstWindowTiming(t *testing.T) {
 	// 发送一个事件时间超过第一个窗口结束时间的数据，推进watermark
 	// 窗口大小2秒，第一个窗口应该在 [baseTime, baseTime+2000) 范围内
 	// 发送一个事件时间为 baseTime+3000 的数据来推进watermark
-	ssql.Emit(map[string]interface{}{
+	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"timestamp":   baseTime + 3000, // 推进watermark
 		"temperature": 100.0,
@@ -542,11 +542,11 @@ func TestSQLSlidingWindow_DataOverlap(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
+	ch := make(chan []map[string]any, 20)
 	defer close(ch)
-	windowResults := make([][]map[string]interface{}, 0)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -564,7 +564,7 @@ func TestSQLSlidingWindow_DataOverlap(t *testing.T) {
 	// 窗口大小2秒，滑动步长500ms
 	// 使用处理时间时，窗口基于数据到达的处理时间
 	for i := 0; i < 15; i++ {
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"temperature": float64(i),
 		})
@@ -590,7 +590,7 @@ func TestSQLSlidingWindow_DataOverlap(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 	require.GreaterOrEqual(t, windowResultsLen, 3, "应该至少触发3个窗口")
@@ -679,11 +679,11 @@ func TestSQLSlidingWindow_DataRetention(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
+	ch := make(chan []map[string]any, 20)
 	defer close(ch)
-	windowResults := make([][]map[string]interface{}, 0)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -701,7 +701,7 @@ func TestSQLSlidingWindow_DataRetention(t *testing.T) {
 	// 窗口大小2秒，滑动步长500ms
 	// 使用处理时间时，窗口基于数据到达的处理时间
 	for i := 0; i < 12; i++ {
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"temperature": float64(i),
 		})
@@ -729,7 +729,7 @@ func TestSQLSlidingWindow_DataRetention(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 	require.GreaterOrEqual(t, windowResultsLen, 3, "应该至少触发3个窗口")
@@ -787,11 +787,11 @@ func TestSQLSlidingWindow_EventTimeWithWithClause(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
+	ch := make(chan []map[string]any, 20)
 	defer close(ch)
-	windowResults := make([][]map[string]interface{}, 0)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -810,7 +810,7 @@ func TestSQLSlidingWindow_EventTimeWithWithClause(t *testing.T) {
 	baseTime := time.Now().UnixMilli() // 使用当前时间作为基准
 	for i := 0; i < 15; i++ {
 		eventTime := baseTime + int64(i*200) // 每200ms一条数据
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime, // 事件时间字段（毫秒）
 			"temperature": float64(i),
@@ -837,7 +837,7 @@ func TestSQLSlidingWindow_EventTimeWithWithClause(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -874,11 +874,11 @@ func TestSQLSlidingWindow_LateDataHandling(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
+	ch := make(chan []map[string]any, 20)
 	defer close(ch)
-	windowResults := make([][]map[string]interface{}, 0)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -901,7 +901,7 @@ func TestSQLSlidingWindow_LateDataHandling(t *testing.T) {
 	t.Log("第一阶段：发送正常顺序的数据")
 	for i := 0; i < 10; i++ {
 		eventTime := baseTime + int64(i*200) // 每200ms一条数据
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i), // 温度值 0-9
@@ -921,7 +921,7 @@ func TestSQLSlidingWindow_LateDataHandling(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		// 延迟数据：事件时间比正常数据早，但仍在窗口范围内
 		eventTime := baseTime + int64(100+i*200) // 100ms, 300ms, 500ms
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(10 + i), // 温度值 10-12，用于区分延迟数据
@@ -933,7 +933,7 @@ func TestSQLSlidingWindow_LateDataHandling(t *testing.T) {
 	t.Log("第三阶段：继续发送正常数据，推进 watermark")
 	for i := 10; i < 15; i++ {
 		eventTime := baseTime + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -958,7 +958,7 @@ func TestSQLSlidingWindow_LateDataHandling(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -1008,11 +1008,11 @@ func TestSQLSlidingWindow_MaxOutOfOrderness(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
+	ch := make(chan []map[string]any, 20)
 	defer close(ch)
-	windowResults := make([][]map[string]interface{}, 0)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -1039,7 +1039,7 @@ func TestSQLSlidingWindow_MaxOutOfOrderness(t *testing.T) {
 	t.Log("第一阶段：发送正常顺序的数据（事件时间 0-2000ms）")
 	for i := 0; i < 10; i++ {
 		eventTime := baseTime + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i), // 0-9
@@ -1058,7 +1058,7 @@ func TestSQLSlidingWindow_MaxOutOfOrderness(t *testing.T) {
 	lateDataTimes := []int64{500, 700, 900} // 延迟数据的事件时间（相对于 baseTime）
 	for i, lateTime := range lateDataTimes {
 		eventTime := baseTime + lateTime
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(20 + i), // 20-22，用于标识延迟数据
@@ -1081,7 +1081,7 @@ func TestSQLSlidingWindow_MaxOutOfOrderness(t *testing.T) {
 		if i == 10 && eventTime < requiredEventTimeForTrigger {
 			eventTime = requiredEventTimeForTrigger
 		}
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -1119,7 +1119,7 @@ func TestSQLSlidingWindow_MaxOutOfOrderness(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -1179,11 +1179,11 @@ func TestSQLSlidingWindow_AllowedLateness(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
+	ch := make(chan []map[string]any, 20)
 	defer close(ch)
-	windowResults := make([][]map[string]interface{}, 0)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -1206,7 +1206,7 @@ func TestSQLSlidingWindow_AllowedLateness(t *testing.T) {
 	t.Log("第一阶段：发送正常顺序的数据（事件时间 0-2000ms）")
 	for i := 0; i < 10; i++ {
 		eventTime := baseTime + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i), // 0-9
@@ -1223,7 +1223,7 @@ func TestSQLSlidingWindow_AllowedLateness(t *testing.T) {
 	firstWindowEnd := baseTime + windowSizeMs
 	requiredEventTimeForTrigger := firstWindowEnd + maxOutOfOrdernessMs
 	// 发送事件时间 >= requiredEventTimeForTrigger 的数据，确保 watermark >= windowEnd
-	ssql.Emit(map[string]interface{}{
+	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   requiredEventTimeForTrigger,
 		"temperature": 100.0,
@@ -1279,7 +1279,7 @@ COLLECT_FIRST_WINDOW_END:
 	lateDataTemps := []float64{30.0, 31.0, 32.0}
 	for i, lateTime := range lateDataTimes {
 		eventTime := baseTime + lateTime
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": lateDataTemps[i], // 30-32，用于标识延迟数据
@@ -1291,7 +1291,7 @@ COLLECT_FIRST_WINDOW_END:
 	t.Log("第三阶段：继续发送正常数据，推进 watermark")
 	for i := 10; i < 15; i++ {
 		eventTime := baseTime + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -1329,7 +1329,7 @@ COLLECT_FIRST_WINDOW_END:
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -1401,11 +1401,11 @@ func TestSQLSlidingWindow_EventTimeWindowAlignment(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
+	ch := make(chan []map[string]any, 20)
 	defer close(ch)
-	windowResults := make([][]map[string]interface{}, 0)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -1426,7 +1426,7 @@ func TestSQLSlidingWindow_EventTimeWindowAlignment(t *testing.T) {
 	// 发送数据，事件时间从baseTime开始，每200ms一条
 	for i := 0; i < 20; i++ {
 		eventTime := baseTime + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -1450,7 +1450,7 @@ func TestSQLSlidingWindow_EventTimeWindowAlignment(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -1506,11 +1506,11 @@ func TestSQLSlidingWindow_WatermarkTriggerTiming(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
+	ch := make(chan []map[string]any, 20)
 	defer close(ch)
-	windowResults := make([][]map[string]interface{}, 0)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -1534,7 +1534,7 @@ func TestSQLSlidingWindow_WatermarkTriggerTiming(t *testing.T) {
 	firstEventTime := baseTime
 	for i := 0; i < 10; i++ {
 		eventTime := baseTime + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -1552,7 +1552,7 @@ func TestSQLSlidingWindow_WatermarkTriggerTiming(t *testing.T) {
 	// 发送一个事件时间超过window_end的数据，推进watermark
 	// watermark = maxEventTime - maxOutOfOrderness = (firstWindowEnd + 1000) - 500 = firstWindowEnd + 500
 	// 此时 watermark >= firstWindowEnd，窗口应该触发
-	ssql.Emit(map[string]interface{}{
+	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   firstWindowEnd + 1000,
 		"temperature": 200.0,
@@ -1574,7 +1574,7 @@ func TestSQLSlidingWindow_WatermarkTriggerTiming(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -1622,11 +1622,11 @@ func TestSQLSlidingWindow_IdleSourceMechanism(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 20)
+	ch := make(chan []map[string]any, 20)
 	defer close(ch)
-	windowResults := make([][]map[string]interface{}, 0)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -1648,7 +1648,7 @@ func TestSQLSlidingWindow_IdleSourceMechanism(t *testing.T) {
 	t.Log("发送数据，创建滑动窗口")
 	for i := 0; i < 10; i++ {
 		eventTime := alignedStart + int64(i*200)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -1674,7 +1674,7 @@ func TestSQLSlidingWindow_IdleSourceMechanism(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 

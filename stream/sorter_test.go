@@ -10,7 +10,7 @@ import (
 
 func TestSorter_AscNumeric(t *testing.T) {
 	s := NewSorter([]types.OrderByField{{Expression: "v", Direction: types.SortAsc}})
-	rows := []map[string]interface{}{
+	rows := []map[string]any{
 		{"v": float64(3)}, {"v": float64(1)}, {"v": float64(2)},
 	}
 	s.Sort(rows)
@@ -19,7 +19,7 @@ func TestSorter_AscNumeric(t *testing.T) {
 
 func TestSorter_DescNumeric(t *testing.T) {
 	s := NewSorter([]types.OrderByField{{Expression: "v", Direction: types.SortDesc}})
-	rows := []map[string]interface{}{
+	rows := []map[string]any{
 		{"v": float64(1)}, {"v": float64(3)}, {"v": float64(2)},
 	}
 	s.Sort(rows)
@@ -29,17 +29,17 @@ func TestSorter_DescNumeric(t *testing.T) {
 func TestSorter_MixedNumericKinds(t *testing.T) {
 	// int, int64, float64, uint should all compare numerically.
 	s := NewSorter([]types.OrderByField{{Expression: "v", Direction: types.SortAsc}})
-	rows := []map[string]interface{}{
+	rows := []map[string]any{
 		{"v": int(10)}, {"v": float64(2)}, {"v": int64(5)}, {"v": uint(1)},
 	}
 	s.Sort(rows)
-	got := []interface{}{rows[0]["v"], rows[1]["v"], rows[2]["v"], rows[3]["v"]}
-	assert.Equal(t, []interface{}{uint(1), float64(2), int64(5), int(10)}, got)
+	got := []any{rows[0]["v"], rows[1]["v"], rows[2]["v"], rows[3]["v"]}
+	assert.Equal(t, []any{uint(1), float64(2), int64(5), int(10)}, got)
 }
 
 func TestSorter_String(t *testing.T) {
 	s := NewSorter([]types.OrderByField{{Expression: "name", Direction: types.SortAsc}})
-	rows := []map[string]interface{}{
+	rows := []map[string]any{
 		{"name": "banana"}, {"name": "apple"}, {"name": "cherry"},
 	}
 	s.Sort(rows)
@@ -53,7 +53,7 @@ func TestSorter_MultiKey(t *testing.T) {
 		{Expression: "a", Direction: types.SortAsc},
 		{Expression: "b", Direction: types.SortDesc},
 	})
-	rows := []map[string]interface{}{
+	rows := []map[string]any{
 		{"a": 1, "b": 1}, {"a": 1, "b": 3}, {"a": 1, "b": 2},
 		{"a": 2, "b": 0}, {"a": 2, "b": 9},
 	}
@@ -73,7 +73,7 @@ func TestSorter_MultiKey(t *testing.T) {
 
 func TestSorter_MissingKeySortsFirst(t *testing.T) {
 	s := NewSorter([]types.OrderByField{{Expression: "v", Direction: types.SortAsc}})
-	rows := []map[string]interface{}{
+	rows := []map[string]any{
 		{"v": float64(5)}, {"other": 1}, {"v": float64(2)},
 	}
 	s.Sort(rows)
@@ -89,14 +89,14 @@ func TestSorter_BoolAndTime(t *testing.T) {
 	t2 := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)
 	t3 := time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)
 	s := NewSorter([]types.OrderByField{{Expression: "t", Direction: types.SortAsc}})
-	rows := []map[string]interface{}{{"t": t3}, {"t": t1}, {"t": t2}}
+	rows := []map[string]any{{"t": t3}, {"t": t1}, {"t": t2}}
 	s.Sort(rows)
 	assert.Equal(t, t1, rows[0]["t"])
 	assert.Equal(t, t2, rows[1]["t"])
 	assert.Equal(t, t3, rows[2]["t"])
 
 	sb := NewSorter([]types.OrderByField{{Expression: "b", Direction: types.SortAsc}})
-	brows := []map[string]interface{}{{"b": true}, {"b": false}, {"b": true}}
+	brows := []map[string]any{{"b": true}, {"b": false}, {"b": true}}
 	sb.Sort(brows)
 	assert.Equal(t, false, brows[0]["b"])
 	assert.Equal(t, true, brows[1]["b"])
@@ -106,7 +106,7 @@ func TestSorter_BoolAndTime(t *testing.T) {
 func TestSorter_Stable(t *testing.T) {
 	// Equal keys must preserve input order.
 	s := NewSorter([]types.OrderByField{{Expression: "k", Direction: types.SortAsc}})
-	rows := []map[string]interface{}{
+	rows := []map[string]any{
 		{"k": 1, "order": "a"}, {"k": 1, "order": "b"}, {"k": 1, "order": "c"},
 		{"k": 1, "order": "d"},
 	}
@@ -118,12 +118,12 @@ func TestSorter_Stable(t *testing.T) {
 func TestSorter_NoopWhenNoKeysOrFewRows(t *testing.T) {
 	// No keys: unchanged.
 	NewSorter(nil).Sort(nil)
-	rows := []map[string]interface{}{{"v": 2.0}, {"v": 1.0}}
+	rows := []map[string]any{{"v": 2.0}, {"v": 1.0}}
 	NewSorter(nil).Sort(rows)
 	assert.Equal(t, 2.0, rows[0]["v"]) // unchanged
 
 	// Single row: unchanged regardless of keys.
-	one := []map[string]interface{}{{"v": 9.0}}
+	one := []map[string]any{{"v": 9.0}}
 	NewSorter([]types.OrderByField{{Expression: "v", Direction: types.SortDesc}}).Sort(one)
 	assert.Equal(t, 9.0, one[0]["v"])
 }

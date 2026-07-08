@@ -105,7 +105,7 @@ func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
 	return cw, nil
 }
 
-func (cw *CountingWindow) Add(data interface{}) {
+func (cw *CountingWindow) Add(data any) {
 	// Check if window is stopped before adding data
 	cw.mu.Lock()
 	stopped := cw.stopped
@@ -304,7 +304,7 @@ func (cw *CountingWindow) OutputChan() <-chan []types.Row {
 	return cw.outputChan
 }
 
-// func (cw *CountingWindow) GetResults() []interface{} {
+// func (cw *CountingWindow) GetResults() []any {
 // 	return append([]mode.Row, cw.dataBuffer...)
 // }
 
@@ -327,7 +327,7 @@ func (cw *CountingWindow) createSlot(data []types.Row) *types.TimeSlot {
 	}
 }
 
-func (cw *CountingWindow) getKey(data interface{}) string {
+func (cw *CountingWindow) getKey(data any) string {
 	// Use GroupByKeys array
 	keys := cw.config.GroupByKeys
 	if len(keys) == 0 {

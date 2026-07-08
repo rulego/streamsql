@@ -16,7 +16,7 @@ func TestSelectAllAsterisk(t *testing.T) {
 	if err := ssql.Execute("SELECT * FROM stream"); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	in := map[string]interface{}{"deviceId": "d1", "temperature": 35.5, "humidity": 60}
+	in := map[string]any{"deviceId": "d1", "temperature": 35.5, "humidity": 60}
 	got, err := ssql.EmitSync(in)
 	if err != nil {
 		t.Fatalf("EmitSync: %v", err)
@@ -42,12 +42,12 @@ func TestSelectAllWithWhere(t *testing.T) {
 	if err := ssql.Execute("SELECT * FROM stream WHERE temperature > 30"); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	pass := map[string]interface{}{"deviceId": "d1", "temperature": 35, "humidity": 60}
+	pass := map[string]any{"deviceId": "d1", "temperature": 35, "humidity": 60}
 	got, _ := ssql.EmitSync(pass)
 	if got == nil || len(got) != 3 {
 		t.Errorf("matching SELECT * got=%v, want 3 fields", got)
 	}
-	drop := map[string]interface{}{"deviceId": "d2", "temperature": 20}
+	drop := map[string]any{"deviceId": "d2", "temperature": 20}
 	got, _ = ssql.EmitSync(drop)
 	if got != nil {
 		t.Errorf("filtered row got=%v, want nil", got)

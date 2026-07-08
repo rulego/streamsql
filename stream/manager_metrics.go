@@ -60,7 +60,7 @@ func (s *Stream) GetStats() map[string]int64 {
 }
 
 // GetDetailedStats gets detailed performance statistics
-func (s *Stream) GetDetailedStats() map[string]interface{} {
+func (s *Stream) GetDetailedStats() map[string]any {
 	basicStats := s.GetStats()
 
 	// Calculate usage rates
@@ -83,7 +83,7 @@ func (s *Stream) GetDetailedStats() map[string]interface{} {
 		dropRate = float64(basicStats[DroppedCount]) / float64(basicStats[InputCount]) * 100
 	}
 
-	result := map[string]interface{}{
+	result := map[string]any{
 		BasicStats:       basicStats,
 		DataChanUsage:    dataUsage,
 		ResultChanUsage:  resultUsage,

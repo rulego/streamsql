@@ -17,19 +17,19 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 	testCases := []struct {
 		name     string
 		sql      string
-		testData []map[string]interface{}
-		expected []map[string]interface{}
+		testData []map[string]any
+		expected []map[string]any
 	}{
 		{
 			name: "IS NULL测试",
 			sql:  "SELECT deviceId, value FROM stream WHERE value IS NULL",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5},
 				{"deviceId": "sensor2", "value": nil},
 				{"deviceId": "sensor3", "value": 30.0},
 				{"deviceId": "sensor4", "value": nil},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor2", "value": nil},
 				{"deviceId": "sensor4", "value": nil},
 			},
@@ -37,13 +37,13 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 		{
 			name: "IS NOT NULL测试",
 			sql:  "SELECT deviceId, value FROM stream WHERE value IS NOT NULL",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5},
 				{"deviceId": "sensor2", "value": nil},
 				{"deviceId": "sensor3", "value": 30.0},
 				{"deviceId": "sensor4", "value": nil},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5},
 				{"deviceId": "sensor3", "value": 30.0},
 			},
@@ -51,25 +51,25 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 		{
 			name: "嵌套字段IS NULL测试",
 			sql:  "SELECT deviceId, device.location FROM stream WHERE device.location IS NULL",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{
 					"deviceId": "sensor1",
-					"device": map[string]interface{}{
+					"device": map[string]any{
 						"location": "warehouse-A",
 					},
 				},
 				{
 					"deviceId": "sensor2",
-					"device": map[string]interface{}{
+					"device": map[string]any{
 						"location": nil,
 					},
 				},
 				{
 					"deviceId": "sensor3",
-					"device":   map[string]interface{}{},
+					"device":   map[string]any{},
 				},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor2", "device.location": nil},
 				{"deviceId": "sensor3", "device.location": nil}, // 字段不存在也被认为是null
 			},
@@ -77,26 +77,26 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 		{
 			name: "组合条件 - IS NULL AND其他条件",
 			sql:  "SELECT deviceId, value, status FROM stream WHERE value IS NULL AND status = 'active'",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5, "status": "active"},
 				{"deviceId": "sensor2", "value": nil, "status": "active"},
 				{"deviceId": "sensor3", "value": nil, "status": "inactive"},
 				{"deviceId": "sensor4", "value": 30.0, "status": "active"},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor2", "value": nil, "status": "active"},
 			},
 		},
 		{
 			name: "组合条件 - IS NOT NULL OR其他条件",
 			sql:  "SELECT deviceId, value, status FROM stream WHERE value IS NOT NULL OR status = 'error'",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5, "status": "active"},
 				{"deviceId": "sensor2", "value": nil, "status": "active"},
 				{"deviceId": "sensor3", "value": nil, "status": "error"},
 				{"deviceId": "sensor4", "value": 30.0, "status": "inactive"},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5, "status": "active"},
 				{"deviceId": "sensor3", "value": nil, "status": "error"},
 				{"deviceId": "sensor4", "value": 30.0, "status": "inactive"},
@@ -115,11 +115,11 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 			require.NoError(t, err)
 
 			// 收集结果
-			var results []map[string]interface{}
-			resultChan := make(chan interface{}, 10)
+			var results []map[string]any
+			resultChan := make(chan any, 10)
 			resultsMutex := sync.Mutex{}
 
-			ssql.Stream().AddSink(func(result []map[string]interface{}) {
+			ssql.Stream().AddSink(func(result []map[string]any) {
 				resultChan <- result
 			})
 
@@ -136,7 +136,7 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 				select {
 				case result := <-resultChan:
 					resultsMutex.Lock()
-					if resultSlice, ok := result.([]map[string]interface{}); ok {
+					if resultSlice, ok := result.([]map[string]any); ok {
 						results = append(results, resultSlice...)
 					}
 					resultsMutex.Unlock()
@@ -171,7 +171,7 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 			for _, result := range results {
 				deviceId := result["deviceId"].(string)
 				// 找到对应的期望结果
-				var expectedResult map[string]interface{}
+				var expectedResult map[string]any
 				for _, exp := range tc.expected {
 					if exp["deviceId"].(string) == deviceId {
 						expectedResult = exp
@@ -210,13 +210,13 @@ func TestIsNullInAggregation(t *testing.T) {
 	require.NoError(t, err)
 
 	// 收集结果
-	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.Stream().AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceType": "temperature", "value": 25.5},
 		{"deviceType": "temperature", "value": nil},
 		{"deviceType": "temperature", "value": 27.0},
@@ -234,8 +234,8 @@ func TestIsNullInAggregation(t *testing.T) {
 	// 验证结果
 	select {
 	case result := <-resultChan:
-		resultSlice, ok := result.([]map[string]interface{})
-		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+		resultSlice, ok := result.([]map[string]any)
+		require.True(t, ok, "结果应该是[]map[string]any类型")
 
 		// 应该有temperature和humidity两种类型的结果
 		assert.GreaterOrEqual(t, len(resultSlice), 1, "应该至少有一个聚合结果")
@@ -277,13 +277,13 @@ func TestIsNullInHaving(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.Stream().AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据：只给pressure设备类型添加null值，这样它的平均值会是null
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceType": "temperature", "value": 25.0},
 		{"deviceType": "temperature", "value": 27.0}, // temperature有值，平均值不为null
 		{"deviceType": "humidity", "value": 60.0},    // humidity有值，平均值不为null
@@ -301,8 +301,8 @@ func TestIsNullInHaving(t *testing.T) {
 	// 验证结果
 	select {
 	case result := <-resultChan:
-		resultSlice, ok := result.([]map[string]interface{})
-		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+		resultSlice, ok := result.([]map[string]any)
+		require.True(t, ok, "结果应该是[]map[string]any类型")
 
 		// 应该只有pressure类型的结果（平均值为null）
 		assert.Len(t, resultSlice, 1, "应该只有一个结果")
@@ -343,13 +343,13 @@ func TestIsNullInHavingWithIsNotNull(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.Stream().AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceType": "temperature", "value": 25.0},
 		{"deviceType": "temperature", "value": 27.0}, // temperature有值，平均值不为null
 		{"deviceType": "humidity", "value": 60.0},    // humidity有值，平均值不为null
@@ -367,8 +367,8 @@ func TestIsNullInHavingWithIsNotNull(t *testing.T) {
 	// 验证结果
 	select {
 	case result := <-resultChan:
-		resultSlice, ok := result.([]map[string]interface{})
-		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+		resultSlice, ok := result.([]map[string]any)
+		require.True(t, ok, "结果应该是[]map[string]any类型")
 
 		// 应该有temperature和humidity两种类型的结果（平均值不为null）
 		assert.Len(t, resultSlice, 2, "应该有两个结果")
@@ -410,13 +410,13 @@ func TestIsNullWithOtherOperators(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.Stream().AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceId": "sensor1", "value": 25.0, "status": "active", "location": "warehouse-A"},  // 满足第一个条件
 		{"deviceId": "sensor2", "value": 15.0, "status": "active", "location": "warehouse-B"},  // 不满足条件
 		{"deviceId": "sensor3", "value": nil, "status": nil, "location": "warehouse-C"},        // 满足第二个条件
@@ -429,14 +429,14 @@ func TestIsNullWithOtherOperators(t *testing.T) {
 	}
 
 	// 使用超时方式安全收集结果
-	var results []map[string]interface{}
+	var results []map[string]any
 	timeout := time.After(2 * time.Second)
 
 collecting:
 	for {
 		select {
 		case result := <-resultChan:
-			if resultSlice, ok := result.([]map[string]interface{}); ok {
+			if resultSlice, ok := result.([]map[string]any); ok {
 				results = append(results, resultSlice...)
 			}
 		case <-timeout:
@@ -464,8 +464,8 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 	testCases := []struct {
 		name     string
 		sql      string
-		testData []map[string]interface{}
-		expected []map[string]interface{}
+		testData []map[string]any
+		expected []map[string]any
 	}{
 		{
 			name: "CASE WHEN IS NULL基本测试",
@@ -474,13 +474,13 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 			                  WHEN status IS NOT NULL THEN 1 
 			                  ELSE 2 END as status_flag
 			      FROM stream`,
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "sensor1", "status": "active"},
 				{"deviceId": "sensor2", "status": nil},
 				{"deviceId": "sensor3", "status": "inactive"},
 				{"deviceId": "sensor4"}, // 没有status字段
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor1", "status_flag": 1.0},
 				{"deviceId": "sensor2", "status_flag": 0.0},
 				{"deviceId": "sensor3", "status_flag": 1.0},
@@ -495,13 +495,13 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 			                  WHEN temperature IS NULL THEN 0 
 			                  ELSE 3 END as temp_level
 			      FROM stream`,
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "sensor1", "temperature": 30.0},
 				{"deviceId": "sensor2", "temperature": 20.0},
 				{"deviceId": "sensor3", "temperature": nil},
 				{"deviceId": "sensor4"}, // 没有temperature字段
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor1", "temp_level": 2.0},
 				{"deviceId": "sensor2", "temp_level": 1.0},
 				{"deviceId": "sensor3", "temp_level": 0.0},
@@ -517,14 +517,14 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 			                  WHEN status IS NOT NULL AND temperature IS NOT NULL THEN 3 
 			                  ELSE 4 END as combined_flag
 			      FROM stream`,
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "sensor1", "status": "active", "temperature": 25.0},
 				{"deviceId": "sensor2", "status": "active", "temperature": nil},
 				{"deviceId": "sensor3", "status": nil, "temperature": 30.0},
 				{"deviceId": "sensor4", "status": nil, "temperature": nil},
 				{"deviceId": "sensor5"}, // 两个字段都不存在
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor1", "combined_flag": 3.0},
 				{"deviceId": "sensor2", "combined_flag": 2.0},
 				{"deviceId": "sensor3", "combined_flag": 1.0},
@@ -540,7 +540,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 			             SUM(CASE WHEN value IS NOT NULL THEN 1 ELSE 0 END) as non_null_count
 			      FROM stream 
 			      GROUP BY deviceType, TumblingWindow('2s')`,
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceType": "temperature", "value": 25.0},
 				{"deviceType": "temperature", "value": nil},
 				{"deviceType": "temperature", "value": 27.0},
@@ -548,7 +548,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 				{"deviceType": "humidity", "value": nil},
 				{"deviceType": "humidity", "value": nil},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{
 					"deviceType":     "temperature",
 					"total_count":    3.0,
@@ -576,10 +576,10 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 			require.NoError(t, err)
 
 			// 收集结果
-			var results []map[string]interface{}
-			resultChan := make(chan interface{}, 10)
+			var results []map[string]any
+			resultChan := make(chan any, 10)
 
-			ssql.Stream().AddSink(func(result []map[string]interface{}) {
+			ssql.Stream().AddSink(func(result []map[string]any) {
 				resultChan <- result
 			})
 
@@ -602,7 +602,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 			for {
 				select {
 				case result := <-resultChan:
-					if resultSlice, ok := result.([]map[string]interface{}); ok {
+					if resultSlice, ok := result.([]map[string]any); ok {
 						results = append(results, resultSlice...)
 					}
 				case <-timeoutChan:
@@ -620,7 +620,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 					expectedDeviceType := expectedResult["deviceType"].(string)
 
 					// 在结果中找到对应的deviceType
-					var actualResult map[string]interface{}
+					var actualResult map[string]any
 					for _, result := range results {
 						if result["deviceType"].(string) == expectedDeviceType {
 							actualResult = result
@@ -659,7 +659,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 				for _, result := range results {
 					deviceId := result["deviceId"].(string)
 					// 找到对应的期望结果
-					var expectedResult map[string]interface{}
+					var expectedResult map[string]any
 					for _, exp := range tc.expected {
 						if exp["deviceId"].(string) == deviceId {
 							expectedResult = exp
@@ -688,19 +688,19 @@ func TestNullComparisons(t *testing.T) {
 	testCases := []struct {
 		name     string
 		sql      string
-		testData []map[string]interface{}
-		expected []map[string]interface{}
+		testData []map[string]any
+		expected []map[string]any
 	}{
 		{
 			name: "fieldName = nil 测试",
 			sql:  "SELECT deviceId, value FROM stream WHERE value = nil",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5},
 				{"deviceId": "sensor2", "value": nil},
 				{"deviceId": "sensor3", "value": 30.0},
 				{"deviceId": "sensor4", "value": nil},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor2", "value": nil},
 				{"deviceId": "sensor4", "value": nil},
 			},
@@ -708,13 +708,13 @@ func TestNullComparisons(t *testing.T) {
 		{
 			name: "fieldName != nil 测试",
 			sql:  "SELECT deviceId, value FROM stream WHERE value != nil",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5},
 				{"deviceId": "sensor2", "value": nil},
 				{"deviceId": "sensor3", "value": 30.0},
 				{"deviceId": "sensor4", "value": nil},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5},
 				{"deviceId": "sensor3", "value": 30.0},
 			},
@@ -722,13 +722,13 @@ func TestNullComparisons(t *testing.T) {
 		{
 			name: "fieldName = null 测试",
 			sql:  "SELECT deviceId, value FROM stream WHERE value = null",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5},
 				{"deviceId": "sensor2", "value": nil},
 				{"deviceId": "sensor3", "value": 30.0},
 				{"deviceId": "sensor4", "value": nil},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor2", "value": nil},
 				{"deviceId": "sensor4", "value": nil},
 			},
@@ -736,13 +736,13 @@ func TestNullComparisons(t *testing.T) {
 		{
 			name: "fieldName != null 测试",
 			sql:  "SELECT deviceId, value FROM stream WHERE value != null",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5},
 				{"deviceId": "sensor2", "value": nil},
 				{"deviceId": "sensor3", "value": 30.0},
 				{"deviceId": "sensor4", "value": nil},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5},
 				{"deviceId": "sensor3", "value": 30.0},
 			},
@@ -750,25 +750,25 @@ func TestNullComparisons(t *testing.T) {
 		{
 			name: "嵌套字段 = nil 测试",
 			sql:  "SELECT deviceId, device.location FROM stream WHERE device.location = nil",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{
 					"deviceId": "sensor1",
-					"device": map[string]interface{}{
+					"device": map[string]any{
 						"location": "warehouse-A",
 					},
 				},
 				{
 					"deviceId": "sensor2",
-					"device": map[string]interface{}{
+					"device": map[string]any{
 						"location": nil,
 					},
 				},
 				{
 					"deviceId": "sensor3",
-					"device":   map[string]interface{}{},
+					"device":   map[string]any{},
 				},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor2", "device.location": nil},
 				{"deviceId": "sensor3", "device.location": nil}, // 字段不存在也被认为是null
 			},
@@ -776,38 +776,38 @@ func TestNullComparisons(t *testing.T) {
 		{
 			name: "嵌套字段 != nil 测试",
 			sql:  "SELECT deviceId, device.location FROM stream WHERE device.location != nil",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{
 					"deviceId": "sensor1",
-					"device": map[string]interface{}{
+					"device": map[string]any{
 						"location": "warehouse-A",
 					},
 				},
 				{
 					"deviceId": "sensor2",
-					"device": map[string]interface{}{
+					"device": map[string]any{
 						"location": nil,
 					},
 				},
 				{
 					"deviceId": "sensor3",
-					"device":   map[string]interface{}{},
+					"device":   map[string]any{},
 				},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor1", "device.location": "warehouse-A"},
 			},
 		},
 		{
 			name: "组合条件 - != nil AND 其他条件",
 			sql:  "SELECT deviceId, value, status FROM stream WHERE value != nil AND value > 20",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5, "status": "active"},
 				{"deviceId": "sensor2", "value": nil, "status": "active"},
 				{"deviceId": "sensor3", "value": 15.0, "status": "inactive"},
 				{"deviceId": "sensor4", "value": 30.0, "status": "active"},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5, "status": "active"},
 				{"deviceId": "sensor4", "value": 30.0, "status": "active"},
 			},
@@ -815,13 +815,13 @@ func TestNullComparisons(t *testing.T) {
 		{
 			name: "组合条件 - = nil OR 其他条件",
 			sql:  "SELECT deviceId, value, status FROM stream WHERE value = nil OR status = 'error'",
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "sensor1", "value": 25.5, "status": "active"},
 				{"deviceId": "sensor2", "value": nil, "status": "active"},
 				{"deviceId": "sensor3", "value": 30.0, "status": "error"},
 				{"deviceId": "sensor4", "value": nil, "status": "inactive"},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "sensor2", "value": nil, "status": "active"},
 				{"deviceId": "sensor3", "value": 30.0, "status": "error"},
 				{"deviceId": "sensor4", "value": nil, "status": "inactive"},
@@ -840,10 +840,10 @@ func TestNullComparisons(t *testing.T) {
 			require.NoError(t, err)
 
 			// 收集结果
-			var results []map[string]interface{}
-			resultChan := make(chan interface{}, 10)
+			var results []map[string]any
+			resultChan := make(chan any, 10)
 
-			ssql.Stream().AddSink(func(result []map[string]interface{}) {
+			ssql.Stream().AddSink(func(result []map[string]any) {
 				resultChan <- result
 			})
 
@@ -859,7 +859,7 @@ func TestNullComparisons(t *testing.T) {
 			for {
 				select {
 				case result := <-resultChan:
-					if resultSlice, ok := result.([]map[string]interface{}); ok {
+					if resultSlice, ok := result.([]map[string]any); ok {
 						results = append(results, resultSlice...)
 					}
 				case <-timeout:
@@ -890,7 +890,7 @@ func TestNullComparisons(t *testing.T) {
 			for _, result := range results {
 				deviceId := result["deviceId"].(string)
 				// 找到对应的期望结果
-				var expectedResult map[string]interface{}
+				var expectedResult map[string]any
 				for _, exp := range tc.expected {
 					if exp["deviceId"].(string) == deviceId {
 						expectedResult = exp
@@ -928,13 +928,13 @@ func TestNullComparisonInAggregation(t *testing.T) {
 	require.NoError(t, err)
 
 	// 收集结果
-	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.Stream().AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceType": "temperature", "value": 25.5},
 		{"deviceType": "temperature", "value": nil},
 		{"deviceType": "temperature", "value": 27.0},
@@ -952,8 +952,8 @@ func TestNullComparisonInAggregation(t *testing.T) {
 	// 验证结果
 	select {
 	case result := <-resultChan:
-		resultSlice, ok := result.([]map[string]interface{})
-		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+		resultSlice, ok := result.([]map[string]any)
+		require.True(t, ok, "结果应该是[]map[string]any类型")
 
 		// 应该有temperature和humidity两种类型的结果
 		assert.GreaterOrEqual(t, len(resultSlice), 1, "应该至少有一个聚合结果")
@@ -993,13 +993,13 @@ func TestMixedNullComparisons(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	resultChan := make(chan interface{}, 10)
-	ssql.Stream().AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any, 10)
+	ssql.Stream().AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceId": "sensor1", "value": 25.0, "status": "active", "priority": "high"}, // 满足第一个条件
 		{"deviceId": "sensor2", "value": 15.0, "status": "active", "priority": "low"},  // 不满足条件
 		{"deviceId": "sensor3", "value": nil, "status": nil, "priority": "medium"},     // 满足第二个条件
@@ -1013,14 +1013,14 @@ func TestMixedNullComparisons(t *testing.T) {
 	}
 
 	// 使用超时方式安全收集结果
-	var results []map[string]interface{}
+	var results []map[string]any
 	timeout := time.After(2 * time.Second)
 
 collecting:
 	for {
 		select {
 		case result := <-resultChan:
-			if resultSlice, ok := result.([]map[string]interface{}); ok {
+			if resultSlice, ok := result.([]map[string]any); ok {
 				results = append(results, resultSlice...)
 			}
 		case <-timeout:

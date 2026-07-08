@@ -48,14 +48,14 @@ func buildTestGlobalWindow(t *testing.T, trigger string, ttl time.Duration) *Glo
 
 // collectResults drains the output channel synchronously after each emit by
 // installing a callback; the window pushes one batch per fire.
-func (gw *GlobalWindow) collectOnCallback() *[]map[string]interface{} {
+func (gw *GlobalWindow) collectOnCallback() *[]map[string]any {
 	var mu sync.Mutex
-	var got []map[string]interface{}
+	var got []map[string]any
 	gw.SetCallback(func(rows []types.Row) {
 		mu.Lock()
 		defer mu.Unlock()
 		for _, r := range rows {
-			if m, ok := r.Data.(map[string]interface{}); ok {
+			if m, ok := r.Data.(map[string]any); ok {
 				got = append(got, m)
 			}
 		}
@@ -70,7 +70,7 @@ func TestGlobalWindow_FiresWhenPredicateHits(t *testing.T) {
 	defer gw.Stop()
 
 	for i := 0; i < 3; i++ {
-		gw.Add(map[string]interface{}{"deviceId": "d1", "temp": float64(i)})
+		gw.Add(map[string]any{"deviceId": "d1", "temp": float64(i)})
 	}
 	// callback fires synchronously inside processRow (same goroutine as Add's
 	// triggerChan consumer), so by the time the channelized Add returns the row
@@ -93,7 +93,7 @@ func TestGlobalWindow_DoesNotFireBelowThreshold(t *testing.T) {
 	defer gw.Stop()
 
 	for i := 0; i < 4; i++ {
-		gw.Add(map[string]interface{}{"deviceId": "d1"})
+		gw.Add(map[string]any{"deviceId": "d1"})
 	}
 	time.Sleep(100 * time.Millisecond)
 	if len(*got) != 0 {
@@ -110,7 +110,7 @@ func TestGlobalWindow_PurgesStateAfterFire(t *testing.T) {
 	defer gw.Stop()
 
 	for i := 0; i < 6; i++ {
-		gw.Add(map[string]interface{}{"deviceId": "d1"})
+		gw.Add(map[string]any{"deviceId": "d1"})
 	}
 	waitFor(t, func() bool {
 		return len(*got) >= 2
@@ -132,10 +132,10 @@ func TestGlobalWindow_GroupsFireIndependently(t *testing.T) {
 	defer gw.Stop()
 
 	// Interleave two devices; each should fire on its own count.
-	gw.Add(map[string]interface{}{"deviceId": "a"})
-	gw.Add(map[string]interface{}{"deviceId": "b"})
-	gw.Add(map[string]interface{}{"deviceId": "a"}) // a fires (cnt=2)
-	gw.Add(map[string]interface{}{"deviceId": "b"}) // b fires (cnt=2)
+	gw.Add(map[string]any{"deviceId": "a"})
+	gw.Add(map[string]any{"deviceId": "b"})
+	gw.Add(map[string]any{"deviceId": "a"}) // a fires (cnt=2)
+	gw.Add(map[string]any{"deviceId": "b"}) // b fires (cnt=2)
 
 	waitFor(t, func() bool {
 		return len(*got) >= 2
@@ -174,8 +174,8 @@ func TestGlobalWindow_FieldDrivenTrigger(t *testing.T) {
 	gw.Start()
 	defer gw.Stop()
 
-	gw.Add(map[string]interface{}{"deviceId": "d1", "temp": float64(40)}) // no fire
-	gw.Add(map[string]interface{}{"deviceId": "d1", "temp": float64(55)}) // fire, max=55
+	gw.Add(map[string]any{"deviceId": "d1", "temp": float64(40)}) // no fire
+	gw.Add(map[string]any{"deviceId": "d1", "temp": float64(55)}) // fire, max=55
 	waitFor(t, func() bool {
 		return len(*got) > 0
 	})
@@ -196,7 +196,7 @@ func TestGlobalWindow_StateTTLReapsIdleGroup(t *testing.T) {
 	defer gw.Stop()
 
 	for i := 0; i < 5; i++ {
-		gw.Add(map[string]interface{}{"deviceId": "idle"})
+		gw.Add(map[string]any{"deviceId": "idle"})
 	}
 	// Wait until the rows are consumed and the group exists.
 	waitFor(t, func() bool {
@@ -222,7 +222,7 @@ func TestGlobalWindow_StateTTLReapsIdleGroup(t *testing.T) {
 	}
 
 	// After reap, a new row starts a fresh group whose count is 1, not 6.
-	gw.Add(map[string]interface{}{"deviceId": "idle"})
+	gw.Add(map[string]any{"deviceId": "idle"})
 	waitFor(t, func() bool {
 		gw.mu.Lock()
 		defer gw.mu.Unlock()
@@ -254,7 +254,7 @@ func TestGlobalWindow_NeverTriggerNoOutput(t *testing.T) {
 	defer gw.Stop()
 
 	for i := 0; i < 1000; i++ {
-		gw.Add(map[string]interface{}{"deviceId": "d1"})
+		gw.Add(map[string]any{"deviceId": "d1"})
 	}
 	time.Sleep(100 * time.Millisecond)
 	if len(*got) != 0 {
@@ -283,7 +283,7 @@ func waitFor(t *testing.T, cond func() bool) {
 }
 
 // makeGlobalWindow is a thin helper for tests that want to vary SELECT fields.
-func makeGlobalWindow(t *testing.T, selectFields map[string]aggregator.AggregateType, fieldAlias map[string]string, trigger string) (*GlobalWindow, *[]map[string]interface{}) {
+func makeGlobalWindow(t *testing.T, selectFields map[string]aggregator.AggregateType, fieldAlias map[string]string, trigger string) (*GlobalWindow, *[]map[string]any) {
 	t.Helper()
 	cfg := types.WindowConfig{
 		Type:             TypeGlobal,
@@ -310,8 +310,8 @@ func TestGlobalWindow_CompoundAndTrigger(t *testing.T) {
 		"COUNT(*) >= 2 AND MAX(temp) > 50")
 	defer gw.Stop()
 
-	gw.Add(map[string]interface{}{"deviceId": "d1", "temp": float64(40)}) // cnt=1, mx=40: no fire
-	gw.Add(map[string]interface{}{"deviceId": "d1", "temp": float64(55)}) // cnt=2, mx=55: fire
+	gw.Add(map[string]any{"deviceId": "d1", "temp": float64(40)}) // cnt=1, mx=40: no fire
+	gw.Add(map[string]any{"deviceId": "d1", "temp": float64(55)}) // cnt=2, mx=55: fire
 	waitFor(t, func() bool { return len(*got) > 0 })
 	if len(*got) != 1 {
 		t.Fatalf("expected 1 fire for compound AND, got %d", len(*got))
@@ -333,7 +333,7 @@ func TestGlobalWindow_CompoundOrTrigger(t *testing.T) {
 		"COUNT(*) >= 5 OR MAX(temp) > 50")
 	defer gw.Stop()
 
-	gw.Add(map[string]interface{}{"deviceId": "d1", "temp": float64(55)}) // mx>50 fires at once
+	gw.Add(map[string]any{"deviceId": "d1", "temp": float64(55)}) // mx>50 fires at once
 	waitFor(t, func() bool { return len(*got) > 0 })
 	if len(*got) != 1 {
 		t.Fatalf("expected 1 fire for compound OR, got %d", len(*got))
@@ -349,8 +349,8 @@ func TestGlobalWindow_TriggerOnlyAggregate(t *testing.T) {
 		"SUM(amount) >= 100")
 	defer gw.Stop()
 
-	gw.Add(map[string]interface{}{"deviceId": "d1", "amount": float64(60)}) // sum=60: no
-	gw.Add(map[string]interface{}{"deviceId": "d1", "amount": float64(50)}) // sum=110: fire
+	gw.Add(map[string]any{"deviceId": "d1", "amount": float64(60)}) // sum=60: no
+	gw.Add(map[string]any{"deviceId": "d1", "amount": float64(50)}) // sum=110: fire
 	waitFor(t, func() bool { return len(*got) > 0 })
 	if len(*got) != 1 {
 		t.Fatalf("expected 1 fire, got %d", len(*got))
@@ -372,7 +372,7 @@ func TestGlobalWindow_EqualityTrigger(t *testing.T) {
 		"COUNT(*) = 3")
 	defer gw.Stop()
 	for i := 0; i < 3; i++ {
-		gw.Add(map[string]interface{}{"deviceId": "d1"})
+		gw.Add(map[string]any{"deviceId": "d1"})
 	}
 	waitFor(t, func() bool { return len(*got) > 0 })
 	if len(*got) != 1 {

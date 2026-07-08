@@ -16,20 +16,20 @@ func NewAnalyticalAggregatorAdapter(name string) (*AnalyticalAggregatorAdapter, 
 	return &AnalyticalAggregatorAdapter{
 		analFunc: analFunc,
 		ctx: &FunctionContext{
-			Data: make(map[string]interface{}),
+			Data: make(map[string]any),
 		},
 	}, nil
 }
 
 // New creates a new adapter instance
-func (a *AnalyticalAggregatorAdapter) New() interface{} {
+func (a *AnalyticalAggregatorAdapter) New() any {
 	// For functions that implement AggregatorFunction interface, use their New method
 	if aggFunc, ok := a.analFunc.(AggregatorFunction); ok {
 		newAnalFunc := aggFunc.New().(AnalyticalFunction)
 		return &AnalyticalAggregatorAdapter{
 			analFunc: newAnalFunc,
 			ctx: &FunctionContext{
-				Data: make(map[string]interface{}),
+				Data: make(map[string]any),
 			},
 		}
 	}
@@ -38,13 +38,13 @@ func (a *AnalyticalAggregatorAdapter) New() interface{} {
 	return &AnalyticalAggregatorAdapter{
 		analFunc: a.analFunc.Clone(),
 		ctx: &FunctionContext{
-			Data: make(map[string]interface{}),
+			Data: make(map[string]any),
 		},
 	}
 }
 
 // Add adds a value
-func (a *AnalyticalAggregatorAdapter) Add(value interface{}) {
+func (a *AnalyticalAggregatorAdapter) Add(value any) {
 	// For functions that implement AggregatorFunction interface, call Add method directly
 	if aggFunc, ok := a.analFunc.(AggregatorFunction); ok {
 		aggFunc.Add(value)
@@ -52,12 +52,12 @@ func (a *AnalyticalAggregatorAdapter) Add(value interface{}) {
 	}
 
 	// For other analytical functions, execute the analytical function
-	args := []interface{}{value}
+	args := []any{value}
 	_, _ = a.analFunc.Execute(a.ctx, args)
 }
 
 // Result returns the result
-func (a *AnalyticalAggregatorAdapter) Result() interface{} {
+func (a *AnalyticalAggregatorAdapter) Result() any {
 	// For LatestFunction, return LatestValue directly
 	if latestFunc, ok := a.analFunc.(*LatestFunction); ok {
 		return latestFunc.LatestValue
@@ -75,12 +75,12 @@ func (a *AnalyticalAggregatorAdapter) Result() interface{} {
 
 	// For other analytical functions, try to execute once to get current state result
 	// Pass nil as parameter to indicate getting current state
-	result, _ := a.analFunc.Execute(a.ctx, []interface{}{nil})
+	result, _ := a.analFunc.Execute(a.ctx, []any{nil})
 	return result
 }
 
 // CreateAnalyticalAggregatorFromFunctions creates analytical function aggregator from functions module
-func CreateAnalyticalAggregatorFromFunctions(funcType string) interface{} {
+func CreateAnalyticalAggregatorFromFunctions(funcType string) any {
 	// First try to get from adapter registry
 	if constructor, exists := GetAnalyticalAdapter(funcType); exists {
 		adapter := constructor()
@@ -88,7 +88,7 @@ func CreateAnalyticalAggregatorFromFunctions(funcType string) interface{} {
 			return &AnalyticalAggregatorAdapter{
 				analFunc: adapter.analFunc,
 				ctx: &FunctionContext{
-					Data: make(map[string]interface{}),
+					Data: make(map[string]any),
 				},
 			}
 		}

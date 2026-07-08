@@ -24,14 +24,14 @@ func TestDirectPathFilterUnchanged(t *testing.T) {
 		if err := ssql.Execute("SELECT deviceId, temperature FROM stream WHERE temperature > 30"); err != nil {
 			t.Fatalf("Execute: %v", err)
 		}
-		got, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d1", "temperature": 35})
+		got, err := ssql.EmitSync(map[string]any{"deviceId": "d1", "temperature": 35})
 		if err != nil {
 			t.Fatalf("EmitSync: %v", err)
 		}
 		if got == nil || got["deviceId"] != "d1" || got["temperature"] != 35 {
 			t.Errorf("matching row got=%v, want {deviceId:d1 temperature:35}", got)
 		}
-		got, _ = ssql.EmitSync(map[string]interface{}{"deviceId": "d2", "temperature": 20})
+		got, _ = ssql.EmitSync(map[string]any{"deviceId": "d2", "temperature": 20})
 		if got != nil {
 			t.Errorf("non-matching row should be dropped (nil), got=%v", got)
 		}
@@ -46,7 +46,7 @@ func TestDirectPathFilterUnchanged(t *testing.T) {
 		}
 		var mu sync.Mutex
 		var ids []string
-		ssql.AddSink(func(rows []map[string]interface{}) {
+		ssql.AddSink(func(rows []map[string]any) {
 			mu.Lock()
 			for _, r := range rows {
 				if v, ok := r["deviceId"].(string); ok {
@@ -55,9 +55,9 @@ func TestDirectPathFilterUnchanged(t *testing.T) {
 			}
 			mu.Unlock()
 		})
-		ssql.Emit(map[string]interface{}{"deviceId": "d1", "temperature": 35}) // match
-		ssql.Emit(map[string]interface{}{"deviceId": "d2", "temperature": 20}) // dropped
-		ssql.Emit(map[string]interface{}{"deviceId": "d3", "temperature": 40}) // match
+		ssql.Emit(map[string]any{"deviceId": "d1", "temperature": 35}) // match
+		ssql.Emit(map[string]any{"deviceId": "d2", "temperature": 20}) // dropped
+		ssql.Emit(map[string]any{"deviceId": "d3", "temperature": 40}) // match
 
 		deadline := time.Now().Add(2 * time.Second)
 		for time.Now().Before(deadline) {
@@ -90,7 +90,7 @@ func TestDirectPathFilterUnchanged(t *testing.T) {
 			t.Fatalf("Execute: %v", err)
 		}
 		for _, id := range []string{"a", "b", "c"} {
-			got, _ := ssql.EmitSync(map[string]interface{}{"deviceId": id})
+			got, _ := ssql.EmitSync(map[string]any{"deviceId": id})
 			if got == nil || got["deviceId"] != id {
 				t.Errorf("no-WHERE row got=%v, want deviceId=%s", got, id)
 			}
@@ -104,11 +104,11 @@ func TestDirectPathFilterUnchanged(t *testing.T) {
 		if err := ssql.Execute("SELECT deviceId FROM stream WHERE (temperature > 30 AND humidity < 80) OR deviceId = 'd9'"); err != nil {
 			t.Fatalf("Execute: %v", err)
 		}
-		pass := map[string]interface{}{"deviceId": "d1", "temperature": 35, "humidity": 60}   // both AND branches true
-		passOr := map[string]interface{}{"deviceId": "d9", "temperature": 10, "humidity": 99} // OR branch true
-		drop := map[string]interface{}{"deviceId": "d2", "temperature": 20, "humidity": 90}   // neither
+		pass := map[string]any{"deviceId": "d1", "temperature": 35, "humidity": 60}   // both AND branches true
+		passOr := map[string]any{"deviceId": "d9", "temperature": 10, "humidity": 99} // OR branch true
+		drop := map[string]any{"deviceId": "d2", "temperature": 20, "humidity": 90}   // neither
 
-		for _, row := range []map[string]interface{}{pass, passOr, drop} {
+		for _, row := range []map[string]any{pass, passOr, drop} {
 			got, _ := ssql.EmitSync(row)
 			if row["deviceId"] == "d2" {
 				if got != nil {

@@ -28,7 +28,7 @@ import (
 // ---- CountingWindow: Trigger no-op + getKey branches ----
 
 func TestCountingWindowTriggerNoOp(t *testing.T) {
-	cw, err := NewCountingWindow(types.WindowConfig{Params: []interface{}{3}})
+	cw, err := NewCountingWindow(types.WindowConfig{Params: []any{3}})
 	require.NoError(t, err)
 	cw.Start()
 	defer cw.Stop()
@@ -43,25 +43,25 @@ type keyedPerson struct {
 
 func TestCountingWindowGetKey(t *testing.T) {
 	t.Run("no group keys returns global", func(t *testing.T) {
-		cw, err := NewCountingWindow(types.WindowConfig{Params: []interface{}{3}})
+		cw, err := NewCountingWindow(types.WindowConfig{Params: []any{3}})
 		require.NoError(t, err)
 		defer cw.Stop()
-		assert.Equal(t, "__global__", cw.getKey(map[string]interface{}{"v": 1}))
+		assert.Equal(t, "__global__", cw.getKey(map[string]any{"v": 1}))
 	})
 
 	t.Run("map data", func(t *testing.T) {
 		cw, err := NewCountingWindow(types.WindowConfig{
-			Params:      []interface{}{3},
+			Params:      []any{3},
 			GroupByKeys: []string{"region"},
 		})
 		require.NoError(t, err)
 		defer cw.Stop()
-		assert.Equal(t, "us", cw.getKey(map[string]interface{}{"region": "us"}))
+		assert.Equal(t, "us", cw.getKey(map[string]any{"region": "us"}))
 	})
 
 	t.Run("struct data", func(t *testing.T) {
 		cw, err := NewCountingWindow(types.WindowConfig{
-			Params:      []interface{}{3},
+			Params:      []any{3},
 			GroupByKeys: []string{"Name", "Age"},
 		})
 		require.NoError(t, err)
@@ -80,7 +80,7 @@ func fillChan(ch chan []types.Row) {
 
 func TestTumblingSendResultDropOldest(t *testing.T) {
 	tw, err := NewTumblingWindow(types.WindowConfig{
-		Params:            []interface{}{time.Second},
+		Params:            []any{time.Second},
 		PerformanceConfig: types.PerformanceConfig{BufferConfig: types.BufferConfig{WindowOutputSize: 2}},
 	})
 	require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestTumblingSendResultDropOldest(t *testing.T) {
 
 func TestTumblingSendResultBlockStrategyTimeout(t *testing.T) {
 	tw, err := NewTumblingWindow(types.WindowConfig{
-		Params: []interface{}{time.Second},
+		Params: []any{time.Second},
 		PerformanceConfig: types.PerformanceConfig{
 			BufferConfig:   types.BufferConfig{WindowOutputSize: 1},
 			OverflowConfig: types.OverflowConfig{Strategy: types.OverflowStrategyBlock, BlockTimeout: 80 * time.Millisecond},
@@ -116,7 +116,7 @@ func TestTumblingSendResultBlockStrategyTimeout(t *testing.T) {
 
 func TestSlidingSendResultDropOldest(t *testing.T) {
 	sw, err := NewSlidingWindow(types.WindowConfig{
-		Params:            []interface{}{2 * time.Second, time.Second},
+		Params:            []any{2 * time.Second, time.Second},
 		PerformanceConfig: types.PerformanceConfig{BufferConfig: types.BufferConfig{WindowOutputSize: 2}},
 	})
 	require.NoError(t, err)
@@ -130,7 +130,7 @@ func TestSlidingSendResultDropOldest(t *testing.T) {
 
 func TestSlidingSendResultBlockStrategyTimeout(t *testing.T) {
 	sw, err := NewSlidingWindow(types.WindowConfig{
-		Params: []interface{}{2 * time.Second, time.Second},
+		Params: []any{2 * time.Second, time.Second},
 		PerformanceConfig: types.PerformanceConfig{
 			BufferConfig:   types.BufferConfig{WindowOutputSize: 1},
 			OverflowConfig: types.OverflowConfig{Strategy: types.OverflowStrategyBlock, BlockTimeout: 80 * time.Millisecond},
@@ -147,7 +147,7 @@ func TestSlidingSendResultBlockStrategyTimeout(t *testing.T) {
 
 func TestSessionSendResultDropOldest(t *testing.T) {
 	sw, err := NewSessionWindow(types.WindowConfig{
-		Params:            []interface{}{time.Second},
+		Params:            []any{time.Second},
 		PerformanceConfig: types.PerformanceConfig{BufferConfig: types.BufferConfig{WindowOutputSize: 2}},
 	})
 	require.NoError(t, err)
@@ -161,7 +161,7 @@ func TestSessionSendResultDropOldest(t *testing.T) {
 
 func TestSessionSendResultBlockStrategyTimeout(t *testing.T) {
 	sw, err := NewSessionWindow(types.WindowConfig{
-		Params: []interface{}{time.Second},
+		Params: []any{time.Second},
 		PerformanceConfig: types.PerformanceConfig{
 			BufferConfig:   types.BufferConfig{WindowOutputSize: 1},
 			OverflowConfig: types.OverflowConfig{Strategy: types.OverflowStrategyBlock, BlockTimeout: 80 * time.Millisecond},
@@ -178,7 +178,7 @@ func TestSessionSendResultBlockStrategyTimeout(t *testing.T) {
 
 func TestCountingSendResultBlockStrategy(t *testing.T) {
 	cw, err := NewCountingWindow(types.WindowConfig{
-		Params: []interface{}{3},
+		Params: []any{3},
 		PerformanceConfig: types.PerformanceConfig{
 			BufferConfig:   types.BufferConfig{WindowOutputSize: 1},
 			OverflowConfig: types.OverflowConfig{Strategy: types.OverflowStrategyBlock, BlockTimeout: 80 * time.Millisecond, AllowDataLoss: true},
@@ -215,14 +215,14 @@ func TestSlidingResetEventTime(t *testing.T) {
 func TestSessionResetEventTime(t *testing.T) {
 	sw := newEventTimeSession(t, 2*time.Second, 500*time.Millisecond, 0)
 	sw.Start()
-	sw.Add(map[string]interface{}{"user": "a", "ts": time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC), "v": 1})
+	sw.Add(map[string]any{"user": "a", "ts": time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC), "v": 1})
 	sw.Stop()
 	assert.NotPanics(t, func() { sw.Reset() })
 }
 
 func TestSessionTriggerEmpty(t *testing.T) {
 	// Trigger with no sessions emits nothing and must not panic
-	sw, err := NewSessionWindow(types.WindowConfig{Params: []interface{}{time.Second}})
+	sw, err := NewSessionWindow(types.WindowConfig{Params: []any{time.Second}})
 	require.NoError(t, err)
 	sw.Start()
 	defer sw.Stop()

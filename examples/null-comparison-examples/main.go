@@ -35,13 +35,13 @@ func demo1() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		for _, data := range result {
 			fmt.Printf("发现空值数据: %+v\n", data)
 		}
 	})
 
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceId": "sensor1", "value": 25.5, "status": "active"},
 		{"deviceId": "sensor2", "value": nil, "status": "active"}, // 符合条件
 		{"deviceId": "sensor3", "value": 30.0, "status": "inactive"},
@@ -73,13 +73,13 @@ func demo2() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		for _, data := range result {
 			fmt.Printf("发现有效数据: %+v\n", data)
 		}
 	})
 
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceId": "sensor1", "value": 25.5, "status": "active"},   // 符合条件
 		{"deviceId": "sensor2", "value": nil, "status": "active"},    // 不符合（空值）
 		{"deviceId": "sensor3", "value": 15.0, "status": "inactive"}, // 不符合（值<=20）
@@ -111,7 +111,7 @@ func demo3() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		for _, data := range result {
 			status := data["status"]
 			value := data["value"]
@@ -123,7 +123,7 @@ func demo3() {
 		}
 	})
 
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceId": "sensor1", "value": 25.5, "status": "active"},   // 符合（status不为null）
 		{"deviceId": "sensor2", "value": nil, "status": nil},         // 符合（value为null）
 		{"deviceId": "sensor3", "value": 30.0, "status": "inactive"}, // 符合（status不为null）
@@ -156,7 +156,7 @@ func demo4() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		for _, data := range result {
 			value := data["value"]
 			status := data["status"]
@@ -170,7 +170,7 @@ func demo4() {
 		}
 	})
 
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceId": "sensor1", "value": 25.0, "status": "active", "priority": "high"}, // 符合第一个条件
 		{"deviceId": "sensor2", "value": 15.0, "status": "active", "priority": "low"},  // 不符合
 		{"deviceId": "sensor3", "value": nil, "status": nil, "priority": "medium"},     // 符合第二个条件
@@ -204,32 +204,32 @@ func demo5() {
 		panic(err)
 	}
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		for _, data := range result {
 			fmt.Printf("有位置信息的设备: %+v\n", data)
 		}
 	})
 
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{
 			"deviceId": "sensor1",
-			"device": map[string]interface{}{
+			"device": map[string]any{
 				"location": "warehouse-A",
 			},
 		}, // 符合条件
 		{
 			"deviceId": "sensor2",
-			"device": map[string]interface{}{
+			"device": map[string]any{
 				"location": nil,
 			},
 		}, // 不符合（location为nil）
 		{
 			"deviceId": "sensor3",
-			"device":   map[string]interface{}{},
+			"device":   map[string]any{},
 		}, // 不符合（location字段不存在）
 		{
 			"deviceId": "sensor4",
-			"device": map[string]interface{}{
+			"device": map[string]any{
 				"location": "office-B",
 			},
 		}, // 符合条件

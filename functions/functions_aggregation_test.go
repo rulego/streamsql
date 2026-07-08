@@ -10,7 +10,7 @@ func TestStdDevFunction(t *testing.T) {
 	fn := NewStdDevFunction()
 	ctx := &FunctionContext{}
 	// Execute 批量
-	result, err := fn.Execute(ctx, []interface{}{1.0, 2.0, 3.0, 4.0})
+	result, err := fn.Execute(ctx, []any{1.0, 2.0, 3.0, 4.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestStdDevFunction(t *testing.T) {
 func TestVarFunction(t *testing.T) {
 	fn := NewVarFunction()
 	ctx := &FunctionContext{}
-	result, err := fn.Execute(ctx, []interface{}{1.0, 2.0, 3.0, 4.0})
+	result, err := fn.Execute(ctx, []any{1.0, 2.0, 3.0, 4.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestVarFunction(t *testing.T) {
 func TestVarSFunction(t *testing.T) {
 	fn := NewVarSFunction()
 	ctx := &FunctionContext{}
-	result, err := fn.Execute(ctx, []interface{}{1.0, 2.0, 3.0, 4.0})
+	result, err := fn.Execute(ctx, []any{1.0, 2.0, 3.0, 4.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestVarSFunction(t *testing.T) {
 func TestStdDevSFunction(t *testing.T) {
 	fn := NewStdDevSFunction()
 	ctx := &FunctionContext{}
-	result, err := fn.Execute(ctx, []interface{}{1.0, 2.0, 3.0, 4.0})
+	result, err := fn.Execute(ctx, []any{1.0, 2.0, 3.0, 4.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestMedianFunction(t *testing.T) {
 	ctx := &FunctionContext{}
 
 	// 测试奇数个元素
-	result, err := fn.Execute(ctx, []interface{}{1.0, 3.0, 2.0})
+	result, err := fn.Execute(ctx, []any{1.0, 3.0, 2.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestMedianFunction(t *testing.T) {
 	}
 
 	// 测试偶数个元素
-	result, err = fn.Execute(ctx, []interface{}{1.0, 3.0, 2.0, 4.0})
+	result, err = fn.Execute(ctx, []any{1.0, 3.0, 2.0, 4.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestMedianFunction(t *testing.T) {
 	}
 
 	// 测试单个元素
-	result, err = fn.Execute(ctx, []interface{}{5.0})
+	result, err = fn.Execute(ctx, []any{5.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestPercentileFunction(t *testing.T) {
 	ctx := &FunctionContext{}
 
 	// 测试50%分位数
-	result, err := fn.Execute(ctx, []interface{}{0.5, 1.0, 2.0, 3.0, 4.0})
+	result, err := fn.Execute(ctx, []any{0.5, 1.0, 2.0, 3.0, 4.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestPercentileFunction(t *testing.T) {
 	}
 
 	// 测试25%分位数
-	result, err = fn.Execute(ctx, []interface{}{0.25, 1.0, 2.0, 3.0, 4.0})
+	result, err = fn.Execute(ctx, []any{0.25, 1.0, 2.0, 3.0, 4.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestPercentileFunction(t *testing.T) {
 	}
 
 	// 测试75%分位数
-	result, err = fn.Execute(ctx, []interface{}{0.75, 1.0, 2.0, 3.0, 4.0})
+	result, err = fn.Execute(ctx, []any{0.75, 1.0, 2.0, 3.0, 4.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -193,11 +193,11 @@ func TestCollectFunction(t *testing.T) {
 	ctx := &FunctionContext{}
 
 	// 测试Execute方法
-	result, err := fn.Execute(ctx, []interface{}{"a", "b", "c"})
+	result, err := fn.Execute(ctx, []any{"a", "b", "c"})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
-	expected := []interface{}{"a", "b", "c"}
+	expected := []any{"a", "b", "c"}
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Execute collect result = %v, want %v", result, expected)
 	}
@@ -207,15 +207,15 @@ func TestCollectFunction(t *testing.T) {
 	agg.Add("x")
 	agg.Add("y")
 	agg.Add("z")
-	res := agg.Result().([]interface{})
-	expected = []interface{}{"x", "y", "z"}
+	res := agg.Result().([]any)
+	expected = []any{"x", "y", "z"}
 	if !reflect.DeepEqual(res, expected) {
 		t.Errorf("Agg collect result = %v, want %v", res, expected)
 	}
 
 	// 测试Reset
 	agg.Reset()
-	res = agg.Result().([]interface{})
+	res = agg.Result().([]any)
 	if len(res) != 0 {
 		t.Errorf("Reset failed, result length = %d, want 0", len(res))
 	}
@@ -232,7 +232,7 @@ func TestLastValueFunction(t *testing.T) {
 	ctx := &FunctionContext{}
 
 	// 测试Execute方法
-	result, err := fn.Execute(ctx, []interface{}{"a", "b", "c"})
+	result, err := fn.Execute(ctx, []any{"a", "b", "c"})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -269,7 +269,7 @@ func TestMergeAggFunction(t *testing.T) {
 	ctx := &FunctionContext{}
 
 	// 测试Execute方法
-	result, err := fn.Execute(ctx, []interface{}{"a", "b", "c"})
+	result, err := fn.Execute(ctx, []any{"a", "b", "c"})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -369,13 +369,13 @@ func TestAggregatorFunctions(t *testing.T) {
 	agg4.Add("a")
 	agg4.Add("b")
 	agg4.Add("c")
-	res4 := agg4.Result().([]interface{})
-	expected := []interface{}{"a", "b", "c"}
+	res4 := agg4.Result().([]any)
+	expected := []any{"a", "b", "c"}
 	if !reflect.DeepEqual(res4, expected) {
 		t.Errorf("CollectAggregator result = %v, want %v", res4, expected)
 	}
 	agg4.Reset()
-	if len(agg4.Result().([]interface{})) != 0 {
+	if len(agg4.Result().([]any)) != 0 {
 		t.Errorf("CollectAggregator Reset failed")
 	}
 	clone4 := agg4.Clone().(*CollectAggregatorFunction)
@@ -449,13 +449,13 @@ func TestAggregatorFunctions(t *testing.T) {
 	agg8.Add("b")
 	agg8.Add("a") // 重复
 	agg8.Add("c")
-	res8 := agg8.Result().([]interface{})
-	expected = []interface{}{"a", "b", "c"}
+	res8 := agg8.Result().([]any)
+	expected = []any{"a", "b", "c"}
 	if !reflect.DeepEqual(res8, expected) {
 		t.Errorf("DeduplicateAggregator result = %v, want %v", res8, expected)
 	}
 	agg8.Reset()
-	if len(agg8.Result().([]interface{})) != 0 {
+	if len(agg8.Result().([]any)) != 0 {
 		t.Errorf("DeduplicateAggregator Reset failed")
 	}
 	clone8 := agg8.Clone().(*DeduplicateAggregatorFunction)
@@ -507,11 +507,11 @@ func TestAggregatorFunctions(t *testing.T) {
 func TestAggregatorEdgeCases(t *testing.T) {
 	// PercentileAggregatorFunction Validate边界
 	agg := NewPercentileAggregatorFunction()
-	if err := agg.Validate([]interface{}{1.0}); err == nil {
+	if err := agg.Validate([]any{1.0}); err == nil {
 		t.Error("PercentileAggregatorFunction.Validate should fail for insufficient args")
 	}
 	// 不再直接调用Execute避免panic
-	// _, err := agg.Execute(nil, []interface{}{})
+	// _, err := agg.Execute(nil, []any{})
 	// if err == nil {
 	// 	t.Error("PercentileAggregatorFunction.Execute should fail for empty args")
 	// }
@@ -521,10 +521,10 @@ func TestAggregatorEdgeCases(t *testing.T) {
 
 	// CollectAggregatorFunction Validate/Execute边界
 	agg3 := NewCollectAggregatorFunction()
-	if err := agg3.Validate([]interface{}{}); err == nil {
+	if err := agg3.Validate([]any{}); err == nil {
 		t.Error("CollectAggregatorFunction.Validate should fail for insufficient args")
 	}
-	// _, err = agg3.Execute(nil, []interface{}{})
+	// _, err = agg3.Execute(nil, []any{})
 	// if err == nil {
 	// 	t.Error("CollectAggregatorFunction.Execute should fail for empty args")
 	// }
@@ -534,10 +534,10 @@ func TestAggregatorEdgeCases(t *testing.T) {
 
 	// LastValueAggregatorFunction Validate/Execute边界
 	agg5 := NewLastValueAggregatorFunction()
-	if err := agg5.Validate([]interface{}{}); err == nil {
+	if err := agg5.Validate([]any{}); err == nil {
 		t.Error("LastValueAggregatorFunction.Validate should fail for insufficient args")
 	}
-	// _, err = agg5.Execute(nil, []interface{}{})
+	// _, err = agg5.Execute(nil, []any{})
 	// if err == nil {
 	// 	t.Error("LastValueAggregatorFunction.Execute should fail for empty args")
 	// }
@@ -547,10 +547,10 @@ func TestAggregatorEdgeCases(t *testing.T) {
 
 	// MergeAggAggregatorFunction Validate/Execute边界
 	agg7 := NewMergeAggAggregatorFunction()
-	if err := agg7.Validate([]interface{}{}); err == nil {
+	if err := agg7.Validate([]any{}); err == nil {
 		t.Error("MergeAggAggregatorFunction.Validate should fail for insufficient args")
 	}
-	// _, err = agg7.Execute(nil, []interface{}{})
+	// _, err = agg7.Execute(nil, []any{})
 	// if err == nil {
 	// 	t.Error("MergeAggAggregatorFunction.Execute should fail for empty args")
 	// }
@@ -560,10 +560,10 @@ func TestAggregatorEdgeCases(t *testing.T) {
 
 	// StdDevSAggregatorFunction Validate/Execute边界
 	agg9 := NewStdDevSAggregatorFunction()
-	if err := agg9.Validate([]interface{}{}); err == nil {
+	if err := agg9.Validate([]any{}); err == nil {
 		t.Error("StdDevSAggregatorFunction.Validate should fail for insufficient args")
 	}
-	// _, err = agg9.Execute(nil, []interface{}{})
+	// _, err = agg9.Execute(nil, []any{})
 	// if err == nil {
 	// 	t.Error("StdDevSAggregatorFunction.Execute should fail for empty args")
 	// }
@@ -573,10 +573,10 @@ func TestAggregatorEdgeCases(t *testing.T) {
 
 	// DeduplicateAggregatorFunction Validate/Execute边界
 	agg11 := NewDeduplicateAggregatorFunction()
-	if err := agg11.Validate([]interface{}{}); err == nil {
+	if err := agg11.Validate([]any{}); err == nil {
 		t.Error("DeduplicateAggregatorFunction.Validate should fail for insufficient args")
 	}
-	// _, err = agg11.Execute(nil, []interface{}{})
+	// _, err = agg11.Execute(nil, []any{})
 	// if err == nil {
 	// 	t.Error("DeduplicateAggregatorFunction.Execute should fail for empty args")
 	// }
@@ -586,10 +586,10 @@ func TestAggregatorEdgeCases(t *testing.T) {
 
 	// VarAggregatorFunction Validate/Execute边界
 	agg13 := NewVarAggregatorFunction()
-	if err := agg13.Validate([]interface{}{}); err == nil {
+	if err := agg13.Validate([]any{}); err == nil {
 		t.Error("VarAggregatorFunction.Validate should fail for insufficient args")
 	}
-	// _, err = agg13.Execute(nil, []interface{}{})
+	// _, err = agg13.Execute(nil, []any{})
 	// if err == nil {
 	// 	t.Error("VarAggregatorFunction.Execute should fail for empty args")
 	// }
@@ -599,10 +599,10 @@ func TestAggregatorEdgeCases(t *testing.T) {
 
 	// VarSAggregatorFunction Validate/Execute边界
 	agg15 := NewVarSAggregatorFunction()
-	if err := agg15.Validate([]interface{}{}); err == nil {
+	if err := agg15.Validate([]any{}); err == nil {
 		t.Error("VarSAggregatorFunction.Validate should fail for insufficient args")
 	}
-	// _, err = agg15.Execute(nil, []interface{}{})
+	// _, err = agg15.Execute(nil, []any{})
 	// if err == nil {
 	// 	t.Error("VarSAggregatorFunction.Execute should fail for empty args")
 	// }

@@ -12,17 +12,17 @@ import (
 )
 
 // 辅助函数：创建测试环境
-func createTestEnvironment(t *testing.T, rsql string) (*streamsql.Streamsql, chan interface{}) {
+func createTestEnvironment(t *testing.T, rsql string) (*streamsql.Streamsql, chan any) {
 	ssql := streamsql.New()
 	t.Cleanup(func() { ssql.Stop() })
 
 	err := ssql.Execute(rsql)
 	require.NoError(t, err)
 
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 	t.Cleanup(func() { close(resultChan) })
 
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -39,7 +39,7 @@ func createTestEnvironment(t *testing.T, rsql string) (*streamsql.Streamsql, cha
 }
 
 // 辅助函数：发送测试数据并收集结果
-func sendDataAndCollectResults(t *testing.T, ssql *streamsql.Streamsql, resultChan chan interface{}, testData []map[string]interface{}, windowSizeSeconds int) []map[string]interface{} {
+func sendDataAndCollectResults(t *testing.T, ssql *streamsql.Streamsql, resultChan chan any, testData []map[string]any, windowSizeSeconds int) []map[string]any {
 	for _, data := range testData {
 		ssql.Emit(data)
 	}
@@ -51,7 +51,7 @@ func sendDataAndCollectResults(t *testing.T, ssql *streamsql.Streamsql, resultCh
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var results []map[string]interface{}
+	var results []map[string]any
 	maxIterations := 10 // 最多收集10次结果
 	iteration := 0
 
@@ -59,7 +59,7 @@ collecting:
 	for iteration < maxIterations {
 		select {
 		case result := <-resultChan:
-			if resultSlice, ok := result.([]map[string]interface{}); ok {
+			if resultSlice, ok := result.([]map[string]any); ok {
 				results = append(results, resultSlice...)
 			}
 			iteration++
@@ -92,7 +92,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "dev1", "value": 10.0},
 			{"deviceId": "dev1", "value": 20.0},
 			{"deviceId": "dev1", "value": 30.0},
@@ -124,7 +124,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "sensor1", "value": nil},
 			{"deviceId": "sensor1", "value": 10.0},
 			{"deviceId": "sensor1", "value": nil},
@@ -156,7 +156,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "sensor1", "value": nil},
 			{"deviceId": "sensor1", "value": 10.0},
 			{"deviceId": "sensor1", "value": nil},
@@ -190,7 +190,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "sensor1", "value": 10.0},
 			{"deviceId": "sensor1", "value": 20.0},
 			{"deviceId": "sensor1", "value": 30.0},
@@ -226,7 +226,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "sensor1", "value": 10.0},
 			{"deviceId": "sensor1", "value": 20.0},
 			{"deviceId": "sensor1", "value": 30.0},
@@ -289,7 +289,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			// 设备1的数据
 			{"deviceId": "meter001", "displayNum": 100.0},
 			{"deviceId": "meter001", "displayNum": 115.0},
@@ -309,7 +309,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 		}
 
 		// 验证每个设备的计算结果
-		deviceResults := make(map[string]map[string]interface{})
+		deviceResults := make(map[string]map[string]any)
 		for _, result := range results {
 			deviceId, ok := result["deviceId"].(string)
 			require.True(t, ok, "deviceId应该是字符串类型")
@@ -357,7 +357,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "sensor1", "value": 10.0},
 			{"deviceId": "sensor1", "value": 20.0},
 			{"deviceId": "sensor1", "value": 30.0},
@@ -417,7 +417,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "sensor1", "value": 16.0},
 			{"deviceId": "sensor1", "value": 25.0},
 			{"deviceId": "sensor1", "value": 36.0},
@@ -489,7 +489,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "sensor1", "value": 10.0},
 			{"deviceId": "sensor1", "value": 20.0},
 			{"deviceId": "sensor1", "value": 30.0},
@@ -521,7 +521,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "sensor1", "value": 100.0},
 			{"deviceId": "sensor1", "value": 200.0},
 			{"deviceId": "sensor1", "value": 300.0},

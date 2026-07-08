@@ -24,7 +24,7 @@ func TestGetResultsErrorCases(t *testing.T) {
 		{InputField: "value", AggregateType: Sum, OutputAlias: "sum_value"},
 	}
 	agg := NewEnhancedGroupAggregator(groupFields, aggFields)
-	
+
 	// 添加一个无效的后聚合表达式
 	requiredFields := []AggregationFieldInfo{
 		{FuncName: "invalid", InputField: "value", AggType: Sum},
@@ -33,7 +33,7 @@ func TestGetResultsErrorCases(t *testing.T) {
 	if err == nil {
 		t.Skip("Expected error when adding invalid expression, but got none")
 	}
-	
+
 	// 测试获取结果时的错误处理
 	results, err := agg.GetResults()
 	if err != nil {
@@ -51,7 +51,7 @@ func TestParseFunctionCallEdgeCases(t *testing.T) {
 		{InputField: "value", AggregateType: Sum, OutputAlias: "sum_value"},
 	}
 	agg := NewEnhancedGroupAggregator(groupFields, aggFields)
-	
+
 	tests := []struct {
 		name        string
 		expr        string
@@ -88,7 +88,7 @@ func TestParseFunctionCallEdgeCases(t *testing.T) {
 			expectError: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, _ = agg.parseFunctionCall(tt.expr)
@@ -140,7 +140,7 @@ func TestHasMultipleTopLevelArgsEdgeCases(t *testing.T) {
 			expected: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := hasMultipleTopLevelArgs(tt.args)
@@ -156,12 +156,12 @@ func TestBuiltinAggregatorEdgeCases(t *testing.T) {
 	tests := []struct {
 		name    string
 		aggType AggregateType
-		data    []map[string]interface{}
+		data    []map[string]any
 	}{
 		{
 			name:    "Sum with nil values",
 			aggType: Sum,
-			data: []map[string]interface{}{
+			data: []map[string]any{
 				{"field": nil, "group": "A"},
 				{"field": 10, "group": "A"},
 			},
@@ -169,7 +169,7 @@ func TestBuiltinAggregatorEdgeCases(t *testing.T) {
 		{
 			name:    "Count with mixed types",
 			aggType: Count,
-			data: []map[string]interface{}{
+			data: []map[string]any{
 				{"field": "string", "group": "A"},
 				{"field": 123, "group": "A"},
 				{"field": nil, "group": "A"},
@@ -178,10 +178,10 @@ func TestBuiltinAggregatorEdgeCases(t *testing.T) {
 		{
 			name:    "Avg with empty data",
 			aggType: Avg,
-			data:    []map[string]interface{}{},
+			data:    []map[string]any{},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			groupFields := []string{"group"}
@@ -216,7 +216,7 @@ func TestGroupAggregator_MultiFieldSum(t *testing.T) {
 		},
 	)
 
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"Device": "aa", "temperature": 25.5, "humidity": 60.0},
 		{"Device": "aa", "temperature": 26.8, "humidity": 55.0},
 		{"Device": "bb", "temperature": 22.3, "humidity": 65.0},
@@ -227,7 +227,7 @@ func TestGroupAggregator_MultiFieldSum(t *testing.T) {
 		agg.Add(d)
 	}
 
-	expected := []map[string]interface{}{
+	expected := []map[string]any{
 		{"Device": "aa", "temperature_sum": 52.3, "humidity_sum": 115.0},
 		{"Device": "bb", "temperature_sum": 45.8, "humidity_sum": 135.0},
 	}
@@ -274,8 +274,8 @@ func TestGroupAggregator_RegisterExpression(t *testing.T) {
 	)
 
 	// 注册表达式
-	evaluator := func(data interface{}) (interface{}, error) {
-		if dataMap, ok := data.(map[string]interface{}); ok {
+	evaluator := func(data any) (any, error) {
+		if dataMap, ok := data.(map[string]any); ok {
 			if temp, exists := dataMap["temperature"]; exists {
 				if tempFloat, ok := temp.(float64); ok {
 					return tempFloat*1.8 + 32, nil // 摄氏度转华氏度
@@ -308,7 +308,7 @@ func TestGroupAggregator_Reset(t *testing.T) {
 	)
 
 	// 添加一些数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"Device": "test", "temperature": 25.5},
 		{"Device": "test", "temperature": 26.8},
 	}
@@ -352,7 +352,7 @@ func TestGroupAggregator_ErrorHandling(t *testing.T) {
 	assert.Error(t, err)
 
 	// 测试添加缺少分组字段的数据
-	err = agg.Add(map[string]interface{}{"temperature": 25.5})
+	err = agg.Add(map[string]any{"temperature": 25.5})
 	assert.Error(t, err)
 }
 
@@ -384,7 +384,7 @@ func TestGroupAggregator_DifferentAggregateTypes(t *testing.T) {
 		},
 	)
 
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"category": "A", "value": 1, "score": 85.5},
 		{"category": "A", "value": 2, "score": 92.0},
 		{"category": "A", "value": 3, "score": 78.5},
@@ -431,7 +431,7 @@ func TestGroupAggregator_MultipleGroupFields(t *testing.T) {
 		},
 	)
 
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"region": "North", "category": "A", "sales": 100.0},
 		{"region": "North", "category": "A", "sales": 150.0},
 		{"region": "North", "category": "B", "sales": 200.0},
@@ -496,7 +496,7 @@ func TestGroupAggregator_NilValues(t *testing.T) {
 		},
 	)
 
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"Device": "test", "temperature": 25.5},
 		{"Device": "test", "temperature": nil}, // 空值
 		{"Device": "test", "temperature": 30.0},
@@ -532,19 +532,19 @@ func TestGroupAggregator_ConcurrentAccess(t *testing.T) {
 	// 并发添加数据
 	go func() {
 		for i := 0; i < 10; i++ {
-			agg.Add(map[string]interface{}{"Device": "A", "temperature": float64(i)})
+			agg.Add(map[string]any{"Device": "A", "temperature": float64(i)})
 		}
 	}()
 
 	go func() {
 		for i := 0; i < 10; i++ {
-			agg.Add(map[string]interface{}{"Device": "B", "temperature": float64(i * 2)})
+			agg.Add(map[string]any{"Device": "B", "temperature": float64(i * 2)})
 		}
 	}()
 
 	// 并发注册表达式
 	go func() {
-		evaluator := func(data interface{}) (interface{}, error) {
+		evaluator := func(data any) (any, error) {
 			return 1.0, nil
 		}
 		agg.RegisterExpression("test_expr", "1", []string{}, evaluator)
@@ -625,7 +625,7 @@ func TestGroupAggregator_SingleField(t *testing.T) {
 		},
 	)
 
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"Device": "cc", "temperature": 24.5},
 		{"Device": "cc", "temperature": 27.8},
 	}
@@ -634,7 +634,7 @@ func TestGroupAggregator_SingleField(t *testing.T) {
 		agg.Add(d)
 	}
 
-	expected := []map[string]interface{}{
+	expected := []map[string]any{
 		{"Device": "cc", "temperature_sum": 52.3},
 	}
 
@@ -669,7 +669,7 @@ func TestGroupAggregator_MultipleAggregators(t *testing.T) {
 		},
 	)
 
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"Device": "cc", "temperature": 25.5, "humidity": 65.5, "presure": 1008, "PM10": 35},
 		{"Device": "cc", "temperature": 27.8, "humidity": 60.5, "presure": 1012, "PM10": 28},
 	}
@@ -678,7 +678,7 @@ func TestGroupAggregator_MultipleAggregators(t *testing.T) {
 		agg.Add(d)
 	}
 
-	expected := []map[string]interface{}{
+	expected := []map[string]any{
 		{
 			"Device":          "cc",
 			"temperature_sum": 53.3,
@@ -705,7 +705,7 @@ func TestGroupAggregator_NoAlias(t *testing.T) {
 		},
 	)
 
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"Device": "dd", "temperature": 10.0},
 		{"Device": "dd", "temperature": 15.0},
 	}
@@ -714,7 +714,7 @@ func TestGroupAggregator_NoAlias(t *testing.T) {
 		agg.Add(d)
 	}
 
-	expected := []map[string]interface{}{
+	expected := []map[string]any{
 		{"Device": "dd", "temperature": 25.0},
 	}
 
@@ -747,7 +747,7 @@ func TestGroupAggregatorAdvancedFeatures(t *testing.T) {
 			},
 		)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"Device": "sensor1", "temperature": 25.5, "humidity": 60.0, "pressure": 1013.25},
 			{"Device": "sensor1", "temperature": 26.8, "humidity": 65.0, "pressure": 1012.50},
 			{"Device": "sensor2", "temperature": 22.3, "humidity": 55.0, "pressure": 1014.75},
@@ -782,19 +782,19 @@ func TestGroupAggregatorAdvancedFeatures(t *testing.T) {
 		tests := []struct {
 			name    string
 			aggType AggregateType
-			data    []map[string]interface{}
+			data    []map[string]any
 		}{
-			{"StdDev", StdDev, []map[string]interface{}{
+			{"StdDev", StdDev, []map[string]any{
 				{"group": "A", "value": 1.0},
 				{"group": "A", "value": 2.0},
 				{"group": "A", "value": 3.0},
 			}},
-			{"Var", Var, []map[string]interface{}{
+			{"Var", Var, []map[string]any{
 				{"group": "A", "value": 1.0},
 				{"group": "A", "value": 2.0},
 				{"group": "A", "value": 3.0},
 			}},
-			{"Median", Median, []map[string]interface{}{
+			{"Median", Median, []map[string]any{
 				{"group": "A", "value": 1.0},
 				{"group": "A", "value": 2.0},
 				{"group": "A", "value": 3.0},
@@ -823,14 +823,14 @@ func TestGroupAggregatorDataTypes(t *testing.T) {
 	tests := []struct {
 		name        string
 		aggType     AggregateType
-		inputData   []map[string]interface{}
+		inputData   []map[string]any
 		expectedKey string
-		expectedVal interface{}
+		expectedVal any
 	}{
 		{
 			name:    "String Count",
 			aggType: Count,
-			inputData: []map[string]interface{}{
+			inputData: []map[string]any{
 				{"group": "A", "value": "hello"},
 				{"group": "A", "value": "world"},
 				{"group": "B", "value": "test"},
@@ -841,7 +841,7 @@ func TestGroupAggregatorDataTypes(t *testing.T) {
 		{
 			name:    "Boolean Count",
 			aggType: Count,
-			inputData: []map[string]interface{}{
+			inputData: []map[string]any{
 				{"group": "A", "value": true},
 				{"group": "A", "value": false},
 				{"group": "A", "value": true},
@@ -853,7 +853,7 @@ func TestGroupAggregatorDataTypes(t *testing.T) {
 		{
 			name:    "Mixed Types Count",
 			aggType: Count,
-			inputData: []map[string]interface{}{
+			inputData: []map[string]any{
 				{"group": "A", "value": 123},
 				{"group": "A", "value": "string"},
 				{"group": "A", "value": true},
@@ -885,7 +885,7 @@ func TestGroupAggregatorDataTypes(t *testing.T) {
 			assert.NoError(t, err)
 
 			// 找到A组的结果
-			var groupAResult map[string]interface{}
+			var groupAResult map[string]any
 			for _, result := range results {
 				if result["group"] == "A" {
 					groupAResult = result
@@ -932,7 +932,7 @@ func TestGroupAggregatorEdgeCases(t *testing.T) {
 			},
 		)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"temperature": 25.5},
 			{"temperature": 26.8},
 		}
@@ -954,7 +954,7 @@ func TestGroupAggregatorEdgeCases(t *testing.T) {
 			[]AggregationField{},
 		)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"Device": "sensor1", "temperature": 25.5},
 			{"Device": "sensor2", "temperature": 26.8},
 		}
@@ -986,7 +986,7 @@ func TestGroupAggregatorEdgeCases(t *testing.T) {
 			},
 		)
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"Device": "sensor1", "temperature": 25.5},
 			{"Device": "sensor2"}, // 缺少temperature字段
 			{"Device": "sensor3", "temperature": 26.8},
@@ -1051,7 +1051,7 @@ func TestGroupAggregatorPerformance(t *testing.T) {
 		for i := 0; i < numRecords; i++ {
 			category := i % numCategories
 			value := float64(i % 1000)
-			data := map[string]interface{}{
+			data := map[string]any{
 				"category": fmt.Sprintf("cat_%d", category),
 				"value":    value,
 			}
@@ -1097,7 +1097,7 @@ func TestGroupAggregatorPerformance(t *testing.T) {
 				for j := 0; j < recordsPerGoroutine; j++ {
 					category := (goroutineID + j) % 100
 					value := float64(j)
-					data := map[string]interface{}{
+					data := map[string]any{
 						"category": fmt.Sprintf("cat_%d", category),
 						"value":    value,
 					}
@@ -1132,7 +1132,7 @@ func TestGroupAggregatorMemoryUsage(t *testing.T) {
 		// 创建大量不同的分组
 		const numGroups = 10000
 		for i := 0; i < numGroups; i++ {
-			data := map[string]interface{}{
+			data := map[string]any{
 				"group": fmt.Sprintf("group_%d", i),
 				"value": float64(i),
 			}
@@ -1173,7 +1173,7 @@ func TestGroupAggregatorResetAndReuse(t *testing.T) {
 	)
 
 	// 第一轮数据
-	testData1 := []map[string]interface{}{
+	testData1 := []map[string]any{
 		{"category": "A", "value": 10.0},
 		{"category": "B", "value": 20.0},
 	}
@@ -1190,7 +1190,7 @@ func TestGroupAggregatorResetAndReuse(t *testing.T) {
 	agg.Reset()
 
 	// 第二轮数据
-	testData2 := []map[string]interface{}{
+	testData2 := []map[string]any{
 		{"category": "A", "value": 15.0},
 		{"category": "C", "value": 25.0},
 	}
@@ -1229,7 +1229,7 @@ func TestGroupAggregatorBasic(t *testing.T) {
 	ga := NewGroupAggregator([]string{"group"}, aggFields)
 
 	// 测试数据
-	data := []map[string]interface{}{
+	data := []map[string]any{
 		{"group": "A", "value": 10},
 		{"group": "A", "value": 20},
 		{"group": "B", "value": 30},
@@ -1261,7 +1261,7 @@ func TestGroupAggregatorErrorHandling(t *testing.T) {
 	ga := NewGroupAggregator([]string{}, []AggregationField{})
 
 	// 添加数据应该不会出错
-	err := ga.Add(map[string]interface{}{"field": "value"})
+	err := ga.Add(map[string]any{"field": "value"})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -1293,7 +1293,7 @@ func TestGroupAggregatorConcurrency(t *testing.T) {
 	// 并发添加数据
 	for i := 0; i < 100; i++ {
 		go func(id int) {
-			data := map[string]interface{}{
+			data := map[string]any{
 				"group": "test",
 				"value": id,
 			}
@@ -1343,13 +1343,13 @@ func (t *testCustomAggregator) New() AggregatorFunction {
 	return &testCustomAggregator{}
 }
 
-func (t *testCustomAggregator) Add(value interface{}) {
+func (t *testCustomAggregator) Add(value any) {
 	if v, ok := value.(float64); ok {
 		t.sum += v
 	}
 }
 
-func (t *testCustomAggregator) Result() interface{} {
+func (t *testCustomAggregator) Result() any {
 	return t.sum
 }
 
@@ -1415,7 +1415,7 @@ func TestExpressionAggregator(t *testing.T) {
 // TestGroupAggregatorContextAggregator 测试 ContextAggregator 功能
 func TestGroupAggregatorContextAggregator(t *testing.T) {
 	// 创建一个共享的values切片来跟踪所有添加的值
-	sharedValues := &[]interface{}{}
+	sharedValues := &[]any{}
 
 	// 注册模拟聚合器
 	Register("mock_context", func() AggregatorFunction {
@@ -1441,7 +1441,7 @@ func TestGroupAggregatorContextAggregator(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 添加数据（字段不存在，应该从上下文获取）
-	err = ga.Add(map[string]interface{}{
+	err = ga.Add(map[string]any{
 		"group": "test_group",
 		// 故意不包含 missing_field
 	})
@@ -1459,7 +1459,7 @@ func TestGroupAggregatorContextAggregator(t *testing.T) {
 // mockContextAggregator 模拟的 ContextAggregator
 type mockContextAggregator struct {
 	contextKey string
-	values     *[]interface{}
+	values     *[]any
 }
 
 func (m *mockContextAggregator) New() AggregatorFunction {
@@ -1469,11 +1469,11 @@ func (m *mockContextAggregator) New() AggregatorFunction {
 	}
 }
 
-func (m *mockContextAggregator) Add(value interface{}) {
+func (m *mockContextAggregator) Add(value any) {
 	*m.values = append(*m.values, value)
 }
 
-func (m *mockContextAggregator) Result() interface{} {
+func (m *mockContextAggregator) Result() any {
 	return len(*m.values)
 }
 
@@ -1495,7 +1495,7 @@ func TestGroupAggregatorNumericConversionError(t *testing.T) {
 	)
 
 	// 添加无法转换为数值的数据
-	err := ga.Add(map[string]interface{}{
+	err := ga.Add(map[string]any{
 		"group": "test_group",
 		"value": "not_a_number", // 无法转换为数值
 	})
@@ -1519,8 +1519,8 @@ func TestGroupAggregatorWithExpressionEvaluator(t *testing.T) {
 	)
 
 	// 注册表达式求值器（摄氏度转华氏度）
-	evaluator := func(data interface{}) (interface{}, error) {
-		if dataMap, ok := data.(map[string]interface{}); ok {
+	evaluator := func(data any) (any, error) {
+		if dataMap, ok := data.(map[string]any); ok {
 			if temp, exists := dataMap["temperature"]; exists {
 				if tempFloat, ok := temp.(float64); ok {
 					return tempFloat*1.8 + 32, nil
@@ -1533,7 +1533,7 @@ func TestGroupAggregatorWithExpressionEvaluator(t *testing.T) {
 	ga.RegisterExpression("fahrenheit_sum", "temperature * 1.8 + 32", []string{"temperature"}, evaluator)
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"group": "sensor1", "temperature": 0.0},   // 32°F
 		{"group": "sensor1", "temperature": 100.0}, // 212°F
 	}
@@ -1567,14 +1567,14 @@ func TestGroupAggregatorExpressionEvaluatorError(t *testing.T) {
 	)
 
 	// 注册会出错的表达式求值器
-	errorEvaluator := func(data interface{}) (interface{}, error) {
+	errorEvaluator := func(data any) (any, error) {
 		return nil, errors.New("expression evaluation failed")
 	}
 
 	ga.RegisterExpression("processed_value", "error_expression", []string{"value"}, errorEvaluator)
 
 	// 添加测试数据
-	err := ga.Add(map[string]interface{}{
+	err := ga.Add(map[string]any{
 		"group": "test_group",
 		"value": 10.0,
 	})
@@ -1606,7 +1606,7 @@ func TestGroupAggregatorCountStarField(t *testing.T) {
 	)
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"category": "A", "value": 10},
 		{"category": "A", "value": 20},
 		{"category": "A"}, // 没有 value 字段
@@ -1648,7 +1648,7 @@ func TestGroupAggregatorNilFieldValue(t *testing.T) {
 	)
 
 	// 添加包含 nil 值的数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"group": "test", "value": 10.0},
 		{"group": "test", "value": nil}, // nil 值应该被跳过
 		{"group": "test", "value": 20.0},
@@ -1788,7 +1788,7 @@ func TestGroupAggregatorGroupFieldNilValue(t *testing.T) {
 	)
 
 	// 添加分组字段为 nil 的数据
-	err := ga.Add(map[string]interface{}{
+	err := ga.Add(map[string]any{
 		"group": nil, // 分组字段为 nil
 		"value": 10.0,
 	})
@@ -1866,7 +1866,7 @@ func TestGroupAggregatorMissingGroupField(t *testing.T) {
 	)
 
 	// 添加缺少分组字段的数据
-	err := ga.Add(map[string]interface{}{
+	err := ga.Add(map[string]any{
 		"value": 10,
 		// 缺少 missing_group 字段
 	})
@@ -1889,7 +1889,7 @@ func TestGroupAggregatorMissingAggregationField(t *testing.T) {
 	)
 
 	// 添加缺少聚合字段的数据（没有上下文）
-	err := ga.Add(map[string]interface{}{
+	err := ga.Add(map[string]any{
 		"group": "test",
 		// 缺少 missing_field
 	})
@@ -1921,12 +1921,12 @@ func TestGroupAggregatorExpressionEvaluationError(t *testing.T) {
 	)
 
 	// 注册一个会出错的表达式求值器
-	ga.RegisterExpression("expr_result", "error_expr", []string{"other"}, func(data interface{}) (interface{}, error) {
+	ga.RegisterExpression("expr_result", "error_expr", []string{"other"}, func(data any) (any, error) {
 		return nil, fmt.Errorf("evaluation error")
 	})
 
 	// 添加数据
-	err := ga.Add(map[string]interface{}{
+	err := ga.Add(map[string]any{
 		"group": "test",
 		"value": 10,
 		"other": 20,

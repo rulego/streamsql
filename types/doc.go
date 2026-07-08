@@ -54,7 +54,7 @@ Unified configuration for all window types:
 
 	type WindowConfig struct {
 		Type       string                 // Window type
-		Params     map[string]interface{} // Parameters
+		Params     map[string]any // Parameters
 		TsProp     string                 // Timestamp property
 		TimeUnit   time.Duration          // Time unit
 		GroupByKey string                 // Grouping key
@@ -64,7 +64,7 @@ Unified configuration for all window types:
 	// Tumbling window
 	windowConfig := WindowConfig{
 		Type: "tumbling",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"size": "5s",
 		},
 		TsProp: "timestamp",
@@ -73,7 +73,7 @@ Unified configuration for all window types:
 	// Sliding window
 	windowConfig := WindowConfig{
 		Type: "sliding",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"size": "30s",
 			"slide": "10s",
 		},
@@ -83,7 +83,7 @@ Unified configuration for all window types:
 	// Counting window
 	windowConfig := WindowConfig{
 		Type: "counting",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"count": 100,
 		},
 	}
@@ -91,7 +91,7 @@ Unified configuration for all window types:
 	// Session window
 	windowConfig := WindowConfig{
 		Type: "session",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"timeout": "5m",
 		},
 		GroupByKey: "user_id",
@@ -167,17 +167,17 @@ Advanced field handling and expression support:
 Type-safe data row structures for stream processing:
 
 	type Row struct {
-		Data      map[string]interface{} // Row data
+		Data      map[string]any // Row data
 		Timestamp time.Time              // Row timestamp
-		Metadata  map[string]interface{} // Additional metadata
+		Metadata  map[string]any // Additional metadata
 		GroupKey  string                 // Grouping key for aggregation
 		WindowID  string                 // Window identifier
 	}
 
 	// Row creation and manipulation
-	func NewRow(data map[string]interface{}) *Row
-	func (r *Row) GetValue(field string) interface{}
-	func (r *Row) SetValue(field string, value interface{})
+	func NewRow(data map[string]any) *Row
+	func (r *Row) GetValue(field string) any
+	func (r *Row) SetValue(field string, value any)
 	func (r *Row) HasField(field string) bool
 	func (r *Row) Clone() *Row
 
@@ -247,7 +247,7 @@ Basic configuration:
 	config := &Config{
 		WindowConfig: WindowConfig{
 			Type: "tumbling",
-			Params: map[string]interface{}{"size": "5s"},
+			Params: map[string]any{"size": "5s"},
 		},
 		GroupFields: []string{"device_id"},
 		SelectFields: map[string]aggregator.AggregateType{
@@ -258,7 +258,7 @@ Basic configuration:
 
 Data row operations:
 
-	row := NewRow(map[string]interface{}{
+	row := NewRow(map[string]any{
 		"device_id":   "sensor001",
 		"temperature": 25.5,
 	})

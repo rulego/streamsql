@@ -16,7 +16,7 @@ func TestOverflowStrategies(t *testing.T) {
 		// 配置：窗口大小1（每1条数据触发一次），输出缓冲1，阻塞策略，超时100ms
 		config := types.WindowConfig{
 			Type:   "CountingWindow",
-			Params: []interface{}{1}, // Threshold = 1
+			Params: []any{1}, // Threshold = 1
 			PerformanceConfig: types.PerformanceConfig{
 				BufferConfig: types.BufferConfig{
 					WindowOutputSize: 1,
@@ -35,7 +35,7 @@ func TestOverflowStrategies(t *testing.T) {
 		defer win.Stop()
 
 		// 1. 发送第1条数据，触发窗口，填充 outputChan (容量1)
-		win.Add(map[string]interface{}{"id": 1})
+		win.Add(map[string]any{"id": 1})
 
 		// 等待处理
 		time.Sleep(50 * time.Millisecond)
@@ -45,7 +45,7 @@ func TestOverflowStrategies(t *testing.T) {
 
 		// 2. 发送第2条数据，触发窗口
 		// 此时 outputChan 已满，sendResult 应该阻塞 100ms 然后超时丢弃
-		win.Add(map[string]interface{}{"id": 2})
+		win.Add(map[string]any{"id": 2})
 
 		// 等待超时 (100ms) + 处理时间
 		time.Sleep(200 * time.Millisecond)
@@ -65,7 +65,7 @@ func TestOverflowStrategies(t *testing.T) {
 		}
 
 		// 4. 发送第3条数据
-		win.Add(map[string]interface{}{"id": 3})
+		win.Add(map[string]any{"id": 3})
 		time.Sleep(50 * time.Millisecond)
 
 		stats = win.GetStats()
@@ -77,7 +77,7 @@ func TestOverflowStrategies(t *testing.T) {
 		// 配置：会话超时50ms，输出缓冲1，阻塞策略，超时50ms
 		config := types.WindowConfig{
 			Type:   "SessionWindow",
-			Params: []interface{}{"50ms"},
+			Params: []any{"50ms"},
 			PerformanceConfig: types.PerformanceConfig{
 				BufferConfig: types.BufferConfig{
 					WindowOutputSize: 1,
@@ -96,7 +96,7 @@ func TestOverflowStrategies(t *testing.T) {
 		defer win.Stop()
 
 		// 1. 发送数据，开始一个 session
-		win.Add(map[string]interface{}{"id": 1})
+		win.Add(map[string]any{"id": 1})
 
 		// 2. 等待 session 超时 (50ms) + 检查周期 (timeout/2 = 25ms)
 		// 确保 session 被触发并发送到 outputChan
@@ -107,7 +107,7 @@ func TestOverflowStrategies(t *testing.T) {
 		assert.Equal(t, int64(1), stats["bufferUsed"])
 
 		// 3. 发送数据开始第二个 session (因为上一个已经结束)
-		win.Add(map[string]interface{}{"id": 2})
+		win.Add(map[string]any{"id": 2})
 
 		// 4. 等待 session 超时
 		// 此时 outputChan 已满，应该阻塞并丢弃
@@ -122,7 +122,7 @@ func TestOverflowStrategies(t *testing.T) {
 		// 配置：窗口大小1，输出缓冲1，丢弃策略
 		config := types.WindowConfig{
 			Type:   "CountingWindow",
-			Params: []interface{}{1},
+			Params: []any{1},
 			PerformanceConfig: types.PerformanceConfig{
 				BufferConfig: types.BufferConfig{
 					WindowOutputSize: 1,
@@ -139,12 +139,12 @@ func TestOverflowStrategies(t *testing.T) {
 		defer win.Stop()
 
 		// 1. 发送第1条数据，填充 outputChan
-		win.Add(map[string]interface{}{"id": 1})
+		win.Add(map[string]any{"id": 1})
 		time.Sleep(50 * time.Millisecond)
 
 		// 2. 发送第2条数据
 		// outputChan 已满，StrategyDrop 会尝试丢弃旧数据（outputChan头部）来放入新数据
-		win.Add(map[string]interface{}{"id": 2})
+		win.Add(map[string]any{"id": 2})
 		time.Sleep(50 * time.Millisecond)
 
 		stats := win.GetStats()
@@ -154,7 +154,7 @@ func TestOverflowStrategies(t *testing.T) {
 		select {
 		case data := <-win.OutputChan():
 			assert.Len(t, data, 1)
-			assert.Equal(t, 2, cast.ToInt(data[0].Data.(map[string]interface{})["id"]))
+			assert.Equal(t, 2, cast.ToInt(data[0].Data.(map[string]any)["id"]))
 		default:
 			t.Fatal("expected data in output channel")
 		}
@@ -164,7 +164,7 @@ func TestOverflowStrategies(t *testing.T) {
 		// 配置：窗口大小50ms，输出缓冲1，阻塞策略，超时50ms
 		config := types.WindowConfig{
 			Type:   "TumblingWindow",
-			Params: []interface{}{"50ms"},
+			Params: []any{"50ms"},
 			PerformanceConfig: types.PerformanceConfig{
 				BufferConfig: types.BufferConfig{
 					WindowOutputSize: 1,
@@ -183,7 +183,7 @@ func TestOverflowStrategies(t *testing.T) {
 		defer win.Stop()
 
 		// 1. 发送数据触发第1个窗口
-		win.Add(map[string]interface{}{"id": 1})
+		win.Add(map[string]any{"id": 1})
 		// 等待窗口触发 (50ms)
 		time.Sleep(100 * time.Millisecond)
 
@@ -193,7 +193,7 @@ func TestOverflowStrategies(t *testing.T) {
 
 		// 2. 发送数据触发第2个窗口
 		// 由于没有读取 outputChan，第2个窗口触发时应该阻塞然后超时
-		win.Add(map[string]interface{}{"id": 2})
+		win.Add(map[string]any{"id": 2})
 		// 等待窗口触发 (50ms) + 阻塞超时 (50ms)
 		time.Sleep(150 * time.Millisecond)
 

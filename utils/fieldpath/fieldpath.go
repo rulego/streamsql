@@ -173,7 +173,7 @@ func parseBracketContent(content string) (FieldPart, error) {
 // - "config['key']" (string key)
 // - "items[0][1]" (multi-dimensional array)
 // - "nested.data[0].field['key']" (mixed access)
-func GetNestedField(data interface{}, fieldPath string) (interface{}, bool) {
+func GetNestedField(data any, fieldPath string) (any, bool) {
 	if fieldPath == "" {
 		return nil, false
 	}
@@ -203,7 +203,7 @@ func GetNestedField(data interface{}, fieldPath string) (interface{}, bool) {
 }
 
 // accessFieldPart accesses a single field part
-func accessFieldPart(data interface{}, part FieldPart) (interface{}, bool) {
+func accessFieldPart(data any, part FieldPart) (any, bool) {
 	if data == nil {
 		return nil, false
 	}
@@ -234,7 +234,7 @@ func accessFieldPart(data interface{}, part FieldPart) (interface{}, bool) {
 }
 
 // getArrayElement gets array or slice element
-func getArrayElement(v reflect.Value, index int) (interface{}, bool) {
+func getArrayElement(v reflect.Value, index int) (any, bool) {
 	switch v.Kind() {
 	case reflect.Slice, reflect.Array:
 		length := v.Len()
@@ -278,7 +278,7 @@ func getArrayElement(v reflect.Value, index int) (interface{}, bool) {
 }
 
 // getMapValue gets Map value
-func getMapValue(v reflect.Value, key, keyType string) (interface{}, bool) {
+func getMapValue(v reflect.Value, key, keyType string) (any, bool) {
 	if v.Kind() != reflect.Map {
 		return nil, false
 	}
@@ -309,7 +309,7 @@ func getMapValue(v reflect.Value, key, keyType string) (interface{}, bool) {
 }
 
 // getNestedFieldSimple original simple dot access (backward compatible)
-func getNestedFieldSimple(data interface{}, fieldPath string) (interface{}, bool) {
+func getNestedFieldSimple(data any, fieldPath string) (any, bool) {
 	if fieldPath == "" {
 		return nil, false
 	}
@@ -330,7 +330,7 @@ func getNestedFieldSimple(data interface{}, fieldPath string) (interface{}, bool
 }
 
 // getFieldValue gets field value from single level
-func getFieldValue(data interface{}, fieldName string) (interface{}, bool) {
+func getFieldValue(data any, fieldName string) (any, bool) {
 	if data == nil {
 		return nil, false
 	}
@@ -347,7 +347,7 @@ func getFieldValue(data interface{}, fieldName string) (interface{}, bool) {
 
 	switch v.Kind() {
 	case reflect.Map:
-		// Handle map[string]interface{}
+		// Handle map[string]any
 		if v.Type().Key().Kind() == reflect.String {
 			mapVal := v.MapIndex(reflect.ValueOf(fieldName))
 			if mapVal.IsValid() {
@@ -371,7 +371,7 @@ func getFieldValue(data interface{}, fieldName string) (interface{}, bool) {
 
 // SetNestedField sets field value in nested map, supports complex paths
 // Automatically creates missing levels in the path
-func SetNestedField(data map[string]interface{}, fieldPath string, value interface{}) error {
+func SetNestedField(data map[string]any, fieldPath string, value any) error {
 	if fieldPath == "" {
 		return &FieldAccessError{
 			Path:    fieldPath,
@@ -410,17 +410,17 @@ func SetNestedField(data map[string]interface{}, fieldPath string, value interfa
 
 		// Ensure intermediate path exists
 		if next, exists := current[part.Name]; exists {
-			if nextMap, ok := next.(map[string]interface{}); ok {
+			if nextMap, ok := next.(map[string]any); ok {
 				current = nextMap
 			} else {
 				// If exists but not a map, create new map to override
-				newMap := make(map[string]interface{})
+				newMap := make(map[string]any)
 				current[part.Name] = newMap
 				current = newMap
 			}
 		} else {
 			// If not exists, create new map
-			newMap := make(map[string]interface{})
+			newMap := make(map[string]any)
 			current[part.Name] = newMap
 			current = newMap
 		}
@@ -441,7 +441,7 @@ func SetNestedField(data map[string]interface{}, fieldPath string, value interfa
 }
 
 // setNestedFieldSimple original simple setting (backward compatible)
-func setNestedFieldSimple(data map[string]interface{}, fieldPath string, value interface{}) {
+func setNestedFieldSimple(data map[string]any, fieldPath string, value any) {
 	if fieldPath == "" {
 		return
 	}
@@ -453,17 +453,17 @@ func setNestedFieldSimple(data map[string]interface{}, fieldPath string, value i
 	for i := 0; i < len(fields)-1; i++ {
 		field := fields[i]
 		if next, exists := current[field]; exists {
-			if nextMap, ok := next.(map[string]interface{}); ok {
+			if nextMap, ok := next.(map[string]any); ok {
 				current = nextMap
 			} else {
 				// If exists but not a map, create new map to override
-				newMap := make(map[string]interface{})
+				newMap := make(map[string]any)
 				current[field] = newMap
 				current = newMap
 			}
 		} else {
 			// If not exists, create new map
-			newMap := make(map[string]interface{})
+			newMap := make(map[string]any)
 			current[field] = newMap
 			current = newMap
 		}
@@ -481,6 +481,7 @@ func IsNestedField(fieldName string) bool {
 
 // ExtractTopLevelField extracts top-level field name from nested field path
 // Examples: "device.info.name" returns "device"
+//
 //	"data[0].name" returns "data"
 //	"a.b[0].c['key']" returns "a"
 func ExtractTopLevelField(fieldPath string) string {

@@ -34,7 +34,7 @@ func registerSimpleFunctions() {
 		"数学函数",
 		"计算平方",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			val := cast.ToFloat64(args[0])
 			return val * val, nil
 		},
@@ -52,7 +52,7 @@ func registerSimpleFunctions() {
 		"温度转换",
 		"华氏度转摄氏度",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			fahrenheit := cast.ToFloat64(args[0])
 			celsius := (fahrenheit - 32) * 5 / 9
 			return celsius, nil
@@ -71,7 +71,7 @@ func registerSimpleFunctions() {
 		"几何计算",
 		"计算圆的面积",
 		1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			radius := cast.ToFloat64(args[0])
 			if radius < 0 {
 				return nil, fmt.Errorf("半径必须为正数")
@@ -122,12 +122,12 @@ func testSimpleQuery(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加结果监听器
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 简单查询结果: %v\n", result)
 	})
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{
 			"device":      "sensor1",
 			"value":       5.0,
@@ -171,12 +171,12 @@ func testAggregateQuery(ssql *streamsql.Streamsql) {
 	}
 
 	// 添加结果监听器
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 聚合查询结果: %v\n", result)
 	})
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{
 			"device":      "sensor1",
 			"value":       3.0,

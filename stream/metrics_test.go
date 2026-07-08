@@ -54,14 +54,14 @@ func TestStreamRegistry_CountersOnInit(t *testing.T) {
 
 func TestStream_InputCounterIncrements(t *testing.T) {
 	s := newTestStream(t)
-	s.Emit(map[string]interface{}{"name": "a", "age": 1})
-	s.Emit(map[string]interface{}{"name": "b", "age": 2})
+	s.Emit(map[string]any{"name": "a", "age": 1})
+	s.Emit(map[string]any{"name": "b", "age": 2})
 	assert.Equal(t, int64(2), s.mInput.Value())
 }
 
 func TestStream_GetStatsFromRegistry(t *testing.T) {
 	s := newTestStream(t)
-	s.Emit(map[string]interface{}{"name": "a", "age": 1})
+	s.Emit(map[string]any{"name": "a", "age": 1})
 	stats := s.GetStats()
 	assert.Equal(t, int64(1), stats[InputCount], "input_count sourced from registry")
 	assert.Contains(t, stats, OutputCount)

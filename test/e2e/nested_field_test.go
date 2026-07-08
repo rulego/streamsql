@@ -31,29 +31,29 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 		strm := ssql.Stream()
 
 		// 创建结果接收通道
-		resultChan := make(chan interface{}, 10)
+		resultChan := make(chan any, 10)
 
 		// 添加结果接收器
-		strm.AddSink(func(result []map[string]interface{}) {
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加带多层嵌套字段的测试数据
-		testData := map[string]interface{}{
-			"device": map[string]interface{}{
-				"info": map[string]interface{}{
+		testData := map[string]any{
+			"device": map[string]any{
+				"info": map[string]any{
 					"name":   "温度传感器001",
 					"type":   "temperature",
 					"status": "active",
 				},
-				"location": map[string]interface{}{
+				"location": map[string]any{
 					"building": "A栋",
 					"floor":    "3F",
 					"room":     "301",
 				},
 			},
-			"sensor": map[string]interface{}{
-				"data": map[string]interface{}{
+			"sensor": map[string]any{
+				"data": map[string]any{
 					"temperature": 28.5,
 					"humidity":    65.0,
 					"pressure":    1013.25,
@@ -72,8 +72,8 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 		select {
 		case result := <-resultChan:
 			// 验证结果
-			resultSlice, ok := result.([]map[string]interface{})
-			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+			resultSlice, ok := result.([]map[string]any)
+			require.True(t, ok, "结果应该是[]map[string]any类型")
 			require.Len(t, resultSlice, 1, "应该只有一条结果")
 
 			item := resultSlice[0]
@@ -114,39 +114,39 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 		strm := ssql.Stream()
 
 		// 创建结果接收通道
-		resultChan := make(chan interface{}, 10)
+		resultChan := make(chan any, 10)
 
 		// 添加结果回调
-		strm.AddSink(func(result []map[string]interface{}) {
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{
-				"device": map[string]interface{}{
+				"device": map[string]any{
 					"type": "temperature",
 					"id":   "sensor001",
 				},
-				"sensor": map[string]interface{}{
+				"sensor": map[string]any{
 					"temperature": 25.0,
 				},
 			},
 			{
-				"device": map[string]interface{}{
+				"device": map[string]any{
 					"type": "temperature",
 					"id":   "sensor002",
 				},
-				"sensor": map[string]interface{}{
+				"sensor": map[string]any{
 					"temperature": 35.0,
 				},
 			},
 			{
-				"device": map[string]interface{}{
+				"device": map[string]any{
 					"type": "humidity",
 					"id":   "sensor003",
 				},
-				"sensor": map[string]interface{}{
+				"sensor": map[string]any{
 					"temperature": 20.0,
 				},
 			},
@@ -167,8 +167,8 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 		select {
 		case result := <-resultChan:
 			// 验证聚合结果
-			resultSlice, ok := result.([]map[string]interface{})
-			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+			resultSlice, ok := result.([]map[string]any)
+			require.True(t, ok, "结果应该是[]map[string]any类型")
 
 			// 聚合查询可能返回空结果，这是正常的
 			if len(resultSlice) > 0 {
@@ -212,43 +212,43 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 		strm := ssql.Stream()
 
 		// 创建结果接收通道
-		resultChan := make(chan interface{}, 10)
+		resultChan := make(chan any, 10)
 
 		// 添加结果接收器
-		strm.AddSink(func(result []map[string]interface{}) {
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据：一条满足所有条件，一条不满足
-		testData1 := map[string]interface{}{
-			"device": map[string]interface{}{
-				"info": map[string]interface{}{
+		testData1 := map[string]any{
+			"device": map[string]any{
+				"info": map[string]any{
 					"name":   "传感器A",
 					"status": "active", // 满足条件
 				},
-				"location": map[string]interface{}{
+				"location": map[string]any{
 					"building": "A栋", // 满足条件
 				},
 			},
-			"sensor": map[string]interface{}{
-				"data": map[string]interface{}{
+			"sensor": map[string]any{
+				"data": map[string]any{
 					"temperature": 30.0, // 满足条件 > 25
 				},
 			},
 		}
 
-		testData2 := map[string]interface{}{
-			"device": map[string]interface{}{
-				"info": map[string]interface{}{
+		testData2 := map[string]any{
+			"device": map[string]any{
+				"info": map[string]any{
 					"name":   "传感器B",
 					"status": "inactive", // 不满足条件
 				},
-				"location": map[string]interface{}{
+				"location": map[string]any{
 					"building": "B栋", // 不满足条件
 				},
 			},
-			"sensor": map[string]interface{}{
-				"data": map[string]interface{}{
+			"sensor": map[string]any{
+				"data": map[string]any{
 					"temperature": 20.0, // 不满足条件 <= 25
 				},
 			},
@@ -259,7 +259,7 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 		strm.Emit(testData2)
 
 		// 等待结果
-		var results []interface{}
+		var results []any
 		timeout := time.After(3 * time.Second)
 		done := false
 
@@ -279,32 +279,32 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 		assert.Greater(t, len(results), 0, "复杂WHERE条件应该返回结果")
 
 		for _, result := range results {
-			resultSlice, ok := result.([]map[string]interface{})
-			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+			resultSlice, ok := result.([]map[string]any)
+			require.True(t, ok, "结果应该是[]map[string]any类型")
 
 			for _, item := range resultSlice {
 				// 验证通过过滤的数据确实满足所有条件
-				device, deviceOk := item["device"].(map[string]interface{})
+				device, deviceOk := item["device"].(map[string]any)
 				assert.True(t, deviceOk, "device字段应该存在且为map类型")
 
-				info, infoOk := device["info"].(map[string]interface{})
+				info, infoOk := device["info"].(map[string]any)
 				assert.True(t, infoOk, "device.info字段应该存在且为map类型")
 
 				status, statusOk := info["status"].(string)
 				assert.True(t, statusOk, "device.info.status字段应该存在且为string类型")
 				assert.Equal(t, "active", status, "status应该是active")
 
-				location, locationOk := device["location"].(map[string]interface{})
+				location, locationOk := device["location"].(map[string]any)
 				assert.True(t, locationOk, "device.location字段应该存在且为map类型")
 
 				building, buildingOk := location["building"].(string)
 				assert.True(t, buildingOk, "device.location.building字段应该存在且为string类型")
 				assert.Equal(t, "A栋", building, "building应该是A栋")
 
-				sensor, sensorOk := item["sensor"].(map[string]interface{})
+				sensor, sensorOk := item["sensor"].(map[string]any)
 				assert.True(t, sensorOk, "sensor字段应该存在且为map类型")
 
-				data, dataOk := sensor["data"].(map[string]interface{})
+				data, dataOk := sensor["data"].(map[string]any)
 				assert.True(t, dataOk, "sensor.data字段应该存在且为map类型")
 
 				temp, tempOk := data["temperature"].(float64)
@@ -333,18 +333,18 @@ func TestArrayFieldAccess(t *testing.T) {
 		require.NoError(t, err, "数组索引访问不应该出错")
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 测试数据
-		testData := map[string]interface{}{
-			"items": []interface{}{
-				map[string]interface{}{"name": "item1", "id": 101},
-				map[string]interface{}{"name": "item2", "id": 102},
+		testData := map[string]any{
+			"items": []any{
+				map[string]any{"name": "item1", "id": 101},
+				map[string]any{"name": "item2", "id": 102},
 			},
-			"values": []interface{}{10, 20, 30, 40},
+			"values": []any{10, 20, 30, 40},
 		}
 
 		strm.Emit(testData)
@@ -354,7 +354,7 @@ func TestArrayFieldAccess(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			require.Len(t, resultSlice, 1)
 
@@ -393,22 +393,22 @@ func TestArrayFieldAccess(t *testing.T) {
 		require.NoError(t, err)
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 匹配的数据
-		matchData := map[string]interface{}{
+		matchData := map[string]any{
 			"id":     "match",
-			"tags":   []interface{}{"urgent", "work"},
-			"scores": []interface{}{80, 95},
+			"tags":   []any{"urgent", "work"},
+			"scores": []any{80, 95},
 		}
 		// 不匹配的数据
-		mismatchData := map[string]interface{}{
+		mismatchData := map[string]any{
 			"id":     "mismatch",
-			"tags":   []interface{}{"normal", "home"},
-			"scores": []interface{}{80, 85},
+			"tags":   []any{"normal", "home"},
+			"scores": []any{80, 85},
 		}
 
 		strm.Emit(matchData)
@@ -419,7 +419,7 @@ func TestArrayFieldAccess(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			require.Len(t, resultSlice, 1)
 			assert.Equal(t, "match", resultSlice[0]["id"])
@@ -442,22 +442,22 @@ func TestArrayFieldAccess(t *testing.T) {
 		assert.Nil(t, err, "嵌套数组聚合SQL应该能够执行")
 
 		strm := ssql.Stream()
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{
-				"device": map[string]interface{}{"type": "temp_sensor"},
-				"sensors": []interface{}{
-					map[string]interface{}{"temperature": 20.0},
+				"device": map[string]any{"type": "temp_sensor"},
+				"sensors": []any{
+					map[string]any{"temperature": 20.0},
 				},
 			},
 			{
-				"device": map[string]interface{}{"type": "temp_sensor"},
-				"sensors": []interface{}{
-					map[string]interface{}{"temperature": 30.0},
+				"device": map[string]any{"type": "temp_sensor"},
+				"sensors": []any{
+					map[string]any{"temperature": 30.0},
 				},
 			},
 		}
@@ -473,7 +473,7 @@ func TestArrayFieldAccess(t *testing.T) {
 
 		select {
 		case result := <-resultChan:
-			resultSlice, ok := result.([]map[string]interface{})
+			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
 			// 聚合结果可能为空，取决于窗口触发时机
 			if len(resultSlice) > 0 {

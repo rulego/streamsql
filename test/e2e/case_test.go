@@ -31,7 +31,7 @@ func TestCaseExpressionInSQL(t *testing.T) {
 	assert.NoError(t, err, "执行SQL应该成功")
 
 	// 模拟数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceId": "device1", "temperature": 35.0, "status": "active"},
 		{"deviceId": "device2", "temperature": 25.0, "status": "inactive"},
 		{"deviceId": "device3", "temperature": 18.0, "status": "active"},
@@ -39,9 +39,9 @@ func TestCaseExpressionInSQL(t *testing.T) {
 	}
 
 	// 添加数据并获取结果
-	var results []map[string]interface{}
+	var results []map[string]any
 	var resultsMutex sync.Mutex
-	streamSQL.Stream().AddSink(func(result []map[string]interface{}) {
+	streamSQL.Stream().AddSink(func(result []map[string]any) {
 		resultsMutex.Lock()
 		defer resultsMutex.Unlock()
 		results = append(results, result...)
@@ -81,7 +81,7 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 	assert.NoError(t, err, "执行SQL应该成功")
 
 	// 模拟数据（不需要时间戳字段，因为使用处理时间窗口）
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceId": "device1", "temperature": 35.0, "status": "active"},
 		{"deviceId": "device1", "temperature": 25.0, "status": "inactive"},
 		{"deviceId": "device1", "temperature": 32.0, "status": "active"},
@@ -90,9 +90,9 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 	}
 
 	// 添加数据并获取结果
-	var results []map[string]interface{}
+	var results []map[string]any
 	var resultsMutex sync.Mutex
-	streamSQL.Stream().AddSink(func(result []map[string]interface{}) {
+	streamSQL.Stream().AddSink(func(result []map[string]any) {
 		resultsMutex.Lock()
 		defer resultsMutex.Unlock()
 		results = append(results, result...)
@@ -118,7 +118,7 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 	assert.Greater(t, len(results), 0, "应该有聚合结果返回")
 
 	// 验证结果结构和内容
-	deviceResults := make(map[string]map[string]interface{})
+	deviceResults := make(map[string]map[string]any)
 	for _, result := range results {
 		deviceId, ok := result["deviceId"].(string)
 		assert.True(t, ok, "deviceId应该是字符串类型")
@@ -180,8 +180,8 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 		"device2的AVG(CASE WHEN...)应该正确计算")
 }
 
-// getFloat64Value 辅助函数，将interface{}转换为float64
-func getFloat64Value(value interface{}) float64 {
+// getFloat64Value 辅助函数，将any转换为float64
+func getFloat64Value(value any) float64 {
 	switch v := value.(type) {
 	case float64:
 		return v
@@ -202,7 +202,7 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 	testCases := []struct {
 		name        string
 		sql         string
-		data        []map[string]interface{}
+		data        []map[string]any
 		description string
 	}{
 		{
@@ -213,7 +213,7 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 			                     ELSE 0 END) as complex_score
 			      FROM stream 
 			      GROUP BY deviceId, TumblingWindow('1s')`,
-			data: []map[string]interface{}{
+			data: []map[string]any{
 				{"deviceId": "device1", "temperature": 35.0, "humidity": 70.0},
 				{"deviceId": "device1", "temperature": 28.0, "humidity": 50.0},
 				{"deviceId": "device1", "temperature": 20.0, "humidity": 40.0},
@@ -226,7 +226,7 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 			      AVG(CASE WHEN ABS(temperature - 25) < 5 THEN temperature ELSE 0 END) as normalized_avg
 			      FROM stream 
 			      GROUP BY deviceId, TumblingWindow('1s')`,
-			data: []map[string]interface{}{
+			data: []map[string]any{
 				{"deviceId": "device1", "temperature": 23.0},
 				{"deviceId": "device1", "temperature": 27.0},
 				{"deviceId": "device1", "temperature": 35.0}, // 这个会被排除
@@ -239,7 +239,7 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 			            COUNT(CASE WHEN temperature * 1.8 + 32 > 80 THEN 1 END) as fahrenheit_hot_count
 			      FROM stream 
 			      GROUP BY deviceId, TumblingWindow('1s')`,
-			data: []map[string]interface{}{
+			data: []map[string]any{
 				{"deviceId": "device1", "temperature": 25.0}, // 77F
 				{"deviceId": "device1", "temperature": 30.0}, // 86F
 				{"deviceId": "device1", "temperature": 35.0}, // 95F
@@ -258,9 +258,9 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 			assert.NoError(t, err, "执行SQL应该成功")
 
 			// 添加数据并获取结果
-			var results []map[string]interface{}
+			var results []map[string]any
 			var resultsMutex sync.Mutex
-			streamSQL.Stream().AddSink(func(result []map[string]interface{}) {
+			streamSQL.Stream().AddSink(func(result []map[string]any) {
 				resultsMutex.Lock()
 				defer resultsMutex.Unlock()
 				results = append(results, result...)
@@ -294,8 +294,8 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 	tests := []struct {
 		name     string
 		sql      string
-		testData []map[string]interface{}
-		expected []map[string]interface{} // 期望的结果
+		testData []map[string]any
+		expected []map[string]any // 期望的结果
 		wantErr  bool
 	}{
 		{
@@ -308,13 +308,13 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 						ELSE 'COLD'
 					END as temp_category
 				  FROM stream`,
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "device1", "temperature": 35.0},
 				{"deviceId": "device2", "temperature": 25.0},
 				{"deviceId": "device3", "temperature": 15.0},
 				{"deviceId": "device4", "temperature": 5.0},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "device1", "temp_category": "HOT"},
 				{"deviceId": "device2", "temp_category": "WARM"},
 				{"deviceId": "device3", "temp_category": "COOL"},
@@ -331,12 +331,12 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 						ELSE -1
 					END as status_code
 				  FROM stream`,
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "device1", "status": "active"},
 				{"deviceId": "device2", "status": "inactive"},
 				{"deviceId": "device3", "status": "unknown"},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "device1", "status_code": 1.0},
 				{"deviceId": "device2", "status_code": 0.0},
 				{"deviceId": "device3", "status_code": -1.0},
@@ -352,12 +352,12 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 						ELSE temperature
 					END as adjusted_temp
 				  FROM stream`,
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "device1", "temperature": 35.0},
 				{"deviceId": "device2", "temperature": 25.0},
 				{"deviceId": "device3", "temperature": 15.0},
 			},
-			expected: []map[string]interface{}{
+			expected: []map[string]any{
 				{"deviceId": "device1", "temperature": 35.0, "adjusted_temp": 42.0},
 				{"deviceId": "device2", "temperature": 25.0, "adjusted_temp": 27.5},
 				{"deviceId": "device3", "temperature": 15.0, "adjusted_temp": 15.0},
@@ -387,9 +387,9 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 			strm := ssql.Stream()
 
 			// 收集所有结果
-			var allResults []map[string]interface{}
-			resultChan := make(chan []map[string]interface{}, 10)
-			strm.AddSink(func(result []map[string]interface{}) {
+			var allResults []map[string]any
+			resultChan := make(chan []map[string]any, 10)
+			strm.AddSink(func(result []map[string]any) {
 				select {
 				case resultChan <- result:
 				default:
@@ -422,7 +422,7 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 			assert.Equal(t, len(tt.expected), len(allResults), "结果数量不匹配")
 
 			// 验证每个结果的内容（不依赖顺序）
-			expectedMap := make(map[string]map[string]interface{})
+			expectedMap := make(map[string]map[string]any)
 			for _, expected := range tt.expected {
 				deviceId, ok := expected["deviceId"].(string)
 				if ok {
@@ -494,7 +494,7 @@ func TestCaseExpressionAggregated(t *testing.T) {
 	tests := []struct {
 		name     string
 		sql      string
-		testData []map[string]interface{}
+		testData []map[string]any
 		wantErr  bool
 	}{
 		{
@@ -505,7 +505,7 @@ func TestCaseExpressionAggregated(t *testing.T) {
 					COUNT(*) as total_count
 				  FROM stream
 				  GROUP BY deviceId, TumblingWindow('1s')`,
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "device1", "temperature": 30.0},
 				{"deviceId": "device1", "temperature": 20.0},
 				{"deviceId": "device1", "temperature": 35.0},
@@ -527,7 +527,7 @@ func TestCaseExpressionAggregated(t *testing.T) {
 					END) as avg_high_humidity
 				  FROM stream
 				  GROUP BY deviceId, TumblingWindow('1s')`,
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceId": "device1", "temperature": 30.0, "humidity": 60.0},
 				{"deviceId": "device1", "temperature": 20.0, "humidity": 40.0},
 				{"deviceId": "device1", "temperature": 35.0, "humidity": 70.0},
@@ -559,8 +559,8 @@ func TestCaseExpressionAggregated(t *testing.T) {
 			strm := ssql.Stream()
 
 			// 使用通道等待结果，避免固定等待时间
-			resultChan := make(chan interface{}, 5)
-			strm.AddSink(func(result []map[string]interface{}) {
+			resultChan := make(chan any, 5)
+			strm.AddSink(func(result []map[string]any) {
 				select {
 				case resultChan <- result:
 				default:
@@ -575,12 +575,12 @@ func TestCaseExpressionAggregated(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 
-			var results []map[string]interface{}
+			var results []map[string]any
 
 			// 等待窗口触发或超时
 			select {
 			case result := <-resultChan:
-				if resultSlice, ok := result.([]map[string]interface{}); ok {
+				if resultSlice, ok := result.([]map[string]any); ok {
 					results = append(results, resultSlice...)
 				}
 			case <-time.After(1200 * time.Millisecond):
@@ -591,7 +591,7 @@ func TestCaseExpressionAggregated(t *testing.T) {
 				// 再等待一点时间获取结果
 				select {
 				case result := <-resultChan:
-					if resultSlice, ok := result.([]map[string]interface{}); ok {
+					if resultSlice, ok := result.([]map[string]any); ok {
 						results = append(results, resultSlice...)
 					}
 				case <-time.After(200 * time.Millisecond):
@@ -617,8 +617,8 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 	testCases := []struct {
 		name                  string
 		sql                   string
-		testData              []map[string]interface{}
-		expectedDeviceResults map[string]map[string]interface{}
+		testData              []map[string]any
+		expectedDeviceResults map[string]map[string]any
 		description           string
 	}{
 		{
@@ -630,14 +630,14 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 			            COUNT(*) as total_count
 			      FROM stream 
 			      GROUP BY deviceType, TumblingWindow('2s')`,
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceType": "sensor", "temperature": 35.0},  // 满足条件
 				{"deviceType": "sensor", "temperature": 25.0},  // 不满足条件，返回NULL
 				{"deviceType": "sensor", "temperature": 32.0},  // 满足条件
 				{"deviceType": "monitor", "temperature": 28.0}, // 不满足条件，返回NULL
 				{"deviceType": "monitor", "temperature": 33.0}, // 满足条件
 			},
-			expectedDeviceResults: map[string]map[string]interface{}{
+			expectedDeviceResults: map[string]map[string]any{
 				"sensor": {
 					"high_temp_sum":   67.0, // 35 + 32
 					"high_temp_count": 2.0,  // COUNT应该忽略NULL
@@ -662,12 +662,12 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 			            COUNT(*) as total_count
 			      FROM stream 
 			      GROUP BY deviceType, TumblingWindow('2s')`,
-			testData: []map[string]interface{}{
+			testData: []map[string]any{
 				{"deviceType": "cold_sensor", "temperature": 20.0}, // 不满足条件
 				{"deviceType": "cold_sensor", "temperature": 25.0}, // 不满足条件
 				{"deviceType": "cold_sensor", "temperature": 30.0}, // 不满足条件
 			},
-			expectedDeviceResults: map[string]map[string]interface{}{
+			expectedDeviceResults: map[string]map[string]any{
 				"cold_sensor": {
 					"impossible_sum":   nil, // 全NULL时SUM应返回NULL
 					"impossible_count": 0.0, // COUNT应返回0
@@ -690,10 +690,10 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 			assert.NoError(t, err, "SQL执行应该成功")
 
 			// 收集结果
-			var results []map[string]interface{}
-			resultChan := make(chan interface{}, 10)
+			var results []map[string]any
+			resultChan := make(chan any, 10)
 
-			ssql.AddSink(func(result []map[string]interface{}) {
+			ssql.AddSink(func(result []map[string]any) {
 				resultChan <- result
 			})
 
@@ -710,7 +710,7 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 			for {
 				select {
 				case result := <-resultChan:
-					if resultSlice, ok := result.([]map[string]interface{}); ok {
+					if resultSlice, ok := result.([]map[string]any); ok {
 						results = append(results, resultSlice...)
 					}
 				case <-time.After(500 * time.Millisecond):
@@ -832,7 +832,7 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 	assert.NoError(t, err, "执行SQL应该成功")
 
 	// 模拟数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		// device1: 3条高温记录，应该通过HAVING条件
 		{"deviceId": "device1", "temperature": 35.0},
 		{"deviceId": "device1", "temperature": 32.0},
@@ -851,9 +851,9 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 	}
 
 	// 添加数据并获取结果
-	var results []map[string]interface{}
+	var results []map[string]any
 	var resultsMutex sync.Mutex
-	streamSQL.Stream().AddSink(func(result []map[string]interface{}) {
+	streamSQL.Stream().AddSink(func(result []map[string]any) {
 		resultsMutex.Lock()
 		defer resultsMutex.Unlock()
 		results = append(results, result...)
@@ -880,7 +880,7 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 	assert.Greater(t, len(results), 0, "应该有结果返回")
 
 	// 验证结果中只包含满足HAVING条件的设备
-	deviceResults := make(map[string]map[string]interface{})
+	deviceResults := make(map[string]map[string]any)
 	for _, result := range results {
 		deviceId, ok := result["deviceId"].(string)
 		assert.True(t, ok, "deviceId应该是字符串类型")
@@ -927,7 +927,7 @@ func TestNegativeNumberInSQL(t *testing.T) {
 	assert.NoError(t, err, "包含负数的SQL应该执行成功")
 
 	// 模拟包含负数的数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"deviceId": "sensor1", "temperature": -15.0},
 		{"deviceId": "sensor2", "temperature": -5.0},
 		{"deviceId": "sensor3", "temperature": 0.0},
@@ -935,10 +935,10 @@ func TestNegativeNumberInSQL(t *testing.T) {
 	}
 
 	// 收集结果
-	var results []map[string]interface{}
+	var results []map[string]any
 	var resultsMutex sync.Mutex
 
-	streamSQL.Stream().AddSink(func(result []map[string]interface{}) {
+	streamSQL.Stream().AddSink(func(result []map[string]any) {
 		resultsMutex.Lock()
 		defer resultsMutex.Unlock()
 		results = append(results, result...)

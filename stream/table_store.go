@@ -10,13 +10,13 @@ import (
 // Implementations own the data lifecycle (load/refresh/cleanup) and MUST make
 // Lookup safe for concurrent use, since it runs on the per-row hot path.
 //
-// Lookup receives the join key built by the engine: a []interface{} of the
+// Lookup receives the join key built by the engine: a []any of the
 // stream-side key values, in the same order as the ON clause's table-side
 // fields (which must match the source's indexed key fields). For a single-key
 // JOIN the slice has one element.
 type TableSource interface {
 	Name() string
-	Lookup(key interface{}) (map[string]interface{}, bool)
+	Lookup(key any) (map[string]any, bool)
 	Init() error
 	Close() error
 }
@@ -28,16 +28,16 @@ type MemoryTableSource struct {
 	name      string
 	keyFields []string
 	mu        sync.RWMutex
-	index     map[string]map[string]interface{}
+	index     map[string]map[string]any
 }
 
 // NewMemoryTableSource builds an in-memory table from rows indexed by keyFields.
 // keyFields must be in the same order as the JOIN ON table-side fields.
-func NewMemoryTableSource(name string, keyFields []string, rows []map[string]interface{}) *MemoryTableSource {
+func NewMemoryTableSource(name string, keyFields []string, rows []map[string]any) *MemoryTableSource {
 	src := &MemoryTableSource{
 		name:      name,
 		keyFields: keyFields,
-		index:     make(map[string]map[string]interface{}, len(rows)),
+		index:     make(map[string]map[string]any, len(rows)),
 	}
 	for _, r := range rows {
 		src.index[encodeKey(src.encodeRow(r))] = r
@@ -57,9 +57,9 @@ func (m *MemoryTableSource) Init() error { return nil }
 // Close is a no-op for the in-memory source.
 func (m *MemoryTableSource) Close() error { return nil }
 
-// Lookup returns the row matching key, or (nil, false). key is a []interface{}
+// Lookup returns the row matching key, or (nil, false). key is a []any
 // of key-field values in indexed order, or a single value for single-key tables.
-func (m *MemoryTableSource) Lookup(key interface{}) (map[string]interface{}, bool) {
+func (m *MemoryTableSource) Lookup(key any) (map[string]any, bool) {
 	m.mu.RLock()
 	row, ok := m.index[encodeKey(key)]
 	m.mu.RUnlock()
@@ -67,7 +67,7 @@ func (m *MemoryTableSource) Lookup(key interface{}) (map[string]interface{}, boo
 }
 
 // Upsert adds or replaces the row, keyed by its key-field values.
-func (m *MemoryTableSource) Upsert(row map[string]interface{}) {
+func (m *MemoryTableSource) Upsert(row map[string]any) {
 	k := encodeKey(m.encodeRow(row))
 	m.mu.Lock()
 	m.index[k] = row
@@ -75,7 +75,7 @@ func (m *MemoryTableSource) Upsert(row map[string]interface{}) {
 }
 
 // Delete removes the row whose key-field values match key.
-func (m *MemoryTableSource) Delete(key interface{}) {
+func (m *MemoryTableSource) Delete(key any) {
 	k := encodeKey(key)
 	m.mu.Lock()
 	delete(m.index, k)
@@ -83,8 +83,8 @@ func (m *MemoryTableSource) Delete(key interface{}) {
 }
 
 // encodeRow extracts this row's key-field values in indexed order.
-func (m *MemoryTableSource) encodeRow(row map[string]interface{}) []interface{} {
-	vals := make([]interface{}, len(m.keyFields))
+func (m *MemoryTableSource) encodeRow(row map[string]any) []any {
+	vals := make([]any, len(m.keyFields))
 	for i, f := range m.keyFields {
 		vals[i] = row[f]
 	}
@@ -93,9 +93,9 @@ func (m *MemoryTableSource) encodeRow(row map[string]interface{}) []interface{} 
 
 // encodeKey serializes a lookup key into a stable, type-tagged string so that
 // 1 (int) and "1" (string) never collide. Accepts a single value or a
-// []interface{} tuple.
-func encodeKey(key interface{}) string {
-	if vals, ok := key.([]interface{}); ok {
+// []any tuple.
+func encodeKey(key any) string {
+	if vals, ok := key.([]any); ok {
 		parts := make([]string, len(vals))
 		for i, v := range vals {
 			parts[i] = encodeOne(v)
@@ -105,7 +105,7 @@ func encodeKey(key interface{}) string {
 	return encodeOne(key)
 }
 
-func encodeOne(v interface{}) string {
+func encodeOne(v any) string {
 	if v == nil {
 		return "<nil>"
 	}

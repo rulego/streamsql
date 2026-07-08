@@ -10,176 +10,176 @@ func TestArrayFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
 		funcName string
-		args     []interface{}
-		expected interface{}
+		args     []any
+		expected any
 		wantErr  bool
 	}{
 		{
 			name:     "array_length basic",
 			funcName: "array_length",
-			args:     []interface{}{[]interface{}{1, 2, 3}},
+			args:     []any{[]any{1, 2, 3}},
 			expected: 3,
 			wantErr:  false,
 		},
 		{
 			name:     "array_length empty",
 			funcName: "array_length",
-			args:     []interface{}{[]interface{}{}},
+			args:     []any{[]any{}},
 			expected: 0,
 			wantErr:  false,
 		},
 		{
 			name:     "array_contains true",
 			funcName: "array_contains",
-			args:     []interface{}{[]interface{}{1, 2, 3}, 2},
+			args:     []any{[]any{1, 2, 3}, 2},
 			expected: true,
 			wantErr:  false,
 		},
 		{
 			name:     "array_contains false",
 			funcName: "array_contains",
-			args:     []interface{}{[]interface{}{1, 2, 3}, 4},
+			args:     []any{[]any{1, 2, 3}, 4},
 			expected: false,
 			wantErr:  false,
 		},
 		{
 			name:     "array_contains empty array",
 			funcName: "array_contains",
-			args:     []interface{}{[]interface{}{}, 1},
+			args:     []any{[]any{}, 1},
 			expected: false,
 			wantErr:  false,
 		},
 		{
 			name:     "array_position found",
 			funcName: "array_position",
-			args:     []interface{}{[]interface{}{1, 2, 3}, 2},
+			args:     []any{[]any{1, 2, 3}, 2},
 			expected: 2,
 			wantErr:  false,
 		},
 		{
 			name:     "array_position not found",
 			funcName: "array_position",
-			args:     []interface{}{[]interface{}{1, 2, 3}, 4},
+			args:     []any{[]any{1, 2, 3}, 4},
 			expected: 0,
 			wantErr:  false,
 		},
 		{
 			name:     "array_position empty array",
 			funcName: "array_position",
-			args:     []interface{}{[]interface{}{}, 1},
+			args:     []any{[]any{}, 1},
 			expected: 0,
 			wantErr:  false,
 		},
 		{
 			name:     "array_remove basic",
 			funcName: "array_remove",
-			args:     []interface{}{[]interface{}{1, 2, 3, 2}, 2},
-			expected: []interface{}{1, 3},
+			args:     []any{[]any{1, 2, 3, 2}, 2},
+			expected: []any{1, 3},
 			wantErr:  false,
 		},
 		{
 			name:     "array_remove not found",
 			funcName: "array_remove",
-			args:     []interface{}{[]interface{}{1, 2, 3}, 4},
-			expected: []interface{}{1, 2, 3},
+			args:     []any{[]any{1, 2, 3}, 4},
+			expected: []any{1, 2, 3},
 			wantErr:  false,
 		},
 		{
 			name:     "array_remove empty array",
 			funcName: "array_remove",
-			args:     []interface{}{[]interface{}{}, 1},
-			expected: []interface{}{},
+			args:     []any{[]any{}, 1},
+			expected: []any{},
 			wantErr:  false,
 		},
 		{
 			name:     "array_distinct basic",
 			funcName: "array_distinct",
-			args:     []interface{}{[]interface{}{1, 2, 2, 3, 1}},
-			expected: []interface{}{1, 2, 3},
+			args:     []any{[]any{1, 2, 2, 3, 1}},
+			expected: []any{1, 2, 3},
 			wantErr:  false,
 		},
 		{
 			name:     "array_distinct empty",
 			funcName: "array_distinct",
-			args:     []interface{}{[]interface{}{}},
-			expected: []interface{}{},
+			args:     []any{[]any{}},
+			expected: []any{},
 			wantErr:  false,
 		},
 		{
 			name:     "array_intersect basic",
 			funcName: "array_intersect",
-			args:     []interface{}{[]interface{}{1, 2, 3}, []interface{}{2, 3, 4}},
-			expected: []interface{}{2, 3},
+			args:     []any{[]any{1, 2, 3}, []any{2, 3, 4}},
+			expected: []any{2, 3},
 			wantErr:  false,
 		},
 		{
 			name:     "array_intersect no intersection",
 			funcName: "array_intersect",
-			args:     []interface{}{[]interface{}{1, 2}, []interface{}{3, 4}},
-			expected: []interface{}{},
+			args:     []any{[]any{1, 2}, []any{3, 4}},
+			expected: []any{},
 			wantErr:  false,
 		},
 		{
 			name:     "array_intersect first empty",
 			funcName: "array_intersect",
-			args:     []interface{}{[]interface{}{}, []interface{}{1, 2}},
-			expected: []interface{}{},
+			args:     []any{[]any{}, []any{1, 2}},
+			expected: []any{},
 			wantErr:  false,
 		},
 		{
 			name:     "array_intersect second empty",
 			funcName: "array_intersect",
-			args:     []interface{}{[]interface{}{1, 2}, []interface{}{}},
-			expected: []interface{}{},
+			args:     []any{[]any{1, 2}, []any{}},
+			expected: []any{},
 			wantErr:  false,
 		},
 		{
 			name:     "array_union basic",
 			funcName: "array_union",
-			args:     []interface{}{[]interface{}{1, 2}, []interface{}{2, 3}},
-			expected: []interface{}{1, 2, 3},
+			args:     []any{[]any{1, 2}, []any{2, 3}},
+			expected: []any{1, 2, 3},
 			wantErr:  false,
 		},
 		{
 			name:     "array_union first empty",
 			funcName: "array_union",
-			args:     []interface{}{[]interface{}{}, []interface{}{1, 2}},
-			expected: []interface{}{1, 2},
+			args:     []any{[]any{}, []any{1, 2}},
+			expected: []any{1, 2},
 			wantErr:  false,
 		},
 		{
 			name:     "array_union second empty",
 			funcName: "array_union",
-			args:     []interface{}{[]interface{}{1, 2}, []interface{}{}},
-			expected: []interface{}{1, 2},
+			args:     []any{[]any{1, 2}, []any{}},
+			expected: []any{1, 2},
 			wantErr:  false,
 		},
 		{
 			name:     "array_except basic",
 			funcName: "array_except",
-			args:     []interface{}{[]interface{}{1, 2, 3}, []interface{}{2}},
-			expected: []interface{}{1, 3},
+			args:     []any{[]any{1, 2, 3}, []any{2}},
+			expected: []any{1, 3},
 			wantErr:  false,
 		},
 		{
 			name:     "array_except no overlap",
 			funcName: "array_except",
-			args:     []interface{}{[]interface{}{1, 2}, []interface{}{3, 4}},
-			expected: []interface{}{1, 2},
+			args:     []any{[]any{1, 2}, []any{3, 4}},
+			expected: []any{1, 2},
 			wantErr:  false,
 		},
 		{
 			name:     "array_except first empty",
 			funcName: "array_except",
-			args:     []interface{}{[]interface{}{}, []interface{}{1, 2}},
-			expected: []interface{}{},
+			args:     []any{[]any{}, []any{1, 2}},
+			expected: []any{},
 			wantErr:  false,
 		},
 		{
 			name:     "array_except second empty",
 			funcName: "array_except",
-			args:     []interface{}{[]interface{}{1, 2}, []interface{}{}},
-			expected: []interface{}{1, 2},
+			args:     []any{[]any{1, 2}, []any{}},
+			expected: []any{1, 2},
 			wantErr:  false,
 		},
 	}
@@ -192,14 +192,14 @@ func TestArrayFunctions(t *testing.T) {
 			}
 
 			result, err := fn.Execute(&FunctionContext{}, tt.args)
-		if (err != nil) != tt.wantErr {
-			t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
-			return
-		}
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
 
-		if !tt.wantErr && !reflect.DeepEqual(result, tt.expected) {
-			t.Errorf("Execute() = %v, want %v", result, tt.expected)
-		}
+			if !tt.wantErr && !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("Execute() = %v, want %v", result, tt.expected)
+			}
 		})
 	}
 }
@@ -210,38 +210,38 @@ func TestArrayFunctionsUnhashable(t *testing.T) {
 	tests := []struct {
 		name     string
 		funcName string
-		args     []interface{}
-		expected interface{}
+		args     []any
+		expected any
 	}{
 		{
 			name:     "distinct nested slices",
 			funcName: "array_distinct",
-			args:     []interface{}{[]interface{}{[]interface{}{"a", "b"}, []interface{}{"c", "d"}, []interface{}{"a", "b"}}},
-			expected: []interface{}{[]interface{}{"a", "b"}, []interface{}{"c", "d"}},
+			args:     []any{[]any{[]any{"a", "b"}, []any{"c", "d"}, []any{"a", "b"}}},
+			expected: []any{[]any{"a", "b"}, []any{"c", "d"}},
 		},
 		{
 			name:     "distinct maps",
 			funcName: "array_distinct",
-			args:     []interface{}{[]interface{}{map[string]interface{}{"x": 1}, map[string]interface{}{"x": 2}, map[string]interface{}{"x": 1}}},
-			expected: []interface{}{map[string]interface{}{"x": 1}, map[string]interface{}{"x": 2}},
+			args:     []any{[]any{map[string]any{"x": 1}, map[string]any{"x": 2}, map[string]any{"x": 1}}},
+			expected: []any{map[string]any{"x": 1}, map[string]any{"x": 2}},
 		},
 		{
 			name:     "intersect nested slices",
 			funcName: "array_intersect",
-			args:     []interface{}{[]interface{}{[]interface{}{1, 2}, []interface{}{3, 4}}, []interface{}{[]interface{}{3, 4}, []interface{}{5, 6}}},
-			expected: []interface{}{[]interface{}{3, 4}},
+			args:     []any{[]any{[]any{1, 2}, []any{3, 4}}, []any{[]any{3, 4}, []any{5, 6}}},
+			expected: []any{[]any{3, 4}},
 		},
 		{
 			name:     "union nested slices",
 			funcName: "array_union",
-			args:     []interface{}{[]interface{}{[]interface{}{1}, []interface{}{2}}, []interface{}{[]interface{}{2}, []interface{}{3}}},
-			expected: []interface{}{[]interface{}{1}, []interface{}{2}, []interface{}{3}},
+			args:     []any{[]any{[]any{1}, []any{2}}, []any{[]any{2}, []any{3}}},
+			expected: []any{[]any{1}, []any{2}, []any{3}},
 		},
 		{
 			name:     "except nested slices",
 			funcName: "array_except",
-			args:     []interface{}{[]interface{}{[]interface{}{1}, []interface{}{2}, []interface{}{3}}, []interface{}{[]interface{}{2}}},
-			expected: []interface{}{[]interface{}{1}, []interface{}{3}},
+			args:     []any{[]any{[]any{1}, []any{2}, []any{3}}, []any{[]any{2}}},
+			expected: []any{[]any{1}, []any{3}},
 		},
 	}
 
@@ -269,46 +269,46 @@ func TestArrayFunctionErrors(t *testing.T) {
 	tests := []struct {
 		name     string
 		funcName string
-		args     []interface{}
+		args     []any
 		wantErr  bool
 	}{
 		// array_length 错误测试
-		{"array_length nil", "array_length", []interface{}{nil}, true},
-		{"array_length invalid type", "array_length", []interface{}{"not an array"}, true},
-		
+		{"array_length nil", "array_length", []any{nil}, true},
+		{"array_length invalid type", "array_length", []any{"not an array"}, true},
+
 		// array_contains 错误测试
-		{"array_contains nil array", "array_contains", []interface{}{nil, 1}, true},
-		{"array_contains invalid type", "array_contains", []interface{}{"not an array", 1}, true},
-		
+		{"array_contains nil array", "array_contains", []any{nil, 1}, true},
+		{"array_contains invalid type", "array_contains", []any{"not an array", 1}, true},
+
 		// array_position 错误测试
-		{"array_position nil array", "array_position", []interface{}{nil, 1}, true},
-		{"array_position invalid type", "array_position", []interface{}{"not an array", 1}, true},
-		
+		{"array_position nil array", "array_position", []any{nil, 1}, true},
+		{"array_position invalid type", "array_position", []any{"not an array", 1}, true},
+
 		// array_remove 错误测试
-		{"array_remove nil array", "array_remove", []interface{}{nil, 1}, true},
-		{"array_remove invalid type", "array_remove", []interface{}{"not an array", 1}, true},
-		
+		{"array_remove nil array", "array_remove", []any{nil, 1}, true},
+		{"array_remove invalid type", "array_remove", []any{"not an array", 1}, true},
+
 		// array_distinct 错误测试
-		{"array_distinct nil", "array_distinct", []interface{}{nil}, true},
-		{"array_distinct invalid type", "array_distinct", []interface{}{"not an array"}, true},
-		
+		{"array_distinct nil", "array_distinct", []any{nil}, true},
+		{"array_distinct invalid type", "array_distinct", []any{"not an array"}, true},
+
 		// array_intersect 错误测试
-		{"array_intersect first nil", "array_intersect", []interface{}{nil, []interface{}{1, 2}}, true},
-		{"array_intersect second nil", "array_intersect", []interface{}{[]interface{}{1, 2}, nil}, true},
-		{"array_intersect first invalid type", "array_intersect", []interface{}{"not an array", []interface{}{1, 2}}, true},
-		{"array_intersect second invalid type", "array_intersect", []interface{}{[]interface{}{1, 2}, "not an array"}, true},
-		
+		{"array_intersect first nil", "array_intersect", []any{nil, []any{1, 2}}, true},
+		{"array_intersect second nil", "array_intersect", []any{[]any{1, 2}, nil}, true},
+		{"array_intersect first invalid type", "array_intersect", []any{"not an array", []any{1, 2}}, true},
+		{"array_intersect second invalid type", "array_intersect", []any{[]any{1, 2}, "not an array"}, true},
+
 		// array_union 错误测试
-		{"array_union first nil", "array_union", []interface{}{nil, []interface{}{1, 2}}, true},
-		{"array_union second nil", "array_union", []interface{}{[]interface{}{1, 2}, nil}, true},
-		{"array_union first invalid type", "array_union", []interface{}{"not an array", []interface{}{1, 2}}, true},
-		{"array_union second invalid type", "array_union", []interface{}{[]interface{}{1, 2}, "not an array"}, true},
-		
+		{"array_union first nil", "array_union", []any{nil, []any{1, 2}}, true},
+		{"array_union second nil", "array_union", []any{[]any{1, 2}, nil}, true},
+		{"array_union first invalid type", "array_union", []any{"not an array", []any{1, 2}}, true},
+		{"array_union second invalid type", "array_union", []any{[]any{1, 2}, "not an array"}, true},
+
 		// array_except 错误测试
-		{"array_except first nil", "array_except", []interface{}{nil, []interface{}{1, 2}}, true},
-		{"array_except second nil", "array_except", []interface{}{[]interface{}{1, 2}, nil}, true},
-		{"array_except first invalid type", "array_except", []interface{}{"not an array", []interface{}{1, 2}}, true},
-		{"array_except second invalid type", "array_except", []interface{}{[]interface{}{1, 2}, "not an array"}, true},
+		{"array_except first nil", "array_except", []any{nil, []any{1, 2}}, true},
+		{"array_except second nil", "array_except", []any{[]any{1, 2}, nil}, true},
+		{"array_except first invalid type", "array_except", []any{"not an array", []any{1, 2}}, true},
+		{"array_except second invalid type", "array_except", []any{[]any{1, 2}, "not an array"}, true},
 	}
 
 	for _, tt := range tests {

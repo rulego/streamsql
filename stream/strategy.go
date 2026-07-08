@@ -38,8 +38,8 @@ const (
 type DataProcessingStrategy interface {
 	// ProcessData core method for processing data
 	// Parameters:
-	//   - data: data to process, must be map[string]interface{} type
-	ProcessData(data map[string]interface{})
+	//   - data: data to process, must be map[string]any type
+	ProcessData(data map[string]any)
 
 	// GetStrategyName gets strategy name
 	GetStrategyName() string
@@ -65,7 +65,7 @@ func NewBlockingStrategy() *BlockingStrategy {
 }
 
 // ProcessData implements blocking mode data processing
-func (bs *BlockingStrategy) ProcessData(data map[string]interface{}) {
+func (bs *BlockingStrategy) ProcessData(data map[string]any) {
 	// Check if stream is stopped
 	if atomic.LoadInt32(&bs.stream.stopped) == 1 {
 		return
@@ -144,7 +144,7 @@ func NewExpansionStrategy() *ExpansionStrategy {
 }
 
 // ProcessData implements expansion mode data processing
-func (es *ExpansionStrategy) ProcessData(data map[string]interface{}) {
+func (es *ExpansionStrategy) ProcessData(data map[string]any) {
 	// First attempt to add data
 	if es.stream.safeSendToDataChan(data) {
 		return
@@ -199,7 +199,7 @@ func NewDropStrategy() *DropStrategy {
 }
 
 // ProcessData implements drop mode data processing
-func (ds *DropStrategy) ProcessData(data map[string]interface{}) {
+func (ds *DropStrategy) ProcessData(data map[string]any) {
 	// Intelligent non-blocking add with layered backpressure control
 	if ds.stream.safeSendToDataChan(data) {
 		return

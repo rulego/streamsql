@@ -24,17 +24,17 @@ import (
 	"time"
 )
 
-// ToInt converts an interface{} to int.
+// ToInt converts an any to int.
 // It returns 0 if conversion fails.
-func ToInt(value interface{}) int {
+func ToInt(value any) int {
 	v, _ := ToIntE(value)
 	return v
 }
 
-// ToIntE converts an interface{} to int with error handling.
+// ToIntE converts an any to int with error handling.
 // Returns the converted int value and nil error if successful.
 // Returns 0 and an error if conversion fails.
-func ToIntE(value interface{}) (int, error) {
+func ToIntE(value any) (int, error) {
 	switch v := value.(type) {
 	case int:
 		return v, nil
@@ -78,17 +78,17 @@ func ToIntE(value interface{}) (int, error) {
 	}
 }
 
-// ToInt64 converts an interface{} to int64.
+// ToInt64 converts an any to int64.
 // It returns 0 if conversion fails.
-func ToInt64(value interface{}) int64 {
+func ToInt64(value any) int64 {
 	v, _ := ToInt64E(value)
 	return v
 }
 
-// ToInt64E converts an interface{} to int64 with error handling.
+// ToInt64E converts an any to int64 with error handling.
 // Returns the converted int64 value and nil error if successful.
 // Returns 0 and an error if conversion fails.
-func ToInt64E(value interface{}) (int64, error) {
+func ToInt64E(value any) (int64, error) {
 	switch v := value.(type) {
 	case int64:
 		return v, nil
@@ -132,10 +132,10 @@ func ToInt64E(value interface{}) (int64, error) {
 	}
 }
 
-// ToDurationE converts an interface{} to time.Duration with error handling.
+// ToDurationE converts an any to time.Duration with error handling.
 // Returns the converted duration value and nil error if successful.
 // Returns 0 and an error if conversion fails.
-func ToDurationE(value interface{}) (time.Duration, error) {
+func ToDurationE(value any) (time.Duration, error) {
 	switch v := value.(type) {
 	case time.Duration:
 		return v, nil
@@ -170,17 +170,17 @@ func ToDurationE(value interface{}) (time.Duration, error) {
 	}
 }
 
-// ToBool converts an interface{} to bool.
+// ToBool converts an any to bool.
 // It returns false if conversion fails.
-func ToBool(value interface{}) bool {
+func ToBool(value any) bool {
 	v, _ := ToBoolE(value)
 	return v
 }
 
-// ToBoolE converts an interface{} to bool with error handling.
+// ToBoolE converts an any to bool with error handling.
 // Returns the converted bool value and nil error if successful.
 // Returns false and an error if conversion fails.
-func ToBoolE(value interface{}) (bool, error) {
+func ToBoolE(value any) (bool, error) {
 	switch v := value.(type) {
 	case bool:
 		return v, nil
@@ -218,17 +218,17 @@ func ToBoolE(value interface{}) (bool, error) {
 	}
 }
 
-// ToFloat64 converts an interface{} to float64.
+// ToFloat64 converts an any to float64.
 // It returns 0 if conversion fails.
-func ToFloat64(value interface{}) float64 {
+func ToFloat64(value any) float64 {
 	v, _ := ToFloat64E(value)
 	return v
 }
 
-// ToFloat64E converts an interface{} to float64 with error handling.
+// ToFloat64E converts an any to float64 with error handling.
 // Returns the converted float64 value and nil error if successful.
 // Returns 0 and an error if conversion fails.
-func ToFloat64E(value interface{}) (float64, error) {
+func ToFloat64E(value any) (float64, error) {
 	switch v := value.(type) {
 	case float64:
 		return v, nil
@@ -270,15 +270,15 @@ func ToFloat64E(value interface{}) (float64, error) {
 	}
 }
 
-// ToString converts an interface{} to string.
+// ToString converts an any to string.
 // It returns empty string if conversion fails.
-func ToString(input interface{}) string {
+func ToString(input any) string {
 	v, _ := ToStringE(input)
 	return v
 }
 
 // convertNumericToString 将数字类型转换为字符串
-func convertNumericToString(input interface{}) (string, bool) {
+func convertNumericToString(input any) (string, bool) {
 	switch v := input.(type) {
 	case float64:
 		return strconv.FormatFloat(v, 'f', -1, 64), true
@@ -310,7 +310,7 @@ func convertNumericToString(input interface{}) (string, bool) {
 }
 
 // convertComplexToString 将复杂类型转换为字符串
-func convertComplexToString(input interface{}) (string, error) {
+func convertComplexToString(input any) (string, error) {
 	switch v := input.(type) {
 	case []byte:
 		return string(v), nil
@@ -318,9 +318,9 @@ func convertComplexToString(input interface{}) (string, error) {
 		return v.String(), nil
 	case error:
 		return v.Error(), nil
-	case map[interface{}]interface{}:
-		// 转换为 map[string]interface{}
-		convertedInput := make(map[string]interface{})
+	case map[any]any:
+		// 转换为 map[string]any
+		convertedInput := make(map[string]any)
 		for k, value := range v {
 			convertedInput[fmt.Sprintf("%v", k)] = value
 		}
@@ -331,7 +331,7 @@ func convertComplexToString(input interface{}) (string, error) {
 }
 
 // marshalToString 通过JSON序列化转换为字符串
-func marshalToString(input interface{}) (string, error) {
+func marshalToString(input any) (string, error) {
 	if newValue, err := json.Marshal(input); err == nil {
 		return string(newValue), nil
 	} else {
@@ -339,10 +339,10 @@ func marshalToString(input interface{}) (string, error) {
 	}
 }
 
-// ToStringE converts an interface{} to string with error handling.
+// ToStringE converts an any to string with error handling.
 // Returns the converted string value and nil error if successful.
 // Returns empty string and an error if conversion fails.
-func ToStringE(input interface{}) (string, error) {
+func ToStringE(input any) (string, error) {
 	if input == nil {
 		return "", nil
 	}

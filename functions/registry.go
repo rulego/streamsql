@@ -31,11 +31,11 @@ const (
 // FunctionContext represents the execution context for functions
 type FunctionContext struct {
 	// Current data row
-	Data map[string]interface{}
+	Data map[string]any
 	// Window information (if applicable)
 	WindowInfo *WindowInfo
 	// Additional context information
-	Extra map[string]interface{}
+	Extra map[string]any
 }
 
 // WindowInfo contains window-related information
@@ -56,9 +56,9 @@ type Function interface {
 	// GetAliases returns the function aliases
 	GetAliases() []string
 	// Validate validates the arguments
-	Validate(args []interface{}) error
+	Validate(args []any) error
 	// Execute executes the function
-	Execute(ctx *FunctionContext, args []interface{}) (interface{}, error)
+	Execute(ctx *FunctionContext, args []any) (any, error)
 	// GetDescription returns the function description
 	GetDescription() string
 
@@ -221,7 +221,7 @@ func Validate(name string) error {
 
 // RegisterCustomFunction registers a custom function
 func RegisterCustomFunction(name string, fnType FunctionType, category, description string,
-	minArgs, maxArgs int, executor func(ctx *FunctionContext, args []interface{}) (interface{}, error)) error {
+	minArgs, maxArgs int, executor func(ctx *FunctionContext, args []any) (any, error)) error {
 
 	// Validate function name
 	if name == "" {
@@ -237,7 +237,7 @@ func RegisterCustomFunction(name string, fnType FunctionType, category, descript
 }
 
 // Execute executes a function
-func Execute(name string, ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func Execute(name string, ctx *FunctionContext, args []any) (any, error) {
 	fn, exists := Get(name)
 	if !exists {
 		return nil, fmt.Errorf("function %s not found", name)
@@ -253,14 +253,14 @@ func Execute(name string, ctx *FunctionContext, args []interface{}) (interface{}
 // CustomFunction implements custom function
 type CustomFunction struct {
 	*BaseFunction
-	executor func(ctx *FunctionContext, args []interface{}) (interface{}, error)
+	executor func(ctx *FunctionContext, args []any) (any, error)
 }
 
-func (f *CustomFunction) Validate(args []interface{}) error {
+func (f *CustomFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CustomFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CustomFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return f.executor(ctx, args)
 }
 

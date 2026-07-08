@@ -8,7 +8,7 @@ import (
 // the expr-lang fallback path used by SELECT field expressions, where (before
 // M15) every call recompiled the expression under a global write lock.
 
-func benchEval(b *testing.B, expr string, data map[string]interface{}) {
+func benchEval(b *testing.B, expr string, data map[string]any) {
 	bridge := GetExprBridge()
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -20,27 +20,27 @@ func benchEval(b *testing.B, expr string, data map[string]interface{}) {
 }
 
 func BenchmarkExprBridge_Arithmetic(b *testing.B) {
-	benchEval(b, "temperature * 2 + humidity", map[string]interface{}{
+	benchEval(b, "temperature * 2 + humidity", map[string]any{
 		"temperature": 25.7,
 		"humidity":    65.0,
 	})
 }
 
 func BenchmarkExprBridge_FunctionCall(b *testing.B) {
-	benchEval(b, "abs(temperature - 100)", map[string]interface{}{
+	benchEval(b, "abs(temperature - 100)", map[string]any{
 		"temperature": 25.7,
 	})
 }
 
 func BenchmarkExprBridge_StringConcat(b *testing.B) {
-	benchEval(b, "device + '-' + location", map[string]interface{}{
+	benchEval(b, "device + '-' + location", map[string]any{
 		"device":   "sensor01",
 		"location": "room_a",
 	})
 }
 
 func BenchmarkExprBridge_Field(b *testing.B) {
-	benchEval(b, "temperature", map[string]interface{}{
+	benchEval(b, "temperature", map[string]any{
 		"temperature": 25.7,
 	})
 }
@@ -48,7 +48,7 @@ func BenchmarkExprBridge_Field(b *testing.B) {
 // Isolate the per-call environment construction cost.
 func BenchmarkExprBridge_CreateEnv(b *testing.B) {
 	bridge := GetExprBridge()
-	data := map[string]interface{}{"temperature": 25.7, "humidity": 65.0}
+	data := map[string]any{"temperature": 25.7, "humidity": 65.0}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -63,4 +63,3 @@ func BenchmarkExprBridge_ListAll(b *testing.B) {
 		_ = ListAll()
 	}
 }
-

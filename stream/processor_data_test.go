@@ -56,7 +56,7 @@ func TestDataProcessor_InitializeAggregator(t *testing.T) {
 		},
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: []interface{}{1 * time.Second},
+			Params: []any{1 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)
@@ -90,7 +90,7 @@ func TestDataProcessor_RegisterExpressionCalculator(t *testing.T) {
 		},
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: []interface{}{1 * time.Second},
+			Params: []any{1 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)
@@ -126,8 +126,8 @@ func TestDataProcessor_EvaluateExpressionForAggregation(t *testing.T) {
 	tests := []struct {
 		name      string
 		fieldExpr types.FieldExpression
-		data      map[string]interface{}
-		expected  interface{}
+		data      map[string]any
+		expected  any
 		hasError  bool
 	}{
 		{
@@ -136,7 +136,7 @@ func TestDataProcessor_EvaluateExpressionForAggregation(t *testing.T) {
 				Expression: "temperature * 2",
 				Fields:     []string{"temperature"},
 			},
-			data:     map[string]interface{}{"temperature": 25.0},
+			data:     map[string]any{"temperature": 25.0},
 			expected: 50.0,
 			hasError: false,
 		},
@@ -146,7 +146,7 @@ func TestDataProcessor_EvaluateExpressionForAggregation(t *testing.T) {
 				Expression: "name + '_suffix'",
 				Fields:     []string{"name"},
 			},
-			data:     map[string]interface{}{"name": "test"},
+			data:     map[string]any{"name": "test"},
 			expected: "test_suffix",
 			hasError: false,
 		},
@@ -156,8 +156,8 @@ func TestDataProcessor_EvaluateExpressionForAggregation(t *testing.T) {
 				Expression: "device.id + 100",
 				Fields:     []string{"device.id"},
 			},
-			data: map[string]interface{}{
-				"device": map[string]interface{}{"id": 1},
+			data: map[string]any{
+				"device": map[string]any{"id": 1},
 			},
 			expected: 101.0,
 			hasError: false,
@@ -168,7 +168,7 @@ func TestDataProcessor_EvaluateExpressionForAggregation(t *testing.T) {
 				Expression: "CASE WHEN temperature > 30 THEN 'hot' ELSE 'cold' END",
 				Fields:     []string{"temperature"},
 			},
-			data:     map[string]interface{}{"temperature": 35.0},
+			data:     map[string]any{"temperature": 35.0},
 			expected: "hot",
 			hasError: false,
 		},
@@ -205,15 +205,15 @@ func TestDataProcessor_EvaluateNestedFieldExpression(t *testing.T) {
 	tests := []struct {
 		name       string
 		expression string
-		data       map[string]interface{}
-		expected   interface{}
+		data       map[string]any
+		expected   any
 		hasError   bool
 	}{
 		{
 			name:       "Simple nested field",
 			expression: "device.id",
-			data: map[string]interface{}{
-				"device": map[string]interface{}{"id": 123},
+			data: map[string]any{
+				"device": map[string]any{"id": 123},
 			},
 			expected: 123, // Expect int because EvaluateValueWithNull returns original type
 			hasError: false,
@@ -221,8 +221,8 @@ func TestDataProcessor_EvaluateNestedFieldExpression(t *testing.T) {
 		{
 			name:       "Nested field arithmetic",
 			expression: "device.temperature + 10",
-			data: map[string]interface{}{
-				"device": map[string]interface{}{"temperature": 25.5},
+			data: map[string]any{
+				"device": map[string]any{"temperature": 25.5},
 			},
 			expected: 35.5,
 			hasError: false,
@@ -230,9 +230,9 @@ func TestDataProcessor_EvaluateNestedFieldExpression(t *testing.T) {
 		{
 			name:       "Deep nested field",
 			expression: "sensor.data.value",
-			data: map[string]interface{}{
-				"sensor": map[string]interface{}{
-					"data": map[string]interface{}{"value": 42.0},
+			data: map[string]any{
+				"sensor": map[string]any{
+					"data": map[string]any{"value": 42.0},
 				},
 			},
 			expected: 42.0,
@@ -241,8 +241,8 @@ func TestDataProcessor_EvaluateNestedFieldExpression(t *testing.T) {
 		{
 			name:       "Nested field with backticks",
 			expression: "`device`.`id`",
-			data: map[string]interface{}{
-				"device": map[string]interface{}{"id": 456},
+			data: map[string]any{
+				"device": map[string]any{"id": 456},
 			},
 			expected: 456, // Expect int because EvaluateValueWithNull returns original type
 			hasError: false,
@@ -280,35 +280,35 @@ func TestDataProcessor_EvaluateCaseExpression(t *testing.T) {
 	tests := []struct {
 		name       string
 		expression string
-		data       map[string]interface{}
-		expected   interface{}
+		data       map[string]any
+		expected   any
 		hasError   bool
 	}{
 		{
 			name:       "Simple CASE expression",
 			expression: "CASE WHEN temperature > 30 THEN 'hot' ELSE 'cold' END",
-			data:       map[string]interface{}{"temperature": 35.0},
+			data:       map[string]any{"temperature": 35.0},
 			expected:   "hot",
 			hasError:   false,
 		},
 		{
 			name:       "CASE with multiple conditions",
 			expression: "CASE WHEN temperature > 30 THEN 'hot' WHEN temperature > 20 THEN 'warm' ELSE 'cold' END",
-			data:       map[string]interface{}{"temperature": 25.0},
+			data:       map[string]any{"temperature": 25.0},
 			expected:   "warm",
 			hasError:   false,
 		},
 		{
 			name:       "CASE with numeric result",
 			expression: "CASE WHEN status == 'active' THEN 1 ELSE 0 END",
-			data:       map[string]interface{}{"status": "active"},
+			data:       map[string]any{"status": "active"},
 			expected:   1.0,
 			hasError:   false,
 		},
 		{
 			name:       "CASE with backtick identifiers",
 			expression: "CASE WHEN `temperature` > 30 THEN 'hot' ELSE 'cold' END",
-			data:       map[string]interface{}{"temperature": 35.0},
+			data:       map[string]any{"temperature": 35.0},
 			expected:   "hot",
 			hasError:   false,
 		},
@@ -345,35 +345,35 @@ func TestDataProcessor_FallbackExpressionEvaluation(t *testing.T) {
 	tests := []struct {
 		name       string
 		expression string
-		data       map[string]interface{}
-		expected   interface{}
+		data       map[string]any
+		expected   any
 		hasError   bool
 	}{
 		{
 			name:       "Simple arithmetic",
 			expression: "value + 10",
-			data:       map[string]interface{}{"value": 5.0},
+			data:       map[string]any{"value": 5.0},
 			expected:   15.0,
 			hasError:   false,
 		},
 		{
 			name:       "String operation",
 			expression: "name + '_test'",
-			data:       map[string]interface{}{"name": "hello"},
+			data:       map[string]any{"name": "hello"},
 			expected:   "hello_test",
 			hasError:   false,
 		},
 		{
 			name:       "Boolean expression",
 			expression: "value > 10",
-			data:       map[string]interface{}{"value": 15.0},
+			data:       map[string]any{"value": 15.0},
 			expected:   true,
 			hasError:   false,
 		},
 		{
 			name:       "Expression with backticks",
 			expression: "`value` * 2",
-			data:       map[string]interface{}{"value": 7.0},
+			data:       map[string]any{"value": 7.0},
 			expected:   14.0,
 			hasError:   false,
 		},
@@ -408,7 +408,7 @@ func TestDataProcessor_ExpressionWithNullValues(t *testing.T) {
 	processor := NewDataProcessor(stream)
 
 	// 测试NULL值处理
-	data := map[string]interface{}{
+	data := map[string]any{
 		"value":    nil,
 		"nonNull":  10.0,
 		"nullStr":  nil,
@@ -436,61 +436,61 @@ func TestDataProcessor_ExpandUnnestResults(t *testing.T) {
 	tests := []struct {
 		name              string
 		hasUnnestFunction bool
-		result            map[string]interface{}
-		originalData      map[string]interface{}
-		expected          []map[string]interface{}
+		result            map[string]any
+		originalData      map[string]any
+		expected          []map[string]any
 	}{
 		{
 			name:              "no unnest function - should return single result",
 			hasUnnestFunction: false,
-			result: map[string]interface{}{
+			result: map[string]any{
 				"name": "test",
 				"age":  25,
 			},
-			originalData: map[string]interface{}{"id": 1},
-			expected: []map[string]interface{}{
+			originalData: map[string]any{"id": 1},
+			expected: []map[string]any{
 				{"name": "test", "age": 25},
 			},
 		},
 		{
 			name:              "empty result - should return single empty result",
 			hasUnnestFunction: true,
-			result:            map[string]interface{}{},
-			originalData:      map[string]interface{}{"id": 1},
-			expected: []map[string]interface{}{
+			result:            map[string]any{},
+			originalData:      map[string]any{"id": 1},
+			expected: []map[string]any{
 				{},
 			},
 		},
 		{
 			name:              "no unnest result - should return single result",
 			hasUnnestFunction: true,
-			result: map[string]interface{}{
+			result: map[string]any{
 				"name": "test",
 				"age":  25,
 			},
-			originalData: map[string]interface{}{"id": 1},
-			expected: []map[string]interface{}{
+			originalData: map[string]any{"id": 1},
+			expected: []map[string]any{
 				{"name": "test", "age": 25},
 			},
 		},
 		{
 			name:              "unnest result with simple values",
 			hasUnnestFunction: true,
-			result: map[string]interface{}{
+			result: map[string]any{
 				"name": "test",
-				"items": []interface{}{
-					map[string]interface{}{
+				"items": []any{
+					map[string]any{
 						"__unnest_object__": true,
 						"__data__":          "item1",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"__unnest_object__": true,
 						"__data__":          "item2",
 					},
 				},
 			},
-			originalData: map[string]interface{}{"id": 1},
-			expected: []map[string]interface{}{
+			originalData: map[string]any{"id": 1},
+			expected: []map[string]any{
 				{"name": "test", "items": "item1"},
 				{"name": "test", "items": "item2"},
 			},
@@ -498,27 +498,27 @@ func TestDataProcessor_ExpandUnnestResults(t *testing.T) {
 		{
 			name:              "unnest result with object values",
 			hasUnnestFunction: true,
-			result: map[string]interface{}{
+			result: map[string]any{
 				"name": "test",
-				"orders": []interface{}{
-					map[string]interface{}{
+				"orders": []any{
+					map[string]any{
 						"__unnest_object__": true,
-						"__data__": map[string]interface{}{
+						"__data__": map[string]any{
 							"order_id": 1,
 							"amount":   100,
 						},
 					},
-					map[string]interface{}{
+					map[string]any{
 						"__unnest_object__": true,
-						"__data__": map[string]interface{}{
+						"__data__": map[string]any{
 							"order_id": 2,
 							"amount":   200,
 						},
 					},
 				},
 			},
-			originalData: map[string]interface{}{"id": 1},
-			expected: []map[string]interface{}{
+			originalData: map[string]any{"id": 1},
+			expected: []map[string]any{
 				{"name": "test", "order_id": 1, "amount": 100},
 				{"name": "test", "order_id": 2, "amount": 200},
 			},
@@ -526,17 +526,17 @@ func TestDataProcessor_ExpandUnnestResults(t *testing.T) {
 		{
 			name:              "empty unnest result - should return empty array",
 			hasUnnestFunction: true,
-			result: map[string]interface{}{
+			result: map[string]any{
 				"name": "test",
-				"items": []interface{}{
-					map[string]interface{}{
+				"items": []any{
+					map[string]any{
 						"__unnest_object__": true,
 						"__empty_unnest__":  true,
 					},
 				},
 			},
-			originalData: map[string]interface{}{"id": 1},
-			expected:     []map[string]interface{}{},
+			originalData: map[string]any{"id": 1},
+			expected:     []map[string]any{},
 		},
 	}
 

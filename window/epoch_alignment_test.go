@@ -19,7 +19,7 @@ func TestPTWindowEpochAlignment(t *testing.T) {
 
 	t.Run("tumbling aligns to size", func(t *testing.T) {
 		tw, _ := NewTumblingWindow(types.WindowConfig{
-			Params: []interface{}{2 * time.Second},
+			Params: []any{2 * time.Second},
 			TsProp: "Ts",
 		})
 		defer tw.Stop()
@@ -32,7 +32,7 @@ func TestPTWindowEpochAlignment(t *testing.T) {
 
 	t.Run("sliding aligns to slide", func(t *testing.T) {
 		sw, _ := NewSlidingWindow(types.WindowConfig{
-			Params: []interface{}{2 * time.Second, time.Second}, // size=2s, slide=1s
+			Params: []any{2 * time.Second, time.Second}, // size=2s, slide=1s
 			TsProp: "Ts",
 		})
 		defer sw.Stop()

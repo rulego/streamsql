@@ -20,11 +20,11 @@ func NewConcatFunction() *ConcatFunction {
 	}
 }
 
-func (f *ConcatFunction) Validate(args []interface{}) error {
+func (f *ConcatFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ConcatFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ConcatFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	var result strings.Builder
 	for _, arg := range args {
 		str, err := cast.ToStringE(arg)
@@ -47,13 +47,13 @@ func NewLengthFunction() *LengthFunction {
 	}
 }
 
-func (f *LengthFunction) Validate(args []interface{}) error {
+func (f *LengthFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
 // Execute calculates the length of a string or array.
 // Supports strings, arrays, slices, etc., using Go's standard len() function.
-func (f *LengthFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *LengthFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	arg := args[0]
 
 	v := reflect.ValueOf(arg)
@@ -88,11 +88,11 @@ func NewUpperFunction() *UpperFunction {
 	}
 }
 
-func (f *UpperFunction) Validate(args []interface{}) error {
+func (f *UpperFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *UpperFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *UpperFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -111,11 +111,11 @@ func NewLowerFunction() *LowerFunction {
 	}
 }
 
-func (f *LowerFunction) Validate(args []interface{}) error {
+func (f *LowerFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *LowerFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *LowerFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -134,11 +134,11 @@ func NewTrimFunction() *TrimFunction {
 	}
 }
 
-func (f *TrimFunction) Validate(args []interface{}) error {
+func (f *TrimFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *TrimFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *TrimFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -157,11 +157,11 @@ func NewFormatFunction() *FormatFunction {
 	}
 }
 
-func (f *FormatFunction) Validate(args []interface{}) error {
+func (f *FormatFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *FormatFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *FormatFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	value := args[0]
 
 	// 如果只有一个参数，转换为字符串
@@ -218,11 +218,11 @@ func NewEndswithFunction() *EndswithFunction {
 	}
 }
 
-func (f *EndswithFunction) Validate(args []interface{}) error {
+func (f *EndswithFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *EndswithFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *EndswithFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -245,11 +245,11 @@ func NewStartswithFunction() *StartswithFunction {
 	}
 }
 
-func (f *StartswithFunction) Validate(args []interface{}) error {
+func (f *StartswithFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *StartswithFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *StartswithFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -272,11 +272,11 @@ func NewIndexofFunction() *IndexofFunction {
 	}
 }
 
-func (f *IndexofFunction) Validate(args []interface{}) error {
+func (f *IndexofFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *IndexofFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *IndexofFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -299,11 +299,11 @@ func NewSubstringFunction() *SubstringFunction {
 	}
 }
 
-func (f *SubstringFunction) Validate(args []interface{}) error {
+func (f *SubstringFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *SubstringFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *SubstringFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -364,11 +364,11 @@ func NewReplaceFunction() *ReplaceFunction {
 	}
 }
 
-func (f *ReplaceFunction) Validate(args []interface{}) error {
+func (f *ReplaceFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ReplaceFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ReplaceFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -395,11 +395,11 @@ func NewSplitFunction() *SplitFunction {
 	}
 }
 
-func (f *SplitFunction) Validate(args []interface{}) error {
+func (f *SplitFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *SplitFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *SplitFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -422,11 +422,11 @@ func NewLpadFunction() *LpadFunction {
 	}
 }
 
-func (f *LpadFunction) Validate(args []interface{}) error {
+func (f *LpadFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *LpadFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *LpadFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -468,11 +468,11 @@ func NewRpadFunction() *RpadFunction {
 	}
 }
 
-func (f *RpadFunction) Validate(args []interface{}) error {
+func (f *RpadFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *RpadFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *RpadFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -514,11 +514,11 @@ func NewLtrimFunction() *LtrimFunction {
 	}
 }
 
-func (f *LtrimFunction) Validate(args []interface{}) error {
+func (f *LtrimFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *LtrimFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *LtrimFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -539,11 +539,11 @@ func NewRtrimFunction() *RtrimFunction {
 	}
 }
 
-func (f *RtrimFunction) Validate(args []interface{}) error {
+func (f *RtrimFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *RtrimFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *RtrimFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -564,11 +564,11 @@ func NewRegexpMatchesFunction() *RegexpMatchesFunction {
 	}
 }
 
-func (f *RegexpMatchesFunction) Validate(args []interface{}) error {
+func (f *RegexpMatchesFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *RegexpMatchesFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *RegexpMatchesFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -596,11 +596,11 @@ func NewRegexpReplaceFunction() *RegexpReplaceFunction {
 	}
 }
 
-func (f *RegexpReplaceFunction) Validate(args []interface{}) error {
+func (f *RegexpReplaceFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *RegexpReplaceFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *RegexpReplaceFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err
@@ -632,11 +632,11 @@ func NewRegexpSubstringFunction() *RegexpSubstringFunction {
 	}
 }
 
-func (f *RegexpSubstringFunction) Validate(args []interface{}) error {
+func (f *RegexpSubstringFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *RegexpSubstringFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *RegexpSubstringFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, err

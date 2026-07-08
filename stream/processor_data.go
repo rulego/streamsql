@@ -152,12 +152,12 @@ func (dp *DataProcessor) registerExpressionCalculator(field string, fieldExpr ty
 		currentField,
 		currentFieldExpr.Expression,
 		currentFieldExpr.Fields,
-		func(data interface{}) (interface{}, error) {
-			// Ensure data is map[string]interface{} type
-			if dataMap, ok := data.(map[string]interface{}); ok {
+		func(data any) (any, error) {
+			// Ensure data is map[string]any type
+			if dataMap, ok := data.(map[string]any); ok {
 				return dp.evaluateExpressionForAggregation(currentFieldExpr, dataMap)
 			}
-			return nil, fmt.Errorf("unsupported data type: %T, expected map[string]interface{}", data)
+			return nil, fmt.Errorf("unsupported data type: %T, expected map[string]any", data)
 		},
 	)
 }
@@ -165,8 +165,8 @@ func (dp *DataProcessor) registerExpressionCalculator(field string, fieldExpr ty
 // evaluateExpressionForAggregation evaluates expression for aggregation
 // Parameters:
 //   - fieldExpr: field expression
-//   - data: data to process, must be map[string]interface{} type
-func (dp *DataProcessor) evaluateExpressionForAggregation(fieldExpr types.FieldExpression, data map[string]interface{}) (interface{}, error) {
+//   - data: data to process, must be map[string]any type
+func (dp *DataProcessor) evaluateExpressionForAggregation(fieldExpr types.FieldExpression, data map[string]any) (any, error) {
 	// Directly use the passed map data
 	dataMap := data
 
@@ -213,7 +213,7 @@ func (dp *DataProcessor) evaluateExpressionForAggregation(fieldExpr types.FieldE
 // convertToDataMap method has been removed, please use github.com/rulego/streamsql/utils/converter.ToDataMap function instead
 
 // evaluateNestedFieldExpression evaluates nested field expression
-func (dp *DataProcessor) evaluateNestedFieldExpression(expression string, dataMap map[string]interface{}) (interface{}, error) {
+func (dp *DataProcessor) evaluateNestedFieldExpression(expression string, dataMap map[string]any) (any, error) {
 	// Directly use custom expression engine to handle nested fields, supporting NULL values
 	// Preprocess backtick identifiers
 	exprToUse := expression
@@ -240,7 +240,7 @@ func (dp *DataProcessor) evaluateNestedFieldExpression(expression string, dataMa
 }
 
 // evaluateCaseExpression evaluates CASE expression
-func (dp *DataProcessor) evaluateCaseExpression(expression string, dataMap map[string]interface{}) (interface{}, error) {
+func (dp *DataProcessor) evaluateCaseExpression(expression string, dataMap map[string]any) (any, error) {
 	// CASE expression uses NULL-supporting evaluation method
 	// Preprocess backtick identifiers
 	exprToUse := expression
@@ -267,7 +267,7 @@ func (dp *DataProcessor) evaluateCaseExpression(expression string, dataMap map[s
 }
 
 // fallbackExpressionEvaluation fallback expression evaluation
-func (dp *DataProcessor) fallbackExpressionEvaluation(expression string, dataMap map[string]interface{}) (interface{}, error) {
+func (dp *DataProcessor) fallbackExpressionEvaluation(expression string, dataMap map[string]any) (any, error) {
 	// Preprocess backtick identifiers
 	exprToUse := expression
 	bridge := functions.GetExprBridge()
@@ -337,9 +337,9 @@ func (dp *DataProcessor) processWindowBatch(batch []types.Row) {
 	// complete result row, so skip the stream aggregator and go straight to
 	// HAVING/ORDER BY/LIMIT/sink dispatch.
 	if dp.stream.config.WindowConfig.Type == window.TypeGlobal {
-		results := make([]map[string]interface{}, 0, len(batch))
+		results := make([]map[string]any, 0, len(batch))
 		for _, item := range batch {
-			if m, ok := item.Data.(map[string]interface{}); ok {
+			if m, ok := item.Data.(map[string]any); ok {
 				results = append(results, m)
 			}
 		}
@@ -371,7 +371,7 @@ func (dp *DataProcessor) processWindowBatch(batch []types.Row) {
 // stampWindowID stamps a stable window_id (window time bounds) onto each
 // result. It is identical across the initial emit and accumulating late
 // re-emits (AllowedLateness>0), so sinks can dedup/replace by group + window_id.
-func stampWindowID(results []map[string]interface{}, batch []types.Row) {
+func stampWindowID(results []map[string]any, batch []types.Row) {
 	if len(batch) == 0 {
 		return
 	}
@@ -386,8 +386,8 @@ func stampWindowID(results []map[string]interface{}, batch []types.Row) {
 }
 
 // processAggregationResults processes aggregation results
-func (dp *DataProcessor) processAggregationResults(results []map[string]interface{}) {
-	var finalResults []map[string]interface{}
+func (dp *DataProcessor) processAggregationResults(results []map[string]any) {
+	var finalResults []map[string]any
 
 	// Process DISTINCT
 	if dp.stream.config.Distinct {
@@ -420,9 +420,9 @@ func (dp *DataProcessor) processAggregationResults(results []map[string]interfac
 }
 
 // applyDistinct applies DISTINCT deduplication
-func (dp *DataProcessor) applyDistinct(results []map[string]interface{}) []map[string]interface{} {
+func (dp *DataProcessor) applyDistinct(results []map[string]any) []map[string]any {
 	seenResults := make(map[string]bool)
-	var finalResults []map[string]interface{}
+	var finalResults []map[string]any
 
 	for _, result := range results {
 		serializedResult, jsonErr := json.Marshal(result)
@@ -441,11 +441,11 @@ func (dp *DataProcessor) applyDistinct(results []map[string]interface{}) []map[s
 }
 
 // applyHavingFilter applies HAVING filter
-func (dp *DataProcessor) applyHavingFilter(results []map[string]interface{}) []map[string]interface{} {
+func (dp *DataProcessor) applyHavingFilter(results []map[string]any) []map[string]any {
 	// Check if HAVING condition contains CASE expression
 	hasCaseExpression := strings.Contains(strings.ToUpper(dp.stream.config.Having), SQLKeywordCase)
 
-	var filteredResults []map[string]interface{}
+	var filteredResults []map[string]any
 
 	if hasCaseExpression {
 		filteredResults = dp.applyHavingWithCaseExpression(results)
@@ -457,7 +457,7 @@ func (dp *DataProcessor) applyHavingFilter(results []map[string]interface{}) []m
 }
 
 // applyHavingWithCaseExpression applies HAVING filter using CASE expression
-func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]interface{}) []map[string]interface{} {
+func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]any) []map[string]any {
 	// HAVING condition contains CASE expression, use our expression parser
 	// Preprocess backtick identifiers
 	exprToUse := dp.stream.config.Having
@@ -473,7 +473,7 @@ func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]inte
 		return results
 	}
 
-	var filteredResults []map[string]interface{}
+	var filteredResults []map[string]any
 	// Apply HAVING filter using CASE expression calculator
 	for _, result := range results {
 		// Use EvaluateValueWithNull method to support NULL value processing
@@ -510,7 +510,7 @@ func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]inte
 }
 
 // applyHavingWithCondition applies HAVING filter using condition expression
-func (dp *DataProcessor) applyHavingWithCondition(results []map[string]interface{}) []map[string]interface{} {
+func (dp *DataProcessor) applyHavingWithCondition(results []map[string]any) []map[string]any {
 	// HAVING condition doesn't contain CASE expression, use original expr-lang processing
 	// Preprocess LIKE syntax in HAVING condition, convert to expr-lang understandable form
 	processedHaving := dp.stream.config.Having
@@ -535,7 +535,7 @@ func (dp *DataProcessor) applyHavingWithCondition(results []map[string]interface
 		return results
 	}
 
-	var filteredResults []map[string]interface{}
+	var filteredResults []map[string]any
 	// Apply HAVING filter
 	for _, result := range results {
 		if havingFilter.Evaluate(result) {
@@ -548,8 +548,8 @@ func (dp *DataProcessor) applyHavingWithCondition(results []map[string]interface
 
 // processDirectData directly processes non-window data
 // Parameters:
-//   - data: data to be processed, must be map[string]interface{} type
-func (dp *DataProcessor) processDirectData(data map[string]interface{}) {
+//   - data: data to be processed, must be map[string]any type
+func (dp *DataProcessor) processDirectData(data map[string]any) {
 	// Resolve stream-table JOINs before filtering so WHERE can reference joined
 	// columns. No-JOIN queries skip this (zero overhead).
 	dataMap := data
@@ -574,7 +574,7 @@ func (dp *DataProcessor) processDirectData(data map[string]interface{}) {
 	if estimatedSize < 8 {
 		estimatedSize = 8 // Minimum capacity
 	}
-	result := make(map[string]interface{}, estimatedSize)
+	result := make(map[string]any, estimatedSize)
 
 	// Process expression fields (using pre-compiled information)
 	for fieldName := range dp.stream.config.FieldExpressions {
@@ -607,15 +607,15 @@ func (dp *DataProcessor) processDirectData(data map[string]interface{}) {
 }
 
 // expandUnnestResults 检查结果是否包含 unnest 函数输出并展开为多行
-func (dp *DataProcessor) expandUnnestResults(result map[string]interface{}, originalData map[string]interface{}) []map[string]interface{} {
+func (dp *DataProcessor) expandUnnestResults(result map[string]any, originalData map[string]any) []map[string]any {
 	// Early return if no unnest function is used in the query
 	// This optimization significantly improves performance for queries without unnest functions
 	if !dp.stream.hasUnnestFunction {
-		return []map[string]interface{}{result}
+		return []map[string]any{result}
 	}
 
 	if len(result) == 0 {
-		return []map[string]interface{}{result}
+		return []map[string]any{result}
 	}
 
 	for fieldName, fieldValue := range result {
@@ -623,12 +623,12 @@ func (dp *DataProcessor) expandUnnestResults(result map[string]interface{}, orig
 			expandedRows := functions.ProcessUnnestResultWithFieldName(fieldValue, fieldName)
 			// 如果unnest结果为空，返回空结果数组
 			if len(expandedRows) == 0 {
-				return []map[string]interface{}{}
+				return []map[string]any{}
 			}
 
-			results := make([]map[string]interface{}, len(expandedRows))
+			results := make([]map[string]any, len(expandedRows))
 			for i, unnestRow := range expandedRows {
-				newRow := make(map[string]interface{}, len(result)+len(unnestRow))
+				newRow := make(map[string]any, len(result)+len(unnestRow))
 				for k, v := range result {
 					if k != fieldName {
 						newRow[k] = v
@@ -645,5 +645,5 @@ func (dp *DataProcessor) expandUnnestResults(result map[string]interface{}, orig
 		}
 	}
 
-	return []map[string]interface{}{result}
+	return []map[string]any{result}
 }

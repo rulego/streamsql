@@ -50,9 +50,9 @@ func TestAnalyticalAdapterBasic(t *testing.T) {
 
 	// 测试Execute方法
 	ctx := &FunctionContext{
-		Data: map[string]interface{}{"test": "value"},
+		Data: map[string]any{"test": "value"},
 	}
-	result, err := adapter.Execute(ctx, []interface{}{"test_value"})
+	result, err := adapter.Execute(ctx, []any{"test_value"})
 	assert.NoError(t, err)
 	assert.Equal(t, "test_value", result)
 

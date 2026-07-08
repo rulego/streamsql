@@ -16,8 +16,8 @@ func TestSelectStarWithExpressionFields(t *testing.T) {
 		name             string
 		simpleFields     []string
 		fieldExpressions map[string]types.FieldExpression
-		testData         map[string]interface{}
-		expectedFields   map[string]interface{}
+		testData         map[string]any
+		expectedFields   map[string]any
 	}{
 		{
 			name:         "SELECT * with additional expressions",
@@ -32,12 +32,12 @@ func TestSelectStarWithExpressionFields(t *testing.T) {
 					Fields:     []string{"name", "status"},
 				},
 			},
-			testData: map[string]interface{}{
+			testData: map[string]any{
 				"name":   "john",
 				"status": "active",
 				"age":    25,
 			},
-			expectedFields: map[string]interface{}{
+			expectedFields: map[string]any{
 				"name":      "JOHN",
 				"full_info": "john - active",
 				"status":    "active",
@@ -57,12 +57,12 @@ func TestSelectStarWithExpressionFields(t *testing.T) {
 					Fields:     []string{"age"},
 				},
 			},
-			testData: map[string]interface{}{
+			testData: map[string]any{
 				"name":   "alice",
 				"age":    30,
 				"status": "active",
 			},
-			expectedFields: map[string]interface{}{
+			expectedFields: map[string]any{
 				"name":   "ALICE",
 				"age":    60.0, // 表达式结果
 				"status": "active",
@@ -72,12 +72,12 @@ func TestSelectStarWithExpressionFields(t *testing.T) {
 			name:             "SELECT * without expressions",
 			simpleFields:     []string{"*"},
 			fieldExpressions: nil,
-			testData: map[string]interface{}{
+			testData: map[string]any{
 				"name":   "bob",
 				"age":    35,
 				"status": "inactive",
 			},
-			expectedFields: map[string]interface{}{
+			expectedFields: map[string]any{
 				"name":   "bob",
 				"age":    35,
 				"status": "inactive",
@@ -99,8 +99,8 @@ func TestSelectStarWithExpressionFields(t *testing.T) {
 
 			// 收集结果
 			var mu sync.Mutex
-			var results []interface{}
-			stream.AddSink(func(result []map[string]interface{}) {
+			var results []any
+			stream.AddSink(func(result []map[string]any) {
 				mu.Lock()
 				defer mu.Unlock()
 				results = append(results, result)
@@ -117,7 +117,7 @@ func TestSelectStarWithExpressionFields(t *testing.T) {
 			defer mu.Unlock()
 
 			require.Len(t, results, 1)
-			resultData := results[0].([]map[string]interface{})[0]
+			resultData := results[0].([]map[string]any)[0]
 
 			for field, expected := range tt.expectedFields {
 				actual, exists := resultData[field]
@@ -146,18 +146,18 @@ func TestFieldProcessor(t *testing.T) {
 	tests := []struct {
 		name         string
 		simpleFields []string
-		testData     map[string]interface{}
-		expected     map[string]interface{}
+		testData     map[string]any
+		expected     map[string]any
 	}{
 		{
 			name:         "Specific fields",
 			simpleFields: []string{"name", "age"},
-			testData: map[string]interface{}{
+			testData: map[string]any{
 				"name":   "test",
 				"age":    25,
 				"status": "active",
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"name": "test",
 				"age":  25,
 			},
@@ -165,12 +165,12 @@ func TestFieldProcessor(t *testing.T) {
 		{
 			name:         "All fields with *",
 			simpleFields: []string{"*"},
-			testData: map[string]interface{}{
+			testData: map[string]any{
 				"name":   "test",
 				"age":    25,
 				"status": "active",
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"name":   "test",
 				"age":    25,
 				"status": "active",
@@ -179,12 +179,12 @@ func TestFieldProcessor(t *testing.T) {
 		{
 			name:         "Mixed fields",
 			simpleFields: []string{"name", "*"},
-			testData: map[string]interface{}{
+			testData: map[string]any{
 				"name":   "test",
 				"age":    25,
 				"status": "active",
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"name":   "test",
 				"age":    25,
 				"status": "active",
@@ -204,8 +204,8 @@ func TestFieldProcessor(t *testing.T) {
 			defer stream.Stop()
 
 			var mu sync.Mutex
-			var results []interface{}
-			stream.AddSink(func(result []map[string]interface{}) {
+			var results []any
+			stream.AddSink(func(result []map[string]any) {
 				mu.Lock()
 				defer mu.Unlock()
 				results = append(results, result)
@@ -220,7 +220,7 @@ func TestFieldProcessor(t *testing.T) {
 			defer mu.Unlock()
 
 			require.Len(t, results, 1)
-			resultData := results[0].([]map[string]interface{})[0]
+			resultData := results[0].([]map[string]any)[0]
 
 			// 验证期望的字段都存在
 			for field, expected := range tt.expected {
@@ -242,8 +242,8 @@ func TestExpressionEvaluation(t *testing.T) {
 	tests := []struct {
 		name       string
 		expression types.FieldExpression
-		testData   map[string]interface{}
-		expected   interface{}
+		testData   map[string]any
+		expected   any
 	}{
 		{
 			name: "String concatenation",
@@ -251,7 +251,7 @@ func TestExpressionEvaluation(t *testing.T) {
 				Expression: "CONCAT(first_name, ' ', last_name)",
 				Fields:     []string{"first_name", "last_name"},
 			},
-			testData: map[string]interface{}{
+			testData: map[string]any{
 				"first_name": "John",
 				"last_name":  "Doe",
 			},
@@ -263,7 +263,7 @@ func TestExpressionEvaluation(t *testing.T) {
 				Expression: "price * quantity",
 				Fields:     []string{"price", "quantity"},
 			},
-			testData: map[string]interface{}{
+			testData: map[string]any{
 				"price":    10.5,
 				"quantity": 3,
 			},
@@ -275,7 +275,7 @@ func TestExpressionEvaluation(t *testing.T) {
 				Expression: "UPPER(name)",
 				Fields:     []string{"name"},
 			},
-			testData: map[string]interface{}{
+			testData: map[string]any{
 				"name": "alice",
 			},
 			expected: "ALICE",
@@ -296,8 +296,8 @@ func TestExpressionEvaluation(t *testing.T) {
 			defer stream.Stop()
 
 			var mu sync.Mutex
-			var results []interface{}
-			stream.AddSink(func(result []map[string]interface{}) {
+			var results []any
+			stream.AddSink(func(result []map[string]any) {
 				mu.Lock()
 				defer mu.Unlock()
 				results = append(results, result)
@@ -312,7 +312,7 @@ func TestExpressionEvaluation(t *testing.T) {
 			defer mu.Unlock()
 
 			require.Len(t, results, 1)
-			resultData := results[0].([]map[string]interface{})[0]
+			resultData := results[0].([]map[string]any)[0]
 
 			actual, exists := resultData["result"]
 			assert.True(t, exists, "Result field should exist")

@@ -56,15 +56,15 @@ const (
 )
 
 type Stream struct {
-	dataChan       chan map[string]interface{}
+	dataChan       chan map[string]any
 	filter         condition.Condition
 	Window         window.Window
 	aggregator     aggregator.Aggregator
 	tables         *tableStore
 	config         types.Config
-	sinks          []func([]map[string]interface{})
-	syncSinks      []func([]map[string]interface{}) // Synchronous sinks, executed sequentially
-	resultChan     chan []map[string]interface{}    // Result channel
+	sinks          []func([]map[string]any)
+	syncSinks      []func([]map[string]any) // Synchronous sinks, executed sequentially
+	resultChan     chan []map[string]any    // Result channel
 	seenResults    *sync.Map
 	done           chan struct{} // Used to close processing goroutines
 	sinkWorkerPool chan func()   // Sink worker pool to avoid blocking
@@ -223,8 +223,8 @@ func (s *Stream) Start() {
 
 // Emit adds data to stream processing pipeline
 // Parameters:
-//   - data: data to be processed, must be map[string]interface{} type
-func (s *Stream) Emit(data map[string]interface{}) {
+//   - data: data to be processed, must be map[string]any type
+func (s *Stream) Emit(data map[string]any) {
 	s.mInput.Inc()
 	// Use strategy pattern to process data, providing better extensibility
 	s.dataStrategy.ProcessData(data)
@@ -281,7 +281,7 @@ func (s *Stream) RegisterTableSource(src TableSource) error {
 // RegisterMemoryTable registers an in-memory table indexed by keyFields, for
 // stream-table JOIN. keyFields order must match the JOIN ON table-side fields.
 // Returns the source for incremental Upsert/Delete.
-func (s *Stream) RegisterMemoryTable(name string, keyFields []string, rows []map[string]interface{}) (*MemoryTableSource, error) {
+func (s *Stream) RegisterMemoryTable(name string, keyFields []string, rows []map[string]any) (*MemoryTableSource, error) {
 	if s.tables == nil {
 		return nil, fmt.Errorf("stream not initialized")
 	}
@@ -310,7 +310,7 @@ func (s *Stream) JoinKeyFields(table string) ([]string, error) {
 }
 
 // UpsertTableRow adds or replaces a row in a registered memory table.
-func (s *Stream) UpsertTableRow(name string, row map[string]interface{}) error {
+func (s *Stream) UpsertTableRow(name string, row map[string]any) error {
 	src, ok := s.tables.get(name)
 	if !ok {
 		return fmt.Errorf("table %q is not registered", name)
@@ -351,12 +351,12 @@ func (s *Stream) IsAggregationQuery() bool {
 // ProcessSync synchronously processes single data, returns result immediately
 // Only applicable to non-aggregation queries, aggregation queries will return error
 // Parameters:
-//   - data: data to be processed, must be map[string]interface{} type
+//   - data: data to be processed, must be map[string]any type
 //
 // Returns:
-//   - map[string]interface{}: processed result data, returns nil if doesn't match filter condition
+//   - map[string]any: processed result data, returns nil if doesn't match filter condition
 //   - error: processing error, returns error for aggregation queries
-func (s *Stream) ProcessSync(data map[string]interface{}) (map[string]interface{}, error) {
+func (s *Stream) ProcessSync(data map[string]any) (map[string]any, error) {
 	// Check if it's an aggregation query
 	if s.config.NeedWindow {
 		return nil, fmt.Errorf("Synchronous processing is not supported for aggregation queries.")
@@ -369,12 +369,12 @@ func (s *Stream) ProcessSync(data map[string]interface{}) (map[string]interface{
 
 // processDirectDataSync synchronous version of direct data processing
 // Parameters:
-//   - data: data to be processed, must be map[string]interface{} type
+//   - data: data to be processed, must be map[string]any type
 //
 // Returns:
-//   - map[string]interface{}: processed result data
+//   - map[string]any: processed result data
 //   - error: processing error
-func (s *Stream) processDirectDataSync(data map[string]interface{}) (map[string]interface{}, error) {
+func (s *Stream) processDirectDataSync(data map[string]any) (map[string]any, error) {
 	// Resolve stream-table JOINs before projection (no overhead when no JOIN).
 	dataMap := data
 	if s.hasJoin() {
@@ -397,7 +397,7 @@ func (s *Stream) processDirectDataSync(data map[string]interface{}) (map[string]
 	if estimatedSize < 8 {
 		estimatedSize = 8 // Minimum capacity
 	}
-	result := make(map[string]interface{}, estimatedSize)
+	result := make(map[string]any, estimatedSize)
 
 	// Process expression fields
 	for fieldName := range s.config.FieldExpressions {
@@ -420,7 +420,7 @@ func (s *Stream) processDirectDataSync(data map[string]interface{}) (map[string]
 	s.mOutput.Inc()
 
 	// Wrap result as array format, maintain consistency with async mode
-	results := []map[string]interface{}{result}
+	results := []map[string]any{result}
 
 	// Trigger AddSink callback, maintain consistency between sync and async modes
 	// This way users can get both sync results and async callbacks

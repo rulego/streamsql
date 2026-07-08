@@ -16,7 +16,7 @@ func TestWindowSlotAggregation(t *testing.T) {
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
 			Type:   "sliding",
-			Params: []interface{}{2 * time.Second, 1 * time.Second},
+			Params: []any{2 * time.Second, 1 * time.Second},
 			TsProp: "ts",
 		},
 		GroupFields: []string{"device"},
@@ -37,10 +37,10 @@ func TestWindowSlotAggregation(t *testing.T) {
 
 	// 使用固定时间戳的测试数据
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
-	testData := []map[string]interface{}{
-		map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60, "ts": baseTime},
-		map[string]interface{}{"device": "aa", "temperature": 30.0, "humidity": 55, "ts": baseTime.Add(1 * time.Second)},
-		map[string]interface{}{"device": "bb", "temperature": 22.0, "humidity": 70, "ts": baseTime},
+	testData := []map[string]any{
+		map[string]any{"device": "aa", "temperature": 25.0, "humidity": 60, "ts": baseTime},
+		map[string]any{"device": "aa", "temperature": 30.0, "humidity": 55, "ts": baseTime.Add(1 * time.Second)},
+		map[string]any{"device": "bb", "temperature": 22.0, "humidity": 70, "ts": baseTime},
 	}
 
 	for _, data := range testData {
@@ -48,8 +48,8 @@ func TestWindowSlotAggregation(t *testing.T) {
 	}
 
 	// 捕获结果
-	resultChan := make(chan interface{})
-	strm.AddSink(func(result []map[string]interface{}) {
+	resultChan := make(chan any)
+	strm.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
@@ -58,7 +58,7 @@ func TestWindowSlotAggregation(t *testing.T) {
 
 	select {
 	case actual := <-resultChan:
-		expected := []map[string]interface{}{
+		expected := []map[string]any{
 			{
 				"device":      "aa",
 				"temperature": 30.0,
@@ -75,8 +75,8 @@ func TestWindowSlotAggregation(t *testing.T) {
 			},
 		}
 
-		assert.IsType(t, []map[string]interface{}{}, actual)
-		resultSlice := actual.([]map[string]interface{})
+		assert.IsType(t, []map[string]any{}, actual)
+		resultSlice := actual.([]map[string]any)
 		assert.Len(t, resultSlice, 2)
 
 		for _, expectedResult := range expected {
@@ -103,37 +103,37 @@ func TestWindowTypes(t *testing.T) {
 	tests := []struct {
 		name         string
 		windowType   string
-		windowParams []interface{}
+		windowParams []any
 		expectError  bool
 	}{
 		{
 			name:         "Tumbling Window",
 			windowType:   "tumbling",
-			windowParams: []interface{}{5 * time.Second},
+			windowParams: []any{5 * time.Second},
 			expectError:  false,
 		},
 		{
 			name:         "Sliding Window",
 			windowType:   "sliding",
-			windowParams: []interface{}{10 * time.Second, 5 * time.Second},
+			windowParams: []any{10 * time.Second, 5 * time.Second},
 			expectError:  false,
 		},
 		{
 			name:         "Session Window",
 			windowType:   "session",
-			windowParams: []interface{}{30 * time.Second},
+			windowParams: []any{30 * time.Second},
 			expectError:  false,
 		},
 		{
 			name:         "Invalid Window Type",
 			windowType:   "invalid_window_type",
-			windowParams: []interface{}{5 * time.Second},
+			windowParams: []any{5 * time.Second},
 			expectError:  true,
 		},
 		{
 			name:         "Missing Size Parameter",
 			windowType:   "tumbling",
-			windowParams: []interface{}{},
+			windowParams: []any{},
 			expectError:  true,
 		},
 	}
@@ -188,7 +188,7 @@ func TestAggregationTypes(t *testing.T) {
 			config := types.Config{
 				WindowConfig: types.WindowConfig{
 					Type:   "tumbling",
-					Params: []interface{}{500 * time.Millisecond},
+					Params: []any{500 * time.Millisecond},
 				},
 				GroupFields: []string{"group"},
 				SelectFields: map[string]aggregator.AggregateType{
@@ -201,8 +201,8 @@ func TestAggregationTypes(t *testing.T) {
 			require.NoError(t, err)
 			defer stream.Stop()
 
-			resultChan := make(chan interface{}, 1)
-			stream.AddSink(func(result []map[string]interface{}) {
+			resultChan := make(chan any, 1)
+			stream.AddSink(func(result []map[string]any) {
 				select {
 				case resultChan <- result:
 				default:
@@ -213,7 +213,7 @@ func TestAggregationTypes(t *testing.T) {
 
 			// 发送测试数据
 			for _, value := range tt.testData {
-				data := map[string]interface{}{
+				data := map[string]any{
 					"group": "test",
 					"value": value,
 				}
@@ -225,7 +225,7 @@ func TestAggregationTypes(t *testing.T) {
 
 			select {
 			case result := <-resultChan:
-				resultSlice := result.([]map[string]interface{})
+				resultSlice := result.([]map[string]any)
 				require.Len(t, resultSlice, 1)
 				actual := resultSlice[0]["value"].(float64)
 				assert.InEpsilon(t, tt.expected, actual, 0.0001)

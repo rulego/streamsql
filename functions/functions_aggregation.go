@@ -23,11 +23,11 @@ func NewSumFunction() *SumFunction {
 	}
 }
 
-func (f *SumFunction) Validate(args []interface{}) error {
+func (f *SumFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *SumFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *SumFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	sum := 0.0
 	hasValues := false
 	for _, arg := range args {
@@ -56,7 +56,7 @@ func (f *SumFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *SumFunction) Add(value interface{}) {
+func (f *SumFunction) Add(value any) {
 	// Enhanced Add method: ignore NULL values
 	if value == nil {
 		return // Ignore NULL values
@@ -69,7 +69,7 @@ func (f *SumFunction) Add(value interface{}) {
 	// Ignore values that fail conversion
 }
 
-func (f *SumFunction) Result() interface{} {
+func (f *SumFunction) Result() any {
 	if !f.hasValues {
 		return nil // Return NULL when no valid values instead of 0.0
 	}
@@ -102,11 +102,11 @@ func NewAvgFunction() *AvgFunction {
 	}
 }
 
-func (f *AvgFunction) Validate(args []interface{}) error {
+func (f *AvgFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *AvgFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *AvgFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	sum := 0.0
 	count := 0
 	for _, arg := range args {
@@ -135,7 +135,7 @@ func (f *AvgFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *AvgFunction) Add(value interface{}) {
+func (f *AvgFunction) Add(value any) {
 	// Enhanced Add method: ignore NULL values
 	if value == nil {
 		return // Ignore NULL values
@@ -148,7 +148,7 @@ func (f *AvgFunction) Add(value interface{}) {
 	// Ignore values that fail conversion
 }
 
-func (f *AvgFunction) Result() interface{} {
+func (f *AvgFunction) Result() any {
 	if f.count == 0 {
 		return nil // Return NULL when no valid values according to SQL standard
 	}
@@ -182,18 +182,18 @@ func NewMinFunction() *MinFunction {
 	}
 }
 
-func (f *MinFunction) Validate(args []interface{}) error {
+func (f *MinFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *MinFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *MinFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 检查是否有nil参数
 	for _, arg := range args {
 		if arg == nil {
 			return nil, nil
 		}
 	}
-	
+
 	min := math.Inf(1)
 	for _, arg := range args {
 		val, err := cast.ToFloat64E(arg)
@@ -215,7 +215,7 @@ func (f *MinFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *MinFunction) Add(value interface{}) {
+func (f *MinFunction) Add(value any) {
 	// Enhanced Add method: ignore NULL values
 	if value == nil {
 		return // Ignore NULL values
@@ -229,7 +229,7 @@ func (f *MinFunction) Add(value interface{}) {
 	}
 }
 
-func (f *MinFunction) Result() interface{} {
+func (f *MinFunction) Result() any {
 	if f.first {
 		return nil // Return NULL when no data according to SQL standard
 	}
@@ -263,18 +263,18 @@ func NewMaxFunction() *MaxFunction {
 	}
 }
 
-func (f *MaxFunction) Validate(args []interface{}) error {
+func (f *MaxFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *MaxFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *MaxFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 检查是否有nil参数
 	for _, arg := range args {
 		if arg == nil {
 			return nil, nil
 		}
 	}
-	
+
 	max := math.Inf(-1)
 	for _, arg := range args {
 		val, err := cast.ToFloat64E(arg)
@@ -296,7 +296,7 @@ func (f *MaxFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *MaxFunction) Add(value interface{}) {
+func (f *MaxFunction) Add(value any) {
 	// Enhanced Add method: ignore NULL values
 	if value == nil {
 		return // Ignore NULL values
@@ -310,7 +310,7 @@ func (f *MaxFunction) Add(value interface{}) {
 	}
 }
 
-func (f *MaxFunction) Result() interface{} {
+func (f *MaxFunction) Result() any {
 	if f.first {
 		return nil // Return NULL when no data according to SQL standard
 	}
@@ -342,11 +342,11 @@ func NewCountFunction() *CountFunction {
 	}
 }
 
-func (f *CountFunction) Validate(args []interface{}) error {
+func (f *CountFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CountFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CountFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	count := 0
 	for _, arg := range args {
 		if arg != nil {
@@ -364,14 +364,14 @@ func (f *CountFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *CountFunction) Add(value interface{}) {
+func (f *CountFunction) Add(value any) {
 	// 增强的Add方法：忽略NULL值
 	if value != nil {
 		f.count++
 	}
 }
 
-func (f *CountFunction) Result() interface{} {
+func (f *CountFunction) Result() any {
 	return float64(f.count)
 }
 
@@ -400,11 +400,11 @@ func NewStdDevFunction() *StdDevFunction {
 	}
 }
 
-func (f *StdDevFunction) Validate(args []interface{}) error {
+func (f *StdDevFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *StdDevFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *StdDevFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 批量执行模式，回退到传统算法
 	sum := 0.0
 	count := 0
@@ -441,7 +441,7 @@ func (f *StdDevFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *StdDevFunction) Add(value interface{}) {
+func (f *StdDevFunction) Add(value any) {
 	val, err := cast.ToFloat64E(value)
 	if err != nil {
 		return
@@ -453,7 +453,7 @@ func (f *StdDevFunction) Add(value interface{}) {
 	f.m2 += delta * delta2
 }
 
-func (f *StdDevFunction) Result() interface{} {
+func (f *StdDevFunction) Result() any {
 	if f.count < 1 {
 		return 0.0
 	}
@@ -487,11 +487,11 @@ func NewMedianFunction() *MedianFunction {
 	}
 }
 
-func (f *MedianFunction) Validate(args []interface{}) error {
+func (f *MedianFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *MedianFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *MedianFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	values := make([]float64, len(args))
 	for i, arg := range args {
 		val, err := cast.ToFloat64E(arg)
@@ -519,11 +519,11 @@ func NewPercentileFunction() *PercentileFunction {
 	}
 }
 
-func (f *PercentileFunction) Validate(args []interface{}) error {
+func (f *PercentileFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *PercentileFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *PercentileFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if len(args) < 2 {
 		return nil, fmt.Errorf("percentile requires a percentile and at least one value")
 	}
@@ -556,23 +556,23 @@ func (f *PercentileFunction) Execute(ctx *FunctionContext, args []interface{}) (
 // CollectFunction 收集函数 - 获取当前窗口所有消息的列值组成的数组
 type CollectFunction struct {
 	*BaseFunction
-	values []interface{}
+	values []any
 }
 
 func NewCollectFunction() *CollectFunction {
 	return &CollectFunction{
 		BaseFunction: NewBaseFunction("collect", TypeAggregation, "聚合函数", "收集所有值组成数组", 1, -1),
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 	}
 }
 
-func (f *CollectFunction) Validate(args []interface{}) error {
+func (f *CollectFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CollectFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CollectFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 直接返回所有参数组成的数组
-	result := make([]interface{}, len(args))
+	result := make([]any, len(args))
 	copy(result, args)
 	return result, nil
 }
@@ -581,28 +581,28 @@ func (f *CollectFunction) Execute(ctx *FunctionContext, args []interface{}) (int
 func (f *CollectFunction) New() AggregatorFunction {
 	return &CollectFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 	}
 }
 
-func (f *CollectFunction) Add(value interface{}) {
+func (f *CollectFunction) Add(value any) {
 	f.values = append(f.values, value)
 }
 
-func (f *CollectFunction) Result() interface{} {
-	result := make([]interface{}, len(f.values))
+func (f *CollectFunction) Result() any {
+	result := make([]any, len(f.values))
 	copy(result, f.values)
 	return result
 }
 
 func (f *CollectFunction) Reset() {
-	f.values = make([]interface{}, 0)
+	f.values = make([]any, 0)
 }
 
 func (f *CollectFunction) Clone() AggregatorFunction {
 	newFunc := &CollectFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, len(f.values)),
+		values:       make([]any, len(f.values)),
 	}
 	copy(newFunc.values, f.values)
 	return newFunc
@@ -611,7 +611,7 @@ func (f *CollectFunction) Clone() AggregatorFunction {
 // FirstValueFunction 首个值函数 - 返回组中第一行的值
 type FirstValueFunction struct {
 	*BaseFunction
-	firstValue interface{}
+	firstValue any
 	hasValue   bool
 }
 
@@ -623,11 +623,11 @@ func NewFirstValueFunction() *FirstValueFunction {
 	}
 }
 
-func (f *FirstValueFunction) Validate(args []interface{}) error {
+func (f *FirstValueFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *FirstValueFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *FirstValueFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}
@@ -647,14 +647,14 @@ func (f *FirstValueFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *FirstValueFunction) Add(value interface{}) {
+func (f *FirstValueFunction) Add(value any) {
 	if !f.hasValue {
 		f.firstValue = value
 		f.hasValue = true
 	}
 }
 
-func (f *FirstValueFunction) Result() interface{} {
+func (f *FirstValueFunction) Result() any {
 	return f.firstValue
 }
 
@@ -674,7 +674,7 @@ func (f *FirstValueFunction) Clone() AggregatorFunction {
 // LastValueFunction 最后值函数 - 返回组中最后一行的值
 type LastValueFunction struct {
 	*BaseFunction
-	lastValue interface{}
+	lastValue any
 }
 
 func NewLastValueFunction() *LastValueFunction {
@@ -684,11 +684,11 @@ func NewLastValueFunction() *LastValueFunction {
 	}
 }
 
-func (f *LastValueFunction) Validate(args []interface{}) error {
+func (f *LastValueFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *LastValueFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *LastValueFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}
@@ -707,11 +707,11 @@ func (f *LastValueFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *LastValueFunction) Add(value interface{}) {
+func (f *LastValueFunction) Add(value any) {
 	f.lastValue = value
 }
 
-func (f *LastValueFunction) Result() interface{} {
+func (f *LastValueFunction) Result() any {
 	return f.lastValue
 }
 
@@ -729,21 +729,21 @@ func (f *LastValueFunction) Clone() AggregatorFunction {
 // MergeAggFunction 合并聚合函数 - 将组中的值合并为单个值
 type MergeAggFunction struct {
 	*BaseFunction
-	values []interface{}
+	values []any
 }
 
 func NewMergeAggFunction() *MergeAggFunction {
 	return &MergeAggFunction{
 		BaseFunction: NewBaseFunction("merge_agg", TypeAggregation, "聚合函数", "合并所有值", 1, -1),
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 	}
 }
 
-func (f *MergeAggFunction) Validate(args []interface{}) error {
+func (f *MergeAggFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *MergeAggFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *MergeAggFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if len(args) == 0 {
 		return nil, nil
 	}
@@ -763,15 +763,15 @@ func (f *MergeAggFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 func (f *MergeAggFunction) New() AggregatorFunction {
 	return &MergeAggFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 	}
 }
 
-func (f *MergeAggFunction) Add(value interface{}) {
+func (f *MergeAggFunction) Add(value any) {
 	f.values = append(f.values, value)
 }
 
-func (f *MergeAggFunction) Result() interface{} {
+func (f *MergeAggFunction) Result() any {
 	if len(f.values) == 0 {
 		return nil
 	}
@@ -788,13 +788,13 @@ func (f *MergeAggFunction) Result() interface{} {
 }
 
 func (f *MergeAggFunction) Reset() {
-	f.values = make([]interface{}, 0)
+	f.values = make([]any, 0)
 }
 
 func (f *MergeAggFunction) Clone() AggregatorFunction {
 	newFunc := &MergeAggFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, len(f.values)),
+		values:       make([]any, len(f.values)),
 	}
 	copy(newFunc.values, f.values)
 	return newFunc
@@ -814,11 +814,11 @@ func NewStdDevSFunction() *StdDevSFunction {
 	}
 }
 
-func (f *StdDevSFunction) Validate(args []interface{}) error {
+func (f *StdDevSFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *StdDevSFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *StdDevSFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 批量执行模式
 	sum := 0.0
 	count := 0
@@ -855,7 +855,7 @@ func (f *StdDevSFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *StdDevSFunction) Add(value interface{}) {
+func (f *StdDevSFunction) Add(value any) {
 	val, err := cast.ToFloat64E(value)
 	if err != nil {
 		return
@@ -867,7 +867,7 @@ func (f *StdDevSFunction) Add(value interface{}) {
 	f.m2 += delta * delta2
 }
 
-func (f *StdDevSFunction) Result() interface{} {
+func (f *StdDevSFunction) Result() any {
 	if f.count < 2 {
 		return 0.0
 	}
@@ -901,13 +901,13 @@ func NewDeduplicateFunction() *DeduplicateFunction {
 	}
 }
 
-func (f *DeduplicateFunction) Validate(args []interface{}) error {
+func (f *DeduplicateFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *DeduplicateFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *DeduplicateFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	seen := make(map[string]bool)
-	var result []interface{}
+	var result []any
 
 	for _, arg := range args {
 		key := fmt.Sprintf("%v", arg)
@@ -934,11 +934,11 @@ func NewVarFunction() *VarFunction {
 	}
 }
 
-func (f *VarFunction) Validate(args []interface{}) error {
+func (f *VarFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *VarFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *VarFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 批量执行模式
 	sum := 0.0
 	count := 0
@@ -975,7 +975,7 @@ func (f *VarFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *VarFunction) Add(value interface{}) {
+func (f *VarFunction) Add(value any) {
 	val, err := cast.ToFloat64E(value)
 	if err != nil {
 		return
@@ -987,7 +987,7 @@ func (f *VarFunction) Add(value interface{}) {
 	f.m2 += delta * delta2
 }
 
-func (f *VarFunction) Result() interface{} {
+func (f *VarFunction) Result() any {
 	if f.count < 1 {
 		return 0.0
 	}
@@ -1023,11 +1023,11 @@ func NewVarSFunction() *VarSFunction {
 	}
 }
 
-func (f *VarSFunction) Validate(args []interface{}) error {
+func (f *VarSFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *VarSFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *VarSFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 批量执行模式
 	sum := 0.0
 	count := 0
@@ -1064,7 +1064,7 @@ func (f *VarSFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *VarSFunction) Add(value interface{}) {
+func (f *VarSFunction) Add(value any) {
 	val, err := cast.ToFloat64E(value)
 	if err != nil {
 		return
@@ -1076,7 +1076,7 @@ func (f *VarSFunction) Add(value interface{}) {
 	f.m2 += delta * delta2
 }
 
-func (f *VarSFunction) Result() interface{} {
+func (f *VarSFunction) Result() any {
 	if f.count < 2 {
 		return 0.0
 	}
@@ -1111,11 +1111,11 @@ func NewStdDevAggregatorFunction() *StdDevAggregatorFunction {
 	}
 }
 
-func (f *StdDevAggregatorFunction) Validate(args []interface{}) error {
+func (f *StdDevAggregatorFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *StdDevAggregatorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *StdDevAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return NewStdDevFunction().Execute(ctx, args)
 }
 
@@ -1126,13 +1126,13 @@ func (f *StdDevAggregatorFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *StdDevAggregatorFunction) Add(value interface{}) {
+func (f *StdDevAggregatorFunction) Add(value any) {
 	if val, err := cast.ToFloat64E(value); err == nil {
 		f.values = append(f.values, val)
 	}
 }
 
-func (f *StdDevAggregatorFunction) Result() interface{} {
+func (f *StdDevAggregatorFunction) Result() any {
 	if len(f.values) < 2 {
 		return 0.0
 	}
@@ -1179,11 +1179,11 @@ func NewMedianAggregatorFunction() *MedianAggregatorFunction {
 	}
 }
 
-func (f *MedianAggregatorFunction) Validate(args []interface{}) error {
+func (f *MedianAggregatorFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *MedianAggregatorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *MedianAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return NewMedianFunction().Execute(ctx, args)
 }
 
@@ -1194,13 +1194,13 @@ func (f *MedianAggregatorFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *MedianAggregatorFunction) Add(value interface{}) {
+func (f *MedianAggregatorFunction) Add(value any) {
 	if val, err := cast.ToFloat64E(value); err == nil {
 		f.values = append(f.values, val)
 	}
 }
 
-func (f *MedianAggregatorFunction) Result() interface{} {
+func (f *MedianAggregatorFunction) Result() any {
 	if len(f.values) == 0 {
 		return 0.0
 	}
@@ -1244,11 +1244,11 @@ func NewPercentileAggregatorFunction() *PercentileAggregatorFunction {
 	}
 }
 
-func (f *PercentileAggregatorFunction) Validate(args []interface{}) error {
+func (f *PercentileAggregatorFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *PercentileAggregatorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *PercentileAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return NewPercentileFunction().Execute(ctx, args)
 }
 
@@ -1260,13 +1260,13 @@ func (f *PercentileAggregatorFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *PercentileAggregatorFunction) Add(value interface{}) {
+func (f *PercentileAggregatorFunction) Add(value any) {
 	if val, err := cast.ToFloat64E(value); err == nil {
 		f.values = append(f.values, val)
 	}
 }
 
-func (f *PercentileAggregatorFunction) Result() interface{} {
+func (f *PercentileAggregatorFunction) Result() any {
 	if len(f.values) == 0 {
 		return 0.0
 	}
@@ -1299,47 +1299,47 @@ func (f *PercentileAggregatorFunction) Clone() AggregatorFunction {
 // 为CollectFunction添加AggregatorFunction接口实现
 type CollectAggregatorFunction struct {
 	*BaseFunction
-	values []interface{}
+	values []any
 }
 
 func NewCollectAggregatorFunction() *CollectAggregatorFunction {
 	return &CollectAggregatorFunction{
 		BaseFunction: NewBaseFunction("collect", TypeAggregation, "聚合函数", "收集所有值组成数组", 1, -1),
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 	}
 }
 
-func (f *CollectAggregatorFunction) Validate(args []interface{}) error {
+func (f *CollectAggregatorFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CollectAggregatorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CollectAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return NewCollectFunction().Execute(ctx, args)
 }
 
 func (f *CollectAggregatorFunction) New() AggregatorFunction {
 	return &CollectAggregatorFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 	}
 }
 
-func (f *CollectAggregatorFunction) Add(value interface{}) {
+func (f *CollectAggregatorFunction) Add(value any) {
 	f.values = append(f.values, value)
 }
 
-func (f *CollectAggregatorFunction) Result() interface{} {
+func (f *CollectAggregatorFunction) Result() any {
 	return f.values
 }
 
 func (f *CollectAggregatorFunction) Reset() {
-	f.values = make([]interface{}, 0)
+	f.values = make([]any, 0)
 }
 
 func (f *CollectAggregatorFunction) Clone() AggregatorFunction {
 	clone := &CollectAggregatorFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, len(f.values)),
+		values:       make([]any, len(f.values)),
 	}
 	copy(clone.values, f.values)
 	return clone
@@ -1348,7 +1348,7 @@ func (f *CollectAggregatorFunction) Clone() AggregatorFunction {
 // 为LastValueFunction添加AggregatorFunction接口实现
 type LastValueAggregatorFunction struct {
 	*BaseFunction
-	lastValue interface{}
+	lastValue any
 }
 
 func NewLastValueAggregatorFunction() *LastValueAggregatorFunction {
@@ -1357,11 +1357,11 @@ func NewLastValueAggregatorFunction() *LastValueAggregatorFunction {
 	}
 }
 
-func (f *LastValueAggregatorFunction) Validate(args []interface{}) error {
+func (f *LastValueAggregatorFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *LastValueAggregatorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *LastValueAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return NewLastValueFunction().Execute(ctx, args)
 }
 
@@ -1371,11 +1371,11 @@ func (f *LastValueAggregatorFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *LastValueAggregatorFunction) Add(value interface{}) {
+func (f *LastValueAggregatorFunction) Add(value any) {
 	f.lastValue = value
 }
 
-func (f *LastValueAggregatorFunction) Result() interface{} {
+func (f *LastValueAggregatorFunction) Result() any {
 	return f.lastValue
 }
 
@@ -1393,36 +1393,36 @@ func (f *LastValueAggregatorFunction) Clone() AggregatorFunction {
 // 为MergeAggFunction添加AggregatorFunction接口实现
 type MergeAggAggregatorFunction struct {
 	*BaseFunction
-	values []interface{}
+	values []any
 }
 
 func NewMergeAggAggregatorFunction() *MergeAggAggregatorFunction {
 	return &MergeAggAggregatorFunction{
 		BaseFunction: NewBaseFunction("merge_agg", TypeAggregation, "聚合函数", "合并所有值", 1, -1),
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 	}
 }
 
-func (f *MergeAggAggregatorFunction) Validate(args []interface{}) error {
+func (f *MergeAggAggregatorFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *MergeAggAggregatorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *MergeAggAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return NewMergeAggFunction().Execute(ctx, args)
 }
 
 func (f *MergeAggAggregatorFunction) New() AggregatorFunction {
 	return &MergeAggAggregatorFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 	}
 }
 
-func (f *MergeAggAggregatorFunction) Add(value interface{}) {
+func (f *MergeAggAggregatorFunction) Add(value any) {
 	f.values = append(f.values, value)
 }
 
-func (f *MergeAggAggregatorFunction) Result() interface{} {
+func (f *MergeAggAggregatorFunction) Result() any {
 	if len(f.values) == 0 {
 		return ""
 	}
@@ -1438,13 +1438,13 @@ func (f *MergeAggAggregatorFunction) Result() interface{} {
 }
 
 func (f *MergeAggAggregatorFunction) Reset() {
-	f.values = make([]interface{}, 0)
+	f.values = make([]any, 0)
 }
 
 func (f *MergeAggAggregatorFunction) Clone() AggregatorFunction {
 	clone := &MergeAggAggregatorFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, len(f.values)),
+		values:       make([]any, len(f.values)),
 	}
 	copy(clone.values, f.values)
 	return clone
@@ -1463,11 +1463,11 @@ func NewStdDevSAggregatorFunction() *StdDevSAggregatorFunction {
 	}
 }
 
-func (f *StdDevSAggregatorFunction) Validate(args []interface{}) error {
+func (f *StdDevSAggregatorFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *StdDevSAggregatorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *StdDevSAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return NewStdDevSFunction().Execute(ctx, args)
 }
 
@@ -1478,7 +1478,7 @@ func (f *StdDevSAggregatorFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *StdDevSAggregatorFunction) Add(value interface{}) {
+func (f *StdDevSAggregatorFunction) Add(value any) {
 	if value != nil {
 		if val, err := cast.ToFloat64E(value); err == nil {
 			f.values = append(f.values, val)
@@ -1486,7 +1486,7 @@ func (f *StdDevSAggregatorFunction) Add(value interface{}) {
 	}
 }
 
-func (f *StdDevSAggregatorFunction) Result() interface{} {
+func (f *StdDevSAggregatorFunction) Result() any {
 	if len(f.values) < 2 {
 		return 0.0
 	}
@@ -1525,22 +1525,22 @@ func (f *StdDevSAggregatorFunction) Clone() AggregatorFunction {
 type DeduplicateAggregatorFunction struct {
 	*BaseFunction
 	seen   map[string]bool
-	values []interface{}
+	values []any
 }
 
 func NewDeduplicateAggregatorFunction() *DeduplicateAggregatorFunction {
 	return &DeduplicateAggregatorFunction{
 		BaseFunction: NewBaseFunction("deduplicate", TypeAggregation, "聚合函数", "去除重复值", 1, -1),
 		seen:         make(map[string]bool),
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 	}
 }
 
-func (f *DeduplicateAggregatorFunction) Validate(args []interface{}) error {
+func (f *DeduplicateAggregatorFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *DeduplicateAggregatorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *DeduplicateAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return NewDeduplicateFunction().Execute(ctx, args)
 }
 
@@ -1548,11 +1548,11 @@ func (f *DeduplicateAggregatorFunction) New() AggregatorFunction {
 	return &DeduplicateAggregatorFunction{
 		BaseFunction: f.BaseFunction,
 		seen:         make(map[string]bool),
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 	}
 }
 
-func (f *DeduplicateAggregatorFunction) Add(value interface{}) {
+func (f *DeduplicateAggregatorFunction) Add(value any) {
 	key := fmt.Sprintf("%v", value)
 	if !f.seen[key] {
 		f.seen[key] = true
@@ -1560,20 +1560,20 @@ func (f *DeduplicateAggregatorFunction) Add(value interface{}) {
 	}
 }
 
-func (f *DeduplicateAggregatorFunction) Result() interface{} {
+func (f *DeduplicateAggregatorFunction) Result() any {
 	return f.values
 }
 
 func (f *DeduplicateAggregatorFunction) Reset() {
 	f.seen = make(map[string]bool)
-	f.values = make([]interface{}, 0)
+	f.values = make([]any, 0)
 }
 
 func (f *DeduplicateAggregatorFunction) Clone() AggregatorFunction {
 	clone := &DeduplicateAggregatorFunction{
 		BaseFunction: f.BaseFunction,
 		seen:         make(map[string]bool),
-		values:       make([]interface{}, len(f.values)),
+		values:       make([]any, len(f.values)),
 	}
 	for k, v := range f.seen {
 		clone.seen[k] = v
@@ -1595,11 +1595,11 @@ func NewVarAggregatorFunction() *VarAggregatorFunction {
 	}
 }
 
-func (f *VarAggregatorFunction) Validate(args []interface{}) error {
+func (f *VarAggregatorFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *VarAggregatorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *VarAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return NewVarFunction().Execute(ctx, args)
 }
 
@@ -1610,7 +1610,7 @@ func (f *VarAggregatorFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *VarAggregatorFunction) Add(value interface{}) {
+func (f *VarAggregatorFunction) Add(value any) {
 	if value != nil {
 		if val, err := cast.ToFloat64E(value); err == nil {
 			f.values = append(f.values, val)
@@ -1618,7 +1618,7 @@ func (f *VarAggregatorFunction) Add(value interface{}) {
 	}
 }
 
-func (f *VarAggregatorFunction) Result() interface{} {
+func (f *VarAggregatorFunction) Result() any {
 	if len(f.values) < 1 {
 		return 0.0
 	}
@@ -1666,11 +1666,11 @@ func NewVarSAggregatorFunction() *VarSAggregatorFunction {
 	}
 }
 
-func (f *VarSAggregatorFunction) Validate(args []interface{}) error {
+func (f *VarSAggregatorFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *VarSAggregatorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *VarSAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return NewVarSFunction().Execute(ctx, args)
 }
 
@@ -1681,7 +1681,7 @@ func (f *VarSAggregatorFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *VarSAggregatorFunction) Add(value interface{}) {
+func (f *VarSAggregatorFunction) Add(value any) {
 	if value != nil {
 		if val, err := cast.ToFloat64E(value); err == nil {
 			f.values = append(f.values, val)
@@ -1689,7 +1689,7 @@ func (f *VarSAggregatorFunction) Add(value interface{}) {
 	}
 }
 
-func (f *VarSAggregatorFunction) Result() interface{} {
+func (f *VarSAggregatorFunction) Result() any {
 	if len(f.values) < 2 {
 		return 0.0
 	}

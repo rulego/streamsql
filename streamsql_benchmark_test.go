@@ -44,7 +44,7 @@ func BenchmarkStreamSQL(b *testing.B) {
 			}
 
 			var resultCount int64
-			ssql.AddSink(func(result []map[string]interface{}) {
+			ssql.AddSink(func(result []map[string]any) {
 				atomic.AddInt64(&resultCount, 1)
 			})
 
@@ -146,7 +146,7 @@ func BenchmarkConfigurationOptimized(b *testing.B) {
 			}
 
 			var resultCount int64
-			ssql.AddSink(func(result []map[string]interface{}) {
+			ssql.AddSink(func(result []map[string]any) {
 				atomic.AddInt64(&resultCount, 1)
 			})
 
@@ -226,7 +226,7 @@ func BenchmarkPureInputOptimized(b *testing.B) {
 	}()
 
 	// 预生成数据
-	data := map[string]interface{}{
+	data := map[string]any{
 		"deviceId":    "device1",
 		"temperature": 25.0,
 	}
@@ -277,7 +277,7 @@ func BenchmarkPostAggregationPerformance(b *testing.B) {
 			}
 
 			var resultCount int64
-			ssql.AddSink(func(result []map[string]interface{}) {
+			ssql.AddSink(func(result []map[string]any) {
 				atomic.AddInt64(&resultCount, 1)
 			})
 
@@ -333,12 +333,12 @@ func BenchmarkPostAggregationPerformance(b *testing.B) {
 }
 
 // generateOptimizedTestData 生成优化的测试数据
-func generateOptimizedTestData(count int) []map[string]interface{} {
-	data := make([]map[string]interface{}, count)
+func generateOptimizedTestData(count int) []map[string]any {
+	data := make([]map[string]any, count)
 	devices := []string{"device1", "device2", "device3", "device4", "device5"}
 
 	for i := 0; i < count; i++ {
-		data[i] = map[string]interface{}{
+		data[i] = map[string]any{
 			"deviceId":    devices[rand.Intn(len(devices))],
 			"temperature": 15.0 + rand.Float64()*20, // 15-35度
 			"humidity":    30.0 + rand.Float64()*40, // 30-70%
@@ -387,7 +387,7 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 			}
 
 			var resultCount int64
-			ssql.AddSink(func(result []map[string]interface{}) {
+			ssql.AddSink(func(result []map[string]any) {
 				atomic.AddInt64(&resultCount, 1)
 			})
 

@@ -12,7 +12,7 @@ func TestEvaluateCaseExpression(t *testing.T) {
 	tests := []struct {
 		name     string
 		node     *ExprNode
-		data     map[string]interface{}
+		data     map[string]any
 		expected float64
 		wantErr  bool
 	}{
@@ -34,7 +34,7 @@ func TestEvaluateCaseExpression(t *testing.T) {
 					},
 				},
 			},
-			map[string]interface{}{"status": 1},
+			map[string]any{"status": 1},
 			100,
 			false,
 		},
@@ -57,7 +57,7 @@ func TestEvaluateCaseExpression(t *testing.T) {
 					ElseResult: &ExprNode{Type: TypeNumber, Value: "0"},
 				},
 			},
-			map[string]interface{}{"score": 85},
+			map[string]any{"score": 85},
 			0,
 			false,
 		},
@@ -81,8 +81,8 @@ func TestEvaluateCaseExpressionWithNull(t *testing.T) {
 	tests := []struct {
 		name         string
 		node         *ExprNode
-		data         map[string]interface{}
-		expected     interface{}
+		data         map[string]any
+		expected     any
 		expectedNull bool
 		wantErr      bool
 	}{
@@ -99,7 +99,7 @@ func TestEvaluateCaseExpressionWithNull(t *testing.T) {
 					},
 				},
 			},
-			map[string]interface{}{},
+			map[string]any{},
 			nil,
 			true,
 			false,
@@ -123,7 +123,7 @@ func TestEvaluateCaseExpressionWithNull(t *testing.T) {
 					ElseResult: &ExprNode{Type: TypeNumber, Value: "-1"},
 				},
 			},
-			map[string]interface{}{"status": "active"},
+			map[string]any{"status": "active"},
 			1.0,
 			false,
 			false,
@@ -143,7 +143,7 @@ func TestEvaluateCaseExpressionWithNull(t *testing.T) {
 					ElseResult: &ExprNode{Type: TypeNumber, Value: "0"},
 				},
 			},
-			map[string]interface{}{"status": "unknown"},
+			map[string]any{"status": "unknown"},
 			0.0,
 			false,
 			false,
@@ -163,7 +163,7 @@ func TestEvaluateCaseExpressionWithNull(t *testing.T) {
 					ElseResult: &ExprNode{Type: TypeNumber, Value: "0"},
 				},
 			},
-			map[string]interface{}{},
+			map[string]any{},
 			0.0,
 			false,
 			false,
@@ -298,22 +298,22 @@ func TestEvaluateSimpleCaseExpression(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected float64
 	}{
 		{
 			name:     "match first when",
-			data:     map[string]interface{}{"status": "active"},
+			data:     map[string]any{"status": "active"},
 			expected: 1.0,
 		},
 		{
 			name:     "match second when",
-			data:     map[string]interface{}{"status": "inactive"},
+			data:     map[string]any{"status": "inactive"},
 			expected: 0.0,
 		},
 		{
 			name:     "no match use else",
-			data:     map[string]interface{}{"status": "unknown"},
+			data:     map[string]any{"status": "unknown"},
 			expected: -1.0,
 		},
 	}
@@ -333,7 +333,7 @@ func TestEvaluateSimpleCaseExpression(t *testing.T) {
 
 	// Test error cases
 	t.Run("nil case expression", func(t *testing.T) {
-		_, err := evaluateSimpleCaseExpression(&ExprNode{Type: TypeCase}, map[string]interface{}{})
+		_, err := evaluateSimpleCaseExpression(&ExprNode{Type: TypeCase}, map[string]any{})
 		if err == nil {
 			t.Error("expected error for nil case expression")
 		}
@@ -364,7 +364,7 @@ func TestEvaluateSimpleCaseExpression(t *testing.T) {
 			CaseExpr: caseExprWithError,
 		}
 
-		_, err := evaluateSimpleCaseExpression(nodeWithError, map[string]interface{}{})
+		_, err := evaluateSimpleCaseExpression(nodeWithError, map[string]any{})
 		if err == nil {
 			t.Error("expected error for invalid case value")
 		}

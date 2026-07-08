@@ -35,8 +35,8 @@ const (
 )
 
 type Window interface {
-	Add(item interface{})
-	//GetResults() []interface{}
+	Add(item any)
+	//GetResults() []any
 	Reset()
 	Start()
 	Stop() // Stop window operations and clean up resources
@@ -71,7 +71,7 @@ func (cw *CountingWindow) SetCallback(callback func([]types.Row)) {
 // timestamp can be derived (processing-time semantics). Event-time callers that
 // must reject unplaceable events should use extractTimestamp and drop on !ok,
 // since substituting wall-clock time silently corrupts event-time semantics.
-func GetTimestamp(data interface{}, tsProp string, timeUnit time.Duration) time.Time {
+func GetTimestamp(data any, tsProp string, timeUnit time.Duration) time.Time {
 	t, ok := extractTimestamp(data, tsProp, timeUnit)
 	if !ok {
 		return time.Now()
@@ -84,7 +84,7 @@ func GetTimestamp(data interface{}, tsProp string, timeUnit time.Duration) time.
 // time.Time or int64 epoch). An int64 epoch requires a non-zero TimeUnit;
 // otherwise the unit is ambiguous and it is treated as unplaceable.
 // Returns (zero, false) otherwise.
-func extractTimestamp(data interface{}, tsProp string, timeUnit time.Duration) (time.Time, bool) {
+func extractTimestamp(data any, tsProp string, timeUnit time.Duration) (time.Time, bool) {
 	if ts, ok := data.(interface{ GetTimestamp() time.Time }); ok {
 		return ts.GetTimestamp(), true
 	}

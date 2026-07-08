@@ -72,7 +72,7 @@ func TestSelectStatement_ToStreamConfig(t *testing.T) {
 				Source: "sensor_data",
 				Window: WindowDefinition{
 					Type:   "TUMBLINGWINDOW",
-					Params: []interface{}{"10s"},
+					Params: []any{"10s"},
 				},
 			},
 			wantErr: false,
@@ -238,7 +238,7 @@ func TestSelectStatementEdgeCases(t *testing.T) {
 		Source: "test_table",
 		Window: WindowDefinition{
 			Type:   "SESSIONWINDOW",
-			Params: []interface{}{"30s"},
+			Params: []any{"30s"},
 		},
 		GroupBy: []string{"user_id"},
 	}
@@ -266,7 +266,7 @@ func TestSelectStatementConcurrency(t *testing.T) {
 		Source: "sensor_data",
 		Window: WindowDefinition{
 			Type:   "TUMBLINGWINDOW",
-			Params: []interface{}{"10s"},
+			Params: []any{"10s"},
 		},
 	}
 
@@ -361,10 +361,10 @@ func TestBuildSelectFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			aggMap, fieldMap, err := buildSelectFields(tt.fields)
-		if err != nil {
-			t.Errorf("buildSelectFields() error = %v", err)
-			return
-		}
+			if err != nil {
+				t.Errorf("buildSelectFields() error = %v", err)
+				return
+			}
 
 			// 检查聚合函数映射
 			if len(aggMap) != len(tt.wantAggs) {
@@ -649,10 +649,10 @@ func TestExtractAggFieldWithExpression(t *testing.T) {
 			wantExpression: "price * quantity",
 		},
 		{
-			name:          "多参数函数",
-			exprStr:       "DISTANCE(x1, y1, x2, y2)",
-			funcName:      "DISTANCE",
-			wantFieldName: "x1",
+			name:           "多参数函数",
+			exprStr:        "DISTANCE(x1, y1, x2, y2)",
+			funcName:       "DISTANCE",
+			wantFieldName:  "x1",
 			wantExpression: "x1, y1, x2, y2",
 			// 不检查 allFields，因为实际行为可能与预期不同
 		},

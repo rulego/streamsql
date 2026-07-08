@@ -16,7 +16,7 @@ import (
 func TestSessionWindowReapsTriggeredSessionsPT(t *testing.T) {
 	config := types.WindowConfig{
 		Type:            TypeSession,
-		Params:          []interface{}{60 * time.Millisecond},
+		Params:          []any{60 * time.Millisecond},
 		AllowedLateness: 100 * time.Millisecond,
 	}
 	sw, err := NewSessionWindow(config)
@@ -24,7 +24,7 @@ func TestSessionWindowReapsTriggeredSessionsPT(t *testing.T) {
 	sw.Start()
 	defer sw.Stop()
 
-	sw.Add(map[string]interface{}{"user_id": "u1", "value": 1})
+	sw.Add(map[string]any{"user_id": "u1", "value": 1})
 
 	// 等 会话过期(60ms) + 保留期过期(100ms) + ticker(timeout/2=30ms)多次检查 + 余量。
 	time.Sleep(500 * time.Millisecond)

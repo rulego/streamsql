@@ -41,7 +41,7 @@ type PostAggregationExpression struct {
 }
 
 // Evaluate 评估后聚合表达式
-func (pae *PostAggregationExpression) Evaluate(data map[string]interface{}) (interface{}, error) {
+func (pae *PostAggregationExpression) Evaluate(data map[string]any) (any, error) {
 	if pae == nil {
 		return nil, fmt.Errorf("post-aggregation expression is nil")
 	}
@@ -91,7 +91,7 @@ func (p *PostAggregationProcessor) AddExpression(outputField, originalExpr strin
 }
 
 // ProcessResults processes aggregation results and evaluates post-aggregation expressions
-func (p *PostAggregationProcessor) ProcessResults(results []map[string]interface{}) ([]map[string]interface{}, error) {
+func (p *PostAggregationProcessor) ProcessResults(results []map[string]any) ([]map[string]any, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -141,7 +141,7 @@ func (p *PostAggregationProcessor) ProcessResults(results []map[string]interface
 }
 
 // checkRequiredFields checks if all required fields are present in the result
-func (p *PostAggregationProcessor) checkRequiredFields(result map[string]interface{}, requiredFields []string) bool {
+func (p *PostAggregationProcessor) checkRequiredFields(result map[string]any, requiredFields []string) bool {
 	for _, field := range requiredFields {
 		if _, exists := result[field]; !exists {
 			return false
@@ -160,7 +160,7 @@ func (p *PostAggregationProcessor) markPlaceholderFields(requiredFields []string
 }
 
 // evaluateExpressionFast evaluates an expression using cached bridge
-func (p *PostAggregationProcessor) evaluateExpressionFast(expression string, data map[string]interface{}) (interface{}, error) {
+func (p *PostAggregationProcessor) evaluateExpressionFast(expression string, data map[string]any) (any, error) {
 	result, err := p.exprBridge.EvaluateExpression(expression, data)
 	if err != nil {
 		return nil, err
@@ -169,18 +169,18 @@ func (p *PostAggregationProcessor) evaluateExpressionFast(expression string, dat
 }
 
 // evaluateExpression evaluates an expression using aggregated values
-func (p *PostAggregationProcessor) evaluateExpression(expression string, data map[string]interface{}) (interface{}, error) {
+func (p *PostAggregationProcessor) evaluateExpression(expression string, data map[string]any) (any, error) {
 	return p.evaluateExpressionFast(expression, data)
 }
 
 // unwrapNestedSlices recursively unwraps nested empty slices to get the actual value
-func (p *PostAggregationProcessor) unwrapNestedSlices(value interface{}) interface{} {
+func (p *PostAggregationProcessor) unwrapNestedSlices(value any) any {
 	if value == nil {
 		return nil
 	}
 
 	// Check if it's a slice
-	if slice, ok := value.([]interface{}); ok {
+	if slice, ok := value.([]any); ok {
 		// If it's an empty slice or contains only nil, return nil
 		if len(slice) == 0 {
 			return nil
@@ -505,8 +505,8 @@ func (ega *EnhancedGroupAggregator) AddPostAggregationExpression(outputField, or
 					field.Placeholder,
 					field.InputField,
 					[]string{}, // Will be populated by expression parsing
-					func(data interface{}) (interface{}, error) {
-						if dataMap, ok := data.(map[string]interface{}); ok {
+					func(data any) (any, error) {
+						if dataMap, ok := data.(map[string]any); ok {
 							result, err := bridge.EvaluateExpression(field.InputField, dataMap)
 
 							return result, err
@@ -601,7 +601,7 @@ func (ega *EnhancedGroupAggregator) AddPostAggregationExpression(outputField, or
 }
 
 // GetResults returns results with post-aggregation expressions evaluated
-func (ega *EnhancedGroupAggregator) GetResults() ([]map[string]interface{}, error) {
+func (ega *EnhancedGroupAggregator) GetResults() ([]map[string]any, error) {
 	// Get base aggregation results
 	results, err := ega.GroupAggregator.GetResults()
 	if err != nil {
@@ -759,9 +759,8 @@ func isValidIdentifierChar(c byte) bool {
 	return isValidIdentifierStart(c) || (c >= '0' && c <= '9')
 }
 
-
 // parseFunctionCall parses a function call string and returns the arguments
-func (ega *EnhancedGroupAggregator) parseFunctionCall(funcCall string) ([]interface{}, error) {
+func (ega *EnhancedGroupAggregator) parseFunctionCall(funcCall string) ([]any, error) {
 	// Find the parentheses
 	start := strings.Index(funcCall, "(")
 	end := strings.LastIndex(funcCall, ")")
@@ -772,12 +771,12 @@ func (ega *EnhancedGroupAggregator) parseFunctionCall(funcCall string) ([]interf
 	// Extract parameters string
 	paramsStr := strings.TrimSpace(funcCall[start+1 : end])
 	if paramsStr == "" {
-		return []interface{}{}, nil
+		return []any{}, nil
 	}
 
 	// Split parameters by comma
 	paramStrs := strings.Split(paramsStr, ",")
-	args := make([]interface{}, len(paramStrs))
+	args := make([]any, len(paramStrs))
 
 	for i, paramStr := range paramStrs {
 		paramStr = strings.TrimSpace(paramStr)
@@ -810,11 +809,11 @@ func (w *WindowFunctionWrapper) New() AggregatorFunction {
 	return &WindowFunctionWrapper{aggFunc: w.aggFunc.New()}
 }
 
-func (w *WindowFunctionWrapper) Add(value interface{}) {
+func (w *WindowFunctionWrapper) Add(value any) {
 	w.aggFunc.Add(value)
 }
 
-func (w *WindowFunctionWrapper) Result() interface{} {
+func (w *WindowFunctionWrapper) Result() any {
 	return w.aggFunc.Result()
 }
 

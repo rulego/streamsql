@@ -56,11 +56,11 @@ func TestAnalyticalFunctionInterface(t *testing.T) {
 	lagFunc := NewLagFunction()
 
 	ctx := &FunctionContext{
-		Data: make(map[string]interface{}),
+		Data: make(map[string]any),
 	}
 
 	// Test first value (should return default value nil)
-	result, err := lagFunc.Execute(ctx, []interface{}{10})
+	result, err := lagFunc.Execute(ctx, []any{10})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestAnalyticalFunctionInterface(t *testing.T) {
 	}
 
 	// Test second value (should return first value)
-	result, err = lagFunc.Execute(ctx, []interface{}{20})
+	result, err = lagFunc.Execute(ctx, []any{20})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestAnalyticalFunctionInterface(t *testing.T) {
 
 	// Test reset
 	lagFunc.Reset()
-	result, err = lagFunc.Execute(ctx, []interface{}{30})
+	result, err = lagFunc.Execute(ctx, []any{30})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -164,11 +164,11 @@ func TestAnalyticalAdapter(t *testing.T) {
 	}
 
 	ctx := &FunctionContext{
-		Data: make(map[string]interface{}),
+		Data: make(map[string]any),
 	}
 
 	// 测试执行
-	result, err := adapter.Execute(ctx, []interface{}{"test_value"})
+	result, err := adapter.Execute(ctx, []any{"test_value"})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -217,10 +217,10 @@ func TestCustomFunctionRegistration(t *testing.T) {
 	}
 
 	ctx := &FunctionContext{
-		Data: make(map[string]interface{}),
+		Data: make(map[string]any),
 	}
 
-	result, err := doubleFunc.Execute(ctx, []interface{}{5.0})
+	result, err := doubleFunc.Execute(ctx, []any{5.0})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -270,11 +270,11 @@ func BenchmarkAggregatorIncremental(b *testing.B) {
 func BenchmarkAggregatorBatch(b *testing.B) {
 	sumFunc := NewSumFunction()
 	ctx := &FunctionContext{
-		Data: make(map[string]interface{}),
+		Data: make(map[string]any),
 	}
 
 	// 准备测试数据
-	args := make([]interface{}, b.N)
+	args := make([]any, b.N)
 	for i := 0; i < b.N; i++ {
 		args[i] = float64(i)
 	}
@@ -298,11 +298,11 @@ func NewCustomProductFunction() *CustomProductFunction {
 	}
 }
 
-func (f *CustomProductFunction) Validate(args []interface{}) error {
+func (f *CustomProductFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CustomProductFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CustomProductFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	product := 1.0
 	for _, arg := range args {
 		val, err := cast.ToFloat64E(arg)
@@ -323,7 +323,7 @@ func (f *CustomProductFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *CustomProductFunction) Add(value interface{}) {
+func (f *CustomProductFunction) Add(value any) {
 	if val, err := cast.ToFloat64E(value); err == nil {
 		if f.first {
 			f.product = val
@@ -334,7 +334,7 @@ func (f *CustomProductFunction) Add(value interface{}) {
 	}
 }
 
-func (f *CustomProductFunction) Result() interface{} {
+func (f *CustomProductFunction) Result() any {
 	if f.first {
 		return 0.0
 	}
@@ -370,11 +370,11 @@ func NewCustomMovingAverageFunction(windowSize int) *CustomMovingAverageFunction
 	}
 }
 
-func (f *CustomMovingAverageFunction) Validate(args []interface{}) error {
+func (f *CustomMovingAverageFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CustomMovingAverageFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CustomMovingAverageFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -411,7 +411,7 @@ func (f *CustomMovingAverageFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *CustomMovingAverageFunction) Add(value interface{}) {
+func (f *CustomMovingAverageFunction) Add(value any) {
 	if val, err := cast.ToFloat64E(value); err == nil {
 		// 添加新值
 		f.values = append(f.values, val)
@@ -422,7 +422,7 @@ func (f *CustomMovingAverageFunction) Add(value interface{}) {
 	}
 }
 
-func (f *CustomMovingAverageFunction) Result() interface{} {
+func (f *CustomMovingAverageFunction) Result() any {
 	if len(f.values) == 0 {
 		return 0.0
 	}
@@ -459,11 +459,11 @@ func NewCustomGeometricMeanFunction() *CustomGeometricMeanFunction {
 	}
 }
 
-func (f *CustomGeometricMeanFunction) Validate(args []interface{}) error {
+func (f *CustomGeometricMeanFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CustomGeometricMeanFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CustomGeometricMeanFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	product := 1.0
 	for _, arg := range args {
 		val, err := cast.ToFloat64E(arg)
@@ -487,14 +487,14 @@ func (f *CustomGeometricMeanFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *CustomGeometricMeanFunction) Add(value interface{}) {
+func (f *CustomGeometricMeanFunction) Add(value any) {
 	if val, err := cast.ToFloat64E(value); err == nil && val > 0 {
 		f.product *= val
 		f.count++
 	}
 }
 
-func (f *CustomGeometricMeanFunction) Result() interface{} {
+func (f *CustomGeometricMeanFunction) Result() any {
 	if f.count == 0 {
 		return 0.0
 	}
@@ -530,7 +530,7 @@ func RegisterCustomFunctions() {
 
 	// 使用RegisterCustomFunction的方式注册简单函数
 	RegisterCustomFunction("double", TypeAggregation, "自定义函数", "将值乘以2", 1, 1,
-		func(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *FunctionContext, args []any) (any, error) {
 			val, err := cast.ToFloat64E(args[0])
 			if err != nil {
 				return nil, err

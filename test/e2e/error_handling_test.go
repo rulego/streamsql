@@ -50,7 +50,7 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 	t.Run("EmitSync without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
-		_, err := ssql.EmitSync(map[string]interface{}{"id": 1})
+		_, err := ssql.EmitSync(map[string]any{"id": 1})
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "stream not initialized")
 	})
@@ -61,7 +61,7 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 		err := ssql.Execute("SELECT COUNT(*) FROM stream")
 		require.Nil(t, err)
 
-		_, err = ssql.EmitSync(map[string]interface{}{"id": 1})
+		_, err = ssql.EmitSync(map[string]any{"id": 1})
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "synchronous mode only supports non-aggregation queries")
 	})
@@ -70,7 +70,7 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 		// 这不应该引发panic，但也不会有任何效果
-		ssql.Emit(map[string]interface{}{"id": 1})
+		ssql.Emit(map[string]any{"id": 1})
 	})
 
 	t.Run("Stop without Execute", func(t *testing.T) {
@@ -121,7 +121,7 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 		// 这不应该引发panic
-		ssql.AddSink(func(results []map[string]interface{}) {})
+		ssql.AddSink(func(results []map[string]any) {})
 	})
 
 	t.Run("PrintTable without Execute", func(t *testing.T) {
@@ -262,7 +262,7 @@ func TestStreamSQLNilHandling(t *testing.T) {
 		require.Nil(t, err)
 
 		// 发送包含nil值的数据
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"id":   1,
 			"name": nil,
 		})
@@ -292,7 +292,7 @@ func TestStreamSQLComplexQueries(t *testing.T) {
 		err := ssql.Execute("SELECT id, name, value, timestamp FROM stream")
 		require.Nil(t, err)
 
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"id":        1,
 			"name":      "test",
 			"value":     100.5,
@@ -307,8 +307,8 @@ func TestStreamSQLComplexQueries(t *testing.T) {
 		err := ssql.Execute("SELECT id, value FROM stream WHERE value > 50")
 		require.Nil(t, err)
 
-		ssql.Emit(map[string]interface{}{"id": 1, "value": 100})
-		ssql.Emit(map[string]interface{}{"id": 2, "value": 25})
+		ssql.Emit(map[string]any{"id": 1, "value": 100})
+		ssql.Emit(map[string]any{"id": 2, "value": 25})
 		ssql.Stop()
 	})
 
@@ -319,7 +319,7 @@ func TestStreamSQLComplexQueries(t *testing.T) {
 		require.Nil(t, err)
 
 		for i := 0; i < 5; i++ {
-			ssql.Emit(map[string]interface{}{"id": i, "value": i * 10})
+			ssql.Emit(map[string]any{"id": i, "value": i * 10})
 		}
 		ssql.Stop()
 	})
@@ -345,9 +345,9 @@ func TestStreamSQLDataTypes(t *testing.T) {
 		err := ssql.Execute("SELECT name FROM stream")
 		require.Nil(t, err)
 
-		ssql.Emit(map[string]interface{}{"name": "test string"})
-		ssql.Emit(map[string]interface{}{"name": ""})
-		ssql.Emit(map[string]interface{}{"name": "unicode测试🚀"})
+		ssql.Emit(map[string]any{"name": "test string"})
+		ssql.Emit(map[string]any{"name": ""})
+		ssql.Emit(map[string]any{"name": "unicode测试🚀"})
 		ssql.Stop()
 	})
 
@@ -357,10 +357,10 @@ func TestStreamSQLDataTypes(t *testing.T) {
 		err := ssql.Execute("SELECT value FROM stream")
 		require.Nil(t, err)
 
-		ssql.Emit(map[string]interface{}{"value": 42})
-		ssql.Emit(map[string]interface{}{"value": 3.14159})
-		ssql.Emit(map[string]interface{}{"value": int64(9223372036854775807)})
-		ssql.Emit(map[string]interface{}{"value": float32(1.23)})
+		ssql.Emit(map[string]any{"value": 42})
+		ssql.Emit(map[string]any{"value": 3.14159})
+		ssql.Emit(map[string]any{"value": int64(9223372036854775807)})
+		ssql.Emit(map[string]any{"value": float32(1.23)})
 		ssql.Stop()
 	})
 
@@ -370,8 +370,8 @@ func TestStreamSQLDataTypes(t *testing.T) {
 		err := ssql.Execute("SELECT active FROM stream")
 		require.Nil(t, err)
 
-		ssql.Emit(map[string]interface{}{"active": true})
-		ssql.Emit(map[string]interface{}{"active": false})
+		ssql.Emit(map[string]any{"active": true})
+		ssql.Emit(map[string]any{"active": false})
 		ssql.Stop()
 	})
 
@@ -382,8 +382,8 @@ func TestStreamSQLDataTypes(t *testing.T) {
 		require.Nil(t, err)
 
 		now := time.Now()
-		ssql.Emit(map[string]interface{}{"timestamp": now})
-		ssql.Emit(map[string]interface{}{"timestamp": now.Unix()})
+		ssql.Emit(map[string]any{"timestamp": now})
+		ssql.Emit(map[string]any{"timestamp": now.Unix()})
 		ssql.Stop()
 	})
 
@@ -393,9 +393,9 @@ func TestStreamSQLDataTypes(t *testing.T) {
 		err := ssql.Execute("SELECT data FROM stream")
 		require.Nil(t, err)
 
-		ssql.Emit(map[string]interface{}{"data": []int{1, 2, 3, 4, 5}})
-		ssql.Emit(map[string]interface{}{"data": []string{"a", "b", "c"}})
-		ssql.Emit(map[string]interface{}{"data": []interface{}{1, "test", true}})
+		ssql.Emit(map[string]any{"data": []int{1, 2, 3, 4, 5}})
+		ssql.Emit(map[string]any{"data": []string{"a", "b", "c"}})
+		ssql.Emit(map[string]any{"data": []any{1, "test", true}})
 		ssql.Stop()
 	})
 
@@ -405,8 +405,8 @@ func TestStreamSQLDataTypes(t *testing.T) {
 		err := ssql.Execute("SELECT metadata FROM stream")
 		require.Nil(t, err)
 
-		ssql.Emit(map[string]interface{}{
-			"metadata": map[string]interface{}{
+		ssql.Emit(map[string]any{
+			"metadata": map[string]any{
 				"key1": "value1",
 				"key2": 42,
 				"key3": true,
@@ -427,7 +427,7 @@ func TestStreamSQLStressTest(t *testing.T) {
 
 		// 高频率发送数据
 		for i := 0; i < 1000; i++ {
-			ssql.Emit(map[string]interface{}{"id": i})
+			ssql.Emit(map[string]any{"id": i})
 		}
 		ssql.Stop()
 	})
@@ -445,7 +445,7 @@ func TestStreamSQLStressTest(t *testing.T) {
 		}
 
 		for i := 0; i < 10; i++ {
-			ssql.Emit(map[string]interface{}{"data": string(largeString)})
+			ssql.Emit(map[string]any{"data": string(largeString)})
 		}
 		ssql.Stop()
 	})
@@ -465,7 +465,7 @@ func TestStreamSQLStressTest(t *testing.T) {
 			go func(workerID int) {
 				defer wg.Done()
 				for j := 0; j < numEmissions; j++ {
-					ssql.Emit(map[string]interface{}{"id": workerID*1000 + j})
+					ssql.Emit(map[string]any{"id": workerID*1000 + j})
 				}
 			}(i)
 		}

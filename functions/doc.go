@@ -78,7 +78,7 @@ Simple API for registering custom functions:
 		"Temperature conversion",
 		"Convert Fahrenheit to Celsius",
 		1, 1, // min and max arguments
-		func(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *FunctionContext, args []any) (any, error) {
 			f := args[0].(float64)
 			return (f - 32) * 5 / 9, nil
 		},
@@ -90,13 +90,13 @@ Simple API for registering custom functions:
 		sum float64
 	}
 
-	func (f *CustomSumFunction) Add(value interface{}) {
+	func (f *CustomSumFunction) Add(value any) {
 		if v, ok := value.(float64); ok {
 			f.sum += v
 		}
 	}
 
-	func (f *CustomSumFunction) Result() interface{} {
+	func (f *CustomSumFunction) Result() any {
 		return f.sum
 	}
 
@@ -108,15 +108,15 @@ The package defines several interfaces for different function types:
 	type Function interface {
 		GetName() string
 		GetType() FunctionType
-		Execute(ctx *FunctionContext, args []interface{}) (interface{}, error)
+		Execute(ctx *FunctionContext, args []any) (any, error)
 	}
 
 	// Aggregation function interface
 	type AggregatorFunction interface {
 		Function
 		New() AggregatorFunction
-		Add(value interface{})
-		Result() interface{}
+		Add(value any)
+		Result() any
 		Reset()
 		Clone() AggregatorFunction
 	}

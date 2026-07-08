@@ -175,14 +175,14 @@ func TestAnalyticalAggregatorAdapterWithMockFunction(t *testing.T) {
 	// 创建模拟分析函数
 	mockFunc := &MockAnalyticalFunction{
 		name:   "mock_analytical",
-		values: []interface{}{},
+		values: []any{},
 	}
 
 	// 创建适配器
 	adapter := &AnalyticalAggregatorAdapter{
 		analFunc: mockFunc,
 		ctx: &FunctionContext{
-			Data: make(map[string]interface{}),
+			Data: make(map[string]any),
 		},
 	}
 
@@ -211,7 +211,7 @@ func TestAnalyticalAggregatorAdapterWithMockFunction(t *testing.T) {
 // MockAnalyticalFunction 模拟分析函数用于测试
 type MockAnalyticalFunction struct {
 	name   string
-	values []interface{}
+	values []any
 }
 
 // GetName 返回函数名称
@@ -250,12 +250,12 @@ func (m *MockAnalyticalFunction) GetMaxArgs() int {
 }
 
 // Validate 验证参数
-func (m *MockAnalyticalFunction) Validate(args []interface{}) error {
+func (m *MockAnalyticalFunction) Validate(args []any) error {
 	return nil
 }
 
 // Execute 执行函数
-func (m *MockAnalyticalFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (m *MockAnalyticalFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if len(args) > 0 {
 		m.values = append(m.values, args[0])
 	}
@@ -263,25 +263,25 @@ func (m *MockAnalyticalFunction) Execute(ctx *FunctionContext, args []interface{
 }
 
 // Add 添加值到聚合器
-func (m *MockAnalyticalFunction) Add(value interface{}) {
+func (m *MockAnalyticalFunction) Add(value any) {
 	m.values = append(m.values, value)
 }
 
 // Result 返回聚合结果
-func (m *MockAnalyticalFunction) Result() interface{} {
+func (m *MockAnalyticalFunction) Result() any {
 	return len(m.values)
 }
 
 // Reset 重置聚合器
 func (m *MockAnalyticalFunction) Reset() {
-	m.values = make([]interface{}, 0)
+	m.values = make([]any, 0)
 }
 
 // New 创建新的聚合器实例
 func (m *MockAnalyticalFunction) New() AggregatorFunction {
 	newMock := &MockAnalyticalFunction{
 		name:   m.name,
-		values: make([]interface{}, 0),
+		values: make([]any, 0),
 	}
 	return newMock
 }
@@ -290,7 +290,7 @@ func (m *MockAnalyticalFunction) New() AggregatorFunction {
 func (m *MockAnalyticalFunction) Clone() AggregatorFunction {
 	newMock := &MockAnalyticalFunction{
 		name:   m.name,
-		values: make([]interface{}, len(m.values)),
+		values: make([]any, len(m.values)),
 	}
 	copy(newMock.values, m.values)
 	return newMock

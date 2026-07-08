@@ -19,11 +19,11 @@ func NewToJsonFunction() *ToJsonFunction {
 	}
 }
 
-func (f *ToJsonFunction) Validate(args []interface{}) error {
+func (f *ToJsonFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ToJsonFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ToJsonFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	value := args[0]
 	jsonBytes, err := json.Marshal(value)
 	if err != nil {
@@ -43,17 +43,17 @@ func NewFromJsonFunction() *FromJsonFunction {
 	}
 }
 
-func (f *FromJsonFunction) Validate(args []interface{}) error {
+func (f *FromJsonFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *FromJsonFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *FromJsonFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	jsonStr, ok := args[0].(string)
 	if !ok {
 		return nil, fmt.Errorf("from_json requires string input")
 	}
 
-	var result interface{}
+	var result any
 	err := json.Unmarshal([]byte(jsonStr), &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %v", err)
@@ -72,12 +72,12 @@ func NewJsonExtractFunction() *JsonExtractFunction {
 	}
 }
 
-func (f *JsonExtractFunction) Validate(args []interface{}) error {
+func (f *JsonExtractFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *JsonExtractFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-	var data interface{}
+func (f *JsonExtractFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
+	var data any
 	var err error
 
 	// Support string (JSON), map, and slice input
@@ -87,9 +87,9 @@ func (f *JsonExtractFunction) Execute(ctx *FunctionContext, args []interface{}) 
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse JSON: %v", err)
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		data = v
-	case []interface{}:
+	case []any:
 		data = v
 	default:
 		return nil, fmt.Errorf("json_extract requires string, map, or array input")
@@ -135,17 +135,17 @@ func NewJsonValidFunction() *JsonValidFunction {
 	}
 }
 
-func (f *JsonValidFunction) Validate(args []interface{}) error {
+func (f *JsonValidFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *JsonValidFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *JsonValidFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	jsonStr, ok := args[0].(string)
 	if !ok {
 		return false, nil
 	}
 
-	var temp interface{}
+	var temp any
 	err := json.Unmarshal([]byte(jsonStr), &temp)
 	return err == nil, nil
 }
@@ -161,17 +161,17 @@ func NewJsonTypeFunction() *JsonTypeFunction {
 	}
 }
 
-func (f *JsonTypeFunction) Validate(args []interface{}) error {
+func (f *JsonTypeFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *JsonTypeFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *JsonTypeFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	jsonStr, ok := args[0].(string)
 	if !ok {
 		return "unknown", nil
 	}
 
-	var data interface{}
+	var data any
 	err := json.Unmarshal([]byte(jsonStr), &data)
 	if err != nil {
 		return "invalid", nil
@@ -186,9 +186,9 @@ func (f *JsonTypeFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 		return "number", nil
 	case string:
 		return "string", nil
-	case []interface{}:
+	case []any:
 		return "array", nil
-	case map[string]interface{}:
+	case map[string]any:
 		return "object", nil
 	default:
 		return "unknown", nil
@@ -206,26 +206,26 @@ func NewJsonLengthFunction() *JsonLengthFunction {
 	}
 }
 
-func (f *JsonLengthFunction) Validate(args []interface{}) error {
+func (f *JsonLengthFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *JsonLengthFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *JsonLengthFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	jsonStr, ok := args[0].(string)
 	if !ok {
 		return nil, fmt.Errorf("json_length requires string input")
 	}
 
-	var data interface{}
+	var data any
 	err := json.Unmarshal([]byte(jsonStr), &data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %v", err)
 	}
 
 	switch v := data.(type) {
-	case []interface{}:
+	case []any:
 		return len(v), nil
-	case map[string]interface{}:
+	case map[string]any:
 		return len(v), nil
 	default:
 		return nil, fmt.Errorf("JSON value is not an array or object")

@@ -139,7 +139,7 @@ func NewSessionWindow(config types.WindowConfig) (*SessionWindow, error) {
 }
 
 // Add adds data to session window
-func (sw *SessionWindow) Add(data interface{}) {
+func (sw *SessionWindow) Add(data any) {
 	// Lock to ensure thread safety
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
@@ -619,13 +619,13 @@ func (sw *SessionWindow) closeExpiredSessions(watermarkTime time.Time) {
 
 // extractSessionCompositeKey builds composite session key from multiple group fields
 // If GroupByKeys is empty, returns default key
-func extractSessionCompositeKey(data interface{}, keys []string) string {
+func extractSessionCompositeKey(data any, keys []string) string {
 	if len(keys) == 0 {
 		return "default"
 	}
 
-	// Fast path for map[string]interface{}
-	if m, ok := data.(map[string]interface{}); ok {
+	// Fast path for map[string]any
+	if m, ok := data.(map[string]any); ok {
 		parts := make([]string, 0, len(keys))
 		for _, k := range keys {
 			if val, exists := m[k]; exists {

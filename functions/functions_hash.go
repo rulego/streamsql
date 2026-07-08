@@ -19,11 +19,11 @@ func NewMd5Function() *Md5Function {
 	}
 }
 
-func (f *Md5Function) Validate(args []interface{}) error {
+func (f *Md5Function) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *Md5Function) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *Md5Function) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, ok := args[0].(string)
 	if !ok {
 		return nil, fmt.Errorf("md5 requires string input")
@@ -44,11 +44,11 @@ func NewSha1Function() *Sha1Function {
 	}
 }
 
-func (f *Sha1Function) Validate(args []interface{}) error {
+func (f *Sha1Function) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *Sha1Function) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *Sha1Function) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, ok := args[0].(string)
 	if !ok {
 		return nil, fmt.Errorf("sha1 requires string input")
@@ -69,11 +69,11 @@ func NewSha256Function() *Sha256Function {
 	}
 }
 
-func (f *Sha256Function) Validate(args []interface{}) error {
+func (f *Sha256Function) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *Sha256Function) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *Sha256Function) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, ok := args[0].(string)
 	if !ok {
 		return nil, fmt.Errorf("sha256 requires string input")
@@ -94,11 +94,11 @@ func NewSha512Function() *Sha512Function {
 	}
 }
 
-func (f *Sha512Function) Validate(args []interface{}) error {
+func (f *Sha512Function) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *Sha512Function) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *Sha512Function) Execute(ctx *FunctionContext, args []any) (any, error) {
 	str, ok := args[0].(string)
 	if !ok {
 		return nil, fmt.Errorf("sha512 requires string input")

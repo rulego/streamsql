@@ -37,13 +37,13 @@ engine that brings together all StreamSQL components into a cohesive streaming s
 The stream processing pipeline consists of several key components:
 
 	type Stream struct {
-		dataChan       chan map[string]interface{}  // Input data channel
+		dataChan       chan map[string]any  // Input data channel
 		filter         condition.Condition          // WHERE clause filter
 		Window         window.Window                // Window manager
 		aggregator     aggregator.Aggregator        // Aggregation engine
 		config         types.Config                 // Stream configuration
-		sinks          []func([]map[string]interface{}) // Result processors
-		resultChan     chan []map[string]interface{} // Result channel
+		sinks          []func([]map[string]any) // Result processors
+		resultChan     chan []map[string]any // Result channel
 
 		dataStrategy   DataProcessingStrategy       // Data processing strategy
 	}
@@ -121,7 +121,7 @@ Seamless integration with all window types:
 	// Tumbling Windows - Non-overlapping time-based windows
 	config.WindowConfig = WindowConfig{
 		Type: "tumbling",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"size": "5s",
 		},
 	}
@@ -129,7 +129,7 @@ Seamless integration with all window types:
 	// Sliding Windows - Overlapping time-based windows
 	config.WindowConfig = WindowConfig{
 		Type: "sliding",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"size": "30s",
 			"slide": "10s",
 		},
@@ -138,7 +138,7 @@ Seamless integration with all window types:
 	// Counting Windows - Count-based windows
 	config.WindowConfig = WindowConfig{
 		Type: "counting",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"count": 100,
 		},
 	}
@@ -146,7 +146,7 @@ Seamless integration with all window types:
 	// Session Windows - Activity-based windows
 	config.WindowConfig = WindowConfig{
 		Type: "session",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"timeout": "5m",
 			"groupBy": "user_id",
 		},
@@ -204,7 +204,7 @@ Basic stream processing:
 	}
 
 	// Register result handler
-	stream.AddSink(func(results []map[string]interface{}) {
+	stream.AddSink(func(results []map[string]any) {
 		fmt.Printf("Results: %v\n", results)
 	})
 
@@ -212,7 +212,7 @@ Basic stream processing:
 	stream.Start()
 
 	// Send data
-	stream.Emit(map[string]interface{}{
+	stream.Emit(map[string]any{
 		"device_id":   "sensor001",
 		"temperature": 25.5,
 		"timestamp":   time.Now(),

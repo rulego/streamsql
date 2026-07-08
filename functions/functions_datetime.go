@@ -33,11 +33,11 @@ func NewNowFunction() *NowFunction {
 	}
 }
 
-func (f *NowFunction) Validate(args []interface{}) error {
+func (f *NowFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *NowFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *NowFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return time.Now().Unix(), nil
 }
 
@@ -52,11 +52,11 @@ func NewCurrentTimeFunction() *CurrentTimeFunction {
 	}
 }
 
-func (f *CurrentTimeFunction) Validate(args []interface{}) error {
+func (f *CurrentTimeFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CurrentTimeFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CurrentTimeFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	now := time.Now()
 	return now.Format("15:04:05"), nil
 }
@@ -72,11 +72,11 @@ func NewCurrentDateFunction() *CurrentDateFunction {
 	}
 }
 
-func (f *CurrentDateFunction) Validate(args []interface{}) error {
+func (f *CurrentDateFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CurrentDateFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CurrentDateFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	now := time.Now()
 	return now.Format("2006-01-02"), nil
 }
@@ -92,11 +92,11 @@ func NewDateAddFunction() *DateAddFunction {
 	}
 }
 
-func (f *DateAddFunction) Validate(args []interface{}) error {
+func (f *DateAddFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *DateAddFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *DateAddFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -163,11 +163,11 @@ func NewDateSubFunction() *DateSubFunction {
 	}
 }
 
-func (f *DateSubFunction) Validate(args []interface{}) error {
+func (f *DateSubFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *DateSubFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *DateSubFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -233,11 +233,11 @@ func NewDateDiffFunction() *DateDiffFunction {
 	}
 }
 
-func (f *DateDiffFunction) Validate(args []interface{}) error {
+func (f *DateDiffFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *DateDiffFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *DateDiffFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	date1Str, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date1: %v", err)
@@ -298,11 +298,11 @@ func NewDateFormatFunction() *DateFormatFunction {
 	}
 }
 
-func (f *DateFormatFunction) Validate(args []interface{}) error {
+func (f *DateFormatFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *DateFormatFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *DateFormatFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -366,11 +366,11 @@ func NewDateParseFunction() *DateParseFunction {
 	}
 }
 
-func (f *DateParseFunction) Validate(args []interface{}) error {
+func (f *DateParseFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *DateParseFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *DateParseFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date string: %v", err)
@@ -401,11 +401,11 @@ func NewExtractFunction() *ExtractFunction {
 	}
 }
 
-func (f *ExtractFunction) Validate(args []interface{}) error {
+func (f *ExtractFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ExtractFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ExtractFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	unit, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid unit: %v", err)
@@ -456,11 +456,11 @@ func NewUnixTimestampFunction() *UnixTimestampFunction {
 	}
 }
 
-func (f *UnixTimestampFunction) Validate(args []interface{}) error {
+func (f *UnixTimestampFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *UnixTimestampFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *UnixTimestampFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -487,11 +487,11 @@ func NewFromUnixtimeFunction() *FromUnixtimeFunction {
 	}
 }
 
-func (f *FromUnixtimeFunction) Validate(args []interface{}) error {
+func (f *FromUnixtimeFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *FromUnixtimeFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *FromUnixtimeFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	timestamp, err := cast.ToInt64E(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid timestamp: %v", err)
@@ -512,11 +512,11 @@ func NewYearFunction() *YearFunction {
 	}
 }
 
-func (f *YearFunction) Validate(args []interface{}) error {
+func (f *YearFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *YearFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *YearFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 尝试转换为字符串并解析
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
@@ -544,11 +544,11 @@ func NewMonthFunction() *MonthFunction {
 	}
 }
 
-func (f *MonthFunction) Validate(args []interface{}) error {
+func (f *MonthFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *MonthFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *MonthFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 转换为字符串并解析
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
@@ -576,11 +576,11 @@ func NewDayFunction() *DayFunction {
 	}
 }
 
-func (f *DayFunction) Validate(args []interface{}) error {
+func (f *DayFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *DayFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *DayFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -607,11 +607,11 @@ func NewHourFunction() *HourFunction {
 	}
 }
 
-func (f *HourFunction) Validate(args []interface{}) error {
+func (f *HourFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *HourFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *HourFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -638,11 +638,11 @@ func NewMinuteFunction() *MinuteFunction {
 	}
 }
 
-func (f *MinuteFunction) Validate(args []interface{}) error {
+func (f *MinuteFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *MinuteFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *MinuteFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -669,11 +669,11 @@ func NewSecondFunction() *SecondFunction {
 	}
 }
 
-func (f *SecondFunction) Validate(args []interface{}) error {
+func (f *SecondFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *SecondFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *SecondFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -700,11 +700,11 @@ func NewDayOfWeekFunction() *DayOfWeekFunction {
 	}
 }
 
-func (f *DayOfWeekFunction) Validate(args []interface{}) error {
+func (f *DayOfWeekFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *DayOfWeekFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *DayOfWeekFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -731,11 +731,11 @@ func NewDayOfYearFunction() *DayOfYearFunction {
 	}
 }
 
-func (f *DayOfYearFunction) Validate(args []interface{}) error {
+func (f *DayOfYearFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *DayOfYearFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *DayOfYearFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -762,11 +762,11 @@ func NewWeekOfYearFunction() *WeekOfYearFunction {
 	}
 }
 
-func (f *WeekOfYearFunction) Validate(args []interface{}) error {
+func (f *WeekOfYearFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *WeekOfYearFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *WeekOfYearFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	dateStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)

@@ -28,10 +28,10 @@ import (
 func TestConfig(t *testing.T) {
 	config := &Config{
 		WindowConfig: WindowConfig{
-			Type:       "tumbling",
-			Params:     []interface{}{time.Minute},
-			TsProp:     "timestamp",
-			TimeUnit:   time.Minute,
+			Type:        "tumbling",
+			Params:      []any{time.Minute},
+			TsProp:      "timestamp",
+			TimeUnit:    time.Minute,
 			GroupByKeys: []string{"user_id"},
 		},
 		GroupFields:  []string{"user_id", "category"},
@@ -126,10 +126,10 @@ func TestConfig(t *testing.T) {
 // TestWindowConfig 测试 WindowConfig 结构体
 func TestWindowConfig(t *testing.T) {
 	windowConfig := WindowConfig{
-		Type:       "sliding",
-		Params:     []interface{}{5 * time.Minute, time.Minute},
-		TsProp:     "event_time",
-		TimeUnit:   time.Minute,
+		Type:        "sliding",
+		Params:      []any{5 * time.Minute, time.Minute},
+		TsProp:      "event_time",
+		TimeUnit:    time.Minute,
 		GroupByKeys: []string{"session_id"},
 	}
 
@@ -448,10 +448,10 @@ func TestProjectionSourceType(t *testing.T) {
 func TestComplexConfig(t *testing.T) {
 	config := Config{
 		WindowConfig: WindowConfig{
-			Type:       "sliding",
-			Params:     []interface{}{5 * time.Minute, time.Minute},
-			TsProp:     "event_time",
-			TimeUnit:   time.Minute,
+			Type:        "sliding",
+			Params:      []any{5 * time.Minute, time.Minute},
+			TsProp:      "event_time",
+			TimeUnit:    time.Minute,
 			GroupByKeys: []string{"session_id"},
 		},
 		GroupFields: []string{"user_id", "product_category", "region"},

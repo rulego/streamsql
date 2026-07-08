@@ -9,109 +9,109 @@ func TestTypeFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
 		function Function
-		args     []interface{}
-		expected interface{}
+		args     []any
+		expected any
 	}{
 		{
 			name:     "is_numeric with float",
 			function: NewIsNumericFunction(),
-			args:     []interface{}{3.14},
+			args:     []any{3.14},
 			expected: true,
 		},
 		{
 			name:     "is_numeric with int64",
 			function: NewIsNumericFunction(),
-			args:     []interface{}{int64(123)},
+			args:     []any{int64(123)},
 			expected: true,
 		},
 		{
 			name:     "is_numeric with float32",
 			function: NewIsNumericFunction(),
-			args:     []interface{}{float32(3.14)},
+			args:     []any{float32(3.14)},
 			expected: true,
 		},
 		{
 			name:     "is_numeric with float64",
 			function: NewIsNumericFunction(),
-			args:     []interface{}{float64(3.14)},
+			args:     []any{float64(3.14)},
 			expected: true,
 		},
 		{
 			name:     "is_numeric with int32",
 			function: NewIsNumericFunction(),
-			args:     []interface{}{int32(123)},
+			args:     []any{int32(123)},
 			expected: true,
 		},
 		{
 			name:     "is_numeric with uint",
 			function: NewIsNumericFunction(),
-			args:     []interface{}{uint(123)},
+			args:     []any{uint(123)},
 			expected: true,
 		},
 		{
 			name:     "is_numeric with uint64",
 			function: NewIsNumericFunction(),
-			args:     []interface{}{uint64(123)},
+			args:     []any{uint64(123)},
 			expected: true,
 		},
 		{
 			name:     "is_numeric with uint32",
 			function: NewIsNumericFunction(),
-			args:     []interface{}{uint32(123)},
+			args:     []any{uint32(123)},
 			expected: true,
 		},
 		{
 			name:     "is_numeric with bool",
 			function: NewIsNumericFunction(),
-			args:     []interface{}{true},
+			args:     []any{true},
 			expected: false,
 		},
 		{
 			name:     "is_numeric with nil",
 			function: NewIsNumericFunction(),
-			args:     []interface{}{nil},
+			args:     []any{nil},
 			expected: false,
 		},
 		{
 			name:     "is_string with empty string",
 			function: NewIsStringFunction(),
-			args:     []interface{}{""},
+			args:     []any{""},
 			expected: true,
 		},
 		{
 			name:     "is_bool with false",
 			function: NewIsBoolFunction(),
-			args:     []interface{}{false},
+			args:     []any{false},
 			expected: true,
 		},
 		{
 			name:     "is_bool with nil",
 			function: NewIsBoolFunction(),
-			args:     []interface{}{nil},
+			args:     []any{nil},
 			expected: false,
 		},
 		{
 			name:     "is_array",
 			function: NewIsArrayFunction(),
-			args:     []interface{}{[]int{1, 2, 3}},
+			args:     []any{[]int{1, 2, 3}},
 			expected: true,
 		},
 		{
 			name:     "is_array with nil",
 			function: NewIsArrayFunction(),
-			args:     []interface{}{nil},
+			args:     []any{nil},
 			expected: false,
 		},
 		{
 			name:     "is_object",
 			function: NewIsObjectFunction(),
-			args:     []interface{}{map[string]int{"a": 1, "b": 2}},
+			args:     []any{map[string]int{"a": 1, "b": 2}},
 			expected: true,
 		},
 		{
 			name:     "is_object with nil",
 			function: NewIsObjectFunction(),
-			args:     []interface{}{nil},
+			args:     []any{nil},
 			expected: false,
 		},
 	}
@@ -141,25 +141,25 @@ func TestTypeFunctionValidation(t *testing.T) {
 	tests := []struct {
 		name     string
 		function Function
-		args     []interface{}
+		args     []any
 		wantErr  bool
 	}{
 		{
 			name:     "is_null no args",
 			function: NewIsNullFunction(),
-			args:     []interface{}{},
+			args:     []any{},
 			wantErr:  true,
 		},
 		{
 			name:     "is_null too many args",
 			function: NewIsNullFunction(),
-			args:     []interface{}{"test", "extra"},
+			args:     []any{"test", "extra"},
 			wantErr:  true,
 		},
 		{
 			name:     "is_null valid args",
 			function: NewIsNullFunction(),
-			args:     []interface{}{"test"},
+			args:     []any{"test"},
 			wantErr:  false,
 		},
 	}

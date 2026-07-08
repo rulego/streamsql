@@ -178,7 +178,7 @@ func TestAnalyticalAggregatorWrapper(t *testing.T) {
 	adapter := &AnalyticalAggregatorAdapter{
 		analFunc: testAnalFunc,
 		ctx: &FunctionContext{
-			Data: make(map[string]interface{}),
+			Data: make(map[string]any),
 		},
 	}
 	wrapper := &AnalyticalAggregatorWrapper{adapter: adapter}
@@ -206,14 +206,14 @@ func (t *TestLegacyAggregator) New() LegacyAggregatorFunction {
 }
 
 // Add 添加值
-func (t *TestLegacyAggregator) Add(value interface{}) {
+func (t *TestLegacyAggregator) Add(value any) {
 	if v, ok := value.(int); ok {
 		t.sum += v
 	}
 }
 
 // Result 返回聚合结果
-func (t *TestLegacyAggregator) Result() interface{} {
+func (t *TestLegacyAggregator) Result() any {
 	return t.sum
 }
 
@@ -228,14 +228,14 @@ func (t *TestAggregatorFunction) New() AggregatorFunction {
 }
 
 // Add 添加值
-func (t *TestAggregatorFunction) Add(value interface{}) {
+func (t *TestAggregatorFunction) Add(value any) {
 	if v, ok := value.(int); ok {
 		t.sum += v
 	}
 }
 
 // Result 返回聚合结果
-func (t *TestAggregatorFunction) Result() interface{} {
+func (t *TestAggregatorFunction) Result() any {
 	return t.sum
 }
 
@@ -275,12 +275,12 @@ func (t *TestAggregatorFunction) GetAliases() []string {
 }
 
 // Validate 验证参数
-func (t *TestAggregatorFunction) Validate(args []interface{}) error {
+func (t *TestAggregatorFunction) Validate(args []any) error {
 	return nil
 }
 
 // Execute 执行函数
-func (t *TestAggregatorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (t *TestAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return t.Result(), nil
 }
 
@@ -296,34 +296,34 @@ func (t *TestAggregatorFunction) GetMaxArgs() int {
 
 // TestAnalyticalFunction 测试用的分析函数实现
 type TestAnalyticalFunction struct {
-	values []interface{}
+	values []any
 }
 
 // New 创建新的分析函数实例
 func (t *TestAnalyticalFunction) New() AggregatorFunction {
 	return &TestAnalyticalFunction{
-		values: make([]interface{}, 0),
+		values: make([]any, 0),
 	}
 }
 
 // Add 添加值
-func (t *TestAnalyticalFunction) Add(value interface{}) {
+func (t *TestAnalyticalFunction) Add(value any) {
 	t.values = append(t.values, value)
 }
 
 // Result 返回分析结果
-func (t *TestAnalyticalFunction) Result() interface{} {
+func (t *TestAnalyticalFunction) Result() any {
 	return len(t.values)
 }
 
 // Reset 重置分析函数状态
 func (t *TestAnalyticalFunction) Reset() {
-	t.values = make([]interface{}, 0)
+	t.values = make([]any, 0)
 }
 
 // Clone 克隆分析函数
 func (t *TestAnalyticalFunction) Clone() AggregatorFunction {
-	newValues := make([]interface{}, len(t.values))
+	newValues := make([]any, len(t.values))
 	copy(newValues, t.values)
 	return &TestAnalyticalFunction{values: newValues}
 }
@@ -354,12 +354,12 @@ func (t *TestAnalyticalFunction) GetAliases() []string {
 }
 
 // Validate 验证参数
-func (t *TestAnalyticalFunction) Validate(args []interface{}) error {
+func (t *TestAnalyticalFunction) Validate(args []any) error {
 	return nil
 }
 
 // Execute 执行函数
-func (t *TestAnalyticalFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (t *TestAnalyticalFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return t.Result(), nil
 }
 

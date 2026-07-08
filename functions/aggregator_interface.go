@@ -8,9 +8,9 @@ type AggregatorFunction interface {
 	// New creates a new aggregator instance
 	New() AggregatorFunction
 	// Add adds a value for incremental computation
-	Add(value interface{})
+	Add(value any)
 	// Result returns the aggregation result
-	Result() interface{}
+	Result() any
 	// Reset resets the aggregator state
 	Reset()
 	// Clone clones the aggregator (used for window functions and similar scenarios)
@@ -27,7 +27,7 @@ type AnalyticalFunction interface {
 type ParameterizedFunction interface {
 	AggregatorFunction
 	// Init initializes the function with parsed arguments
-	Init(args []interface{}) error
+	Init(args []any) error
 }
 
 // CreateAggregator creates an aggregator instance
@@ -45,7 +45,7 @@ func CreateAggregator(name string) (AggregatorFunction, error) {
 }
 
 // CreateParameterizedAggregator creates a parameterized aggregator instance with initialization
-func CreateParameterizedAggregator(name string, args []interface{}) (AggregatorFunction, error) {
+func CreateParameterizedAggregator(name string, args []any) (AggregatorFunction, error) {
 	fn, exists := Get(name)
 	if !exists {
 		return nil, fmt.Errorf("aggregator function %s not found", name)

@@ -111,11 +111,11 @@ func (sf *StreamFactory) createStreamInstance(config types.Config, win window.Wi
 	perfConfig := config.PerformanceConfig
 	reg := metrics.NewRegistry()
 	return &Stream{
-		dataChan:         make(chan map[string]interface{}, perfConfig.BufferConfig.DataChannelSize),
+		dataChan:         make(chan map[string]any, perfConfig.BufferConfig.DataChannelSize),
 		config:           config,
 		Window:           win,
 		tables:           newTableStore(),
-		resultChan:       make(chan []map[string]interface{}, perfConfig.BufferConfig.ResultChannelSize),
+		resultChan:       make(chan []map[string]any, perfConfig.BufferConfig.ResultChannelSize),
 		seenResults:      &sync.Map{},
 		done:             make(chan struct{}),
 		sinkWorkerPool:   make(chan func(), perfConfig.WorkerConfig.SinkPoolSize),

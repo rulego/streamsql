@@ -27,15 +27,15 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		strm := ssql.Stream()
 
 		// 创建结果接收通道
-		resultChan := make(chan interface{}, 10)
+		resultChan := make(chan any, 10)
 
 		// 添加结果回调
-		strm.AddSink(func(result []map[string]interface{}) {
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 添加测试数据
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "sensor001", "deviceType": "temperature"},
 			{"deviceId": "device002", "deviceType": "humidity"},
 			{"deviceId": "sensor003", "deviceType": "pressure"},
@@ -48,7 +48,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 
 		// 等待并收集结果
-		var results []interface{}
+		var results []any
 		timeout := time.After(2 * time.Second)
 		done := false
 
@@ -66,8 +66,8 @@ func TestLikeOperatorInSQL(t *testing.T) {
 
 		// 验证结果中只包含以"sensor"开头的设备
 		for _, result := range results {
-			resultSlice, ok := result.([]map[string]interface{})
-			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+			resultSlice, ok := result.([]map[string]any)
+			require.True(t, ok, "结果应该是[]map[string]any类型")
 
 			for _, item := range resultSlice {
 				deviceId, _ := item["deviceId"].(string)
@@ -87,12 +87,12 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		assert.Nil(t, err)
 		strm := ssql.Stream()
 
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "dev1", "status": "connection_error"},
 			{"deviceId": "dev2", "status": "running"},
 			{"deviceId": "dev3", "status": "timeout_error"},
@@ -104,7 +104,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 
 		// 等待结果
-		var results []interface{}
+		var results []any
 		timeout := time.After(2 * time.Second)
 		done := false
 
@@ -121,8 +121,8 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		assert.GreaterOrEqual(t, len(results), 1, "应该收到至少一个匹配结果")
 
 		for _, result := range results {
-			resultSlice, ok := result.([]map[string]interface{})
-			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+			resultSlice, ok := result.([]map[string]any)
+			require.True(t, ok, "结果应该是[]map[string]any类型")
 
 			for _, item := range resultSlice {
 				status, _ := item["status"].(string)
@@ -142,12 +142,12 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		assert.Nil(t, err)
 		strm := ssql.Stream()
 
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "dev1", "message": "system alert: high temperature"},
 			{"deviceId": "dev2", "message": "normal operation"},
 			{"deviceId": "dev3", "message": "critical alert detected"},
@@ -159,7 +159,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 
 		// 等待结果
-		var results []interface{}
+		var results []any
 		timeout := time.After(2 * time.Second)
 		done := false
 
@@ -176,8 +176,8 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		assert.GreaterOrEqual(t, len(results), 1, "应该收到至少一个匹配结果")
 
 		for _, result := range results {
-			resultSlice, ok := result.([]map[string]interface{})
-			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+			resultSlice, ok := result.([]map[string]any)
+			require.True(t, ok, "结果应该是[]map[string]any类型")
 
 			for _, item := range resultSlice {
 				message, _ := item["message"].(string)
@@ -197,12 +197,12 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		assert.Nil(t, err)
 		strm := ssql.Stream()
 
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "dev1", "code": "E101"},
 			{"deviceId": "dev2", "code": "E202"},
 			{"deviceId": "dev3", "code": "E305"},
@@ -214,7 +214,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 
 		// 等待结果
-		var results []interface{}
+		var results []any
 		timeout := time.After(2 * time.Second)
 		done := false
 
@@ -242,12 +242,12 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		assert.Nil(t, err)
 		strm := ssql.Stream()
 
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "dev1", "filename": "system.log"},
 			{"deviceId": "dev2", "filename": "config.txt"},
 			{"deviceId": "dev3", "filename": "error.log"},
@@ -259,7 +259,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 
 		// 等待结果
-		var results []interface{}
+		var results []any
 		timeout := time.After(2 * time.Second)
 		done := false
 
@@ -276,8 +276,8 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		assert.GreaterOrEqual(t, len(results), 1, "应该收到至少一个匹配结果")
 
 		for _, result := range results {
-			resultSlice, ok := result.([]map[string]interface{})
-			require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+			resultSlice, ok := result.([]map[string]any)
+			require.True(t, ok, "结果应该是[]map[string]any类型")
 
 			for _, item := range resultSlice {
 				filename, _ := item["filename"].(string)
@@ -297,12 +297,12 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		assert.Nil(t, err)
 		strm := ssql.Stream()
 
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "sensor001", "deviceType": "temperature"},
 			{"deviceId": "sensor002", "deviceType": "temperature"},
 			{"deviceId": "device003", "deviceType": "temperature"},
@@ -322,7 +322,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
-		var actual interface{}
+		var actual any
 		select {
 		case actual = <-resultChan:
 			cancel()
@@ -331,8 +331,8 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 
 		// 验证聚合结果
-		resultSlice, ok := actual.([]map[string]interface{})
-		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+		resultSlice, ok := actual.([]map[string]any)
+		require.True(t, ok, "结果应该是[]map[string]any类型")
 
 		// 应该有两种设备类型：temperature(2个sensor), humidity(1个sensor)
 		assert.GreaterOrEqual(t, len(resultSlice), 1, "应该有至少一种设备类型的聚合结果")
@@ -359,12 +359,12 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		assert.Nil(t, err)
 		strm := ssql.Stream()
 
-		resultChan := make(chan interface{}, 10)
-		strm.AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceType": "temperature_sensor", "temperature": 25.0},
 			{"deviceType": "temperature_sensor", "temperature": 30.0},
 			{"deviceType": "humidity_sensor", "temperature": 22.0},
@@ -383,7 +383,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
-		var actual interface{}
+		var actual any
 		select {
 		case actual = <-resultChan:
 			cancel()
@@ -392,8 +392,8 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 
 		// 验证HAVING + LIKE结果
-		resultSlice, ok := actual.([]map[string]interface{})
-		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+		resultSlice, ok := actual.([]map[string]any)
+		require.True(t, ok, "结果应该是[]map[string]any类型")
 
 		// 应该只有包含"temp"的设备类型
 		for _, result := range resultSlice {
@@ -421,13 +421,13 @@ func TestLikeFunctionEquivalence(t *testing.T) {
 		err := ssql.Execute(likeSQL)
 		assert.Nil(t, err)
 
-		resultChan := make(chan interface{}, 10)
-		ssql.Stream().AddSink(func(result []map[string]interface{}) {
+		resultChan := make(chan any, 10)
+		ssql.Stream().AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
 		// 测试数据
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"deviceId": "sensor001"},
 			{"deviceId": "device002"},
 			{"deviceId": "sensor003"},
@@ -440,7 +440,7 @@ func TestLikeFunctionEquivalence(t *testing.T) {
 
 		// 收集结果
 		timeout := time.After(2 * time.Second)
-		var results []interface{}
+		var results []any
 
 		for len(results) < 2 {
 			select {
@@ -456,8 +456,8 @@ func TestLikeFunctionEquivalence(t *testing.T) {
 
 		// 验证返回的结果确实是以'sensor'开头的
 		for i, result := range results {
-			resultSlice, ok := result.([]map[string]interface{})
-			assert.True(t, ok, fmt.Sprintf("结果%d应该是[]map[string]interface{}类型", i))
+			resultSlice, ok := result.([]map[string]any)
+			assert.True(t, ok, fmt.Sprintf("结果%d应该是[]map[string]any类型", i))
 			if len(resultSlice) > 0 {
 				deviceId, exists := resultSlice[0]["deviceId"]
 				assert.True(t, exists, "结果应该包含deviceId字段")
@@ -523,13 +523,13 @@ func TestLikePatternMatching(t *testing.T) {
 			err := ssql.Execute(rsql)
 			assert.Nil(t, err)
 
-			resultChan := make(chan interface{}, 10)
-			ssql.Stream().AddSink(func(result []map[string]interface{}) {
+			resultChan := make(chan any, 10)
+			ssql.Stream().AddSink(func(result []map[string]any) {
 				resultChan <- result
 			})
 
 			// 添加测试数据
-			testData := map[string]interface{}{"value": test.text}
+			testData := map[string]any{"value": test.text}
 			ssql.Stream().Emit(testData)
 
 			// 等待结果
@@ -538,7 +538,7 @@ func TestLikePatternMatching(t *testing.T) {
 
 			select {
 			case result := <-resultChan:
-				resultSlice, ok := result.([]map[string]interface{})
+				resultSlice, ok := result.([]map[string]any)
 				hasResult = ok && len(resultSlice) > 0
 			case <-timeout:
 				hasResult = false

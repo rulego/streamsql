@@ -34,14 +34,14 @@ func NewDataHandler(stream *Stream) *DataHandler {
 }
 
 // safeGetDataChan safely gets dataChan reference
-func (s *Stream) safeGetDataChan() chan map[string]interface{} {
+func (s *Stream) safeGetDataChan() chan map[string]any {
 	s.dataChanMux.RLock()
 	defer s.dataChanMux.RUnlock()
 	return s.dataChan
 }
 
 // safeSendToDataChan safely sends data to dataChan
-func (s *Stream) safeSendToDataChan(data map[string]interface{}) bool {
+func (s *Stream) safeSendToDataChan(data map[string]any) bool {
 	// Check if stream is stopped before attempting to send
 	if atomic.LoadInt32(&s.stopped) == 1 {
 		return false
@@ -93,7 +93,7 @@ func (s *Stream) expandDataChannel() {
 	logger.Debug("Dynamic expansion of data channel: %d -> %d", oldCap, newCap)
 
 	// Create new larger channel
-	newChan := make(chan map[string]interface{}, newCap)
+	newChan := make(chan map[string]any, newCap)
 
 	// Safely migrate data using write lock
 	s.dataChanMux.Lock()

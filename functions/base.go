@@ -73,7 +73,7 @@ func (bf *BaseFunction) GetMaxArgs() int {
 }
 
 // ValidateArgCount validates the number of arguments
-func (bf *BaseFunction) ValidateArgCount(args []interface{}) error {
+func (bf *BaseFunction) ValidateArgCount(args []any) error {
 	argCount := len(args)
 
 	if argCount < bf.minArgs {

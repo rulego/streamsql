@@ -11,10 +11,10 @@ import (
 // mockParameterizedAggregator 实现ParameterizedFunction接口用于测试
 type mockParameterizedAggregator struct {
 	name        string
-	args        []interface{}
+	args        []any
 	initialized bool
-	addedValues []interface{}
-	result      interface{}
+	addedValues []any
+	result      any
 }
 
 // 实现Function接口
@@ -42,11 +42,11 @@ func (m *mockParameterizedAggregator) GetAliases() []string {
 	return []string{}
 }
 
-func (m *mockParameterizedAggregator) Validate(args []interface{}) error {
+func (m *mockParameterizedAggregator) Validate(args []any) error {
 	return nil
 }
 
-func (m *mockParameterizedAggregator) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (m *mockParameterizedAggregator) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return m.result, nil
 }
 
@@ -58,15 +58,15 @@ func (m *mockParameterizedAggregator) GetDescription() string {
 func (m *mockParameterizedAggregator) New() AggregatorFunction {
 	return &mockParameterizedAggregator{
 		name:        m.name,
-		addedValues: make([]interface{}, 0),
+		addedValues: make([]any, 0),
 	}
 }
 
-func (m *mockParameterizedAggregator) Add(value interface{}) {
+func (m *mockParameterizedAggregator) Add(value any) {
 	m.addedValues = append(m.addedValues, value)
 }
 
-func (m *mockParameterizedAggregator) Result() interface{} {
+func (m *mockParameterizedAggregator) Result() any {
 	if m.result != nil {
 		return m.result
 	}
@@ -75,7 +75,7 @@ func (m *mockParameterizedAggregator) Result() interface{} {
 }
 
 func (m *mockParameterizedAggregator) Reset() {
-	m.addedValues = make([]interface{}, 0)
+	m.addedValues = make([]any, 0)
 	m.result = nil
 }
 
@@ -84,13 +84,13 @@ func (m *mockParameterizedAggregator) Clone() AggregatorFunction {
 		name:        m.name,
 		args:        m.args,
 		initialized: m.initialized,
-		addedValues: make([]interface{}, len(m.addedValues)),
+		addedValues: make([]any, len(m.addedValues)),
 		result:      m.result,
 	}
 }
 
 // 实现ParameterizedFunction接口
-func (m *mockParameterizedAggregator) Init(args []interface{}) error {
+func (m *mockParameterizedAggregator) Init(args []any) error {
 	m.args = args
 	m.initialized = true
 	// 根据参数设置结果
@@ -105,7 +105,7 @@ func (m *mockParameterizedAggregator) Init(args []interface{}) error {
 // mockSimpleAggregator 实现AggregatorFunction接口但不实现ParameterizedFunction
 type mockSimpleAggregator struct {
 	name   string
-	values []interface{}
+	values []any
 }
 
 // 实现Function接口
@@ -133,11 +133,11 @@ func (m *mockSimpleAggregator) GetAliases() []string {
 	return []string{}
 }
 
-func (m *mockSimpleAggregator) Validate(args []interface{}) error {
+func (m *mockSimpleAggregator) Validate(args []any) error {
 	return nil
 }
 
-func (m *mockSimpleAggregator) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (m *mockSimpleAggregator) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return len(m.values), nil
 }
 
@@ -149,26 +149,26 @@ func (m *mockSimpleAggregator) GetDescription() string {
 func (m *mockSimpleAggregator) New() AggregatorFunction {
 	return &mockSimpleAggregator{
 		name:   m.name,
-		values: make([]interface{}, 0),
+		values: make([]any, 0),
 	}
 }
 
-func (m *mockSimpleAggregator) Add(value interface{}) {
+func (m *mockSimpleAggregator) Add(value any) {
 	m.values = append(m.values, value)
 }
 
-func (m *mockSimpleAggregator) Result() interface{} {
+func (m *mockSimpleAggregator) Result() any {
 	return len(m.values)
 }
 
 func (m *mockSimpleAggregator) Reset() {
-	m.values = make([]interface{}, 0)
+	m.values = make([]any, 0)
 }
 
 func (m *mockSimpleAggregator) Clone() AggregatorFunction {
 	return &mockSimpleAggregator{
 		name:   m.name,
-		values: make([]interface{}, len(m.values)),
+		values: make([]any, len(m.values)),
 	}
 }
 
@@ -181,7 +181,7 @@ func TestCreateParameterizedAggregator(t *testing.T) {
 		require.NoError(t, err)
 
 		// 测试创建参数化聚合器
-		args := []interface{}{5, "test", 3.14}
+		args := []any{5, "test", 3.14}
 		aggregator, err := CreateParameterizedAggregator("test_param_agg", args)
 		require.NoError(t, err)
 		require.NotNil(t, aggregator)
@@ -204,7 +204,7 @@ func TestCreateParameterizedAggregator(t *testing.T) {
 		require.NoError(t, err)
 
 		// 测试创建非参数化聚合器（应该回退到常规创建）
-		args := []interface{}{1, 2, 3}
+		args := []any{1, 2, 3}
 		aggregator, err := CreateParameterizedAggregator("test_simple_agg", args)
 		require.NoError(t, err)
 		require.NotNil(t, aggregator)
@@ -220,7 +220,7 @@ func TestCreateParameterizedAggregator(t *testing.T) {
 
 	t.Run("测试不存在的聚合器函数", func(t *testing.T) {
 		// 测试创建不存在的聚合器
-		args := []interface{}{1, 2, 3}
+		args := []any{1, 2, 3}
 		aggregator, err := CreateParameterizedAggregator("non_existent_agg", args)
 		assert.Error(t, err)
 		assert.Nil(t, aggregator)
@@ -236,7 +236,7 @@ func TestCreateParameterizedAggregator(t *testing.T) {
 		require.NoError(t, err)
 
 		// 测试创建时初始化失败
-		args := []interface{}{"invalid"}
+		args := []any{"invalid"}
 		aggregator, err := CreateParameterizedAggregator("failing_agg", args)
 		assert.Error(t, err)
 		assert.Nil(t, aggregator)
@@ -253,7 +253,7 @@ func TestCreateParameterizedAggregator(t *testing.T) {
 		require.NoError(t, err)
 
 		// 测试空参数列表
-		args := []interface{}{}
+		args := []any{}
 		aggregator, err := CreateParameterizedAggregator("test_empty_args", args)
 		require.NoError(t, err)
 		require.NotNil(t, aggregator)
@@ -275,7 +275,7 @@ func TestCreateParameterizedAggregator(t *testing.T) {
 		require.NoError(t, err)
 
 		// 创建聚合器
-		args := []interface{}{3}
+		args := []any{3}
 		aggregator, err := CreateParameterizedAggregator("test_functionality", args)
 		require.NoError(t, err)
 		require.NotNil(t, aggregator)
@@ -299,7 +299,7 @@ type mockParameterizedAggregatorWithFailingInit struct {
 	mockParameterizedAggregator
 }
 
-func (m *mockParameterizedAggregatorWithFailingInit) Init(args []interface{}) error {
+func (m *mockParameterizedAggregatorWithFailingInit) Init(args []any) error {
 	return errors.New("initialization failed") // 返回一个错误
 }
 
@@ -307,7 +307,7 @@ func (m *mockParameterizedAggregatorWithFailingInit) New() AggregatorFunction {
 	return &mockParameterizedAggregatorWithFailingInit{
 		mockParameterizedAggregator: mockParameterizedAggregator{
 			name:        m.mockParameterizedAggregator.name,
-			addedValues: make([]interface{}, 0),
+			addedValues: make([]any, 0),
 			result:      m.mockParameterizedAggregator.result,
 		},
 	}

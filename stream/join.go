@@ -11,7 +11,7 @@ import (
 // for a LEFT JOIN table that found no match. Using a real (empty) map instead of
 // nil lets expr-lang/fieldpath traverse "alias.<col>" without error (missing key
 // -> nil), so WHERE "m.col IS NULL" and NULL-filled SELECT columns both work.
-var emptyMetadataRow = map[string]interface{}{}
+var emptyMetadataRow = map[string]any{}
 
 // hasJoin reports whether this stream has any JOIN configured, so callers skip
 // enrichment entirely on the common no-JOIN path (zero overhead).
@@ -32,11 +32,11 @@ func (s *Stream) hasJoin() bool {
 // query has a FROM alias, the row is also exposed under it so "s.<field>"
 // references resolve. Table columns are read as "<alias>.<col>". For a LEFT JOIN
 // with no match the alias maps to nil, so its columns evaluate to NULL.
-func (s *Stream) enrichJoin(data map[string]interface{}) (working map[string]interface{}, keep bool, err error) {
+func (s *Stream) enrichJoin(data map[string]any) (working map[string]any, keep bool, err error) {
 	if len(s.config.JoinConfigs) == 0 {
 		return data, true, nil
 	}
-	working = make(map[string]interface{}, len(data)+len(s.config.JoinConfigs)+1)
+	working = make(map[string]any, len(data)+len(s.config.JoinConfigs)+1)
 	for k, v := range data {
 		working[k] = v
 	}
@@ -48,7 +48,7 @@ func (s *Stream) enrichJoin(data map[string]interface{}) (working map[string]int
 		if !ok {
 			return nil, false, fmt.Errorf("join table %q is not registered", jc.Table)
 		}
-		key := make([]interface{}, len(jc.OnPairs))
+		key := make([]any, len(jc.OnPairs))
 		for i, p := range jc.OnPairs {
 			key[i], _ = streamFieldValue(data, p.StreamField)
 		}
@@ -67,7 +67,7 @@ func (s *Stream) enrichJoin(data map[string]interface{}) (working map[string]int
 
 // streamFieldValue reads a stream-side field from the row. Bare names use a
 // direct map lookup (the common case); dotted/bracket paths go through fieldpath.
-func streamFieldValue(data map[string]interface{}, field string) (interface{}, bool) {
+func streamFieldValue(data map[string]any, field string) (any, bool) {
 	if !strings.ContainsAny(field, ".[]") {
 		v, ok := data[field]
 		return v, ok

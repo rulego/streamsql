@@ -21,7 +21,7 @@ func TestSlidingWindow(t *testing.T) {
 	defer cancel()
 
 	sw, _ := NewSlidingWindow(types.WindowConfig{
-		Params:   []interface{}{2 * time.Second, time.Second},
+		Params:   []any{2 * time.Second, time.Second},
 		TsProp:   "Ts",
 		TimeUnit: time.Second,
 	})
@@ -121,7 +121,7 @@ func (d TestDate2) GetTimestamp() time.Time {
 
 func TestGetTimestamp(t *testing.T) {
 	t_0 := time.Now()
-	data := map[string]interface{}{"device": "aa", "temperature": 25.0, "humidity": 60, "ts": t_0}
+	data := map[string]any{"device": "aa", "temperature": 25.0, "humidity": 60, "ts": t_0}
 	t_1 := GetTimestamp(data, "ts", time.Millisecond)
 
 	data_1 := TestDate{Ts: t_0}

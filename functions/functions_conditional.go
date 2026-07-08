@@ -18,11 +18,11 @@ func NewIfNullFunction() *IfNullFunction {
 	}
 }
 
-func (f *IfNullFunction) Validate(args []interface{}) error {
+func (f *IfNullFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *IfNullFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *IfNullFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if args[0] == nil {
 		// 当第一个参数为nil时，返回第二个参数
 		// 如果第二个参数是数字0，确保返回float64类型以保持一致性
@@ -51,11 +51,11 @@ func NewCoalesceFunction() *CoalesceFunction {
 	}
 }
 
-func (f *CoalesceFunction) Validate(args []interface{}) error {
+func (f *CoalesceFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CoalesceFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CoalesceFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	for _, arg := range args {
 		if arg != nil {
 			return arg, nil
@@ -75,11 +75,11 @@ func NewNullIfFunction() *NullIfFunction {
 	}
 }
 
-func (f *NullIfFunction) Validate(args []interface{}) error {
+func (f *NullIfFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *NullIfFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *NullIfFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if reflect.DeepEqual(args[0], args[1]) {
 		return nil, nil
 	}
@@ -97,11 +97,11 @@ func NewGreatestFunction() *GreatestFunction {
 	}
 }
 
-func (f *GreatestFunction) Validate(args []interface{}) error {
+func (f *GreatestFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *GreatestFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *GreatestFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if len(args) == 0 {
 		return nil, nil
 	}
@@ -147,11 +147,11 @@ func NewLeastFunction() *LeastFunction {
 	}
 }
 
-func (f *LeastFunction) Validate(args []interface{}) error {
+func (f *LeastFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *LeastFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *LeastFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if len(args) == 0 {
 		return nil, nil
 	}
@@ -197,7 +197,7 @@ func NewCaseWhenFunction() *CaseWhenFunction {
 	}
 }
 
-func (f *CaseWhenFunction) Validate(args []interface{}) error {
+func (f *CaseWhenFunction) Validate(args []any) error {
 	if len(args) < 2 {
 		return fmt.Errorf("case_when requires at least 2 arguments")
 	}
@@ -218,7 +218,7 @@ func (f *CaseWhenFunction) Validate(args []interface{}) error {
 	return nil
 }
 
-func (f *CaseWhenFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CaseWhenFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}

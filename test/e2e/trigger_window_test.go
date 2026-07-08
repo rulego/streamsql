@@ -20,14 +20,14 @@ func TestTriggerWindow(t *testing.T) {
 	}
 
 	var mu sync.Mutex
-	var results []map[string]interface{}
-	ssql.AddSink(func(rows []map[string]interface{}) {
+	var results []map[string]any
+	ssql.AddSink(func(rows []map[string]any) {
 		mu.Lock()
 		results = append(results, rows...)
 		mu.Unlock()
 	})
 
-	ssql.Emit(map[string]interface{}{"deviceId": "d1"})
+	ssql.Emit(map[string]any{"deviceId": "d1"})
 
 	// Let the row enter the window (TumblingWindow initializes on first Add).
 	time.Sleep(200 * time.Millisecond)

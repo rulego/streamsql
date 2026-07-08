@@ -82,17 +82,17 @@ func TestStream_SafeSendToDataChan_Duplicate(t *testing.T) {
 	}()
 
 	// Test successful send
-	data1 := map[string]interface{}{"test": "value1"}
+	data1 := map[string]any{"test": "value1"}
 	success := stream.safeSendToDataChan(data1)
 	assert.True(t, success)
 
 	// Test send again
-	data2 := map[string]interface{}{"test": "value2"}
+	data2 := map[string]any{"test": "value2"}
 	success = stream.safeSendToDataChan(data2)
 	assert.True(t, success)
 
 	// Test send failure after buffer is full
-	data3 := map[string]interface{}{"test": "value3"}
+	data3 := map[string]any{"test": "value3"}
 	success = stream.safeSendToDataChan(data3)
 	assert.False(t, success) // Should fail because buffer is full
 }
@@ -137,7 +137,7 @@ func TestStream_SafeSendToDataChan_Concurrent(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			for j := 0; j < 10; j++ {
-				data := map[string]interface{}{
+				data := map[string]any{
 					"id":    id,
 					"value": j,
 				}
@@ -192,7 +192,7 @@ func TestStream_SafeSendToDataChan(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			for j := 0; j < 10; j++ {
-				data := map[string]interface{}{
+				data := map[string]any{
 					"id":    id,
 					"value": j,
 				}
@@ -223,7 +223,7 @@ func TestStream_SafeSendToDataChan_EdgeCases(t *testing.T) {
 	}()
 
 	// 测试空数据
-	emptyData := map[string]interface{}{}
+	emptyData := map[string]any{}
 	success := stream.safeSendToDataChan(emptyData)
 	assert.True(t, success)
 
@@ -234,7 +234,7 @@ func TestStream_SafeSendToDataChan_EdgeCases(t *testing.T) {
 	}
 
 	// 测试nil值
-	nilData := map[string]interface{}{"key": nil}
+	nilData := map[string]any{"key": nil}
 	success = stream.safeSendToDataChan(nilData)
 	assert.True(t, success)
 }

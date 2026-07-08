@@ -71,9 +71,9 @@ func (t DataType) String() string {
 // InferType maps a runtime value to its DataType.
 //
 // nil and any unrecognised value return TypeAny. float32 and float64 both map
-// to TypeFloat. Only []interface{} and map[string]interface{} are recognised
+// to TypeFloat. Only []any and map[string]any are recognised
 // as containers; other slice or map types fall back to TypeAny.
-func InferType(v interface{}) DataType {
+func InferType(v any) DataType {
 	if v == nil {
 		return TypeAny
 	}
@@ -90,9 +90,9 @@ func InferType(v interface{}) DataType {
 		return TypeString
 	case time.Time:
 		return TypeTime
-	case []interface{}:
+	case []any:
 		return TypeArray
-	case map[string]interface{}:
+	case map[string]any:
 		return TypeMap
 	default:
 		return TypeAny
@@ -110,7 +110,7 @@ type FieldDef struct {
 	// Default, when non-nil, suppresses the required-missing error.
 	// Callers must use a typed value (for example float64(0)) so that the
 	// interface is non-nil even when the default is a zero value.
-	Default interface{}
+	Default any
 }
 
 // Schema is a named, ordered set of field definitions.
@@ -208,7 +208,7 @@ var Default = NewRegistry()
 // value including nil. When Strict is true, keys in data that are not declared
 // as fields are reported as errors. All problems are aggregated and returned
 // together, with a nil result when data is clean.
-func (s *Schema) Validate(data map[string]interface{}) error {
+func (s *Schema) Validate(data map[string]any) error {
 	var errs MultiError
 
 	defined := make(map[string]bool, len(s.Fields))
@@ -244,7 +244,7 @@ func (s *Schema) Validate(data map[string]interface{}) error {
 }
 
 // typeMatches reports whether v is acceptable for a field declared as expected.
-func typeMatches(expected DataType, v interface{}) bool {
+func typeMatches(expected DataType, v any) bool {
 	if expected == TypeAny {
 		return true
 	}

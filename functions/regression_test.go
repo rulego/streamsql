@@ -15,7 +15,7 @@ func TestSubstringMultibyte(t *testing.T) {
 	}
 
 	// 你好世界 = runes [你 好 世 界]; substring(s, 1, 2) -> "好世".
-	got, err := fn.Execute(nil, []interface{}{"你好世界", int64(1), int64(2)})
+	got, err := fn.Execute(nil, []any{"你好世界", int64(1), int64(2)})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -24,7 +24,7 @@ func TestSubstringMultibyte(t *testing.T) {
 	}
 
 	// Two-arg form from the middle.
-	got, err = fn.Execute(nil, []interface{}{"你好世界", int64(2)})
+	got, err = fn.Execute(nil, []any{"你好世界", int64(2)})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestSubstringMultibyte(t *testing.T) {
 	}
 
 	// ASCII still works (rune count == byte count).
-	got, err = fn.Execute(nil, []interface{}{"abcdef", int64(1), int64(3)})
+	got, err = fn.Execute(nil, []any{"abcdef", int64(1), int64(3)})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestDateFormatMinutePlaceholder(t *testing.T) {
 		t.Fatal("date_format not found")
 	}
 
-	got, err := fn.Execute(nil, []interface{}{"2020-03-05 10:20:30", "YYYY-MM-DD HH:mm:ss"})
+	got, err := fn.Execute(nil, []any{"2020-03-05 10:20:30", "YYYY-MM-DD HH:mm:ss"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestDateFormatMinutePlaceholder(t *testing.T) {
 	}
 
 	// MM still renders the month.
-	got, err = fn.Execute(nil, []interface{}{"2020-03-05 10:20:30", "YYYY-MM-DD"})
+	got, err = fn.Execute(nil, []any{"2020-03-05 10:20:30", "YYYY-MM-DD"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -82,15 +82,15 @@ func TestDateAddOverflow(t *testing.T) {
 	}
 
 	// 3,000,000 hours overflows time.Duration (~292 years); must error.
-	if _, err := addFn.Execute(nil, []interface{}{"2020-01-01 00:00:00", int64(3000000), "hour"}); err == nil {
+	if _, err := addFn.Execute(nil, []any{"2020-01-01 00:00:00", int64(3000000), "hour"}); err == nil {
 		t.Error("date_add overflow expected error, got nil")
 	}
-	if _, err := subFn.Execute(nil, []interface{}{"2020-01-01 00:00:00", int64(3000000), "hour"}); err == nil {
+	if _, err := subFn.Execute(nil, []any{"2020-01-01 00:00:00", int64(3000000), "hour"}); err == nil {
 		t.Error("date_sub overflow expected error, got nil")
 	}
 
 	// In-range interval still works.
-	got, err := addFn.Execute(nil, []interface{}{"2020-01-01 00:00:00", int64(25), "hour"})
+	got, err := addFn.Execute(nil, []any{"2020-01-01 00:00:00", int64(25), "hour"})
 	if err != nil {
 		t.Fatalf("date_add in-range error: %v", err)
 	}
@@ -113,8 +113,8 @@ func TestIsNullTypedNil(t *testing.T) {
 	}
 
 	cases := []struct {
-		name    string
-		value   interface{}
+		name     string
+		value    any
 		wantNull bool
 	}{
 		{"untyped nil", nil, true},
@@ -126,14 +126,14 @@ func TestIsNullTypedNil(t *testing.T) {
 		{"empty string", "", false},
 	}
 	for _, c := range cases {
-		got, err := isNull.Execute(nil, []interface{}{c.value})
+		got, err := isNull.Execute(nil, []any{c.value})
 		if err != nil {
 			t.Fatalf("is_null(%s) error: %v", c.name, err)
 		}
 		if got != c.wantNull {
 			t.Errorf("is_null(%s) = %v, want %v", c.name, got, c.wantNull)
 		}
-		got2, err := isNotNull.Execute(nil, []interface{}{c.value})
+		got2, err := isNotNull.Execute(nil, []any{c.value})
 		if err != nil {
 			t.Fatalf("is_not_null(%s) error: %v", c.name, err)
 		}
@@ -154,7 +154,7 @@ func TestPercentileScalar(t *testing.T) {
 	}
 
 	// Median of 10,20,30 -> 20.
-	got, err := fn.Execute(nil, []interface{}{0.5, int64(10), int64(20), int64(30)})
+	got, err := fn.Execute(nil, []any{0.5, int64(10), int64(20), int64(30)})
 	if err != nil {
 		t.Fatalf("percentile median error: %v", err)
 	}
@@ -163,20 +163,20 @@ func TestPercentileScalar(t *testing.T) {
 	}
 
 	// Min (p=0) and max (p=1) clamp correctly.
-	if got, _ := fn.Execute(nil, []interface{}{0.0, int64(10), int64(20), int64(30)}); got != float64(10) {
+	if got, _ := fn.Execute(nil, []any{0.0, int64(10), int64(20), int64(30)}); got != float64(10) {
 		t.Errorf("percentile(0,...) = %v, want 10", got)
 	}
-	if got, _ := fn.Execute(nil, []interface{}{1.0, int64(10), int64(20), int64(30)}); got != float64(30) {
+	if got, _ := fn.Execute(nil, []any{1.0, int64(10), int64(20), int64(30)}); got != float64(30) {
 		t.Errorf("percentile(1,...) = %v, want 30", got)
 	}
 
 	// Out-of-range p must error instead of panicking.
-	if _, err := fn.Execute(nil, []interface{}{2.0, int64(10), int64(20)}); err == nil {
+	if _, err := fn.Execute(nil, []any{2.0, int64(10), int64(20)}); err == nil {
 		t.Error("percentile p=2.0 must error")
 	}
 
 	// Degenerate 2-arg form (single value) returns that value, no panic.
-	if got, err := fn.Execute(nil, []interface{}{0.5, int64(42)}); err != nil || got != float64(42) {
+	if got, err := fn.Execute(nil, []any{0.5, int64(42)}); err != nil || got != float64(42) {
 		t.Errorf("percentile(0.5,42) = %v err=%v, want 42", got, err)
 	}
 }

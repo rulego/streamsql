@@ -8,72 +8,72 @@ func TestNewStringFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
 		funcName string
-		args     []interface{}
-		expected interface{}
+		args     []any
+		expected any
 		wantErr  bool
 	}{
 		// endswith tests
-		{"endswith_true", "endswith", []interface{}{"hello world", "world"}, true, false},
-		{"endswith_false", "endswith", []interface{}{"hello world", "hello"}, false, false},
-		{"endswith_empty", "endswith", []interface{}{"hello", ""}, true, false},
+		{"endswith_true", "endswith", []any{"hello world", "world"}, true, false},
+		{"endswith_false", "endswith", []any{"hello world", "hello"}, false, false},
+		{"endswith_empty", "endswith", []any{"hello", ""}, true, false},
 
 		// startswith tests
-		{"startswith_true", "startswith", []interface{}{"hello world", "hello"}, true, false},
-		{"startswith_false", "startswith", []interface{}{"hello world", "world"}, false, false},
-		{"startswith_empty", "startswith", []interface{}{"hello", ""}, true, false},
+		{"startswith_true", "startswith", []any{"hello world", "hello"}, true, false},
+		{"startswith_false", "startswith", []any{"hello world", "world"}, false, false},
+		{"startswith_empty", "startswith", []any{"hello", ""}, true, false},
 
 		// indexof tests
-		{"indexof_found", "indexof", []interface{}{"hello world", "world"}, int64(6), false},
-		{"indexof_not_found", "indexof", []interface{}{"hello world", "xyz"}, int64(-1), false},
-		{"indexof_first_char", "indexof", []interface{}{"hello", "h"}, int64(0), false},
+		{"indexof_found", "indexof", []any{"hello world", "world"}, int64(6), false},
+		{"indexof_not_found", "indexof", []any{"hello world", "xyz"}, int64(-1), false},
+		{"indexof_first_char", "indexof", []any{"hello", "h"}, int64(0), false},
 
 		// substring tests
-		{"substring_start_only", "substring", []interface{}{"hello world", int64(6)}, "world", false},
-		{"substring_start_length", "substring", []interface{}{"hello world", int64(0), int64(5)}, "hello", false},
-		{"substring_out_of_bounds", "substring", []interface{}{"hello", int64(10)}, "", false},
+		{"substring_start_only", "substring", []any{"hello world", int64(6)}, "world", false},
+		{"substring_start_length", "substring", []any{"hello world", int64(0), int64(5)}, "hello", false},
+		{"substring_out_of_bounds", "substring", []any{"hello", int64(10)}, "", false},
 
 		// replace tests
-		{"replace_simple", "replace", []interface{}{"hello world", "world", "Go"}, "hello Go", false},
-		{"replace_multiple", "replace", []interface{}{"hello hello", "hello", "hi"}, "hi hi", false},
-		{"replace_not_found", "replace", []interface{}{"hello world", "xyz", "abc"}, "hello world", false},
+		{"replace_simple", "replace", []any{"hello world", "world", "Go"}, "hello Go", false},
+		{"replace_multiple", "replace", []any{"hello hello", "hello", "hi"}, "hi hi", false},
+		{"replace_not_found", "replace", []any{"hello world", "xyz", "abc"}, "hello world", false},
 
 		// split tests
-		{"split_comma", "split", []interface{}{"a,b,c", ","}, []string{"a", "b", "c"}, false},
-		{"split_space", "split", []interface{}{"hello world", " "}, []string{"hello", "world"}, false},
-		{"split_not_found", "split", []interface{}{"hello", ","}, []string{"hello"}, false},
+		{"split_comma", "split", []any{"a,b,c", ","}, []string{"a", "b", "c"}, false},
+		{"split_space", "split", []any{"hello world", " "}, []string{"hello", "world"}, false},
+		{"split_not_found", "split", []any{"hello", ","}, []string{"hello"}, false},
 
 		// lpad tests
-		{"lpad_default", "lpad", []interface{}{"hello", int64(10)}, "     hello", false},
-		{"lpad_custom", "lpad", []interface{}{"hello", int64(8), "*"}, "***hello", false},
-		{"lpad_no_padding", "lpad", []interface{}{"hello", int64(3)}, "hello", false},
+		{"lpad_default", "lpad", []any{"hello", int64(10)}, "     hello", false},
+		{"lpad_custom", "lpad", []any{"hello", int64(8), "*"}, "***hello", false},
+		{"lpad_no_padding", "lpad", []any{"hello", int64(3)}, "hello", false},
 
 		// rpad tests
-		{"rpad_default", "rpad", []interface{}{"hello", int64(10)}, "hello     ", false},
-		{"rpad_custom", "rpad", []interface{}{"hello", int64(8), "*"}, "hello***", false},
-		{"rpad_no_padding", "rpad", []interface{}{"hello", int64(3)}, "hello", false},
+		{"rpad_default", "rpad", []any{"hello", int64(10)}, "hello     ", false},
+		{"rpad_custom", "rpad", []any{"hello", int64(8), "*"}, "hello***", false},
+		{"rpad_no_padding", "rpad", []any{"hello", int64(3)}, "hello", false},
 
 		// ltrim tests
-		{"ltrim_spaces", "ltrim", []interface{}{"   hello world   "}, "hello world   ", false},
-		{"ltrim_tabs", "ltrim", []interface{}{"\t\nhello"}, "hello", false},
-		{"ltrim_no_whitespace", "ltrim", []interface{}{"hello"}, "hello", false},
+		{"ltrim_spaces", "ltrim", []any{"   hello world   "}, "hello world   ", false},
+		{"ltrim_tabs", "ltrim", []any{"\t\nhello"}, "hello", false},
+		{"ltrim_no_whitespace", "ltrim", []any{"hello"}, "hello", false},
 
 		// rtrim tests
-		{"rtrim_spaces", "rtrim", []interface{}{"   hello world   "}, "   hello world", false},
-		{"rtrim_tabs", "rtrim", []interface{}{"hello\t\n"}, "hello", false},
-		{"rtrim_no_whitespace", "rtrim", []interface{}{"hello"}, "hello", false},
+		{"rtrim_spaces", "rtrim", []any{"   hello world   "}, "   hello world", false},
+		{"rtrim_tabs", "rtrim", []any{"hello\t\n"}, "hello", false},
+		{"rtrim_no_whitespace", "rtrim", []any{"hello"}, "hello", false},
 
 		// regexp_matches tests
-		{"regexp_matches_true", "regexp_matches", []interface{}{"hello123", "[0-9]+"}, true, false},
-		{"regexp_matches_false", "regexp_matches", []interface{}{"hello", "[0-9]+"}, false, false},
-		{"regexp_matches_email", "regexp_matches", []interface{}{"test@example.com", "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"}, true, false},
+		{"regexp_matches_true", "regexp_matches", []any{"hello123", "[0-9]+"}, true, false},
+		{"regexp_matches_false", "regexp_matches", []any{"hello", "[0-9]+"}, false, false},
+		{"regexp_matches_email", "regexp_matches", []any{"test@example.com", "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"}, true, false},
 
 		// regexp_replace tests
-		{"regexp_replace_digits", "regexp_replace", []interface{}{"hello123world456", "[0-9]+", "X"}, "helloXworldX", false},
-		{"regexp_replace_no_match", "regexp_replace", []interface{}{"hello", "[0-9]+", "X"}, "hello", false},
+		{"regexp_replace_digits", "regexp_replace", []any{"hello123world456", "[0-9]+", "X"}, "helloXworldX", false},
+		{"regexp_replace_no_match", "regexp_replace", []any{"hello", "[0-9]+", "X"}, "hello", false},
 
 		// regexp_substring tests
-		{"regexp_substring_found", "regexp_substring", []interface{}{"hello123world", "[0-9]+"}, "123", false},
-		{"regexp_substring_not_found", "regexp_substring", []interface{}{"hello", "[0-9]+"}, "", false},
+		{"regexp_substring_found", "regexp_substring", []any{"hello123world", "[0-9]+"}, "123", false},
+		{"regexp_substring_not_found", "regexp_substring", []any{"hello", "[0-9]+"}, "", false},
 	}
 
 	for _, tt := range tests {
@@ -138,37 +138,37 @@ func TestStringFunctionValidation(t *testing.T) {
 	tests := []struct {
 		name     string
 		function Function
-		args     []interface{}
+		args     []any
 		wantErr  bool
 	}{
 		{
 			name:     "concat no args",
 			function: NewConcatFunction(),
-			args:     []interface{}{},
+			args:     []any{},
 			wantErr:  true,
 		},
 		{
 			name:     "concat valid args",
 			function: NewConcatFunction(),
-			args:     []interface{}{"hello", "world"},
+			args:     []any{"hello", "world"},
 			wantErr:  false,
 		},
 		{
 			name:     "length no args",
 			function: NewLengthFunction(),
-			args:     []interface{}{},
+			args:     []any{},
 			wantErr:  true,
 		},
 		{
 			name:     "length too many args",
 			function: NewLengthFunction(),
-			args:     []interface{}{"hello", "world"},
+			args:     []any{"hello", "world"},
 			wantErr:  true,
 		},
 		{
 			name:     "length valid args",
 			function: NewLengthFunction(),
-			args:     []interface{}{"hello"},
+			args:     []any{"hello"},
 			wantErr:  false,
 		},
 	}
@@ -188,61 +188,61 @@ func TestStringFunctionErrors(t *testing.T) {
 	tests := []struct {
 		name     string
 		function Function
-		args     []interface{}
+		args     []any
 		wantErr  bool
 	}{
 		{
 			name:     "concat non-string input",
 			function: NewConcatFunction(),
-			args:     []interface{}{123, 456},
+			args:     []any{123, 456},
 			wantErr:  false,
 		},
 		{
 			name:     "length non-string input",
 			function: NewLengthFunction(),
-			args:     []interface{}{123},
+			args:     []any{123},
 			wantErr:  false,
 		},
 		{
 			name:     "upper non-string input",
 			function: NewUpperFunction(),
-			args:     []interface{}{123},
+			args:     []any{123},
 			wantErr:  false,
 		},
 		{
 			name:     "endswith non-string input",
 			function: NewEndswithFunction(),
-			args:     []interface{}{123, "3"},
+			args:     []any{123, "3"},
 			wantErr:  false,
 		},
 		{
 			name:     "substring non-string input",
 			function: NewSubstringFunction(),
-			args:     []interface{}{123, 1, 2},
+			args:     []any{123, 1, 2},
 			wantErr:  false,
 		},
 		{
 			name:     "substring non-numeric start",
 			function: NewSubstringFunction(),
-			args:     []interface{}{"hello", "world"},
+			args:     []any{"hello", "world"},
 			wantErr:  true,
 		},
 		{
 			name:     "replace non-string input",
 			function: NewReplaceFunction(),
-			args:     []interface{}{123, "2", "X"},
+			args:     []any{123, "2", "X"},
 			wantErr:  false,
 		},
 		{
 			name:     "regexp_matches invalid pattern",
 			function: NewRegexpMatchesFunction(),
-			args:     []interface{}{"hello", "[invalid"},
+			args:     []any{"hello", "[invalid"},
 			wantErr:  true,
 		},
 		{
 			name:     "regexp_replace invalid pattern",
 			function: NewRegexpReplaceFunction(),
-			args:     []interface{}{"hello", "[invalid", "x"},
+			args:     []any{"hello", "[invalid", "x"},
 			wantErr:  true,
 		},
 	}
@@ -262,63 +262,63 @@ func TestStringFunctionEdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
 		function Function
-		args     []interface{}
-		expected interface{}
+		args     []any
+		expected any
 		wantErr  bool
 	}{
 		{
 			name:     "concat empty strings",
 			function: NewConcatFunction(),
-			args:     []interface{}{"", ""},
+			args:     []any{"", ""},
 			expected: "",
 			wantErr:  false,
 		},
 		{
 			name:     "length empty string",
 			function: NewLengthFunction(),
-			args:     []interface{}{""},
+			args:     []any{""},
 			expected: 0,
 			wantErr:  false,
 		},
 		{
 			name:     "upper empty string",
 			function: NewUpperFunction(),
-			args:     []interface{}{""},
+			args:     []any{""},
 			expected: "",
 			wantErr:  false,
 		},
 		{
 			name:     "lower empty string",
 			function: NewLowerFunction(),
-			args:     []interface{}{""},
+			args:     []any{""},
 			expected: "",
 			wantErr:  false,
 		},
 		{
 			name:     "trim empty string",
 			function: NewTrimFunction(),
-			args:     []interface{}{""},
+			args:     []any{""},
 			expected: "",
 			wantErr:  false,
 		},
 		{
 			name:     "substring negative start",
 			function: NewSubstringFunction(),
-			args:     []interface{}{"hello", -1, 5},
+			args:     []any{"hello", -1, 5},
 			expected: "o",
 			wantErr:  false,
 		},
 		{
 			name:     "lpad zero length",
 			function: NewLpadFunction(),
-			args:     []interface{}{"hello", 0},
+			args:     []any{"hello", 0},
 			expected: "hello",
 			wantErr:  false,
 		},
 		{
 			name:     "split empty delimiter",
 			function: NewSplitFunction(),
-			args:     []interface{}{"hello", ""},
+			args:     []any{"hello", ""},
 			expected: []string{"h", "e", "l", "l", "o"},
 			wantErr:  false,
 		},
@@ -326,14 +326,14 @@ func TestStringFunctionEdgeCases(t *testing.T) {
 		{
 			name:     "length array",
 			function: NewLengthFunction(),
-			args:     []interface{}{[]string{"a", "b", "c"}},
+			args:     []any{[]string{"a", "b", "c"}},
 			expected: 3,
 			wantErr:  false,
 		},
 		{
 			name:     "length map",
 			function: NewLengthFunction(),
-			args:     []interface{}{map[string]int{"a": 1, "b": 2}},
+			args:     []any{map[string]int{"a": 1, "b": 2}},
 			expected: 2,
 			wantErr:  false,
 		},
@@ -341,35 +341,35 @@ func TestStringFunctionEdgeCases(t *testing.T) {
 		{
 			name:     "lpad custom char",
 			function: NewLpadFunction(),
-			args:     []interface{}{"test", int64(8), "*"},
+			args:     []any{"test", int64(8), "*"},
 			expected: "****test",
 			wantErr:  false,
 		},
 		{
 			name:     "rpad custom char",
 			function: NewRpadFunction(),
-			args:     []interface{}{"test", int64(8), "*"},
+			args:     []any{"test", int64(8), "*"},
 			expected: "test****",
 			wantErr:  false,
 		},
 		{
 			name:     "regexp_matches invalid pattern",
 			function: NewRegexpMatchesFunction(),
-			args:     []interface{}{"hello", "["},
+			args:     []any{"hello", "["},
 			expected: nil,
 			wantErr:  true,
 		},
 		{
 			name:     "regexp_replace invalid pattern",
 			function: NewRegexpReplaceFunction(),
-			args:     []interface{}{"hello", "[", "x"},
+			args:     []any{"hello", "[", "x"},
 			expected: nil,
 			wantErr:  true,
 		},
 		{
 			name:     "regexp_substring invalid pattern",
 			function: NewRegexpSubstringFunction(),
-			args:     []interface{}{"hello", "["},
+			args:     []any{"hello", "["},
 			expected: nil,
 			wantErr:  true,
 		},

@@ -26,8 +26,8 @@ func TestSQLSessionWindow_ProcessingTime(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 4)
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ch := make(chan []map[string]any, 4)
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -39,7 +39,7 @@ func TestSQLSessionWindow_ProcessingTime(t *testing.T) {
 	// 使用处理时间：发送数据，不包含时间戳字段
 	// 会话窗口基于数据到达的处理时间（系统时钟）来划分会话
 	for i := 0; i < 5; i++ {
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"temperature": float64(i),
 		})
@@ -75,8 +75,8 @@ func TestSQLSessionWindow_GroupedSession_MixedDevices(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 8)
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ch := make(chan []map[string]any, 8)
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -87,8 +87,8 @@ func TestSQLSessionWindow_GroupedSession_MixedDevices(t *testing.T) {
 
 	// Emit data for two different devices in interleaved pattern
 	for i := 0; i < 5; i++ {
-		ssql.Emit(map[string]interface{}{"deviceId": "A", "temperature": float64(i), "timestamp": time.Now()})
-		ssql.Emit(map[string]interface{}{"deviceId": "B", "temperature": float64(i + 10), "timestamp": time.Now()})
+		ssql.Emit(map[string]any{"deviceId": "A", "temperature": float64(i), "timestamp": time.Now()})
+		ssql.Emit(map[string]any{"deviceId": "B", "temperature": float64(i + 10), "timestamp": time.Now()})
 		time.Sleep(30 * time.Millisecond)
 	}
 
@@ -133,8 +133,8 @@ func TestSQLSessionWindow_MultiKeyGroupedSession(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 8)
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ch := make(chan []map[string]any, 8)
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -145,10 +145,10 @@ func TestSQLSessionWindow_MultiKeyGroupedSession(t *testing.T) {
 
 	// Emit data for 4 different combinations: A|R1, B|R1, A|R2, B|R2
 	for i := 0; i < 4; i++ {
-		ssql.Emit(map[string]interface{}{"deviceId": "A", "region": "R1", "temperature": float64(i), "timestamp": time.Now()})
-		ssql.Emit(map[string]interface{}{"deviceId": "B", "region": "R1", "temperature": float64(i + 10), "timestamp": time.Now()})
-		ssql.Emit(map[string]interface{}{"deviceId": "A", "region": "R2", "temperature": float64(i + 20), "timestamp": time.Now()})
-		ssql.Emit(map[string]interface{}{"deviceId": "B", "region": "R2", "temperature": float64(i + 30), "timestamp": time.Now()})
+		ssql.Emit(map[string]any{"deviceId": "A", "region": "R1", "temperature": float64(i), "timestamp": time.Now()})
+		ssql.Emit(map[string]any{"deviceId": "B", "region": "R1", "temperature": float64(i + 10), "timestamp": time.Now()})
+		ssql.Emit(map[string]any{"deviceId": "A", "region": "R2", "temperature": float64(i + 20), "timestamp": time.Now()})
+		ssql.Emit(map[string]any{"deviceId": "B", "region": "R2", "temperature": float64(i + 30), "timestamp": time.Now()})
 		time.Sleep(30 * time.Millisecond)
 	}
 
@@ -226,8 +226,8 @@ func TestSQLSessionWindow_EventTimeWithWithClause(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 4)
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ch := make(chan []map[string]any, 4)
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -240,7 +240,7 @@ func TestSQLSessionWindow_EventTimeWithWithClause(t *testing.T) {
 	baseTime := time.Now().UnixMilli() - 5000 // 5秒前作为基准时间
 	for i := 0; i < 5; i++ {
 		eventTime := baseTime + int64(i*50) // 每50ms一条数据
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":  "sensor001",
 			"eventTime": eventTime, // 事件时间字段
 		})
@@ -251,7 +251,7 @@ func TestSQLSessionWindow_EventTimeWithWithClause(t *testing.T) {
 	// 会话结束时间 = baseTime + 200 + 300 = baseTime + 500
 	// 需要发送事件时间 > baseTime + 500 + maxOutOfOrderness(200) = baseTime + 700 的数据
 	// 使用不同的设备ID，避免影响当前会话的计数
-	ssql.Emit(map[string]interface{}{
+	ssql.Emit(map[string]any{
 		"deviceId":  "sensor002",     // 使用不同的设备ID，不影响sensor001的会话
 		"eventTime": baseTime + 2000, // 推进watermark
 	})
@@ -286,8 +286,8 @@ func TestSQLSessionWindow_ProcessingTimeWithoutWithClause(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 4)
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ch := make(chan []map[string]any, 4)
+	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
 				// channel 已关闭，忽略错误
@@ -298,7 +298,7 @@ func TestSQLSessionWindow_ProcessingTimeWithoutWithClause(t *testing.T) {
 
 	// 不使用事件时间字段，应该使用处理时间
 	for i := 0; i < 5; i++ {
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId": "sensor001",
 		})
 		time.Sleep(50 * time.Millisecond)
@@ -337,10 +337,10 @@ func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 10)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 10)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -358,7 +358,7 @@ func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 	t.Log("第一阶段：发送连续数据（同一会话）")
 	for i := 0; i < 5; i++ {
 		eventTime := baseTime + int64(i*100) // 每100ms一条，小于500ms超时
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -373,7 +373,7 @@ func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// 发送数据推进watermark
-	ssql.Emit(map[string]interface{}{
+	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   baseTime + int64(1500),
 		"temperature": 50.0,
@@ -384,7 +384,7 @@ func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 	// 这应该触发新会话
 	t.Log("第二阶段：发送间隔较大的数据（新会话）")
 	eventTime := baseTime + int64(2000) // 间隔2秒，大于500ms超时
-	ssql.Emit(map[string]interface{}{
+	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   eventTime,
 		"temperature": 100.0,
@@ -393,7 +393,7 @@ func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 	// 继续发送连续数据（第二个会话）
 	for i := 0; i < 3; i++ {
 		eventTime := baseTime + int64(2000+i*100)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(100 + i),
@@ -405,7 +405,7 @@ func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 	// 会话结束时间 = baseTime + 400 + 500 = baseTime + 900
 	// 需要发送事件时间 > baseTime + 900 + maxOutOfOrderness(200) = baseTime + 1100 的数据
 	// 才能让 watermark >= baseTime + 900
-	ssql.Emit(map[string]interface{}{
+	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   baseTime + int64(5000),
 		"temperature": 200.0,
@@ -413,7 +413,7 @@ func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 
 	// 继续发送更多数据，确保watermark推进
 	for i := 0; i < 5; i++ {
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   baseTime + int64(5000+i*200),
 			"temperature": float64(200 + i),
@@ -437,7 +437,7 @@ func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -494,10 +494,10 @@ func TestSQLSessionWindow_WatermarkTriggerTiming(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 10)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 10)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -518,7 +518,7 @@ func TestSQLSessionWindow_WatermarkTriggerTiming(t *testing.T) {
 	t.Log("发送数据创建会话")
 	for i := 0; i < 5; i++ {
 		eventTime := baseTime + int64(i*100)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -532,7 +532,7 @@ func TestSQLSessionWindow_WatermarkTriggerTiming(t *testing.T) {
 	// 发送一个事件时间刚好等于sessionEndTime的数据
 	// watermark = maxEventTime - maxOutOfOrderness = sessionEndTime - 200
 	// 此时 watermark < sessionEndTime，会话不应该触发
-	ssql.Emit(map[string]interface{}{
+	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   sessionEndTime,
 		"temperature": 100.0,
@@ -544,7 +544,7 @@ func TestSQLSessionWindow_WatermarkTriggerTiming(t *testing.T) {
 	// 发送一个事件时间超过sessionEndTime的数据，推进watermark
 	// watermark = maxEventTime - maxOutOfOrderness = (sessionEndTime + 500) - 200 = sessionEndTime + 300
 	// 此时 watermark >= sessionEndTime，会话应该触发
-	ssql.Emit(map[string]interface{}{
+	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   sessionEndTime + 1000,
 		"temperature": 200.0,
@@ -552,7 +552,7 @@ func TestSQLSessionWindow_WatermarkTriggerTiming(t *testing.T) {
 
 	// 继续发送更多数据，确保watermark推进
 	for i := 0; i < 3; i++ {
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   sessionEndTime + int64(1000+i*200),
 			"temperature": float64(200 + i),
@@ -576,7 +576,7 @@ func TestSQLSessionWindow_WatermarkTriggerTiming(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 
@@ -631,10 +631,10 @@ func TestSQLSessionWindow_IdleSourceMechanism(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	ch := make(chan []map[string]interface{}, 10)
-	windowResults := make([][]map[string]interface{}, 0)
+	ch := make(chan []map[string]any, 10)
+	windowResults := make([][]map[string]any, 0)
 	var windowResultsMu sync.Mutex
-	ssql.AddSink(func(results []map[string]interface{}) {
+	ssql.AddSink(func(results []map[string]any) {
 		if len(results) > 0 {
 			windowResultsMu.Lock()
 			windowResults = append(windowResults, results)
@@ -649,7 +649,7 @@ func TestSQLSessionWindow_IdleSourceMechanism(t *testing.T) {
 	t.Log("发送数据，创建会话")
 	for i := 0; i < 5; i++ {
 		eventTime := baseTime + int64(i*100)
-		ssql.Emit(map[string]interface{}{
+		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
 			"temperature": float64(i),
@@ -675,7 +675,7 @@ func TestSQLSessionWindow_IdleSourceMechanism(t *testing.T) {
 END:
 	windowResultsMu.Lock()
 	windowResultsLen := len(windowResults)
-	windowResultsCopy := make([][]map[string]interface{}, len(windowResults))
+	windowResultsCopy := make([][]map[string]any, len(windowResults))
 	copy(windowResultsCopy, windowResults)
 	windowResultsMu.Unlock()
 

@@ -15,13 +15,13 @@ func main() {
 	bridge := functions.GetExprBridge()
 
 	// 2. 准备测试数据
-	data := map[string]interface{}{
+	data := map[string]any{
 		"temperature": -15.5,
 		"humidity":    65.8,
 		"device":      "sensor_001",
 		"values":      []float64{1.2, -3.4, 5.6, -7.8, 9.0},
 		"tags":        []string{"outdoor", "weather", "monitoring"},
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"location": "北京",
 			"type":     "温湿度传感器",
 		},
@@ -50,7 +50,7 @@ func main() {
 	showAllFunctions()
 }
 
-func testStreamSQLFunctions(bridge *functions.ExprBridge, data map[string]interface{}) {
+func testStreamSQLFunctions(bridge *functions.ExprBridge, data map[string]any) {
 	tests := []struct {
 		name       string
 		expression string
@@ -79,7 +79,7 @@ func testStreamSQLFunctions(bridge *functions.ExprBridge, data map[string]interf
 	}
 }
 
-func testExprLangFunctions(bridge *functions.ExprBridge, data map[string]interface{}) {
+func testExprLangFunctions(bridge *functions.ExprBridge, data map[string]any) {
 	tests := []struct {
 		name       string
 		expression string
@@ -106,7 +106,7 @@ func testExprLangFunctions(bridge *functions.ExprBridge, data map[string]interfa
 	}
 }
 
-func testMixedFunctions(bridge *functions.ExprBridge, data map[string]interface{}) {
+func testMixedFunctions(bridge *functions.ExprBridge, data map[string]any) {
 	tests := []struct {
 		name       string
 		expression string
@@ -128,7 +128,7 @@ func testMixedFunctions(bridge *functions.ExprBridge, data map[string]interface{
 	}
 }
 
-func testFunctionConflicts(bridge *functions.ExprBridge, data map[string]interface{}) {
+func testFunctionConflicts(bridge *functions.ExprBridge, data map[string]any) {
 	// 测试冲突函数的解析
 	conflictFunctions := []string{"abs", "max", "min", "upper", "lower"}
 
@@ -154,12 +154,12 @@ func showAllFunctions() {
 	info := functions.GetAllAvailableFunctions()
 
 	// StreamSQL 函数
-	if streamSQLFuncs, ok := info["streamsql"].(map[string]interface{}); ok {
+	if streamSQLFuncs, ok := info["streamsql"].(map[string]any); ok {
 		fmt.Printf("   📦 StreamSQL 函数 (%d个):\n", len(streamSQLFuncs))
 		categories := make(map[string][]string)
 
 		for name, funcInfo := range streamSQLFuncs {
-			if info, ok := funcInfo.(map[string]interface{}); ok {
+			if info, ok := funcInfo.(map[string]any); ok {
 				if category, ok := info["type"].(functions.FunctionType); ok {
 					categories[string(category)] = append(categories[string(category)], name)
 				}
@@ -172,12 +172,12 @@ func showAllFunctions() {
 	}
 
 	// expr-lang 函数
-	if exprLangFuncs, ok := info["expr-lang"].(map[string]interface{}); ok {
+	if exprLangFuncs, ok := info["expr-lang"].(map[string]any); ok {
 		fmt.Printf("\n   🚀 expr-lang 函数 (%d个):\n", len(exprLangFuncs))
 		categories := make(map[string][]string)
 
 		for name, funcInfo := range exprLangFuncs {
-			if info, ok := funcInfo.(map[string]interface{}); ok {
+			if info, ok := funcInfo.(map[string]any); ok {
 				if category, ok := info["category"].(string); ok {
 					categories[category] = append(categories[category], name)
 				}
@@ -190,6 +190,6 @@ func showAllFunctions() {
 	}
 
 	fmt.Printf("\n   📊 总计: StreamSQL %d个 + expr-lang %d个 函数\n",
-		len(info["streamsql"].(map[string]interface{})),
-		len(info["expr-lang"].(map[string]interface{})))
+		len(info["streamsql"].(map[string]any)),
+		len(info["expr-lang"].(map[string]any)))
 }

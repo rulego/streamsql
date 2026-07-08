@@ -23,11 +23,11 @@ func NewRowNumberFunction() *RowNumberFunction {
 	}
 }
 
-func (f *RowNumberFunction) Validate(args []interface{}) error {
+func (f *RowNumberFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *RowNumberFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *RowNumberFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.CurrentRowNumber++
@@ -43,7 +43,7 @@ func (f *RowNumberFunction) Reset() {
 // WindowStartFunction returns window start time
 type WindowStartFunction struct {
 	*BaseFunction
-	windowStart interface{}
+	windowStart any
 }
 
 func NewWindowStartFunction() *WindowStartFunction {
@@ -52,11 +52,11 @@ func NewWindowStartFunction() *WindowStartFunction {
 	}
 }
 
-func (f *WindowStartFunction) Validate(args []interface{}) error {
+func (f *WindowStartFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *WindowStartFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *WindowStartFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if ctx.WindowInfo != nil {
 		return ctx.WindowInfo.WindowStart, nil
 	}
@@ -70,12 +70,12 @@ func (f *WindowStartFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *WindowStartFunction) Add(value interface{}) {
+func (f *WindowStartFunction) Add(value any) {
 	// Window start time usually doesn't need accumulative calculation
 	f.windowStart = value
 }
 
-func (f *WindowStartFunction) Result() interface{} {
+func (f *WindowStartFunction) Result() any {
 	return f.windowStart
 }
 
@@ -93,7 +93,7 @@ func (f *WindowStartFunction) Clone() AggregatorFunction {
 // WindowEndFunction returns window end time
 type WindowEndFunction struct {
 	*BaseFunction
-	windowEnd interface{}
+	windowEnd any
 }
 
 func NewWindowEndFunction() *WindowEndFunction {
@@ -102,11 +102,11 @@ func NewWindowEndFunction() *WindowEndFunction {
 	}
 }
 
-func (f *WindowEndFunction) Validate(args []interface{}) error {
+func (f *WindowEndFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *WindowEndFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *WindowEndFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if ctx.WindowInfo != nil {
 		return ctx.WindowInfo.WindowEnd, nil
 	}
@@ -120,12 +120,12 @@ func (f *WindowEndFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *WindowEndFunction) Add(value interface{}) {
+func (f *WindowEndFunction) Add(value any) {
 	// 窗口结束时间通常不需要累积计算
 	f.windowEnd = value
 }
 
-func (f *WindowEndFunction) Result() interface{} {
+func (f *WindowEndFunction) Result() any {
 	return f.windowEnd
 }
 
@@ -143,21 +143,21 @@ func (f *WindowEndFunction) Clone() AggregatorFunction {
 // ExpressionFunction 表达式函数，用于处理自定义表达式
 type ExpressionFunction struct {
 	*BaseFunction
-	values []interface{}
+	values []any
 }
 
 func NewExpressionFunction() *ExpressionFunction {
 	return &ExpressionFunction{
 		BaseFunction: NewBaseFunction("expression", TypeCustom, "表达式函数", "处理自定义表达式", 0, -1),
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 	}
 }
 
-func (f *ExpressionFunction) Validate(args []interface{}) error {
+func (f *ExpressionFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ExpressionFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ExpressionFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 表达式函数的具体实现由表达式引擎处理
 	if len(args) == 0 {
 		return nil, nil
@@ -169,15 +169,15 @@ func (f *ExpressionFunction) Execute(ctx *FunctionContext, args []interface{}) (
 func (f *ExpressionFunction) New() AggregatorFunction {
 	return &ExpressionFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 	}
 }
 
-func (f *ExpressionFunction) Add(value interface{}) {
+func (f *ExpressionFunction) Add(value any) {
 	f.values = append(f.values, value)
 }
 
-func (f *ExpressionFunction) Result() interface{} {
+func (f *ExpressionFunction) Result() any {
 	// 表达式聚合器的结果处理由表达式引擎处理
 	// 这里只返回最后一个计算结果
 	if len(f.values) == 0 {
@@ -187,13 +187,13 @@ func (f *ExpressionFunction) Result() interface{} {
 }
 
 func (f *ExpressionFunction) Reset() {
-	f.values = make([]interface{}, 0)
+	f.values = make([]any, 0)
 }
 
 func (f *ExpressionFunction) Clone() AggregatorFunction {
 	clone := &ExpressionFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, len(f.values)),
+		values:       make([]any, len(f.values)),
 	}
 	copy(clone.values, f.values)
 	return clone
@@ -202,7 +202,7 @@ func (f *ExpressionFunction) Clone() AggregatorFunction {
 // ExpressionAggregatorFunction 表达式聚合器函数 - 用于处理非聚合函数在聚合查询中的情况
 type ExpressionAggregatorFunction struct {
 	*BaseFunction
-	lastResult interface{}
+	lastResult any
 }
 
 func NewExpressionAggregatorFunction() *ExpressionAggregatorFunction {
@@ -212,11 +212,11 @@ func NewExpressionAggregatorFunction() *ExpressionAggregatorFunction {
 	}
 }
 
-func (f *ExpressionAggregatorFunction) Validate(args []interface{}) error {
+func (f *ExpressionAggregatorFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ExpressionAggregatorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ExpressionAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 对于表达式聚合器，直接返回最后一个值
 	if len(args) > 0 {
 		return args[len(args)-1], nil
@@ -232,13 +232,13 @@ func (f *ExpressionAggregatorFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *ExpressionAggregatorFunction) Add(value interface{}) {
+func (f *ExpressionAggregatorFunction) Add(value any) {
 	// 对于表达式聚合器，保存最后一个计算结果
 	// 表达式的计算结果应该是每个数据项的计算结果
 	f.lastResult = value
 }
 
-func (f *ExpressionAggregatorFunction) Result() interface{} {
+func (f *ExpressionAggregatorFunction) Result() any {
 	// 对于表达式聚合器，返回最后一个计算结果
 	// 注意：对于字符串函数如CONCAT，每个数据项都会产生一个结果
 	// 在窗口聚合中，我们返回最后一个计算的结果
@@ -259,21 +259,21 @@ func (f *ExpressionAggregatorFunction) Clone() AggregatorFunction {
 // LeadFunction 返回当前行之后第N行的值
 type LeadFunction struct {
 	*BaseFunction
-	values       []interface{}
+	values       []any
 	offset       int
-	defaultValue interface{}
+	defaultValue any
 	hasDefault   bool
 }
 
 func NewLeadFunction() *LeadFunction {
 	return &LeadFunction{
 		BaseFunction: NewBaseFunction("lead", TypeWindow, "窗口函数", "返回当前行之后第N行的值", 1, 3),
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 		offset:       1, // 默认偏移量为1
 	}
 }
 
-func (f *LeadFunction) Validate(args []interface{}) error {
+func (f *LeadFunction) Validate(args []any) error {
 	if err := f.ValidateArgCount(args); err != nil {
 		return err
 	}
@@ -296,7 +296,7 @@ func (f *LeadFunction) Validate(args []interface{}) error {
 	return nil
 }
 
-func (f *LeadFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *LeadFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}
@@ -328,18 +328,18 @@ func (f *LeadFunction) Execute(ctx *FunctionContext, args []interface{}) (interf
 func (f *LeadFunction) New() AggregatorFunction {
 	return &LeadFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 		offset:       f.offset,       // 保持offset参数
 		defaultValue: f.defaultValue, // 保持默认值
 		hasDefault:   f.hasDefault,   // 保持默认值标志
 	}
 }
 
-func (f *LeadFunction) Add(value interface{}) {
+func (f *LeadFunction) Add(value any) {
 	f.values = append(f.values, value)
 }
 
-func (f *LeadFunction) Result() interface{} {
+func (f *LeadFunction) Result() any {
 	// LEAD函数在没有指定当前行位置的情况下，返回默认值或nil
 	// 这通常用于聚合场景，真正的窗口计算需要在窗口处理器中进行
 	if f.hasDefault {
@@ -350,7 +350,7 @@ func (f *LeadFunction) Result() interface{} {
 }
 
 func (f *LeadFunction) Reset() {
-	f.values = make([]interface{}, 0)
+	f.values = make([]any, 0)
 	f.offset = 1
 	f.defaultValue = nil
 	f.hasDefault = false
@@ -359,7 +359,7 @@ func (f *LeadFunction) Reset() {
 func (f *LeadFunction) Clone() AggregatorFunction {
 	clone := &LeadFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, len(f.values)),
+		values:       make([]any, len(f.values)),
 		offset:       f.offset,
 		defaultValue: f.defaultValue,
 		hasDefault:   f.hasDefault,
@@ -369,7 +369,7 @@ func (f *LeadFunction) Clone() AggregatorFunction {
 }
 
 // Init implements ParameterizedFunction interface
-func (f *LeadFunction) Init(args []interface{}) error {
+func (f *LeadFunction) Init(args []any) error {
 	if len(args) < 2 {
 		// LEAD with default offset = 1
 		f.offset = 1
@@ -406,19 +406,19 @@ func (f *LeadFunction) Init(args []interface{}) error {
 // NthValueFunction 返回窗口中第N个值
 type NthValueFunction struct {
 	*BaseFunction
-	values []interface{}
+	values []any
 	n      int
 }
 
 func NewNthValueFunction() *NthValueFunction {
 	return &NthValueFunction{
 		BaseFunction: NewBaseFunction("nth_value", TypeWindow, "窗口函数", "返回窗口中第N个值", 2, 2),
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 		n:            1, // 默认第1个值
 	}
 }
 
-func (f *NthValueFunction) Validate(args []interface{}) error {
+func (f *NthValueFunction) Validate(args []any) error {
 	if err := f.ValidateArgCount(args); err != nil {
 		return err
 	}
@@ -443,7 +443,7 @@ func (f *NthValueFunction) Validate(args []interface{}) error {
 	return nil
 }
 
-func (f *NthValueFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *NthValueFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}
@@ -474,18 +474,18 @@ func (f *NthValueFunction) Execute(ctx *FunctionContext, args []interface{}) (in
 func (f *NthValueFunction) New() AggregatorFunction {
 	newInstance := &NthValueFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, 0),
+		values:       make([]any, 0),
 		n:            f.n, // 保持n参数
 	}
 
 	return newInstance
 }
 
-func (f *NthValueFunction) Add(value interface{}) {
+func (f *NthValueFunction) Add(value any) {
 	f.values = append(f.values, value)
 }
 
-func (f *NthValueFunction) Result() interface{} {
+func (f *NthValueFunction) Result() any {
 	if len(f.values) >= f.n && f.n > 0 {
 		return f.values[f.n-1]
 	}
@@ -493,13 +493,13 @@ func (f *NthValueFunction) Result() interface{} {
 }
 
 func (f *NthValueFunction) Reset() {
-	f.values = make([]interface{}, 0)
+	f.values = make([]any, 0)
 }
 
 func (f *NthValueFunction) Clone() AggregatorFunction {
 	clone := &NthValueFunction{
 		BaseFunction: f.BaseFunction,
-		values:       make([]interface{}, len(f.values)),
+		values:       make([]any, len(f.values)),
 		n:            f.n, // 保持n参数
 	}
 	copy(clone.values, f.values)
@@ -507,7 +507,7 @@ func (f *NthValueFunction) Clone() AggregatorFunction {
 }
 
 // Init implements ParameterizedFunction interface
-func (f *NthValueFunction) Init(args []interface{}) error {
+func (f *NthValueFunction) Init(args []any) error {
 	if len(args) < 2 {
 		return fmt.Errorf("nth_value requires at least 2 arguments")
 	}

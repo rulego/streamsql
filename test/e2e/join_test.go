@@ -8,8 +8,8 @@ import (
 )
 
 // deviceMetaRows is a small metadata fixture used across JOIN tests.
-func deviceMetaRows() []map[string]interface{} {
-	return []map[string]interface{}{
+func deviceMetaRows() []map[string]any {
+	return []map[string]any{
 		{"deviceId": "d1", "location": "plantA", "type": "temp"},
 		{"deviceId": "d2", "location": "plantB", "type": "humid"},
 	}
@@ -24,18 +24,18 @@ func TestJoinMultipleTables(t *testing.T) {
 	if err := ssql.Execute("SELECT deviceId, l.location, s.model FROM stream JOIN locations l ON deviceId = l.deviceId JOIN models s ON deviceId = s.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if _, err := ssql.RegisterTable("locations", []map[string]interface{}{
+	if _, err := ssql.RegisterTable("locations", []map[string]any{
 		{"deviceId": "d1", "location": "plantA"},
 	}); err != nil {
 		t.Fatalf("RegisterTable locations: %v", err)
 	}
-	if _, err := ssql.RegisterTable("models", []map[string]interface{}{
+	if _, err := ssql.RegisterTable("models", []map[string]any{
 		{"deviceId": "d1", "model": "MX-1"},
 	}); err != nil {
 		t.Fatalf("RegisterTable models: %v", err)
 	}
 
-	got, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	got, err := ssql.EmitSync(map[string]any{"deviceId": "d1"})
 	if err != nil {
 		t.Fatalf("EmitSync: %v", err)
 	}
@@ -55,11 +55,11 @@ func TestJoinInnerEnrich(t *testing.T) {
 		t.Fatalf("RegisterTable: %v", err)
 	}
 
-	got, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d1", "temp": 35})
+	got, err := ssql.EmitSync(map[string]any{"deviceId": "d1", "temp": 35})
 	if err != nil {
 		t.Fatalf("EmitSync: %v", err)
 	}
-	want := map[string]interface{}{"deviceId": "d1", "location": "plantA", "type": "temp"}
+	want := map[string]any{"deviceId": "d1", "location": "plantA", "type": "temp"}
 	if got["deviceId"] != want["deviceId"] || got["location"] != want["location"] || got["type"] != want["type"] {
 		t.Errorf("got=%v, want=%v", got, want)
 	}
@@ -77,7 +77,7 @@ func TestJoinInnerNoMatchDropped(t *testing.T) {
 	}
 
 	// d3 has no metadata row -> INNER JOIN drops it (nil result, no error).
-	got, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d3"})
+	got, err := ssql.EmitSync(map[string]any{"deviceId": "d3"})
 	if err != nil {
 		t.Fatalf("EmitSync: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestJoinLeftNullFill(t *testing.T) {
 		t.Fatalf("RegisterTable: %v", err)
 	}
 
-	got, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d9"})
+	got, err := ssql.EmitSync(map[string]any{"deviceId": "d9"})
 	if err != nil {
 		t.Fatalf("EmitSync: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestJoinCompositeKey(t *testing.T) {
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId AND tenant = m.tenant"); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	rows := []map[string]interface{}{
+	rows := []map[string]any{
 		{"deviceId": "d1", "tenant": "t1", "location": "plantA"},
 		{"deviceId": "d1", "tenant": "t2", "location": "plantB"},
 	}
@@ -128,7 +128,7 @@ func TestJoinCompositeKey(t *testing.T) {
 		t.Fatalf("RegisterTable: %v", err)
 	}
 
-	got, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d1", "tenant": "t2"})
+	got, err := ssql.EmitSync(map[string]any{"deviceId": "d1", "tenant": "t2"})
 	if err != nil {
 		t.Fatalf("EmitSync: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestJoinExplicitKeyFields(t *testing.T) {
 	if _, err := ssql.RegisterTable("meta", deviceMetaRows(), "deviceId"); err != nil {
 		t.Fatalf("RegisterTable: %v", err)
 	}
-	got, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	got, err := ssql.EmitSync(map[string]any{"deviceId": "d1"})
 	if err != nil {
 		t.Fatalf("EmitSync: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestJoinUnregisteredTableErrors(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 	// No RegisterTable call -> EmitSync must surface the config error.
-	if _, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d1"}); err == nil {
+	if _, err := ssql.EmitSync(map[string]any{"deviceId": "d1"}); err == nil {
 		t.Error("expected error for unregistered JOIN table, got nil")
 	}
 }
@@ -206,16 +206,16 @@ func TestJoinConcurrentEmitAndUpsert(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			_, _ = ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+			_, _ = ssql.EmitSync(map[string]any{"deviceId": "d1"})
 		}()
 		go func() {
 			defer wg.Done()
-			src.Upsert(map[string]interface{}{"deviceId": "d1", "location": "plantC"})
+			src.Upsert(map[string]any{"deviceId": "d1", "location": "plantC"})
 		}()
 	}
 	wg.Wait()
 
-	got, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	got, err := ssql.EmitSync(map[string]any{"deviceId": "d1"})
 	if err != nil {
 		t.Fatalf("EmitSync: %v", err)
 	}

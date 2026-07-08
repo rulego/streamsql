@@ -22,7 +22,7 @@ import (
 
 // PrintTableFromSlice prints table from slice data
 // Supports custom field order, uses alphabetical order if fieldOrder is empty
-func PrintTableFromSlice(data []map[string]interface{}, fieldOrder []string) {
+func PrintTableFromSlice(data []map[string]any, fieldOrder []string) {
 	if len(data) == 0 {
 		return
 	}
@@ -129,20 +129,20 @@ func PrintTableBorder(columnWidths []int) {
 }
 
 // FormatTableData formats table data, supports multiple data types
-func FormatTableData(result interface{}, fieldOrder []string) {
+func FormatTableData(result any, fieldOrder []string) {
 	switch v := result.(type) {
-	case []map[string]interface{}:
+	case []map[string]any:
 		if len(v) == 0 {
 			fmt.Println("(0 rows)")
 			return
 		}
 		PrintTableFromSlice(v, fieldOrder)
-	case map[string]interface{}:
+	case map[string]any:
 		if len(v) == 0 {
 			fmt.Println("(0 rows)")
 			return
 		}
-		PrintTableFromSlice([]map[string]interface{}{v}, fieldOrder)
+		PrintTableFromSlice([]map[string]any{v}, fieldOrder)
 	default:
 		// For non-table data, print directly
 		fmt.Printf("Result: %v\n", result)

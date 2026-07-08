@@ -60,7 +60,7 @@ Non-overlapping time-based windows:
 	// Create tumbling window with processing time (default)
 	config := types.WindowConfig{
 		Type: "tumbling",
-		Params: []interface{}{"5s"},  // 5-second windows
+		Params: []any{"5s"},  // 5-second windows
 		TsProp: "timestamp",
 		TimeCharacteristic: types.ProcessingTime, // Uses system clock
 	}
@@ -69,7 +69,7 @@ Non-overlapping time-based windows:
 	// Create tumbling window with event time
 	config := types.WindowConfig{
 		Type: "tumbling",
-		Params: []interface{}{"5s"},  // 5-second windows
+		Params: []any{"5s"},  // 5-second windows
 		TsProp: "timestamp",
 		TimeCharacteristic: types.EventTime, // Uses event timestamps
 		MaxOutOfOrderness: 2 * time.Second, // Allow 2 seconds of out-of-order data
@@ -102,7 +102,7 @@ Overlapping time-based windows with configurable slide interval:
 	// Create sliding window with processing time (default)
 	config := types.WindowConfig{
 		Type: "sliding",
-		Params: []interface{}{"30s", "10s"}, // 30-second window size, 10-second slide
+		Params: []any{"30s", "10s"}, // 30-second window size, 10-second slide
 		TsProp: "timestamp",
 		TimeCharacteristic: types.ProcessingTime, // Uses system clock
 	}
@@ -111,7 +111,7 @@ Overlapping time-based windows with configurable slide interval:
 	// Create sliding window with event time
 	config := types.WindowConfig{
 		Type: "sliding",
-		Params: []interface{}{"30s", "10s"}, // 30-second window size, 10-second slide
+		Params: []any{"30s", "10s"}, // 30-second window size, 10-second slide
 		TsProp: "timestamp",
 		TimeCharacteristic: types.EventTime, // Uses event timestamps
 		MaxOutOfOrderness: 2 * time.Second, // Allow 2 seconds of out-of-order data
@@ -143,7 +143,7 @@ Count-based windows that trigger after a specified number of records:
 	// Create counting window
 	config := types.WindowConfig{
 		Type: "counting",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"count": 100, // Trigger every 100 records
 		},
 	}
@@ -168,7 +168,7 @@ Activity-based windows with configurable session timeout:
 	// Create session window
 	config := types.WindowConfig{
 		Type: "session",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"timeout": "5m", // 5-minute session timeout
 		},
 		GroupByKey: "user_id", // Group sessions by user
@@ -197,7 +197,7 @@ Centralized window creation:
 
 Time handling for window operations:
 
-	func GetTimestamp(data interface{}, timeField string) (time.Time, error)
+	func GetTimestamp(data any, timeField string) (time.Time, error)
 
 	type TimeSlot struct {
 		Start    time.Time
@@ -270,7 +270,7 @@ Basic tumbling window:
 
 	config := types.WindowConfig{
 		Type: "tumbling",
-		Params: map[string]interface{}{"size": "10s"},
+		Params: map[string]any{"size": "10s"},
 		TsProp: "timestamp",
 	}
 	window, err := CreateWindow(config)
@@ -283,7 +283,7 @@ Sliding window:
 
 	config := types.WindowConfig{
 		Type: "sliding",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"size":  "1m",
 			"slide": "10s",
 		},
@@ -295,7 +295,7 @@ Session window:
 
 	config := types.WindowConfig{
 		Type: "session",
-		Params: map[string]interface{}{"timeout": "30m"},
+		Params: map[string]any{"timeout": "30m"},
 		GroupByKey: "user_id",
 	}
 	window, err := NewSessionWindow(config)

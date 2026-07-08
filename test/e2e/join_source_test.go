@@ -11,26 +11,26 @@ import (
 
 // mockSource is a minimal TableSource for tests: an in-memory map the test can
 // mutate to simulate external loads/refreshes. Lookup receives the engine-built
-// []interface{} key; for a single-key JOIN it reads the first element.
+// []any key; for a single-key JOIN it reads the first element.
 type mockSource struct {
 	name   string
 	mu     sync.RWMutex
-	cache  map[interface{}]map[string]interface{}
+	cache  map[any]map[string]any
 	inited int32
 	closed int32
 }
 
 func newMockSource(name string) *mockSource {
-	return &mockSource{name: name, cache: make(map[interface{}]map[string]interface{})}
+	return &mockSource{name: name, cache: make(map[any]map[string]any)}
 }
 
 func (m *mockSource) Name() string { return m.name }
 func (m *mockSource) Init() error  { atomic.StoreInt32(&m.inited, 1); return nil }
 func (m *mockSource) Close() error { atomic.StoreInt32(&m.closed, 1); return nil }
 
-func (m *mockSource) Lookup(key interface{}) (map[string]interface{}, bool) {
-	vals, _ := key.([]interface{})
-	var k interface{}
+func (m *mockSource) Lookup(key any) (map[string]any, bool) {
+	vals, _ := key.([]any)
+	var k any
 	if len(vals) > 0 {
 		k = vals[0]
 	}
@@ -40,7 +40,7 @@ func (m *mockSource) Lookup(key interface{}) (map[string]interface{}, bool) {
 	return row, ok
 }
 
-func (m *mockSource) put(k string, row map[string]interface{}) {
+func (m *mockSource) put(k string, row map[string]any) {
 	m.mu.Lock()
 	m.cache[k] = row
 	m.mu.Unlock()
@@ -56,14 +56,14 @@ func TestJoinCustomTableSource(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 	src := newMockSource("meta")
-	src.put("d1", map[string]interface{}{"location": "plantA"})
+	src.put("d1", map[string]any{"location": "plantA"})
 	if err := ssql.RegisterTableSource(src); err != nil {
 		t.Fatalf("RegisterTableSource: %v", err)
 	}
 	if atomic.LoadInt32(&src.inited) != 1 {
 		t.Error("Init was not called on registration")
 	}
-	got, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	got, err := ssql.EmitSync(map[string]any{"deviceId": "d1"})
 	if err != nil {
 		t.Fatalf("EmitSync: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestJoinCustomSourceClosedOnStop(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 	src := newMockSource("meta")
-	src.put("d1", map[string]interface{}{"location": "plantA"})
+	src.put("d1", map[string]any{"location": "plantA"})
 	if err := ssql.RegisterTableSource(src); err != nil {
 		t.Fatalf("RegisterTableSource: %v", err)
 	}
@@ -101,18 +101,18 @@ func TestJoinCustomSourceRefresh(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 	src := newMockSource("meta")
-	src.put("d1", map[string]interface{}{"location": "old"})
+	src.put("d1", map[string]any{"location": "old"})
 	if err := ssql.RegisterTableSource(src); err != nil {
 		t.Fatalf("RegisterTableSource: %v", err)
 	}
 
-	got, _ := ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	got, _ := ssql.EmitSync(map[string]any{"deviceId": "d1"})
 	if got["location"] != "old" {
 		t.Errorf("before refresh got=%v, want old", got)
 	}
 
-	src.put("d1", map[string]interface{}{"location": "new"}) // simulate external refresh
-	got, _ = ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	src.put("d1", map[string]any{"location": "new"}) // simulate external refresh
+	got, _ = ssql.EmitSync(map[string]any{"deviceId": "d1"})
 	if got["location"] != "new" {
 		t.Errorf("after refresh got=%v, want new", got)
 	}
@@ -132,15 +132,15 @@ func TestJoinAsyncEmit(t *testing.T) {
 	}
 
 	var mu sync.Mutex
-	var results []map[string]interface{}
-	ssql.AddSink(func(rows []map[string]interface{}) {
+	var results []map[string]any
+	ssql.AddSink(func(rows []map[string]any) {
 		mu.Lock()
 		results = append(results, rows...)
 		mu.Unlock()
 	})
 
-	ssql.Emit(map[string]interface{}{"deviceId": "d1"})
-	ssql.Emit(map[string]interface{}{"deviceId": "d99"}) // no metadata -> INNER drops
+	ssql.Emit(map[string]any{"deviceId": "d1"})
+	ssql.Emit(map[string]any{"deviceId": "d99"}) // no metadata -> INNER drops
 
 	// Poll for the matching row to arrive (d99 is dropped, never sinked).
 	for i := 0; i < 100; i++ {
@@ -177,17 +177,17 @@ func TestJoinUpsertTableAndDelete(t *testing.T) {
 	}
 
 	// UpsertTable wrapper: change d1's location.
-	if err := ssql.UpsertTable("meta", map[string]interface{}{"deviceId": "d1", "location": "plantX"}); err != nil {
+	if err := ssql.UpsertTable("meta", map[string]any{"deviceId": "d1", "location": "plantX"}); err != nil {
 		t.Fatalf("UpsertTable: %v", err)
 	}
-	got, _ := ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	got, _ := ssql.EmitSync(map[string]any{"deviceId": "d1"})
 	if got["location"] != "plantX" {
 		t.Errorf("after upsert got=%v, want plantX", got)
 	}
 
 	// Delete: d1 no longer matches -> INNER drops.
 	src.Delete("d1")
-	got, _ = ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	got, _ = ssql.EmitSync(map[string]any{"deviceId": "d1"})
 	if got != nil {
 		t.Errorf("after delete got=%v, want nil (dropped)", got)
 	}
@@ -207,12 +207,12 @@ func TestJoinWithWhere(t *testing.T) {
 	}
 
 	// Passes WHERE (temp 35) and matches metadata -> enriched.
-	got, _ := ssql.EmitSync(map[string]interface{}{"deviceId": "d1", "temperature": 35})
+	got, _ := ssql.EmitSync(map[string]any{"deviceId": "d1", "temperature": 35})
 	if got == nil || got["location"] != "plantA" {
 		t.Errorf("matching row got=%v, want enriched", got)
 	}
 	// Filtered out by WHERE (temp 20).
-	got, _ = ssql.EmitSync(map[string]interface{}{"deviceId": "d1", "temperature": 20})
+	got, _ = ssql.EmitSync(map[string]any{"deviceId": "d1", "temperature": 20})
 	if got != nil {
 		t.Errorf("filtered row got=%v, want nil", got)
 	}
@@ -232,12 +232,12 @@ func TestJoinWhereOnMetadata(t *testing.T) {
 	}
 
 	// d1 has type=temp -> passes WHERE m.type='temp'.
-	got, _ := ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	got, _ := ssql.EmitSync(map[string]any{"deviceId": "d1"})
 	if got == nil || got["location"] != "plantA" {
 		t.Errorf("d1 should pass WHERE m.type='temp': got=%v", got)
 	}
 	// d2 has type=humid -> filtered out by WHERE on metadata column.
-	got, _ = ssql.EmitSync(map[string]interface{}{"deviceId": "d2"})
+	got, _ = ssql.EmitSync(map[string]any{"deviceId": "d2"})
 	if got != nil {
 		t.Errorf("d2 should be filtered by WHERE m.type='temp': got=%v", got)
 	}
@@ -257,12 +257,12 @@ func TestJoinLeftWhereMetadataIsNull(t *testing.T) {
 	}
 
 	// d9 has no metadata -> m.location NULL -> passes IS NULL.
-	got, _ := ssql.EmitSync(map[string]interface{}{"deviceId": "d9"})
+	got, _ := ssql.EmitSync(map[string]any{"deviceId": "d9"})
 	if got == nil {
 		t.Error("unmatched LEFT row should pass WHERE m.location IS NULL")
 	}
 	// d1 matches -> m.location not NULL -> filtered out.
-	got, _ = ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	got, _ = ssql.EmitSync(map[string]any{"deviceId": "d1"})
 	if got != nil {
 		t.Errorf("matched row should be filtered by WHERE m.location IS NULL: got=%v", got)
 	}
@@ -289,13 +289,13 @@ func TestJoinStreamAliasAndNestedField(t *testing.T) {
 	if err := ssql.Execute("SELECT s.deviceId, m.location, m.profile.id AS pid FROM stream s JOIN meta m ON s.deviceId = m.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if _, err := ssql.RegisterTable("meta", []map[string]interface{}{
-		{"deviceId": "d1", "location": "plantA", "profile": map[string]interface{}{"id": "u1"}},
+	if _, err := ssql.RegisterTable("meta", []map[string]any{
+		{"deviceId": "d1", "location": "plantA", "profile": map[string]any{"id": "u1"}},
 	}); err != nil {
 		t.Fatalf("RegisterTable: %v", err)
 	}
 
-	got, err := ssql.EmitSync(map[string]interface{}{"deviceId": "d1"})
+	got, err := ssql.EmitSync(map[string]any{"deviceId": "d1"})
 	if err != nil {
 		t.Fatalf("EmitSync: %v", err)
 	}

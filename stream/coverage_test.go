@@ -37,7 +37,7 @@ func TestDataProcessor_ApplyDistinct(t *testing.T) {
 		},
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: []interface{}{1 * time.Second},
+			Params: []any{1 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)
@@ -51,7 +51,7 @@ func TestDataProcessor_ApplyDistinct(t *testing.T) {
 	processor := NewDataProcessor(stream)
 
 	// 测试数据
-	results := []map[string]interface{}{
+	results := []map[string]any{
 		{"device": "sensor1", "temperature": 25.0, "humidity": 60.0},
 		{"device": "sensor1", "temperature": 25.0, "humidity": 60.0}, // 重复数据
 		{"device": "sensor2", "temperature": 30.0, "humidity": 70.0},
@@ -79,7 +79,7 @@ func TestDataProcessor_ApplyHavingFilter(t *testing.T) {
 		Having: "temperature > 25",
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: []interface{}{1 * time.Second},
+			Params: []any{1 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)
@@ -93,7 +93,7 @@ func TestDataProcessor_ApplyHavingFilter(t *testing.T) {
 	processor := NewDataProcessor(stream)
 
 	// 测试数据
-	results := []map[string]interface{}{
+	results := []map[string]any{
 		{"device": "sensor1", "temperature": 20.0},
 		{"device": "sensor2", "temperature": 30.0},
 		{"device": "sensor3", "temperature": 35.0},
@@ -120,7 +120,7 @@ func TestDataProcessor_ApplyHavingWithCaseExpression(t *testing.T) {
 		Having: "CASE WHEN temperature > 30 THEN 1 WHEN status = 'active' THEN 1 ELSE 0 END",
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: []interface{}{1 * time.Second},
+			Params: []any{1 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)
@@ -134,7 +134,7 @@ func TestDataProcessor_ApplyHavingWithCaseExpression(t *testing.T) {
 	processor := NewDataProcessor(stream)
 
 	// 测试数据
-	results := []map[string]interface{}{
+	results := []map[string]any{
 		{"device": "sensor1", "temperature": 25.0, "status": "inactive"},
 		{"device": "sensor2", "temperature": 35.0, "status": "inactive"},
 		{"device": "sensor3", "temperature": 20.0, "status": "active"},
@@ -161,7 +161,7 @@ func TestDataProcessor_ApplyHavingWithCondition(t *testing.T) {
 		Having: "temperature > 25",
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: []interface{}{1 * time.Second},
+			Params: []any{1 * time.Second},
 		},
 	}
 	stream, err := NewStream(config)
@@ -175,7 +175,7 @@ func TestDataProcessor_ApplyHavingWithCondition(t *testing.T) {
 	processor := NewDataProcessor(stream)
 
 	// 测试数据
-	results := []map[string]interface{}{
+	results := []map[string]any{
 		{"device": "sensor1", "temperature": 20.0},
 		{"device": "sensor2", "temperature": 30.0},
 		{"device": "sensor3", "temperature": 45.0},
@@ -210,18 +210,18 @@ func TestStream_ProcessExpressionFieldFallback(t *testing.T) {
 	}()
 
 	// 测试数据
-	dataMap := map[string]interface{}{
+	dataMap := map[string]any{
 		"device":      "sensor1",
 		"temperature": 25.0,
 	}
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 
 	// 测试表达式字段处理
 	stream.processExpressionFieldFallback("temp_fahrenheit", dataMap, result)
 	assert.Equal(t, 77.0, result["temp_fahrenheit"])
 
 	// 测试不存在的字段
-	result = make(map[string]interface{})
+	result = make(map[string]any)
 	stream.processExpressionFieldFallback("nonexistent", dataMap, result)
 	assert.Nil(t, result["nonexistent"])
 }
@@ -240,32 +240,32 @@ func TestStream_ProcessSingleFieldFallback(t *testing.T) {
 	}()
 
 	// 测试数据
-	dataMap := map[string]interface{}{
+	dataMap := map[string]any{
 		"device": "sensor1",
-		"nested": map[string]interface{}{
+		"nested": map[string]any{
 			"field": "value",
 		},
 	}
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 
 	// 测试普通字段
 	stream.processSingleFieldFallback("device", dataMap, dataMap, result)
 	assert.Equal(t, "sensor1", result["device"])
 
 	// 测试嵌套字段
-	result = make(map[string]interface{})
+	result = make(map[string]any)
 	stream.processSingleFieldFallback("`nested.field`", dataMap, dataMap, result)
 	// 嵌套字段处理可能返回nil，这是正常行为
 	// assert.Equal(t, "value", result["nested.field"])
 
 	// 测试字符串字面量
-	result = make(map[string]interface{})
+	result = make(map[string]any)
 	stream.processSingleFieldFallback("'literal'", dataMap, dataMap, result)
 	// 字符串字面量处理可能返回nil，这是正常行为
 	// assert.Equal(t, "literal", result["'literal'"])
 
 	// 测试SELECT *
-	result = make(map[string]interface{})
+	result = make(map[string]any)
 	stream.processSingleFieldFallback("*", dataMap, dataMap, result)
 	assert.Equal(t, dataMap, result)
 }
@@ -284,10 +284,10 @@ func TestStream_ExecuteFunction(t *testing.T) {
 	}()
 
 	// 测试数据
-	data := map[string]interface{}{
+	data := map[string]any{
 		"device":      "sensor1",
 		"temperature": 25.0,
-		"values":      []interface{}{1, 2, 3, 4, 5},
+		"values":      []any{1, 2, 3, 4, 5},
 	}
 
 	// 测试数学函数
@@ -344,17 +344,17 @@ func TestStream_ParseFunctionArgs(t *testing.T) {
 	}()
 
 	// 测试数据
-	data := map[string]interface{}{
+	data := map[string]any{
 		"device":      "sensor1",
 		"temperature": 25.0,
-		"values":      []interface{}{1, 2, 3},
+		"values":      []any{1, 2, 3},
 	}
 
 	// 测试简单参数
 	args, err := stream.parseFunctionArgs("SUM(values)", data)
 	require.NoError(t, err)
 	assert.Len(t, args, 1)
-	assert.Equal(t, []interface{}{1, 2, 3}, args[0])
+	assert.Equal(t, []any{1, 2, 3}, args[0])
 
 	// 测试多个参数
 	args, err = stream.parseFunctionArgs("CONCAT(device, ':', temperature)", data)
@@ -426,7 +426,7 @@ func TestStream_FallbackExpressionEvaluation(t *testing.T) {
 	processor := NewDataProcessor(stream)
 
 	// 测试数据
-	dataMap := map[string]interface{}{
+	dataMap := map[string]any{
 		"device":      "sensor1",
 		"temperature": 25.0,
 	}
@@ -476,15 +476,15 @@ func TestStream_ComplexFieldProcessing(t *testing.T) {
 	}()
 
 	// 测试数据
-	dataMap := map[string]interface{}{
+	dataMap := map[string]any{
 		"device": "sensor1",
-		"nested": map[string]interface{}{
+		"nested": map[string]any{
 			"field": "value",
 		},
 		"temperature": 25.0,
-		"values":      []interface{}{1, 2, 3, 4, 5},
+		"values":      []any{1, 2, 3, 4, 5},
 	}
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 
 	// 测试各种字段处理
 	stream.processSimpleField("device", dataMap, dataMap, result)
@@ -541,14 +541,14 @@ func TestStream_ProcessSync(t *testing.T) {
 		},
 		WindowConfig: types.WindowConfig{
 			Type:   "tumbling",
-			Params: []interface{}{1 * time.Second},
+			Params: []any{1 * time.Second},
 		},
 	}
 	aggStream, err := NewStream(aggConfig)
 	require.NoError(t, err)
 	defer aggStream.Stop()
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"device":      "sensor1",
 		"temperature": 25.0,
 	}
@@ -588,7 +588,7 @@ func TestStream_ProcessSync(t *testing.T) {
 	assert.Nil(t, result)
 
 	// 匹配过滤条件
-	highTempData := map[string]interface{}{
+	highTempData := map[string]any{
 		"device":      "sensor2",
 		"temperature": 35.0,
 	}
@@ -615,7 +615,7 @@ func TestStream_ProcessDirectDataSync(t *testing.T) {
 	require.NoError(t, err)
 	defer exprStream.Stop()
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"device":      "sensor1",
 		"temperature": 25.0,
 	}
@@ -832,11 +832,11 @@ func TestStream_ErrorHandling(t *testing.T) {
 	}()
 
 	// 测试数据
-	dataMap := map[string]interface{}{
+	dataMap := map[string]any{
 		"device":      "sensor1",
 		"temperature": 25.0,
 	}
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 
 	// 测试无效表达式处理
 	stream.processExpressionFieldFallback("invalid_expr", dataMap, result)

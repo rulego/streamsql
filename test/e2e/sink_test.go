@@ -44,9 +44,9 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 
 		// 设置AddSink回调来收集异步结果
 		var sinkCallCount int32
-		var sinkResults []interface{}
+		var sinkResults []any
 		var sinkResultsMux sync.Mutex // 保护sinkResults访问
-		ssql.AddSink(func(result []map[string]interface{}) {
+		ssql.AddSink(func(result []map[string]any) {
 			atomic.AddInt32(&sinkCallCount, 1)
 			sinkResultsMux.Lock()
 			sinkResults = append(sinkResults, result)
@@ -54,13 +54,13 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 		})
 
 		// 测试数据
-		testData := []map[string]interface{}{
+		testData := []map[string]any{
 			{"temperature": 25.0, "humidity": 60.0}, // 符合条件
 			{"temperature": 15.0, "humidity": 70.0}, // 被过滤
 			{"temperature": 30.0, "humidity": 80.0}, // 符合条件
 		}
 
-		var syncResults []map[string]interface{}
+		var syncResults []map[string]any
 
 		// 处理测试数据
 		for _, data := range testData {
@@ -81,7 +81,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 
 		// 安全读取异步回调结果
 		sinkResultsMux.Lock()
-		finalSinkResults := make([]interface{}, len(sinkResults))
+		finalSinkResults := make([]any, len(sinkResults))
 		copy(finalSinkResults, sinkResults)
 		sinkResultsMux.Unlock()
 
@@ -122,7 +122,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 
 			// 收集异步结果
 			for _, result := range finalSinkResults {
-				if sinkResultArray, ok := result.([]map[string]interface{}); ok && len(sinkResultArray) > 0 {
+				if sinkResultArray, ok := result.([]map[string]any); ok && len(sinkResultArray) > 0 {
 					sinkResult := sinkResultArray[0]
 					asyncTemperatures = append(asyncTemperatures, sinkResult["temperature"].(float64))
 					asyncHumidities = append(asyncHumidities, sinkResult["humidity"].(float64))
@@ -154,7 +154,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 		assert.True(t, ssql.IsAggregationQuery())
 
 		// 尝试同步处理应该返回错误
-		data := map[string]interface{}{"temperature": 25.0}
+		data := map[string]any{"temperature": 25.0}
 		result, err := ssql.EmitSync(data)
 
 		assert.Error(t, err)
@@ -174,20 +174,20 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 		// 添加多个AddSink回调，使用原子操作确保线程安全
 		var sink1Count, sink2Count, sink3Count int32
 
-		ssql.AddSink(func(result []map[string]interface{}) {
+		ssql.AddSink(func(result []map[string]any) {
 			atomic.AddInt32(&sink1Count, 1)
 		})
 
-		ssql.AddSink(func(result []map[string]interface{}) {
+		ssql.AddSink(func(result []map[string]any) {
 			atomic.AddInt32(&sink2Count, 1)
 		})
 
-		ssql.AddSink(func(result []map[string]interface{}) {
+		ssql.AddSink(func(result []map[string]any) {
 			atomic.AddInt32(&sink3Count, 1)
 		})
 
 		// 处理一条数据
-		data := map[string]interface{}{"temperature": 25.0}
+		data := map[string]any{"temperature": 25.0}
 		result, err := ssql.EmitSync(data)
 		require.NoError(t, err)
 		require.NotNil(t, result)
@@ -212,12 +212,12 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 
 		// 添加AddSink回调
 		var sinkCallCount int32
-		ssql.AddSink(func(result []map[string]interface{}) {
+		ssql.AddSink(func(result []map[string]any) {
 			atomic.AddInt32(&sinkCallCount, 1)
 		})
 
 		// 处理不符合条件的数据
-		data := map[string]interface{}{"temperature": 20.0} // 不符合 > 30 的条件
+		data := map[string]any{"temperature": 20.0} // 不符合 > 30 的条件
 		result, err := ssql.EmitSync(data)
 		require.NoError(t, err)
 		assert.Nil(t, result, "不符合过滤条件应该返回nil")
@@ -240,7 +240,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 		require.NoError(t, err)
 
 		// 测试数据
-		testData := map[string]interface{}{
+		testData := map[string]any{
 			"temperature": 25.5,
 			"humidity":    65.0,
 		}
@@ -273,7 +273,7 @@ func TestEmitSyncPerformance(t *testing.T) {
 
 	// 添加AddSink回调，使用原子操作确保线程安全
 	var sinkCallCount int32
-	ssql.AddSink(func(result []map[string]interface{}) {
+	ssql.AddSink(func(result []map[string]any) {
 		atomic.AddInt32(&sinkCallCount, 1)
 	})
 
@@ -282,7 +282,7 @@ func TestEmitSyncPerformance(t *testing.T) {
 
 	start := time.Now()
 	for i := 0; i < testCount; i++ {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"temperature": float64(20 + i%20),
 			"humidity":    float64(50 + i%30),
 		}

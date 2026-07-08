@@ -73,8 +73,8 @@ const (
 // Maintains compatibility with original interface for backward compatibility
 type LegacyAggregatorFunction interface {
 	New() LegacyAggregatorFunction
-	Add(value interface{})
-	Result() interface{}
+	Add(value any)
+	Result() any
 }
 
 // ContextAggregator defines aggregator interface that supports context mechanism
@@ -132,11 +132,11 @@ func (w *FunctionAggregatorWrapper) New() LegacyAggregatorFunction {
 	return &FunctionAggregatorWrapper{adapter: newAdapter}
 }
 
-func (w *FunctionAggregatorWrapper) Add(value interface{}) {
+func (w *FunctionAggregatorWrapper) Add(value any) {
 	w.adapter.Add(value)
 }
 
-func (w *FunctionAggregatorWrapper) Result() interface{} {
+func (w *FunctionAggregatorWrapper) Result() any {
 	return w.adapter.Result()
 }
 
@@ -164,10 +164,10 @@ func (w *AnalyticalAggregatorWrapper) New() LegacyAggregatorFunction {
 	return &AnalyticalAggregatorWrapper{adapter: newAdapter}
 }
 
-func (w *AnalyticalAggregatorWrapper) Add(value interface{}) {
+func (w *AnalyticalAggregatorWrapper) Add(value any) {
 	w.adapter.Add(value)
 }
 
-func (w *AnalyticalAggregatorWrapper) Result() interface{} {
+func (w *AnalyticalAggregatorWrapper) Result() any {
 	return w.adapter.Result()
 }

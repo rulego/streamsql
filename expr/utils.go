@@ -93,18 +93,18 @@ func normalizeIdentifier(identifier string) string {
 }
 
 // convertToFloat converts any type to float64
-func convertToFloat(value interface{}) (float64, error) {
+func convertToFloat(value any) (float64, error) {
 	return cast.ToFloat64E(value)
 }
 
 // convertToFloatSafe safely converts any type to float64, returns conversion result and success status
-func convertToFloatSafe(value interface{}) (float64, bool) {
+func convertToFloatSafe(value any) (float64, bool) {
 	result, err := convertToFloat(value)
 	return result, err == nil
 }
 
 // convertToBool converts any type to boolean
-func convertToBool(value interface{}) bool {
+func convertToBool(value any) bool {
 	return cast.ToBool(value)
 }
 
@@ -154,7 +154,7 @@ func parseFunction(tokens []string, pos int) (*ExprNode, int, error) {
 }
 
 // formatError formats error message
-func formatError(message string, args ...interface{}) error {
+func formatError(message string, args ...any) error {
 	if len(args) == 0 {
 		return fmt.Errorf("%s", message)
 	}

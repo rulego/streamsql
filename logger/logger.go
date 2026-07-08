@@ -63,13 +63,13 @@ func (l Level) String() string {
 // Logger interface defines basic methods for logging
 type Logger interface {
 	// Debug records debug level logs
-	Debug(format string, args ...interface{})
+	Debug(format string, args ...any)
 	// Info records info level logs
-	Info(format string, args ...interface{})
+	Info(format string, args ...any)
 	// Warn records warning level logs
-	Warn(format string, args ...interface{})
+	Warn(format string, args ...any)
 	// Error records error level logs
-	Error(format string, args ...interface{})
+	Error(format string, args ...any)
 	// SetLevel sets the log level
 	SetLevel(level Level)
 }
@@ -101,28 +101,28 @@ func NewLogger(level Level, output io.Writer) Logger {
 }
 
 // Debug records debug level logs
-func (l *defaultLogger) Debug(format string, args ...interface{}) {
+func (l *defaultLogger) Debug(format string, args ...any) {
 	if l.level <= DEBUG {
 		l.log(DEBUG, format, args...)
 	}
 }
 
 // Info records info level logs
-func (l *defaultLogger) Info(format string, args ...interface{}) {
+func (l *defaultLogger) Info(format string, args ...any) {
 	if l.level <= INFO {
 		l.log(INFO, format, args...)
 	}
 }
 
 // Warn records warning level logs
-func (l *defaultLogger) Warn(format string, args ...interface{}) {
+func (l *defaultLogger) Warn(format string, args ...any) {
 	if l.level <= WARN {
 		l.log(WARN, format, args...)
 	}
 }
 
 // Error records error level logs
-func (l *defaultLogger) Error(format string, args ...interface{}) {
+func (l *defaultLogger) Error(format string, args ...any) {
 	if l.level <= ERROR {
 		l.log(ERROR, format, args...)
 	}
@@ -134,7 +134,7 @@ func (l *defaultLogger) SetLevel(level Level) {
 }
 
 // log internal logging method, formats and outputs log information
-func (l *defaultLogger) log(level Level, format string, args ...interface{}) {
+func (l *defaultLogger) log(level Level, format string, args ...any) {
 	if l.level == OFF {
 		return
 	}
@@ -154,11 +154,11 @@ func NewDiscardLogger() Logger {
 	return &discardLogger{}
 }
 
-func (d *discardLogger) Debug(format string, args ...interface{}) {}
-func (d *discardLogger) Info(format string, args ...interface{})  {}
-func (d *discardLogger) Warn(format string, args ...interface{})  {}
-func (d *discardLogger) Error(format string, args ...interface{}) {}
-func (d *discardLogger) SetLevel(level Level)                     {}
+func (d *discardLogger) Debug(format string, args ...any) {}
+func (d *discardLogger) Info(format string, args ...any)  {}
+func (d *discardLogger) Warn(format string, args ...any)  {}
+func (d *discardLogger) Error(format string, args ...any) {}
+func (d *discardLogger) SetLevel(level Level)             {}
 
 // Global default logger
 var defaultInstance Logger = NewLogger(INFO, os.Stdout)
@@ -174,21 +174,21 @@ func GetDefault() Logger {
 }
 
 // Debug uses the default logger to record debug information
-func Debug(format string, args ...interface{}) {
+func Debug(format string, args ...any) {
 	defaultInstance.Debug(format, args...)
 }
 
 // Info uses the default logger to record information
-func Info(format string, args ...interface{}) {
+func Info(format string, args ...any) {
 	defaultInstance.Info(format, args...)
 }
 
 // Warn uses the default logger to record warnings
-func Warn(format string, args ...interface{}) {
+func Warn(format string, args ...any) {
 	defaultInstance.Warn(format, args...)
 }
 
 // Error uses the default logger to record errors
-func Error(format string, args ...interface{}) {
+func Error(format string, args ...any) {
 	defaultInstance.Error(format, args...)
 }

@@ -31,7 +31,7 @@ import (
 
 // debugLogSliding logs debug information only when EnableDebug is true
 // This function is optimized to avoid unnecessary string formatting when debug is disabled
-func debugLogSliding(format string, args ...interface{}) {
+func debugLogSliding(format string, args ...any) {
 	// Fast path: if debug is disabled, return immediately without evaluating args
 	// The compiler should optimize this check away when EnableDebug is a compile-time constant false
 	if !EnableDebug {
@@ -45,7 +45,7 @@ var _ Window = (*SlidingWindow)(nil)
 
 // TimedData wraps data with timestamp
 type TimedData struct {
-	Data      interface{}
+	Data      any
 	Timestamp time.Time
 }
 
@@ -159,7 +159,7 @@ func NewSlidingWindow(config types.WindowConfig) (*SlidingWindow, error) {
 }
 
 // Add adds data to the sliding window
-func (sw *SlidingWindow) Add(data interface{}) {
+func (sw *SlidingWindow) Add(data any) {
 	// Lock to ensure thread safety
 	sw.mu.Lock()
 	defer sw.mu.Unlock()

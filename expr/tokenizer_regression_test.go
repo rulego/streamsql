@@ -54,13 +54,13 @@ func TestTokenizerUnaryMinus(t *testing.T) {
 func TestEvaluateArithmeticSubtraction(t *testing.T) {
 	cases := []struct {
 		expr string
-		data map[string]interface{}
+		data map[string]any
 		want float64
 	}{
-		{"price*2-1", map[string]interface{}{"price": float64(100)}, 199},
+		{"price*2-1", map[string]any{"price": float64(100)}, 199},
 		{"5-3", nil, 2},
 		{"2-3-4", nil, -5},
-		{"a+10-1", map[string]interface{}{"a": float64(5)}, 14},
+		{"a+10-1", map[string]any{"a": float64(5)}, 14},
 	}
 	for _, c := range cases {
 		e, err := NewExpression(c.expr)

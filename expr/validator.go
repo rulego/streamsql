@@ -138,7 +138,7 @@ func validateFunctionNode(node *ExprNode) error {
 
 	// Use function's own validation logic for basic validation
 	// Create temporary argument array for validating argument count
-	tempArgs := make([]interface{}, len(node.Args))
+	tempArgs := make([]any, len(node.Args))
 	if err := fn.Validate(tempArgs); err != nil {
 		return fmt.Errorf("function %s validation failed: %v", node.Value, err)
 	}

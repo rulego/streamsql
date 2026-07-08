@@ -64,14 +64,14 @@ func TestFormatError(t *testing.T) {
 	tests := []struct {
 		name     string
 		message  string
-		args     []interface{}
+		args     []any
 		expected string
 	}{
 		{"简单错误", "invalid value", nil, "invalid value"},
-		{"带参数的错误", "invalid value: %v", []interface{}{"test"}, "invalid value: test"},
-		{"多参数错误", "error at position %d: %s", []interface{}{5, "syntax error"}, "error at position 5: syntax error"},
-		{"数字参数", "value %d is out of range [%d, %d]", []interface{}{10, 1, 5}, "value 10 is out of range [1, 5]"},
-		{"浮点数参数", "result: %.2f", []interface{}{3.14159}, "result: 3.14"},
+		{"带参数的错误", "invalid value: %v", []any{"test"}, "invalid value: test"},
+		{"多参数错误", "error at position %d: %s", []any{5, "syntax error"}, "error at position 5: syntax error"},
+		{"数字参数", "value %d is out of range [%d, %d]", []any{10, 1, 5}, "value 10 is out of range [1, 5]"},
+		{"浮点数参数", "result: %.2f", []any{3.14159}, "result: 3.14"},
 	}
 
 	for _, tt := range tests {

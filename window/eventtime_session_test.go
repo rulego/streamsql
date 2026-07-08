@@ -29,7 +29,7 @@ func newEventTimeSession(t *testing.T, timeout, maxOutOfOrderness, allowedLatene
 	t.Helper()
 	sw, err := NewSessionWindow(types.WindowConfig{
 		Type:               TypeSession,
-		Params:             []interface{}{timeout},
+		Params:             []any{timeout},
 		TsProp:             "ts",
 		TimeCharacteristic: types.EventTime,
 		MaxOutOfOrderness:  maxOutOfOrderness,
@@ -48,14 +48,14 @@ func TestEventTimeSessionTrigger(t *testing.T) {
 
 	base := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
 	// session for "a": [base, base+2s)
-	sw.Add(map[string]interface{}{"user": "a", "ts": base, "v": 1})
+	sw.Add(map[string]any{"user": "a", "ts": base, "v": 1})
 	// far-future event for "b" pushes watermark past session "a" end
-	sw.Add(map[string]interface{}{"user": "b", "ts": base.Add(10 * time.Second), "v": 2})
+	sw.Add(map[string]any{"user": "b", "ts": base.Add(10 * time.Second), "v": 2})
 
 	select {
 	case res := <-sw.OutputChan():
 		require.Len(t, res, 1)
-		assert.Equal(t, "a", res[0].Data.(map[string]interface{})["user"])
+		assert.Equal(t, "a", res[0].Data.(map[string]any)["user"])
 	case <-time.After(2 * time.Second):
 		t.Fatal("timeout waiting for session trigger")
 	}
@@ -68,8 +68,8 @@ func TestEventTimeSessionCloseExpired(t *testing.T) {
 
 	base := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
 	// session "a" expires and is kept open for late data (closeTime = base+2s+5s)
-	sw.Add(map[string]interface{}{"user": "a", "ts": base, "v": 1})
-	sw.Add(map[string]interface{}{"user": "b", "ts": base.Add(3 * time.Second), "v": 2})
+	sw.Add(map[string]any{"user": "a", "ts": base, "v": 1})
+	sw.Add(map[string]any{"user": "b", "ts": base.Add(3 * time.Second), "v": 2})
 	require.Eventually(t, func() bool {
 		return sw.sentCount > 0
 	}, 2*time.Second, 10*time.Millisecond)
@@ -83,7 +83,7 @@ func TestEventTimeSessionCloseExpired(t *testing.T) {
 	}, 2*time.Second, 10*time.Millisecond)
 
 	// push watermark well past closeTime to expire all triggered sessions
-	sw.Add(map[string]interface{}{"user": "c", "ts": base.Add(30 * time.Second), "v": 3})
+	sw.Add(map[string]any{"user": "c", "ts": base.Add(30 * time.Second), "v": 3})
 	require.Eventually(t, func() bool {
 		sw.mu.RLock()
 		defer sw.mu.RUnlock()
@@ -103,7 +103,7 @@ func TestSessionHandleLateDataDirect(t *testing.T) {
 	slot := types.NewTimeSlot(&slotStart, &slotEnd)
 
 	existing := []types.Row{
-		{Data: map[string]interface{}{"user": "a", "ts": base, "v": 1}, Timestamp: base, Slot: slot},
+		{Data: map[string]any{"user": "a", "ts": base, "v": 1}, Timestamp: base, Slot: slot},
 	}
 	sw.mu.Lock()
 	sw.triggeredSessions["a"] = &sessionInfo{
@@ -119,7 +119,7 @@ func TestSessionHandleLateDataDirect(t *testing.T) {
 	// late event inside the triggered session range; handleLateData is "Locked",
 	// so the caller holds the mutex.
 	lateRow := types.Row{
-		Data:      map[string]interface{}{"user": "a", "ts": base.Add(1 * time.Second), "v": 2},
+		Data:      map[string]any{"user": "a", "ts": base.Add(1 * time.Second), "v": 2},
 		Timestamp: base.Add(1 * time.Second),
 	}
 	sw.mu.Lock()
@@ -145,12 +145,12 @@ func TestSessionLateDataViaAddNoDeadlock(t *testing.T) {
 
 	base := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
 	// Push the watermark high so the next event is judged late.
-	sw.Add(map[string]interface{}{"user": "a", "ts": base.Add(20 * time.Second), "v": 1})
+	sw.Add(map[string]any{"user": "a", "ts": base.Add(20 * time.Second), "v": 1})
 
 	// Late event (ts < watermark) reaches the handleLateData call path.
 	done := make(chan struct{})
 	go func() {
-		sw.Add(map[string]interface{}{"user": "a", "ts": base.Add(1 * time.Second), "v": 2})
+		sw.Add(map[string]any{"user": "a", "ts": base.Add(1 * time.Second), "v": 2})
 		close(done)
 	}()
 	select {

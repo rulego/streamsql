@@ -17,9 +17,9 @@ func TestCountingWindow(t *testing.T) {
 
 	// Test case 1: Normal operation
 	cw, _ := NewCountingWindow(types.WindowConfig{
-		Params: []interface{}{3},
+		Params: []any{3},
 		Callback: func(results []types.Row) {
-				t.Logf("Received results: %v", results)
+			t.Logf("Received results: %v", results)
 		},
 	})
 	go cw.Start()
@@ -82,8 +82,8 @@ func TestCountingWindow(t *testing.T) {
 
 func TestCountingWindowBadThreshold(t *testing.T) {
 	_, err := CreateWindow(types.WindowConfig{
-		Type: "counting",
-		Params: []interface{}{0},
+		Type:   "counting",
+		Params: []any{0},
 	})
 	require.Error(t, err)
 }

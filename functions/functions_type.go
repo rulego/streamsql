@@ -15,11 +15,11 @@ func NewIsNullFunction() *IsNullFunction {
 	}
 }
 
-func (f *IsNullFunction) Validate(args []interface{}) error {
+func (f *IsNullFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *IsNullFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *IsNullFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return isNilValue(args[0]), nil
 }
 
@@ -34,18 +34,18 @@ func NewIsNotNullFunction() *IsNotNullFunction {
 	}
 }
 
-func (f *IsNotNullFunction) Validate(args []interface{}) error {
+func (f *IsNotNullFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *IsNotNullFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *IsNotNullFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return !isNilValue(args[0]), nil
 }
 
 // isNilValue reports whether v is nil, including typed-nil values
 // (e.g. (*int)(nil)) which compare != nil under Go's == operator but should be
 // treated as NULL by is_null/is_not_null.
-func isNilValue(v interface{}) bool {
+func isNilValue(v any) bool {
 	if v == nil {
 		return true
 	}
@@ -68,11 +68,11 @@ func NewIsNumericFunction() *IsNumericFunction {
 	}
 }
 
-func (f *IsNumericFunction) Validate(args []interface{}) error {
+func (f *IsNumericFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *IsNumericFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *IsNumericFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if args[0] == nil {
 		return false, nil
 	}
@@ -99,11 +99,11 @@ func NewIsStringFunction() *IsStringFunction {
 	}
 }
 
-func (f *IsStringFunction) Validate(args []interface{}) error {
+func (f *IsStringFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *IsStringFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *IsStringFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if args[0] == nil {
 		return false, nil
 	}
@@ -123,11 +123,11 @@ func NewIsBoolFunction() *IsBoolFunction {
 	}
 }
 
-func (f *IsBoolFunction) Validate(args []interface{}) error {
+func (f *IsBoolFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *IsBoolFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *IsBoolFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if args[0] == nil {
 		return false, nil
 	}
@@ -147,11 +147,11 @@ func NewIsArrayFunction() *IsArrayFunction {
 	}
 }
 
-func (f *IsArrayFunction) Validate(args []interface{}) error {
+func (f *IsArrayFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *IsArrayFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *IsArrayFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if args[0] == nil {
 		return false, nil
 	}
@@ -171,11 +171,11 @@ func NewIsObjectFunction() *IsObjectFunction {
 	}
 }
 
-func (f *IsObjectFunction) Validate(args []interface{}) error {
+func (f *IsObjectFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *IsObjectFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *IsObjectFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if args[0] == nil {
 		return false, nil
 	}

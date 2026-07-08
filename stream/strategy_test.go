@@ -193,7 +193,7 @@ func TestStrategyProcessData(t *testing.T) {
 			defer stream.Stop()
 
 			// 测试数据处理
-			testData := map[string]interface{}{
+			testData := map[string]any{
 				"test": "data",
 				"id":   1,
 			}
@@ -262,7 +262,7 @@ func NewMockStrategy() *MockStrategy {
 }
 
 // ProcessData 模拟数据处理
-func (ms *MockStrategy) ProcessData(data map[string]interface{}) {
+func (ms *MockStrategy) ProcessData(data map[string]any) {
 	ms.processed++
 	// 模拟处理逻辑
 }
@@ -293,7 +293,7 @@ func TestCustomStrategy(t *testing.T) {
 	// 创建基本的Stream实例（不通过工厂）
 	reg := metrics.NewRegistry()
 	stream := &Stream{
-		dataChan:        make(chan map[string]interface{}, 10),
+		dataChan:        make(chan map[string]any, 10),
 		done:            make(chan struct{}),
 		metricsRegistry: reg,
 		mInput:          reg.Counter(InputCount),
@@ -320,7 +320,7 @@ func TestCustomStrategy(t *testing.T) {
 	}
 
 	// 测试数据处理
-	testData := map[string]interface{}{"test": "data"}
+	testData := map[string]any{"test": "data"}
 	stream.Emit(testData)
 
 	if mockStrategy.processed != 1 {
@@ -388,7 +388,7 @@ type KafkaStrategy struct {
 }
 
 // ProcessData 实现Kafka削峰数据处理
-func (ks *KafkaStrategy) ProcessData(data map[string]interface{}) {
+func (ks *KafkaStrategy) ProcessData(data map[string]any) {
 	// 模拟Kafka削峰逻辑
 	// 实际实现中会将数据发送到Kafka队列
 	logger.Debug("Data sent to Kafka for peak shaving")

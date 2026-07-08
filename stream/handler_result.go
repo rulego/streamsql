@@ -81,7 +81,7 @@ func (s *Stream) startResultConsumer() {
 }
 
 // sendResultNonBlocking sends results to resultChan in non-blocking way (intelligent backpressure control)
-func (s *Stream) sendResultNonBlocking(results []map[string]interface{}) {
+func (s *Stream) sendResultNonBlocking(results []map[string]any) {
 	select {
 	case s.resultChan <- results:
 		// Successfully sent to result channel
@@ -93,7 +93,7 @@ func (s *Stream) sendResultNonBlocking(results []map[string]interface{}) {
 }
 
 // handleResultChannelBackpressure handles result channel backpressure with log throttling
-func (s *Stream) handleResultChannelBackpressure(results []map[string]interface{}) {
+func (s *Stream) handleResultChannelBackpressure(results []map[string]any) {
 	chanLen := len(s.resultChan)
 	chanCap := cap(s.resultChan)
 
@@ -140,7 +140,7 @@ func (s *Stream) logDroppedDataWithThrottling() {
 }
 
 // callSinksAsync asynchronously calls all sink functions
-func (s *Stream) callSinksAsync(results []map[string]interface{}) {
+func (s *Stream) callSinksAsync(results []map[string]any) {
 	// Safely access sinks slice using read lock
 	s.sinksMux.RLock()
 	defer s.sinksMux.RUnlock()
@@ -170,7 +170,7 @@ func (s *Stream) callSinksAsync(results []map[string]interface{}) {
 }
 
 // submitSinkTask submits sink task
-func (s *Stream) submitSinkTask(sink func([]map[string]interface{}), results []map[string]interface{}) {
+func (s *Stream) submitSinkTask(sink func([]map[string]any), results []map[string]any) {
 	// Capture sink variable to avoid closure issues
 	currentSink := sink
 
@@ -206,11 +206,11 @@ func (s *Stream) submitSinkTask(sink func([]map[string]interface{}), results []m
 
 // AddSink adds a sink function
 // Parameters:
-//   - sink: result processing function that receives []map[string]interface{} type result data
+//   - sink: result processing function that receives []map[string]any type result data
 //
 // Note: Sinks are executed asynchronously in a worker pool, so execution order is NOT guaranteed.
 // If you need strict ordering, use GetResultsChan() instead.
-func (s *Stream) AddSink(sink func([]map[string]interface{})) {
+func (s *Stream) AddSink(sink func([]map[string]any)) {
 	s.sinksMux.Lock()
 	defer s.sinksMux.Unlock()
 	s.sinks = append(s.sinks, sink)
@@ -218,17 +218,17 @@ func (s *Stream) AddSink(sink func([]map[string]interface{})) {
 
 // AddSyncSink adds a synchronous sink function
 // Parameters:
-//   - sink: result processing function that receives []map[string]interface{} type result data
+//   - sink: result processing function that receives []map[string]any type result data
 //
 // Note: Sync sinks are executed sequentially in the result processing goroutine.
 // They block subsequent processing, so they should be fast.
-func (s *Stream) AddSyncSink(sink func([]map[string]interface{})) {
+func (s *Stream) AddSyncSink(sink func([]map[string]any)) {
 	s.sinksMux.Lock()
 	defer s.sinksMux.Unlock()
 	s.syncSinks = append(s.syncSinks, sink)
 }
 
 // GetResultsChan gets the result channel
-func (s *Stream) GetResultsChan() <-chan []map[string]interface{} {
+func (s *Stream) GetResultsChan() <-chan []map[string]any {
 	return s.resultChan
 }

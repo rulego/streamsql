@@ -23,7 +23,7 @@ func NewSorter(keys []types.OrderByField) *Sorter {
 
 // applyOrderBy sorts results in place when ORDER BY is configured. No-op
 // otherwise, so queries without ORDER BY behave identically to before.
-func (s *Stream) applyOrderBy(results []map[string]interface{}) {
+func (s *Stream) applyOrderBy(results []map[string]any) {
 	if len(s.config.OrderBy) == 0 || len(results) < 2 {
 		return
 	}
@@ -32,7 +32,7 @@ func (s *Stream) applyOrderBy(results []map[string]interface{}) {
 
 // Sort sorts rows in place. It is a no-op when there are no keys or fewer than
 // two rows.
-func (s *Sorter) Sort(rows []map[string]interface{}) {
+func (s *Sorter) Sort(rows []map[string]any) {
 	if len(s.keys) == 0 || len(rows) < 2 {
 		return
 	}
@@ -42,7 +42,7 @@ func (s *Sorter) Sort(rows []map[string]interface{}) {
 }
 
 // less reports whether row a should sort before row b under the configured keys.
-func (s *Sorter) less(a, b map[string]interface{}) bool {
+func (s *Sorter) less(a, b map[string]any) bool {
 	for _, k := range s.keys {
 		av, aok := a[k.Expression]
 		bv, bok := b[k.Expression]
@@ -62,7 +62,7 @@ func (s *Sorter) less(a, b map[string]interface{}) bool {
 // a<b / a==b / a>b. A missing key (ok=false) sorts first (nil is least).
 // Numbers compare numerically across int/float kinds; time.Time by instant;
 // bool false<true; everything else falls back to a string comparison.
-func compareOrderValues(a interface{}, aok bool, b interface{}, bok bool) int {
+func compareOrderValues(a any, aok bool, b any, bok bool) int {
 	if !aok && !bok {
 		return 0
 	}
@@ -121,7 +121,7 @@ func compareOrderValues(a interface{}, aok bool, b interface{}, bok bool) int {
 
 // numericFloat converts Go numeric kinds to float64. Non-numeric values (incl.
 // strings) return ok=false so they fall through to the string comparator.
-func numericFloat(v interface{}) (float64, bool) {
+func numericFloat(v any) (float64, bool) {
 	switch x := v.(type) {
 	case float64:
 		return x, true
@@ -151,7 +151,7 @@ func numericFloat(v interface{}) (float64, bool) {
 	return 0, false
 }
 
-func orderString(v interface{}) string {
+func orderString(v any) string {
 	if s, ok := v.(string); ok {
 		return s
 	}

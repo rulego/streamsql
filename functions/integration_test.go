@@ -82,11 +82,11 @@ func TestAnalyticalFunctionsIntegration(t *testing.T) {
 	t.Run("LagFunction", func(t *testing.T) {
 		lagFunc := NewLagFunction()
 		ctx := &FunctionContext{
-			Data: make(map[string]interface{}),
+			Data: make(map[string]any),
 		}
 
 		// 第一个值应该返回默认值nil
-		result, err := lagFunc.Execute(ctx, []interface{}{10})
+		result, err := lagFunc.Execute(ctx, []any{10})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -95,7 +95,7 @@ func TestAnalyticalFunctionsIntegration(t *testing.T) {
 		}
 
 		// 第二个值应该返回第一个值
-		result, err = lagFunc.Execute(ctx, []interface{}{20})
+		result, err = lagFunc.Execute(ctx, []any{20})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -107,10 +107,10 @@ func TestAnalyticalFunctionsIntegration(t *testing.T) {
 	t.Run("LatestFunction", func(t *testing.T) {
 		latestFunc := NewLatestFunction()
 		ctx := &FunctionContext{
-			Data: make(map[string]interface{}),
+			Data: make(map[string]any),
 		}
 
-		result, err := latestFunc.Execute(ctx, []interface{}{"test_value"})
+		result, err := latestFunc.Execute(ctx, []any{"test_value"})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -122,11 +122,11 @@ func TestAnalyticalFunctionsIntegration(t *testing.T) {
 	t.Run("HadChangedFunction", func(t *testing.T) {
 		hadChangedFunc := NewHadChangedFunction()
 		ctx := &FunctionContext{
-			Data: make(map[string]interface{}),
+			Data: make(map[string]any),
 		}
 
 		// 第一次调用应该返回true
-		result, err := hadChangedFunc.Execute(ctx, []interface{}{10})
+		result, err := hadChangedFunc.Execute(ctx, []any{10})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -135,7 +135,7 @@ func TestAnalyticalFunctionsIntegration(t *testing.T) {
 		}
 
 		// 相同值应该返回false
-		result, err = hadChangedFunc.Execute(ctx, []interface{}{10})
+		result, err = hadChangedFunc.Execute(ctx, []any{10})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -144,7 +144,7 @@ func TestAnalyticalFunctionsIntegration(t *testing.T) {
 		}
 
 		// 不同值应该返回true
-		result, err = hadChangedFunc.Execute(ctx, []interface{}{20})
+		result, err = hadChangedFunc.Execute(ctx, []any{20})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -225,9 +225,9 @@ func TestComplexAggregators(t *testing.T) {
 		aggInstance.Add("c")
 
 		result := aggInstance.Result()
-		values, ok := result.([]interface{})
+		values, ok := result.([]any)
 		if !ok {
-			t.Fatalf("Expected []interface{}, got %T", result)
+			t.Fatalf("Expected []any, got %T", result)
 		}
 
 		if len(values) != 3 {
@@ -250,9 +250,9 @@ func TestComplexAggregators(t *testing.T) {
 		aggInstance.Add("b") // 重复
 
 		result := aggInstance.Result()
-		values, ok := result.([]interface{})
+		values, ok := result.([]any)
 		if !ok {
-			t.Fatalf("Expected []interface{}, got %T", result)
+			t.Fatalf("Expected []any, got %T", result)
 		}
 
 		if len(values) != 3 {

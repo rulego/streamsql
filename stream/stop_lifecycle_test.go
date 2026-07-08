@@ -18,13 +18,13 @@ func TestStream_StopWaitsForInflightSink(t *testing.T) {
 
 	sinkStarted := make(chan struct{})
 	sinkProceed := make(chan struct{})
-	stream.AddSink(func(results []map[string]interface{}) {
+	stream.AddSink(func(results []map[string]any) {
 		close(sinkStarted)
 		<-sinkProceed // block until the test releases the sink
 	})
 
 	stream.Start()
-	stream.Emit(map[string]interface{}{"name": "x"})
+	stream.Emit(map[string]any{"name": "x"})
 
 	// Wait until a worker has picked up the task and entered the sink.
 	select {
@@ -64,10 +64,10 @@ func TestStream_StopReturnsPromptly(t *testing.T) {
 	stream, err := NewStream(config)
 	require.NoError(t, err)
 
-	stream.AddSink(func(results []map[string]interface{}) {})
+	stream.AddSink(func(results []map[string]any) {})
 	stream.Start()
 	for i := 0; i < 20; i++ {
-		stream.Emit(map[string]interface{}{"name": "x"})
+		stream.Emit(map[string]any{"name": "x"})
 	}
 
 	start := time.Now()
@@ -83,9 +83,9 @@ func TestStream_StopIdempotentWithJoin(t *testing.T) {
 	config := types.Config{SimpleFields: []string{"name"}}
 	stream, err := NewStream(config)
 	require.NoError(t, err)
-	stream.AddSink(func(results []map[string]interface{}) {})
+	stream.AddSink(func(results []map[string]any) {})
 	stream.Start()
-	stream.Emit(map[string]interface{}{"name": "x"})
+	stream.Emit(map[string]any{"name": "x"})
 
 	stream.Stop()
 	stream.Stop() // second call must be a no-op, not panic or hang

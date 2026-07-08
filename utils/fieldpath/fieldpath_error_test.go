@@ -8,26 +8,26 @@ import (
 func TestSetNestedField(t *testing.T) {
 	tests := []struct {
 		name      string
-		data      map[string]interface{}
+		data      map[string]any
 		path      string
-		value     interface{}
+		value     any
 		expectErr bool
 	}{
 		{
 			name:  "设置简单字段",
-			data:  make(map[string]interface{}),
+			data:  make(map[string]any),
 			path:  "name",
 			value: "test",
 		},
 		{
 			name:  "设置嵌套字段",
-			data:  make(map[string]interface{}),
+			data:  make(map[string]any),
 			path:  "user.name",
 			value: "John",
 		},
 		{
 			name:      "空路径",
-			data:      make(map[string]interface{}),
+			data:      make(map[string]any),
 			path:      "",
 			value:     "test",
 			expectErr: true,
@@ -52,21 +52,21 @@ func TestSetNestedField(t *testing.T) {
 
 // TestGetNestedFieldBasic 测试基本嵌套字段访问功能
 func TestGetNestedFieldBasic(t *testing.T) {
-	data := map[string]interface{}{
-		"user": map[string]interface{}{
+	data := map[string]any{
+		"user": map[string]any{
 			"name": "John",
 			"age":  30,
 		},
-		"items": []interface{}{
-			map[string]interface{}{"id": 1, "name": "item1"},
-			map[string]interface{}{"id": 2, "name": "item2"},
+		"items": []any{
+			map[string]any{"id": 1, "name": "item1"},
+			map[string]any{"id": 2, "name": "item2"},
 		},
 	}
 
 	tests := []struct {
 		name     string
 		path     string
-		expected interface{}
+		expected any
 		found    bool
 	}{
 		{
@@ -150,7 +150,7 @@ func TestIsNestedField(t *testing.T) {
 
 // TestFieldPathErrorHandling 测试错误处理
 func TestFieldPathErrorHandling(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"valid": "value",
 	}
 
@@ -174,7 +174,7 @@ func TestFieldPathErrorHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var testData interface{}
+			var testData any
 			if tt.name != "nil数据" {
 				testData = data
 			}
@@ -227,12 +227,12 @@ func TestExtractTopLevelField(t *testing.T) {
 
 // TestMapKeyAccess 测试Map键访问功能
 func TestMapKeyAccess(t *testing.T) {
-	data := map[string]interface{}{
-		"stringMap": map[string]interface{}{
+	data := map[string]any{
+		"stringMap": map[string]any{
 			"key1": "value1",
 			"123":  "numericKey",
 		},
-		"intMap": map[int]interface{}{
+		"intMap": map[int]any{
 			1: "intValue1",
 			2: "intValue2",
 		},
@@ -241,7 +241,7 @@ func TestMapKeyAccess(t *testing.T) {
 	tests := []struct {
 		name     string
 		path     string
-		expected interface{}
+		expected any
 		found    bool
 	}{
 		{
@@ -274,14 +274,14 @@ func TestMapKeyAccess(t *testing.T) {
 
 // TestNegativeArrayIndex 测试负数组索引功能
 func TestNegativeArrayIndex(t *testing.T) {
-	data := map[string]interface{}{
-		"items": []interface{}{"first", "second", "third"},
+	data := map[string]any{
+		"items": []any{"first", "second", "third"},
 	}
 
 	tests := []struct {
 		name     string
 		path     string
-		expected interface{}
+		expected any
 		found    bool
 	}{
 		{
@@ -369,9 +369,9 @@ func TestParseFieldPathErrors(t *testing.T) {
 func TestGetNestedFieldErrorCases(t *testing.T) {
 	tests := []struct {
 		name     string
-		data     interface{}
+		data     any
 		path     string
-		expected interface{}
+		expected any
 		found    bool
 	}{
 		{
@@ -383,21 +383,21 @@ func TestGetNestedFieldErrorCases(t *testing.T) {
 		},
 		{
 			name:     "空字符串路径",
-			data:     map[string]interface{}{"test": "value"},
+			data:     map[string]any{"test": "value"},
 			path:     "",
 			expected: nil,
 			found:    false,
 		},
 		{
 			name:     "指针数据",
-			data:     &map[string]interface{}{"test": "value"},
+			data:     &map[string]any{"test": "value"},
 			path:     "test",
 			expected: "value",
 			found:    true,
 		},
 		{
 			name:     "nil指针",
-			data:     (*map[string]interface{})(nil),
+			data:     (*map[string]any)(nil),
 			path:     "test",
 			expected: nil,
 			found:    false,
@@ -411,14 +411,14 @@ func TestGetNestedFieldErrorCases(t *testing.T) {
 		},
 		{
 			name:     "map中的数字键作为字符串",
-			data:     map[string]interface{}{"123": "numeric key"},
+			data:     map[string]any{"123": "numeric key"},
 			path:     "123",
 			expected: "numeric key",
 			found:    true,
 		},
 		{
 			name:     "map中不存在的键",
-			data:     map[string]interface{}{"existing": "value"},
+			data:     map[string]any{"existing": "value"},
 			path:     "nonexistent",
 			expected: nil,
 			found:    false,
@@ -446,7 +446,7 @@ func TestStructFieldAccess(t *testing.T) {
 		Age  int
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"user": TestStruct{
 			Name: "John",
 			Age:  30,
@@ -468,7 +468,7 @@ func TestStructFieldAccess(t *testing.T) {
 	}
 
 	// 测试结构体指针
-	ptrData := map[string]interface{}{
+	ptrData := map[string]any{
 		"user": &TestStruct{
 			Name: "Jane",
 			Age:  25,
@@ -484,30 +484,30 @@ func TestStructFieldAccess(t *testing.T) {
 }
 
 // 辅助函数
-func createDeepNestedData(depth int) interface{} {
+func createDeepNestedData(depth int) any {
 	if depth <= 0 {
 		return "deep_value"
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"level": createDeepNestedData(depth - 1),
 	}
 }
 
-func createLargeArray(size int) []interface{} {
-	arr := make([]interface{}, size)
+func createLargeArray(size int) []any {
+	arr := make([]any, size)
 	for i := 0; i < size; i++ {
 		arr[i] = i
 	}
 	return arr
 }
 
-func createComplexData() interface{} {
-	return map[string]interface{}{
-		"data": map[string]interface{}{
-			"items": []interface{}{
-				map[string]interface{}{
-					"metadata": map[string]interface{}{
-						"labels": map[string]interface{}{
+func createComplexData() any {
+	return map[string]any{
+		"data": map[string]any{
+			"items": []any{
+				map[string]any{
+					"metadata": map[string]any{
+						"labels": map[string]any{
 							"app.kubernetes.io/name": "test-app",
 						},
 					},
@@ -517,19 +517,19 @@ func createComplexData() interface{} {
 	}
 }
 
-func createCircularReference() interface{} {
-	data := map[string]interface{}{
-		"self": map[string]interface{}{},
+func createCircularReference() any {
+	data := map[string]any{
+		"self": map[string]any{},
 	}
-	data["self"].(map[string]interface{})["ref"] = data
+	data["self"].(map[string]any)["ref"] = data
 	return data
 }
 
-func createLargeDataStructure() interface{} {
-	data := make(map[string]interface{})
+func createLargeDataStructure() any {
+	data := make(map[string]any)
 	for i := 0; i < 100; i++ { // 减少数据量避免测试超时
-		data["key_"+string(rune('0'+i%10))] = map[string]interface{}{
-			"nested": map[string]interface{}{
+		data["key_"+string(rune('0'+i%10))] = map[string]any{
+			"nested": map[string]any{
 				"value": i,
 			},
 		}
@@ -541,35 +541,35 @@ func createLargeDataStructure() interface{} {
 func TestSetNestedFieldErrors(t *testing.T) {
 	tests := []struct {
 		name      string
-		data      map[string]interface{}
+		data      map[string]any
 		path      string
-		value     interface{}
+		value     any
 		expectErr bool
 	}{
 		{
 			name:      "空路径",
-			data:      make(map[string]interface{}),
+			data:      make(map[string]any),
 			path:      "",
 			value:     "test",
 			expectErr: true,
 		},
 		{
 			name:      "复杂路径中间部分包含数组索引",
-			data:      make(map[string]interface{}),
+			data:      make(map[string]any),
 			path:      "data[0].field",
 			value:     "test",
 			expectErr: true,
 		},
 		{
 			name:      "最后部分不是字段",
-			data:      make(map[string]interface{}),
+			data:      make(map[string]any),
 			path:      "data.field[0]",
 			value:     "test",
 			expectErr: true,
 		},
 		{
 			name:      "覆盖非map类型的中间值",
-			data:      map[string]interface{}{"existing": "not a map"},
+			data:      map[string]any{"existing": "not a map"},
 			path:      "existing.new",
 			value:     "test",
 			expectErr: false,
@@ -797,8 +797,8 @@ func TestGetAllReferencedFieldsExtended(t *testing.T) {
 
 // TestMapWithIntKeys 测试整数键的Map访问
 func TestMapWithIntKeys(t *testing.T) {
-	data := map[string]interface{}{
-		"intMap": map[interface{}]interface{}{
+	data := map[string]any{
+		"intMap": map[any]any{
 			1:   "value1",
 			2:   "value2",
 			"3": "value3", // 字符串键
@@ -832,8 +832,8 @@ func TestMapWithIntKeys(t *testing.T) {
 
 // TestArrayAsMapAccess 测试数组作为Map访问的情况
 func TestArrayAsMapAccess(t *testing.T) {
-	data := map[string]interface{}{
-		"mixedMap": map[interface{}]interface{}{
+	data := map[string]any{
+		"mixedMap": map[any]any{
 			0:   "zero",
 			"1": "one",
 			2:   "two",
@@ -863,16 +863,16 @@ func TestArrayAsMapAccess(t *testing.T) {
 // whose type does not match the map's key type returns not-found instead of
 // panicking inside reflect.MapIndex.
 func TestTypedMapMismatchedKey(t *testing.T) {
-	// JSON object decoded as map[string]interface{}, accessed via an array index.
-	data := map[string]interface{}{
-		"obj": map[string]interface{}{"name": "alice"},
+	// JSON object decoded as map[string]any, accessed via an array index.
+	data := map[string]any{
+		"obj": map[string]any{"name": "alice"},
 	}
 	if _, found := GetNestedField(data, "obj[0]"); found {
 		t.Error("expected not-found for string-key map accessed by index")
 	}
 
 	// int-key map accessed via a string key.
-	intKey := map[string]interface{}{
+	intKey := map[string]any{
 		"imap": map[int]string{1: "v1"},
 	}
 	if _, found := GetNestedField(intKey, `imap["1"]`); found {
@@ -888,8 +888,8 @@ func TestTypedMapMismatchedKey(t *testing.T) {
 // TestComplexErrorScenarios 测试复杂的错误场景
 func TestComplexErrorScenarios(t *testing.T) {
 	// 测试解析失败时的回退机制
-	data := map[string]interface{}{
-		"simple": map[string]interface{}{
+	data := map[string]any{
+		"simple": map[string]any{
 			"field": "value",
 		},
 	}
@@ -904,14 +904,14 @@ func TestComplexErrorScenarios(t *testing.T) {
 	}
 
 	// 测试SetNestedField的解析失败回退
-	testData := make(map[string]interface{})
+	testData := make(map[string]any)
 	err := SetNestedField(testData, "simple.field", "test")
 	if err != nil {
 		t.Errorf("unexpected error in fallback: %v", err)
 	}
 
 	// 验证值被正确设置
-	if testData["simple"].(map[string]interface{})["field"] != "test" {
+	if testData["simple"].(map[string]any)["field"] != "test" {
 		t.Error("fallback setting failed")
 	}
 }

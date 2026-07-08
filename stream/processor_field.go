@@ -210,7 +210,7 @@ func (s *Stream) compileExpressionInfo() {
 }
 
 // processExpressionField processes expression field
-func (s *Stream) processExpressionField(fieldName string, dataMap map[string]interface{}, result map[string]interface{}) {
+func (s *Stream) processExpressionField(fieldName string, dataMap map[string]any, result map[string]any) {
 	exprInfo := s.compiledExprInfo[fieldName]
 	if exprInfo == nil {
 		// Fallback to original logic
@@ -218,7 +218,7 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]int
 		return
 	}
 
-	var evalResult interface{}
+	var evalResult any
 	bridge := functions.GetExprBridge()
 
 	if exprInfo.isFunctionCall {
@@ -302,7 +302,7 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]int
 }
 
 // processExpressionFieldFallback fallback logic for expression field processing
-func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[string]interface{}, result map[string]interface{}) {
+func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[string]any, result map[string]any) {
 	fieldExpr, exists := s.config.FieldExpressions[fieldName]
 	if !exists {
 		result[fieldName] = nil
@@ -334,7 +334,7 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 		hasNestedFields = true
 	}
 
-	var evalResult interface{}
+	var evalResult any
 
 	if isFunctionCall {
 		// For function calls, prioritize bridge processor
@@ -411,7 +411,7 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 }
 
 // processSimpleField processes simple field
-func (s *Stream) processSimpleField(fieldSpec string, dataMap map[string]interface{}, data interface{}, result map[string]interface{}) {
+func (s *Stream) processSimpleField(fieldSpec string, dataMap map[string]any, data any, result map[string]any) {
 	info := s.compiledFieldInfo[fieldSpec]
 	if info == nil {
 		// If no pre-compiled info, fallback to original logic (safety guarantee)
@@ -447,7 +447,7 @@ func (s *Stream) processSimpleField(fieldSpec string, dataMap map[string]interfa
 		}
 	} else {
 		// Ordinary field processing
-		var value interface{}
+		var value any
 		var exists bool
 
 		if info.hasNestedField {
@@ -465,7 +465,7 @@ func (s *Stream) processSimpleField(fieldSpec string, dataMap map[string]interfa
 }
 
 // processSingleFieldFallback fallback processing for single field (when pre-compiled info is missing)
-func (s *Stream) processSingleFieldFallback(fieldSpec string, dataMap map[string]interface{}, data interface{}, result map[string]interface{}) {
+func (s *Stream) processSingleFieldFallback(fieldSpec string, dataMap map[string]any, data any, result map[string]any) {
 	// Handle special case of SELECT *
 	if fieldSpec == "*" {
 		// SELECT *: return all fields, but skip fields already processed by expression fields
@@ -527,7 +527,7 @@ func (s *Stream) processSingleFieldFallback(fieldSpec string, dataMap map[string
 		}
 	} else {
 		// Ordinary field - supports nested fields
-		var value interface{}
+		var value any
 		var exists bool
 
 		if fieldpath.IsNestedField(fieldName) {
@@ -545,7 +545,7 @@ func (s *Stream) processSingleFieldFallback(fieldSpec string, dataMap map[string
 }
 
 // executeFunction executes function call
-func (s *Stream) executeFunction(funcExpr string, data map[string]interface{}) (interface{}, error) {
+func (s *Stream) executeFunction(funcExpr string, data map[string]any) (any, error) {
 	// Check if it's a custom function
 	funcName := extractFunctionName(funcExpr)
 	if funcName != "" {
@@ -591,7 +591,7 @@ func extractFunctionName(expr string) string {
 }
 
 // parseFunctionArgs parses function arguments, supports nested function calls
-func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]interface{}) ([]interface{}, error) {
+func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]any) ([]any, error) {
 	// Extract parameters within parentheses
 	start := strings.Index(funcExpr, "(")
 	end := strings.LastIndex(funcExpr, ")")
@@ -601,7 +601,7 @@ func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]interface{})
 
 	argsStr := strings.TrimSpace(funcExpr[start+1 : end])
 	if argsStr == "" {
-		return []interface{}{}, nil
+		return []any{}, nil
 	}
 
 	// Smart split arguments, handle nested functions and quotes
@@ -610,7 +610,7 @@ func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]interface{})
 		return nil, err
 	}
 
-	args := make([]interface{}, len(argParts))
+	args := make([]any, len(argParts))
 
 	for i, arg := range argParts {
 		arg = strings.TrimSpace(arg)

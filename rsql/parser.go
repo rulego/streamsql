@@ -535,7 +535,7 @@ func (p *Parser) parseWindowFunction(stmt *SelectStatement, winType string) erro
 		return fmt.Errorf("expected '(' after window function %s, got %s (type: %v)", winType, nextTok.Value, nextTok.Type)
 	}
 
-	var params []interface{}
+	var params []any
 	maxIterations := 100
 	iterations := 0
 
@@ -639,7 +639,7 @@ func (p *Parser) parseGlobalWindow(stmt *SelectStatement) error {
 	return nil
 }
 
-func convertValue(s string) interface{} {
+func convertValue(s string) any {
 	if s == "true" {
 		return true
 	}
@@ -1310,7 +1310,7 @@ func (p *Parser) parseOrderBy(stmt *SelectStatement) error {
 	for {
 		var exprBuilder strings.Builder
 		dir := types.SortAsc
-		done := false   // reached end of ORDER BY (EOF/LIMIT)
+		done := false    // reached end of ORDER BY (EOF/LIMIT)
 		advance := false // a comma was consumed; another key follows
 
 		// Collect the field expression tokens.

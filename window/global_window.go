@@ -28,9 +28,9 @@ import (
 
 	"github.com/rulego/streamsql/aggregator"
 	"github.com/rulego/streamsql/condition"
+	"github.com/rulego/streamsql/types"
 	"github.com/rulego/streamsql/utils/cast"
 	"github.com/rulego/streamsql/utils/fieldpath"
-	"github.com/rulego/streamsql/types"
 )
 
 var _ Window = (*GlobalWindow)(nil)
@@ -71,17 +71,17 @@ type GlobalWindow struct {
 	// plus the per-placeholder aggregator prototypes. A placeholder may alias a
 	// SELECT output (so its value is read from the output aggregators) or be a
 	// trigger-only aggregate.
-	triggerSpecs []triggerSpec
+	triggerSpecs       []triggerSpec
 	rewrittenPredicate string
 	triggerCond        condition.Condition
 
 	// per-group running state.
-	groups    map[string]*globalGroupState
-	mu        sync.Mutex
-	callback  func([]types.Row)
-	outputChan chan []types.Row
-	ctx        context.Context
-	cancelFunc context.CancelFunc
+	groups      map[string]*globalGroupState
+	mu          sync.Mutex
+	callback    func([]types.Row)
+	outputChan  chan []types.Row
+	ctx         context.Context
+	cancelFunc  context.CancelFunc
 	triggerChan chan types.Row
 
 	countStateTTL time.Duration
@@ -104,22 +104,22 @@ type aggSpec struct {
 // outputAlias != "", the value is read from the matching output aggregator
 // instead of maintaining a separate one.
 type triggerSpec struct {
-	placeholder  string
-	aggType      aggregator.AggregateType
-	inputField   string
-	outputAlias  string
-	prototype    aggregator.AggregatorFunction // nil when reusing an output alias
+	placeholder string
+	aggType     aggregator.AggregateType
+	inputField  string
+	outputAlias string
+	prototype   aggregator.AggregatorFunction // nil when reusing an output alias
 }
 
 type globalGroupState struct {
-	key           string
-	keyValues     map[string]interface{}
-	outputAggs    map[string]aggregator.AggregatorFunction
-	triggerAggs   map[string]aggregator.AggregatorFunction // placeholder -> agg
-	windowStart   time.Time
-	windowEnd     time.Time
-	lastActive    time.Time
-	hasData       bool
+	key         string
+	keyValues   map[string]any
+	outputAggs  map[string]aggregator.AggregatorFunction
+	triggerAggs map[string]aggregator.AggregatorFunction // placeholder -> agg
+	windowStart time.Time
+	windowEnd   time.Time
+	lastActive  time.Time
+	hasData     bool
 }
 
 // NewGlobalWindow builds a global window from config. The SELECT/FieldAlias
@@ -395,7 +395,7 @@ func normalizeField(f string) string {
 	return f
 }
 
-func (gw *GlobalWindow) Add(data interface{}) {
+func (gw *GlobalWindow) Add(data any) {
 	gw.mu.Lock()
 	stopped := gw.stopped
 	gw.mu.Unlock()
@@ -446,7 +446,7 @@ func (gw *GlobalWindow) Start() {
 // processRow updates one group's running aggregate, evaluates the trigger, and
 // on a hit emits the group's current result and purges its state.
 func (gw *GlobalWindow) processRow(row types.Row) {
-	data, ok := row.Data.(map[string]interface{})
+	data, ok := row.Data.(map[string]any)
 	if !ok {
 		return
 	}
@@ -488,7 +488,7 @@ func (gw *GlobalWindow) processRow(row types.Row) {
 // shouldFire evaluates the rewritten TRIGGER WHEN predicate against the group's
 // current aggregate values.
 func (gw *GlobalWindow) shouldFire(gs *globalGroupState) bool {
-	env := make(map[string]interface{}, len(gw.triggerSpecs))
+	env := make(map[string]any, len(gw.triggerSpecs))
 	for _, ts := range gw.triggerSpecs {
 		if ts.outputAlias != "" {
 			if agg := gs.outputAggs[ts.outputAlias]; agg != nil {
@@ -503,8 +503,8 @@ func (gw *GlobalWindow) shouldFire(gs *globalGroupState) bool {
 
 // buildResult assembles the final result map for a group: group key fields +
 // aggregate aliases + window bounds.
-func (gw *GlobalWindow) buildResult(gs *globalGroupState) map[string]interface{} {
-	result := make(map[string]interface{}, len(gs.keyValues)+len(gw.outputSpecs)+2)
+func (gw *GlobalWindow) buildResult(gs *globalGroupState) map[string]any {
+	result := make(map[string]any, len(gs.keyValues)+len(gw.outputSpecs)+2)
 	for k, v := range gs.keyValues {
 		result[k] = v
 	}
@@ -518,7 +518,7 @@ func (gw *GlobalWindow) buildResult(gs *globalGroupState) map[string]interface{}
 	return result
 }
 
-func (gw *GlobalWindow) deliver(result map[string]interface{}) {
+func (gw *GlobalWindow) deliver(result map[string]any) {
 	rows := []types.Row{{Data: result}}
 	if gw.callback != nil {
 		gw.callback(rows)
@@ -620,15 +620,15 @@ func (gw *GlobalWindow) SetCallback(callback func([]types.Row)) {
 
 // getKeyAndValues extracts the group key and a map of group-by field values
 // from the row. With no GroupByKeys, a single "__global__" key is used.
-func (gw *GlobalWindow) getKeyAndValues(data map[string]interface{}) (string, map[string]interface{}) {
+func (gw *GlobalWindow) getKeyAndValues(data map[string]any) (string, map[string]any) {
 	if len(gw.groupByKeys) == 0 {
 		return "__global__", nil
 	}
 	v := reflect.ValueOf(data)
 	parts := make([]string, 0, len(gw.groupByKeys))
-	values := make(map[string]interface{}, len(gw.groupByKeys))
+	values := make(map[string]any, len(gw.groupByKeys))
 	for _, k := range gw.groupByKeys {
-		var val interface{}
+		var val any
 		if fieldpath.IsNestedField(k) {
 			val, _ = fieldpath.GetNestedField(data, k)
 		} else if v.IsValid() && v.Kind() == reflect.Map && v.Type().Key().Kind() == reflect.String {
@@ -649,7 +649,7 @@ func (gw *GlobalWindow) getKeyAndValues(data map[string]interface{}) (string, ma
 }
 
 // feedAggs feeds the row's field values into a group's output aggregators.
-func feedAggs(target map[string]aggregator.AggregatorFunction, specs []aggSpec, data map[string]interface{}) {
+func feedAggs(target map[string]aggregator.AggregatorFunction, specs []aggSpec, data map[string]any) {
 	for _, spec := range specs {
 		agg := target[spec.alias]
 		if agg == nil {
@@ -669,7 +669,7 @@ func feedAggs(target map[string]aggregator.AggregatorFunction, specs []aggSpec, 
 
 // feedTriggerAggs feeds row values into trigger-only aggregators (those not
 // bound to a SELECT output alias).
-func feedTriggerAggs(target map[string]aggregator.AggregatorFunction, specs []triggerSpec, data map[string]interface{}) {
+func feedTriggerAggs(target map[string]aggregator.AggregatorFunction, specs []triggerSpec, data map[string]any) {
 	for _, spec := range specs {
 		if spec.prototype == nil {
 			continue // value comes from an output alias
@@ -690,7 +690,7 @@ func feedTriggerAggs(target map[string]aggregator.AggregatorFunction, specs []tr
 	}
 }
 
-func lookupFieldValue(data map[string]interface{}, field string) (interface{}, bool) {
+func lookupFieldValue(data map[string]any, field string) (any, bool) {
 	if fieldpath.IsNestedField(field) {
 		return fieldpath.GetNestedField(data, field)
 	}
@@ -701,17 +701,17 @@ func lookupFieldValue(data map[string]interface{}, field string) (interface{}, b
 // toAggregateValue normalizes a raw field value to the numeric form aggregators
 // expect; non-numeric values pass through unchanged (min/max/first_value etc.
 // accept them).
-func toAggregateValue(v interface{}) interface{} {
+func toAggregateValue(v any) any {
 	if n, err := cast.ToFloat64E(v); err == nil {
 		return n
 	}
 	return v
 }
 
-func newGroupState(key string, keyValues map[string]interface{}, outputSpecs []aggSpec, triggerSpecs []triggerSpec) *globalGroupState {
+func newGroupState(key string, keyValues map[string]any, outputSpecs []aggSpec, triggerSpecs []triggerSpec) *globalGroupState {
 	gs := &globalGroupState{
 		key:         key,
-		keyValues:   make(map[string]interface{}, len(keyValues)),
+		keyValues:   make(map[string]any, len(keyValues)),
 		outputAggs:  make(map[string]aggregator.AggregatorFunction, len(outputSpecs)),
 		triggerAggs: make(map[string]aggregator.AggregatorFunction, len(triggerSpecs)),
 		lastActive:  time.Now(),

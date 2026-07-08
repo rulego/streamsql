@@ -8,8 +8,8 @@ import (
 // LagFunction LAG函数 - 返回当前行之前的第N行的值
 type LagFunction struct {
 	*BaseFunction
-	PreviousValues []interface{}
-	DefaultValue   interface{}
+	PreviousValues []any
+	DefaultValue   any
 	Offset         int
 }
 
@@ -20,7 +20,7 @@ func NewLagFunction() *LagFunction {
 	}
 }
 
-func (f *LagFunction) Validate(args []interface{}) error {
+func (f *LagFunction) Validate(args []any) error {
 	if err := f.ValidateArgCount(args); err != nil {
 		return err
 	}
@@ -44,10 +44,10 @@ func (f *LagFunction) Validate(args []interface{}) error {
 	return nil
 }
 
-func (f *LagFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *LagFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	currentValue := args[0]
 
-	var result interface{}
+	var result any
 	if len(f.PreviousValues) < f.Offset {
 		result = f.DefaultValue
 	} else {
@@ -79,12 +79,12 @@ func (f *LagFunction) New() AggregatorFunction {
 		BaseFunction:   f.BaseFunction,
 		DefaultValue:   f.DefaultValue,
 		Offset:         offset,
-		PreviousValues: make([]interface{}, 0),
+		PreviousValues: make([]any, 0),
 	}
 	return newFunc
 }
 
-func (f *LagFunction) Add(value interface{}) {
+func (f *LagFunction) Add(value any) {
 	// 增量添加值，维护历史值队列
 	f.PreviousValues = append(f.PreviousValues, value)
 	// 保持队列长度
@@ -93,7 +93,7 @@ func (f *LagFunction) Add(value interface{}) {
 	}
 }
 
-func (f *LagFunction) Result() interface{} {
+func (f *LagFunction) Result() any {
 	// 检查是否有足够的历史值
 	if len(f.PreviousValues) <= f.Offset {
 		return f.DefaultValue
@@ -111,7 +111,7 @@ func (f *LagFunction) Clone() AggregatorFunction {
 		BaseFunction:   f.BaseFunction,
 		DefaultValue:   f.DefaultValue,
 		Offset:         f.Offset,
-		PreviousValues: make([]interface{}, len(f.PreviousValues)),
+		PreviousValues: make([]any, len(f.PreviousValues)),
 	}
 	copy(clone.PreviousValues, f.PreviousValues)
 	return clone
@@ -120,7 +120,7 @@ func (f *LagFunction) Clone() AggregatorFunction {
 // LatestFunction 最新值函数 - 返回指定列的最新值
 type LatestFunction struct {
 	*BaseFunction
-	LatestValue interface{}
+	LatestValue any
 }
 
 func NewLatestFunction() *LatestFunction {
@@ -129,11 +129,11 @@ func NewLatestFunction() *LatestFunction {
 	}
 }
 
-func (f *LatestFunction) Validate(args []interface{}) error {
+func (f *LatestFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *LatestFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *LatestFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	f.LatestValue = args[0]
 	return f.LatestValue, nil
 }
@@ -150,11 +150,11 @@ func (f *LatestFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *LatestFunction) Add(value interface{}) {
+func (f *LatestFunction) Add(value any) {
 	f.LatestValue = value
 }
 
-func (f *LatestFunction) Result() interface{} {
+func (f *LatestFunction) Result() any {
 	return f.LatestValue
 }
 
@@ -168,24 +168,24 @@ func (f *LatestFunction) Clone() AggregatorFunction {
 // ChangedColFunction 变化列函数 - 返回发生变化的列名
 type ChangedColFunction struct {
 	*BaseFunction
-	PreviousValues map[string]interface{}
+	PreviousValues map[string]any
 }
 
 func NewChangedColFunction() *ChangedColFunction {
 	return &ChangedColFunction{
 		BaseFunction:   NewBaseFunction("changed_col", TypeAnalytical, "分析函数", "返回变化的列名", 1, 1),
-		PreviousValues: make(map[string]interface{}),
+		PreviousValues: make(map[string]any),
 	}
 }
 
-func (f *ChangedColFunction) Validate(args []interface{}) error {
+func (f *ChangedColFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ChangedColFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ChangedColFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	currentValue := args[0]
-	// 假设currentValue是一个map[string]interface{}，代表当前行数据
-	currentMap, ok := currentValue.(map[string]interface{})
+	// 假设currentValue是一个map[string]any，代表当前行数据
+	currentMap, ok := currentValue.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("changed_col function expects a map as input")
 	}
@@ -202,20 +202,20 @@ func (f *ChangedColFunction) Execute(ctx *FunctionContext, args []interface{}) (
 }
 
 func (f *ChangedColFunction) Reset() {
-	f.PreviousValues = make(map[string]interface{})
+	f.PreviousValues = make(map[string]any)
 }
 
 // 实现AggregatorFunction接口 - 增量计算支持
 func (f *ChangedColFunction) New() AggregatorFunction {
 	return &ChangedColFunction{
 		BaseFunction:   f.BaseFunction,
-		PreviousValues: make(map[string]interface{}),
+		PreviousValues: make(map[string]any),
 	}
 }
 
-func (f *ChangedColFunction) Add(value interface{}) {
+func (f *ChangedColFunction) Add(value any) {
 	// 对于changed_col函数，每次Add都会更新状态
-	currentMap, ok := value.(map[string]interface{})
+	currentMap, ok := value.(map[string]any)
 	if !ok {
 		return
 	}
@@ -225,7 +225,7 @@ func (f *ChangedColFunction) Add(value interface{}) {
 	}
 }
 
-func (f *ChangedColFunction) Result() interface{} {
+func (f *ChangedColFunction) Result() any {
 	// 返回所有变化的列名
 	changedColumns := make([]string, 0, len(f.PreviousValues))
 	for key := range f.PreviousValues {
@@ -237,7 +237,7 @@ func (f *ChangedColFunction) Result() interface{} {
 func (f *ChangedColFunction) Clone() AggregatorFunction {
 	clone := &ChangedColFunction{
 		BaseFunction:   f.BaseFunction,
-		PreviousValues: make(map[string]interface{}),
+		PreviousValues: make(map[string]any),
 	}
 	for k, v := range f.PreviousValues {
 		clone.PreviousValues[k] = v
@@ -248,7 +248,7 @@ func (f *ChangedColFunction) Clone() AggregatorFunction {
 // HadChangedFunction 是否变化函数 - 判断指定列的值是否发生变化
 type HadChangedFunction struct {
 	*BaseFunction
-	PreviousValue interface{}
+	PreviousValue any
 	IsSet         bool // 标记PreviousValue是否已被设置
 }
 
@@ -258,11 +258,11 @@ func NewHadChangedFunction() *HadChangedFunction {
 	}
 }
 
-func (f *HadChangedFunction) Validate(args []interface{}) error {
+func (f *HadChangedFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *HadChangedFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *HadChangedFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	currentValue := args[0]
 	changed := false
 	if f.IsSet {
@@ -289,12 +289,12 @@ func (f *HadChangedFunction) New() AggregatorFunction {
 	}
 }
 
-func (f *HadChangedFunction) Add(value interface{}) {
+func (f *HadChangedFunction) Add(value any) {
 	f.PreviousValue = value
 	f.IsSet = true
 }
 
-func (f *HadChangedFunction) Result() interface{} {
+func (f *HadChangedFunction) Result() any {
 	// 对于增量计算，返回是否发生了变化
 	return f.IsSet
 }
@@ -308,7 +308,7 @@ func (f *HadChangedFunction) Clone() AggregatorFunction {
 }
 
 // valuesEqual 比较两个值是否相等，处理不同类型和nil的情况
-func valuesEqual(a, b interface{}) bool {
+func valuesEqual(a, b any) bool {
 	if a == nil && b == nil {
 		return true
 	}

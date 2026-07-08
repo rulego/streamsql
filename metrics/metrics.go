@@ -35,7 +35,7 @@ func (c *Counter) Value() int64      { return atomic.LoadInt64(&c.val) }
 func (c *Counter) Name() string      { return c.name }
 func (c *Counter) Reset()            { atomic.StoreInt64(&c.val, 0) }
 
-func (c *Counter) SnapshotValue() interface{} { return c.Value() }
+func (c *Counter) SnapshotValue() any { return c.Value() }
 
 // Gauge is a settable signed value.
 type Gauge struct {
@@ -51,7 +51,7 @@ func (g *Gauge) Dec(n int64)  { atomic.AddInt64(&g.val, -n) }
 func (g *Gauge) Value() int64 { return atomic.LoadInt64(&g.val) }
 func (g *Gauge) Name() string { return g.name }
 
-func (g *Gauge) SnapshotValue() interface{} { return g.Value() }
+func (g *Gauge) SnapshotValue() any { return g.Value() }
 
 // Histogram records the distribution of durations into fixed upper-bound buckets.
 type Histogram struct {
@@ -143,7 +143,7 @@ func (h *Histogram) Snapshot() HistogramSnapshot {
 	return snap
 }
 
-func (h *Histogram) SnapshotValue() interface{} { return h.Snapshot() }
+func (h *Histogram) SnapshotValue() any { return h.Snapshot() }
 
 func (h *Histogram) Name() string { return h.name }
 

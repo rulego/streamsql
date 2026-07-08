@@ -83,7 +83,7 @@ func parseCaseExpression(tokens []string) (*ExprNode, []string, error) {
 }
 
 // evaluateCaseExpression evaluates the value of CASE expression
-func evaluateCaseExpression(node *ExprNode, data map[string]interface{}) (float64, error) {
+func evaluateCaseExpression(node *ExprNode, data map[string]any) (float64, error) {
 	if node.Type != TypeCase {
 		return 0, fmt.Errorf("not a CASE expression")
 	}
@@ -102,7 +102,7 @@ func evaluateCaseExpression(node *ExprNode, data map[string]interface{}) (float6
 }
 
 // evaluateSimpleCaseExpression evaluates simple CASE expression
-func evaluateSimpleCaseExpression(node *ExprNode, data map[string]interface{}) (float64, error) {
+func evaluateSimpleCaseExpression(node *ExprNode, data map[string]any) (float64, error) {
 	caseExpr := node.CaseExpr
 	if caseExpr == nil {
 		return 0, fmt.Errorf("invalid CASE expression")
@@ -139,7 +139,7 @@ func evaluateSimpleCaseExpression(node *ExprNode, data map[string]interface{}) (
 }
 
 // evaluateSearchCaseExpression evaluates search CASE expression
-func evaluateSearchCaseExpression(node *ExprNode, data map[string]interface{}) (float64, error) {
+func evaluateSearchCaseExpression(node *ExprNode, data map[string]any) (float64, error) {
 	caseExpr := node.CaseExpr
 	if caseExpr == nil {
 		return 0, fmt.Errorf("invalid CASE expression")
@@ -169,7 +169,7 @@ func evaluateSearchCaseExpression(node *ExprNode, data map[string]interface{}) (
 }
 
 // evaluateCaseExpressionWithNull evaluates CASE expression with NULL value support
-func evaluateCaseExpressionWithNull(node *ExprNode, data map[string]interface{}) (interface{}, bool, error) {
+func evaluateCaseExpressionWithNull(node *ExprNode, data map[string]any) (any, bool, error) {
 	if node.Type != TypeCase {
 		return nil, false, fmt.Errorf("not a CASE expression")
 	}
@@ -208,7 +208,7 @@ func evaluateCaseExpressionWithNull(node *ExprNode, data map[string]interface{})
 }
 
 // evaluateCaseExpressionValueWithNull evaluates simple CASE expression (with NULL support)
-func evaluateCaseExpressionValueWithNull(node *ExprNode, data map[string]interface{}) (interface{}, bool, error) {
+func evaluateCaseExpressionValueWithNull(node *ExprNode, data map[string]any) (any, bool, error) {
 	caseExpr := node.CaseExpr
 	if caseExpr == nil {
 		return nil, false, fmt.Errorf("invalid CASE expression")

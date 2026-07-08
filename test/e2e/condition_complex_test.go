@@ -28,14 +28,14 @@ func TestComplexConditions(t *testing.T) {
 	tests := []struct {
 		name        string
 		sql         string
-		data        map[string]interface{}
+		data        map[string]any
 		expectMatch bool
 		description string
 	}{
 		{
 			name: "简单AND条件",
 			sql:  "SELECT * FROM stream WHERE temperature > 20 AND humidity < 80",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"temperature": 25.0,
 				"humidity":    70.0,
 			},
@@ -45,7 +45,7 @@ func TestComplexConditions(t *testing.T) {
 		{
 			name: "简单OR条件",
 			sql:  "SELECT * FROM stream WHERE temperature > 30 OR humidity > 90",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"temperature": 25.0,
 				"humidity":    95.0,
 			},
@@ -55,7 +55,7 @@ func TestComplexConditions(t *testing.T) {
 		{
 			name: "复杂组合条件 - 括号优先级",
 			sql:  "SELECT * FROM stream WHERE (temperature > 20 AND humidity < 80) OR status == 'active'",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"temperature": 15.0,
 				"humidity":    70.0,
 				"status":      "active",
@@ -66,7 +66,7 @@ func TestComplexConditions(t *testing.T) {
 		{
 			name: "多重AND条件",
 			sql:  "SELECT * FROM stream WHERE temperature > 20 AND humidity < 80 AND pressure > 1000",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"temperature": 25.0,
 				"humidity":    70.0,
 				"pressure":    1050.0,
@@ -77,7 +77,7 @@ func TestComplexConditions(t *testing.T) {
 		{
 			name: "多重OR条件",
 			sql:  "SELECT * FROM stream WHERE temperature > 40 OR humidity > 90 OR pressure < 900",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"temperature": 25.0,
 				"humidity":    70.0,
 				"pressure":    850.0,
@@ -88,7 +88,7 @@ func TestComplexConditions(t *testing.T) {
 		{
 			name: "复杂嵌套条件",
 			sql:  "SELECT * FROM stream WHERE (temperature > 20 AND humidity < 80) OR (pressure > 1000 AND status == 'normal')",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"temperature": 15.0,
 				"humidity":    85.0,
 				"pressure":    1100.0,
@@ -100,7 +100,7 @@ func TestComplexConditions(t *testing.T) {
 		{
 			name: "字符串条件组合",
 			sql:  "SELECT * FROM stream WHERE deviceId == 'sensor001' AND location == 'room1'",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"deviceId": "sensor001",
 				"location": "room1",
 			},
@@ -110,7 +110,7 @@ func TestComplexConditions(t *testing.T) {
 		{
 			name: "混合类型条件",
 			sql:  "SELECT * FROM stream WHERE temperature > 20 AND deviceId == 'sensor001' AND active == true",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"temperature": 25.0,
 				"deviceId":    "sensor001",
 				"active":      true,
@@ -121,7 +121,7 @@ func TestComplexConditions(t *testing.T) {
 		{
 			name: "NOT条件组合",
 			sql:  "SELECT * FROM stream WHERE temperature >= 20 AND humidity > 50",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"temperature": 25.0,
 				"humidity":    60.0,
 			},
@@ -131,7 +131,7 @@ func TestComplexConditions(t *testing.T) {
 		{
 			name: "条件不满足的情况",
 			sql:  "SELECT * FROM stream WHERE temperature > 30 AND humidity < 50",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"temperature": 25.0,
 				"humidity":    60.0,
 			},
@@ -177,13 +177,13 @@ func TestComplexConditionsWithLike(t *testing.T) {
 	tests := []struct {
 		name        string
 		sql         string
-		data        map[string]interface{}
+		data        map[string]any
 		expectMatch bool
 	}{
 		{
 			name: "LIKE与AND条件组合",
 			sql:  "SELECT * FROM stream WHERE deviceId LIKE 'sensor%' AND temperature > 20",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"deviceId":    "sensor001",
 				"temperature": 25.0,
 			},
@@ -192,7 +192,7 @@ func TestComplexConditionsWithLike(t *testing.T) {
 		{
 			name: "LIKE与OR条件组合",
 			sql:  "SELECT * FROM stream WHERE deviceId LIKE 'temp%' OR location LIKE '%room%'",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"deviceId": "sensor001",
 				"location": "meeting_room_1",
 			},
@@ -234,13 +234,13 @@ func TestComplexConditionsWithNullChecks(t *testing.T) {
 	tests := []struct {
 		name        string
 		sql         string
-		data        map[string]interface{}
+		data        map[string]any
 		expectMatch bool
 	}{
 		{
 			name: "IS NULL与AND条件组合",
 			sql:  "SELECT * FROM stream WHERE description IS NULL AND temperature > 20",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"temperature": 25.0,
 				// description字段缺失，应该被视为null
 			},
@@ -249,7 +249,7 @@ func TestComplexConditionsWithNullChecks(t *testing.T) {
 		{
 			name: "IS NOT NULL与OR条件组合",
 			sql:  "SELECT * FROM stream WHERE description IS NOT NULL OR temperature > 30",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"temperature": 35.0,
 				// description字段缺失，但temperature条件满足
 			},

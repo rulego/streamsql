@@ -138,7 +138,7 @@ func TestStreamSQLPrintTableFormat(t *testing.T) {
 		require.NoError(t, err)
 
 		// 测试 printTableFormat 方法
-		testResults := []map[string]interface{}{
+		testResults := []map[string]any{
 			{"id": 1, "name": "test1"},
 			{"id": 2, "name": "test2"},
 		}
@@ -156,7 +156,7 @@ func TestStreamSQLPrintTableFormat(t *testing.T) {
 		require.NoError(t, err)
 
 		// 测试空数据
-		emptyResults := []map[string]interface{}{}
+		emptyResults := []map[string]any{}
 		assert.NotPanics(t, func() {
 			ssql.printTableFormat(emptyResults)
 		})
@@ -170,7 +170,7 @@ func TestStreamSQLPrintTableFormat(t *testing.T) {
 
 		// 清空字段顺序
 		ssql.fieldOrder = nil
-		testResults := []map[string]interface{}{
+		testResults := []map[string]any{
 			{"id": 1},
 		}
 
@@ -195,7 +195,7 @@ func TestStreamSQLToChannel(t *testing.T) {
 		// 启动goroutine接收结果
 		var wg sync.WaitGroup
 		wg.Add(1)
-		var receivedResults [][]map[string]interface{}
+		var receivedResults [][]map[string]any
 		go func() {
 			defer wg.Done()
 			timeout := time.After(3 * time.Second)
@@ -214,7 +214,7 @@ func TestStreamSQLToChannel(t *testing.T) {
 
 		// 发送一些数据
 		for i := 0; i < 5; i++ {
-			ssql.Emit(map[string]interface{}{"id": i})
+			ssql.Emit(map[string]any{"id": i})
 		}
 
 		// 等待结果
@@ -306,7 +306,7 @@ func TestStreamSQLConcurrentAccess(t *testing.T) {
 			go func(workerID int) {
 				defer wg.Done()
 				for j := 0; j < 100; j++ {
-					ssql.Emit(map[string]interface{}{"id": workerID*100 + j})
+					ssql.Emit(map[string]any{"id": workerID*100 + j})
 				}
 			}(i)
 		}
@@ -337,7 +337,7 @@ func TestStreamSQLConcurrentAccess(t *testing.T) {
 				_ = ssql.IsAggregationQuery()
 				_ = ssql.Stream()
 				_ = ssql.ToChannel()
-				ssql.AddSink(func(results []map[string]interface{}) {})
+				ssql.AddSink(func(results []map[string]any) {})
 			}()
 		}
 
@@ -396,7 +396,7 @@ func TestStreamSQLEmitSync(t *testing.T) {
 	t.Run("emit sync with uninitialized stream", func(t *testing.T) {
 		ssql := New()
 		// 在没有执行SQL的情况下调用EmitSync
-		result, err := ssql.EmitSync(map[string]interface{}{"id": 1})
+		result, err := ssql.EmitSync(map[string]any{"id": 1})
 		require.Error(t, err)
 		require.Nil(t, result)
 		require.Contains(t, err.Error(), "stream not initialized")
@@ -408,7 +408,7 @@ func TestStreamSQLEmitSync(t *testing.T) {
 		require.NoError(t, err)
 
 		// 对聚合查询调用EmitSync应该返回错误
-		result, err := ssql.EmitSync(map[string]interface{}{"id": 1})
+		result, err := ssql.EmitSync(map[string]any{"id": 1})
 		require.Error(t, err)
 		require.Nil(t, result)
 		require.Contains(t, err.Error(), "synchronous mode only supports non-aggregation queries")
@@ -421,7 +421,7 @@ func TestStreamSQLEmitSync(t *testing.T) {
 		require.NoError(t, err)
 
 		// 对非聚合查询调用EmitSync
-		data := map[string]interface{}{"id": 1, "name": "test"}
+		data := map[string]any{"id": 1, "name": "test"}
 		result, err := ssql.EmitSync(data)
 		// 根据实际实现，这里可能成功或失败
 		if err != nil {
@@ -526,7 +526,7 @@ func TestStreamSQLNilAndEdgeCases(t *testing.T) {
 		ssql := New()
 		// 在没有执行SQL的情况下调用Emit
 		assert.NotPanics(t, func() {
-			ssql.Emit(map[string]interface{}{"id": 1})
+			ssql.Emit(map[string]any{"id": 1})
 		})
 	})
 
@@ -534,7 +534,7 @@ func TestStreamSQLNilAndEdgeCases(t *testing.T) {
 		ssql := New()
 		// 在没有执行SQL的情况下调用AddSink
 		assert.NotPanics(t, func() {
-			ssql.AddSink(func(results []map[string]interface{}) {
+			ssql.AddSink(func(results []map[string]any) {
 				t.Log("Sink called")
 			})
 		})
@@ -568,7 +568,7 @@ func TestStreamSQLNilAndEdgeCases(t *testing.T) {
 
 		// 测试空结果的表格打印
 		assert.NotPanics(t, func() {
-			ssql.printTableFormat([]map[string]interface{}{})
+			ssql.printTableFormat([]map[string]any{})
 		})
 	})
 
@@ -576,7 +576,7 @@ func TestStreamSQLNilAndEdgeCases(t *testing.T) {
 		ssql := New()
 		ssql.fieldOrder = nil
 
-		results := []map[string]interface{}{
+		results := []map[string]any{
 			{"id": 1, "name": "test"},
 		}
 
@@ -639,7 +639,7 @@ func TestStreamSQLComplexScenarios(t *testing.T) {
 // evaluation -> result building. Aggregation queries are exercised separately
 // via the Emit-based benchmarks.
 
-func benchEmitSync(b *testing.B, sql string, row map[string]interface{}) {
+func benchEmitSync(b *testing.B, sql string, row map[string]any) {
 	b.Helper()
 	ssql := New()
 	defer ssql.Stop()
@@ -665,35 +665,35 @@ func benchEmitSync(b *testing.B, sql string, row map[string]interface{}) {
 func BenchmarkMainPath_FilterProject(b *testing.B) {
 	benchEmitSync(b,
 		"SELECT deviceId, temperature FROM stream WHERE temperature > 20",
-		map[string]interface{}{"deviceId": "d1", "temperature": 25.5, "humidity": 60.0},
+		map[string]any{"deviceId": "d1", "temperature": 25.5, "humidity": 60.0},
 	)
 }
 
 func BenchmarkMainPath_MultiFieldFilter(b *testing.B) {
 	benchEmitSync(b,
 		"SELECT deviceId, temperature, humidity FROM stream WHERE temperature > 20 AND humidity < 80",
-		map[string]interface{}{"deviceId": "d1", "temperature": 25.5, "humidity": 60.0},
+		map[string]any{"deviceId": "d1", "temperature": 25.5, "humidity": 60.0},
 	)
 }
 
 func BenchmarkMainPath_ComputedFields(b *testing.B) {
 	benchEmitSync(b,
 		"SELECT deviceId, temperature * 2 + humidity AS score, abs(temperature - 100) AS dev FROM stream WHERE temperature > 20",
-		map[string]interface{}{"deviceId": "d1", "temperature": 25.5, "humidity": 60.0},
+		map[string]any{"deviceId": "d1", "temperature": 25.5, "humidity": 60.0},
 	)
 }
 
 func BenchmarkMainPath_StringConcat(b *testing.B) {
 	benchEmitSync(b,
 		"SELECT deviceId + '-' + location AS id FROM stream",
-		map[string]interface{}{"deviceId": "d1", "location": "roomA"},
+		map[string]any{"deviceId": "d1", "location": "roomA"},
 	)
 }
 
 func BenchmarkMainPath_NoFilter(b *testing.B) {
 	benchEmitSync(b,
 		"SELECT deviceId, temperature, humidity FROM stream",
-		map[string]interface{}{"deviceId": "d1", "temperature": 25.5, "humidity": 60.0},
+		map[string]any{"deviceId": "d1", "temperature": 25.5, "humidity": 60.0},
 	)
 }
 
@@ -726,7 +726,7 @@ func TestSQLIntegration_StrategyBlock(t *testing.T) {
 
 	// 添加同步 Sink 阻塞 Stream 处理，从而反压 Window
 	// 注意：必须在 Execute 之后添加，因为 Execute 才会创建 stream
-	ssql.AddSyncSink(func(results []map[string]interface{}) {
+	ssql.AddSyncSink(func(results []map[string]any) {
 		time.Sleep(500 * time.Millisecond)
 	})
 
@@ -774,7 +774,7 @@ func TestSQLIntegration_StrategyBlock(t *testing.T) {
 	// So Sent = 3. Dropped = 1 (d4).
 
 	for _, id := range []string{"d1", "d2", "d3", "d4", "d5"} {
-		ssql.Emit(map[string]interface{}{"deviceId": id})
+		ssql.Emit(map[string]any{"deviceId": id})
 		time.Sleep(10 * time.Millisecond)
 	}
 
@@ -815,9 +815,9 @@ func TestSQLIntegration_StrategyDrop(t *testing.T) {
 	require.NoError(t, err)
 
 	// 连续发送 3 条数据
-	ssql.Emit(map[string]interface{}{"deviceId": "d1"})
-	ssql.Emit(map[string]interface{}{"deviceId": "d2"})
-	ssql.Emit(map[string]interface{}{"deviceId": "d3"})
+	ssql.Emit(map[string]any{"deviceId": "d1"})
+	ssql.Emit(map[string]any{"deviceId": "d2"})
+	ssql.Emit(map[string]any{"deviceId": "d3"})
 
 	// 等待处理完成
 	time.Sleep(200 * time.Millisecond)
@@ -832,7 +832,7 @@ func TestSQLIntegration_StrategyDrop(t *testing.T) {
 	// 为了验证，我们直接从 Window 的 OutputChan 读
 	select {
 	case result := <-ssql.stream.Window.OutputChan():
-		assert.Equal(t, "d3", result[0].Data.(map[string]interface{})["deviceId"])
+		assert.Equal(t, "d3", result[0].Data.(map[string]any)["deviceId"])
 	case <-time.After(100 * time.Millisecond):
 		// 如果已经被 AddSink 的 worker 读走了也正常，但由于我们没加 Sink，所以应该在里面
 	}
@@ -853,7 +853,7 @@ func TestPrintTable(t *testing.T) {
 	}, "PrintTable方法不应该panic")
 
 	// 发送测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1", "temperature": 25.0},
 		{"device": "sensor2", "temperature": 30.0},
 	}
@@ -873,7 +873,7 @@ func TestPrintTableFormat(t *testing.T) {
 	// 测试不同类型的数据，确保不会panic
 	assert.NotPanics(t, func() {
 		// 测试空切片
-		ssql.printTableFormat([]map[string]interface{}{})
+		ssql.printTableFormat([]map[string]any{})
 	}, "空切片不应该panic")
 }
 
@@ -925,7 +925,7 @@ func TestStreamData(t *testing.T) {
 				// 这种数据密度可以测试 StreamSQL 的实时处理能力
 				for i := 0; i < 10; i++ {
 					// 构造设备数据，包含设备ID、温度和湿度
-					randomData := map[string]interface{}{
+					randomData := map[string]any{
 						"deviceId":    fmt.Sprintf("device%d", rand.Intn(3)+1), // 随机选择 device1, device2, device3
 						"temperature": 20.0 + rand.Float64()*10,                // 温度范围: 20-30度
 						"humidity":    50.0 + rand.Float64()*20,                // 湿度范围: 50-70%
@@ -943,10 +943,10 @@ func TestStreamData(t *testing.T) {
 	}()
 
 	// 步骤6: 设置结果处理管道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 	// 添加计算结果回调函数（Sink）
 	// 当窗口触发计算时，结果会通过这个回调函数输出
-	ssql.stream.AddSink(func(result []map[string]interface{}) {
+	ssql.stream.AddSink(func(result []map[string]any) {
 		// 非阻塞发送，避免阻塞 sink worker
 		select {
 		case resultChan <- result:

@@ -191,7 +191,7 @@ func isValidChar(ch rune) bool {
 }
 
 // Evaluate calculates the value of the expression
-func (e *Expression) Evaluate(data map[string]interface{}) (float64, error) {
+func (e *Expression) Evaluate(data map[string]any) (float64, error) {
 	if e.useExprLang {
 		return e.evaluateWithExprLang(data)
 	}
@@ -199,7 +199,7 @@ func (e *Expression) Evaluate(data map[string]interface{}) (float64, error) {
 }
 
 // evaluateWithExprLang evaluates expression using expr-lang/expr
-func (e *Expression) evaluateWithExprLang(data map[string]interface{}) (float64, error) {
+func (e *Expression) evaluateWithExprLang(data map[string]any) (float64, error) {
 	// Use bridge to evaluate expression
 	bridge := functions.GetExprBridge()
 	result, err := bridge.EvaluateExpression(e.exprLangExpression, data)
@@ -245,7 +245,7 @@ func (e *Expression) GetFields() []string {
 	for field := range fields {
 		result = append(result, field)
 	}
-	
+
 	// Sort fields to ensure consistent order
 	sort.Strings(result)
 	return result
@@ -273,7 +273,7 @@ func extractFieldsFromExprLang(expression string) []string {
 	for field := range fields {
 		result = append(result, field)
 	}
-	
+
 	// Sort fields to ensure consistent order
 	sort.Strings(result)
 	return result
@@ -354,7 +354,7 @@ func collectFields(node *ExprNode, fields map[string]bool) {
 }
 
 // EvaluateBool calculates the boolean value of the expression
-func (e *Expression) EvaluateBool(data map[string]interface{}) (bool, error) {
+func (e *Expression) EvaluateBool(data map[string]any) (bool, error) {
 	if e.useExprLang {
 		// For expr-lang expressions, calculate numeric value first then convert to boolean
 		result, err := e.evaluateWithExprLang(data)
@@ -367,7 +367,7 @@ func (e *Expression) EvaluateBool(data map[string]interface{}) (bool, error) {
 }
 
 // EvaluateWithNull provides public interface for aggregate function calls, supports NULL value handling
-func (e *Expression) EvaluateWithNull(data map[string]interface{}) (float64, bool, error) {
+func (e *Expression) EvaluateWithNull(data map[string]any) (float64, bool, error) {
 	if e.useExprLang {
 		// expr-lang doesn't support NULL, fallback to original logic
 		result, err := e.evaluateWithExprLang(data)
@@ -377,7 +377,7 @@ func (e *Expression) EvaluateWithNull(data map[string]interface{}) (float64, boo
 }
 
 // EvaluateValueWithNull evaluates expression and returns value of any type, supports NULL
-func (e *Expression) EvaluateValueWithNull(data map[string]interface{}) (interface{}, bool, error) {
+func (e *Expression) EvaluateValueWithNull(data map[string]any) (any, bool, error) {
 	if e.useExprLang {
 		// expr-lang doesn't support NULL, fallback to original logic
 		result, err := e.evaluateWithExprLang(data)

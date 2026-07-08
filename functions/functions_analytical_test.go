@@ -8,8 +8,8 @@ func TestChangedColFunction(t *testing.T) {
 	fn := NewChangedColFunction()
 	ctx := &FunctionContext{}
 	// 测试Execute方法
-	data1 := map[string]interface{}{"name": "Alice", "age": 25}
-	result, err := fn.Execute(ctx, []interface{}{data1})
+	data1 := map[string]any{"name": "Alice", "age": 25}
+	result, err := fn.Execute(ctx, []any{data1})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -19,7 +19,7 @@ func TestChangedColFunction(t *testing.T) {
 	}
 	// 测试聚合器方法
 	agg := fn.New().(*ChangedColFunction)
-	data2 := map[string]interface{}{"name": "Bob", "age": 30}
+	data2 := map[string]any{"name": "Bob", "age": 30}
 	agg.Add(data2)
 	res := agg.Result().([]string)
 	if len(res) != 2 || !(contains(res, "name") && contains(res, "age")) {
@@ -43,7 +43,7 @@ func TestHadChangedFunction(t *testing.T) {
 	ctx := &FunctionContext{}
 
 	// 测试Execute方法 - 第一次调用
-	result, err := fn.Execute(ctx, []interface{}{"value1"})
+	result, err := fn.Execute(ctx, []any{"value1"})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestHadChangedFunction(t *testing.T) {
 	}
 
 	// 测试相同值
-	result, err = fn.Execute(ctx, []interface{}{"value1"})
+	result, err = fn.Execute(ctx, []any{"value1"})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestHadChangedFunction(t *testing.T) {
 	}
 
 	// 测试不同值
-	result, err = fn.Execute(ctx, []interface{}{"value2"})
+	result, err = fn.Execute(ctx, []any{"value2"})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
@@ -125,11 +125,11 @@ func TestValuesEqual(t *testing.T) {
 func TestAnalyticalFunctionEdgeCases(t *testing.T) {
 	// ChangedColFunction Validate边界
 	fn := NewChangedColFunction()
-	if err := fn.Validate([]interface{}{}); err == nil {
+	if err := fn.Validate([]any{}); err == nil {
 		t.Error("ChangedColFunction.Validate should fail for insufficient args")
 	}
 	// 不再直接调用Execute避免panic
-	// _, err := fn.Execute(nil, []interface{}{})
+	// _, err := fn.Execute(nil, []any{})
 	// if err == nil {
 	// 	t.Error("ChangedColFunction.Execute should fail for empty args")
 	// }

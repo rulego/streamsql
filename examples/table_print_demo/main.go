@@ -26,7 +26,7 @@ func main() {
 	ssql.PrintTable()
 
 	// 发送测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1", "temperature": 25.5, "timestamp": time.Now()},
 		{"device": "sensor1", "temperature": 26.0, "timestamp": time.Now()},
 		{"device": "sensor2", "temperature": 23.8, "timestamp": time.Now()},
@@ -74,7 +74,7 @@ func main() {
 
 	// 发送数据
 	for i := 0; i < 3; i++ {
-		ssql3.Emit(map[string]interface{}{"device": "test_device", "value": i})
+		ssql3.Emit(map[string]any{"device": "test_device", "value": i})
 	}
 
 	time.Sleep(3 * time.Second)

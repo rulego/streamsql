@@ -11,7 +11,7 @@ import (
 )
 
 // evaluateNode evaluates the value of a node
-func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) {
+func evaluateNode(node *ExprNode, data map[string]any) (float64, error) {
 	if node == nil {
 		return 0, fmt.Errorf("null expression node")
 	}
@@ -57,7 +57,7 @@ func evaluateNode(node *ExprNode, data map[string]interface{}) (float64, error) 
 }
 
 // evaluateFieldNode evaluates the value of a field node
-func evaluateFieldNode(node *ExprNode, data map[string]interface{}) (float64, error) {
+func evaluateFieldNode(node *ExprNode, data map[string]any) (float64, error) {
 	// Handle backtick identifiers, remove backticks
 	fieldName := node.Value
 	if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
@@ -97,7 +97,7 @@ func evaluateFieldNode(node *ExprNode, data map[string]interface{}) (float64, er
 }
 
 // evaluateOperatorNode evaluates the value of an operator node
-func evaluateOperatorNode(node *ExprNode, data map[string]interface{}) (float64, error) {
+func evaluateOperatorNode(node *ExprNode, data map[string]any) (float64, error) {
 	// Check if it's a comparison operator
 	if isComparisonOperator(node.Value) {
 		// For comparison operators, use evaluateNodeValue to get original type
@@ -176,7 +176,7 @@ func evaluateOperatorNode(node *ExprNode, data map[string]interface{}) (float64,
 
 // evaluateFunctionNode evaluates the value of a function node
 // Uses unified function registration system to handle all function calls
-func evaluateFunctionNode(node *ExprNode, data map[string]interface{}) (float64, error) {
+func evaluateFunctionNode(node *ExprNode, data map[string]any) (float64, error) {
 	// Check if function exists in the new function registration system
 	fn, exists := functions.Get(node.Value)
 	if !exists {
@@ -184,7 +184,7 @@ func evaluateFunctionNode(node *ExprNode, data map[string]interface{}) (float64,
 	}
 
 	// Calculate all arguments but keep original types
-	args := make([]interface{}, len(node.Args))
+	args := make([]any, len(node.Args))
 	for i, arg := range node.Args {
 		// Use evaluateNodeValue to get original type values
 		val, err := evaluateNodeValue(arg, data)
@@ -240,7 +240,7 @@ func evaluateFunctionNode(node *ExprNode, data map[string]interface{}) (float64,
 }
 
 // evaluateNodeValue evaluates the original value of a node (preserving type)
-func evaluateNodeValue(node *ExprNode, data map[string]interface{}) (interface{}, error) {
+func evaluateNodeValue(node *ExprNode, data map[string]any) (any, error) {
 	if node == nil {
 		return nil, fmt.Errorf("null expression node")
 	}
@@ -279,7 +279,7 @@ func evaluateNodeValue(node *ExprNode, data map[string]interface{}) (interface{}
 }
 
 // evaluateFieldValue evaluates the original value of a field
-func evaluateFieldValue(node *ExprNode, data map[string]interface{}) (interface{}, error) {
+func evaluateFieldValue(node *ExprNode, data map[string]any) (any, error) {
 	// Handle backtick identifiers, remove backticks
 	fieldName := node.Value
 	if len(fieldName) >= 2 && fieldName[0] == '`' && fieldName[len(fieldName)-1] == '`' {
@@ -301,7 +301,7 @@ func evaluateFieldValue(node *ExprNode, data map[string]interface{}) (interface{
 }
 
 // evaluateOperatorValue evaluates the original value of an operator
-func evaluateOperatorValue(node *ExprNode, data map[string]interface{}) (interface{}, error) {
+func evaluateOperatorValue(node *ExprNode, data map[string]any) (any, error) {
 	// Special handling for IS and IS NOT operators
 	operator := strings.ToUpper(node.Value)
 	if operator == "IS" || operator == "IS NOT" {
@@ -396,7 +396,7 @@ func evaluateOperatorValue(node *ExprNode, data map[string]interface{}) (interfa
 
 // evaluateFunctionValue evaluates the original value of a function
 // Uses unified function registration system to handle all function calls
-func evaluateFunctionValue(node *ExprNode, data map[string]interface{}) (interface{}, error) {
+func evaluateFunctionValue(node *ExprNode, data map[string]any) (any, error) {
 	// Check if function exists in the new function registration system
 	fn, exists := functions.Get(node.Value)
 	if !exists {
@@ -404,7 +404,7 @@ func evaluateFunctionValue(node *ExprNode, data map[string]interface{}) (interfa
 	}
 
 	// Calculate all arguments but keep original types
-	args := make([]interface{}, len(node.Args))
+	args := make([]any, len(node.Args))
 	for i, arg := range node.Args {
 		val, err := evaluateNodeValue(arg, data)
 		if err != nil {
@@ -428,7 +428,7 @@ func evaluateFunctionValue(node *ExprNode, data map[string]interface{}) (interfa
 }
 
 // compareValues compares two values
-func compareValues(left, right interface{}, operator string) (bool, error) {
+func compareValues(left, right any, operator string) (bool, error) {
 	// Handle NULL values
 	if left == nil || right == nil {
 		switch strings.ToUpper(operator) {
@@ -542,7 +542,7 @@ func matchLikePattern(text, pattern string) bool {
 }
 
 // compareValuesForEquality compares two values for equality (for simple CASE expressions)
-func compareValuesForEquality(left, right interface{}) bool {
+func compareValuesForEquality(left, right any) bool {
 	if left == nil && right == nil {
 		return true
 	}
@@ -565,7 +565,7 @@ func compareValuesForEquality(left, right interface{}) bool {
 }
 
 // evaluateNodeWithNull evaluates node value with NULL value handling
-func evaluateNodeWithNull(node *ExprNode, data map[string]interface{}) (float64, bool, error) {
+func evaluateNodeWithNull(node *ExprNode, data map[string]any) (float64, bool, error) {
 	if node == nil {
 		return 0, true, nil // NULL node
 	}
@@ -583,7 +583,7 @@ func evaluateNodeWithNull(node *ExprNode, data map[string]interface{}) (float64,
 		}
 
 		// Support nested field access
-		var val interface{}
+		var val any
 		var found bool
 		if fieldpath.IsNestedField(fieldName) {
 			val, found = fieldpath.GetNestedField(data, fieldName)
@@ -715,7 +715,7 @@ func evaluateNodeWithNull(node *ExprNode, data map[string]interface{}) (float64,
 }
 
 // evaluateNodeValueWithNull evaluates the original value of a node with NULL value handling
-func evaluateNodeValueWithNull(node *ExprNode, data map[string]interface{}) (interface{}, bool, error) {
+func evaluateNodeValueWithNull(node *ExprNode, data map[string]any) (any, bool, error) {
 	if node == nil {
 		return nil, true, nil
 	}
@@ -741,7 +741,7 @@ func evaluateNodeValueWithNull(node *ExprNode, data map[string]interface{}) (int
 		}
 
 		// Support nested field access
-		var val interface{}
+		var val any
 		var found bool
 		if fieldpath.IsNestedField(fieldName) {
 			val, found = fieldpath.GetNestedField(data, fieldName)
@@ -779,7 +779,7 @@ func evaluateNodeValueWithNull(node *ExprNode, data map[string]interface{}) (int
 }
 
 // compareValuesWithNullForEquality compares two values for equality (supports NULL comparison)
-func compareValuesWithNullForEquality(left interface{}, leftIsNull bool, right interface{}, rightIsNull bool) bool {
+func compareValuesWithNullForEquality(left any, leftIsNull bool, right any, rightIsNull bool) bool {
 	if leftIsNull && rightIsNull {
 		return true
 	}
@@ -790,7 +790,7 @@ func compareValuesWithNullForEquality(left interface{}, leftIsNull bool, right i
 }
 
 // evaluateBoolNode evaluates the boolean value of a node
-func evaluateBoolNode(node *ExprNode, data map[string]interface{}) (bool, error) {
+func evaluateBoolNode(node *ExprNode, data map[string]any) (bool, error) {
 	if node == nil {
 		return false, fmt.Errorf("null expression node")
 	}
@@ -834,7 +834,7 @@ func evaluateBoolNode(node *ExprNode, data map[string]interface{}) (bool, error)
 }
 
 // evaluateBoolOperator evaluates boolean operators
-func evaluateBoolOperator(node *ExprNode, data map[string]interface{}) (bool, error) {
+func evaluateBoolOperator(node *ExprNode, data map[string]any) (bool, error) {
 	operator := strings.ToUpper(node.Value)
 
 	switch operator {
@@ -900,7 +900,7 @@ func evaluateBoolOperator(node *ExprNode, data map[string]interface{}) (bool, er
 }
 
 // evaluateBoolFunction evaluates boolean functions
-func evaluateBoolFunction(node *ExprNode, data map[string]interface{}) (bool, error) {
+func evaluateBoolFunction(node *ExprNode, data map[string]any) (bool, error) {
 	// Call function and convert result to boolean
 	result, err := evaluateFunctionValue(node, data)
 	if err != nil {
@@ -910,7 +910,7 @@ func evaluateBoolFunction(node *ExprNode, data map[string]interface{}) (bool, er
 }
 
 // evaluateIsOperator handles IS and IS NOT operators (mainly IS NULL and IS NOT NULL)
-func evaluateIsOperator(node *ExprNode, data map[string]interface{}) (interface{}, error) {
+func evaluateIsOperator(node *ExprNode, data map[string]any) (any, error) {
 	if node.Right == nil {
 		return nil, fmt.Errorf("IS operator requires a right operand")
 	}

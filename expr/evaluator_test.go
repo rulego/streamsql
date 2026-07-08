@@ -10,7 +10,7 @@ import (
 
 // TestEvaluateNode 测试节点求值功能
 func TestEvaluateNode(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"a":    10.0,
 		"b":    5.0,
 		"c":    2.0,
@@ -146,20 +146,20 @@ func TestEvaluateNode(t *testing.T) {
 
 // TestEvaluateNodeWithNull 测试支持NULL值的节点求值
 func TestEvaluateNodeWithNull(t *testing.T) {
-	data := map[string]interface{}{
-		"a":         10.0,
-		"b":         nil,
-		"c":         5.0,
-		"flag":      true,
+	data := map[string]any{
+		"a":            10.0,
+		"b":            nil,
+		"c":            5.0,
+		"flag":         true,
 		"nested.field": 20.0,
 	}
 
 	tests := []struct {
-		name       string
-		node       *ExprNode
-		expected   float64
+		name         string
+		node         *ExprNode
+		expected     float64
 		expectedNull bool
-		wantErr    bool
+		wantErr      bool
 	}{
 		{
 			"空节点",
@@ -362,7 +362,7 @@ func TestEvaluateNodeWithNull(t *testing.T) {
 
 // TestEvaluateIsOperator 测试IS运算符
 func TestEvaluateIsOperator(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"a":    10.0,
 		"b":    nil,
 		"flag": true,
@@ -372,7 +372,7 @@ func TestEvaluateIsOperator(t *testing.T) {
 	tests := []struct {
 		name     string
 		node     *ExprNode
-		expected interface{}
+		expected any
 		wantErr  bool
 	}{
 		{
@@ -514,7 +514,7 @@ func TestEvaluateIsOperator(t *testing.T) {
 
 // TestEvaluateBoolFunction 测试布尔函数求值
 func TestEvaluateBoolFunction(t *testing.T) {
-	data := map[string]interface{}{}
+	data := map[string]any{}
 
 	tests := []struct {
 		name     string
@@ -570,7 +570,7 @@ func TestEvaluateBoolFunction(t *testing.T) {
 
 // TestEvaluateFieldNode 测试字段节点求值
 func TestEvaluateFieldNode(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"int_field":    42,
 		"float_field":  3.14,
 		"string_field": "hello",
@@ -608,7 +608,7 @@ func TestEvaluateFieldNode(t *testing.T) {
 
 // TestEvaluateOperatorNode 测试运算符节点求值
 func TestEvaluateOperatorNode(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"a": 10.0,
 		"b": 3.0,
 		"c": 0.0,
@@ -718,7 +718,7 @@ func TestEvaluateOperatorNode(t *testing.T) {
 
 // TestEvaluateFunctionNode 测试函数节点求值
 func TestEvaluateFunctionNode(t *testing.T) {
-	data := map[string]interface{}{}
+	data := map[string]any{}
 
 	tests := []struct {
 		name     string
@@ -891,7 +891,7 @@ func TestEvaluateFunctionNode(t *testing.T) {
 
 // TestEvaluateNodeValue 测试节点值求值（支持NULL）
 func TestEvaluateNodeValue(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"a":        10.0,
 		"b":        nil,
 		"name":     "test",
@@ -903,7 +903,7 @@ func TestEvaluateNodeValue(t *testing.T) {
 	tests := []struct {
 		name     string
 		node     *ExprNode
-		expected interface{}
+		expected any
 		wantErr  bool
 	}{
 		{
@@ -1020,8 +1020,8 @@ func TestCompareValues(t *testing.T) {
 	tests := []struct {
 		name     string
 		operator string
-		left     interface{}
-		right    interface{}
+		left     any
+		right    any
 		expected bool
 		wantErr  bool
 	}{
@@ -1103,13 +1103,13 @@ func TestMatchLikePattern(t *testing.T) {
 
 // TestEvaluateBoolNode 测试布尔节点求值
 func TestEvaluateBoolNode(t *testing.T) {
-	data := map[string]interface{}{
-		"a":    10.0,
-		"b":    5.0,
-		"flag": true,
-		"name": "test",
-		"zero": 0,
-		"empty": "",
+	data := map[string]any{
+		"a":          10.0,
+		"b":          5.0,
+		"flag":       true,
+		"name":       "test",
+		"zero":       0,
+		"empty":      "",
 		"null_field": nil,
 	}
 

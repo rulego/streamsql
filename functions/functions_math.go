@@ -20,11 +20,11 @@ func NewAbsFunction() *AbsFunction {
 	}
 }
 
-func (f *AbsFunction) Validate(args []interface{}) error {
+func (f *AbsFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *AbsFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *AbsFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -43,11 +43,11 @@ func NewSqrtFunction() *SqrtFunction {
 	}
 }
 
-func (f *SqrtFunction) Validate(args []interface{}) error {
+func (f *SqrtFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *SqrtFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *SqrtFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -69,11 +69,11 @@ func NewAcosFunction() *AcosFunction {
 	}
 }
 
-func (f *AcosFunction) Validate(args []interface{}) error {
+func (f *AcosFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *AcosFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *AcosFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -95,11 +95,11 @@ func NewAsinFunction() *AsinFunction {
 	}
 }
 
-func (f *AsinFunction) Validate(args []interface{}) error {
+func (f *AsinFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *AsinFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *AsinFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -121,11 +121,11 @@ func NewAtanFunction() *AtanFunction {
 	}
 }
 
-func (f *AtanFunction) Validate(args []interface{}) error {
+func (f *AtanFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *AtanFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *AtanFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -144,11 +144,11 @@ func NewAtan2Function() *Atan2Function {
 	}
 }
 
-func (f *Atan2Function) Validate(args []interface{}) error {
+func (f *Atan2Function) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *Atan2Function) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *Atan2Function) Execute(ctx *FunctionContext, args []any) (any, error) {
 	y, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -171,11 +171,11 @@ func NewBitAndFunction() *BitAndFunction {
 	}
 }
 
-func (f *BitAndFunction) Validate(args []interface{}) error {
+func (f *BitAndFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *BitAndFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *BitAndFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	a, err := cast.ToInt64E(args[0])
 	if err != nil {
 		return nil, err
@@ -198,11 +198,11 @@ func NewBitOrFunction() *BitOrFunction {
 	}
 }
 
-func (f *BitOrFunction) Validate(args []interface{}) error {
+func (f *BitOrFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *BitOrFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *BitOrFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	a, err := cast.ToInt64E(args[0])
 	if err != nil {
 		return nil, err
@@ -225,11 +225,11 @@ func NewBitXorFunction() *BitXorFunction {
 	}
 }
 
-func (f *BitXorFunction) Validate(args []interface{}) error {
+func (f *BitXorFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *BitXorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *BitXorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	a, err := cast.ToInt64E(args[0])
 	if err != nil {
 		return nil, err
@@ -252,11 +252,11 @@ func NewBitNotFunction() *BitNotFunction {
 	}
 }
 
-func (f *BitNotFunction) Validate(args []interface{}) error {
+func (f *BitNotFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *BitNotFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *BitNotFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	a, err := cast.ToInt64E(args[0])
 	if err != nil {
 		return nil, err
@@ -275,11 +275,11 @@ func NewCeilingFunction() *CeilingFunction {
 	}
 }
 
-func (f *CeilingFunction) Validate(args []interface{}) error {
+func (f *CeilingFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CeilingFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CeilingFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -298,11 +298,11 @@ func NewCosFunction() *CosFunction {
 	}
 }
 
-func (f *CosFunction) Validate(args []interface{}) error {
+func (f *CosFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CosFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CosFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -321,11 +321,11 @@ func NewCoshFunction() *CoshFunction {
 	}
 }
 
-func (f *CoshFunction) Validate(args []interface{}) error {
+func (f *CoshFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *CoshFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *CoshFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -344,11 +344,11 @@ func NewExpFunction() *ExpFunction {
 	}
 }
 
-func (f *ExpFunction) Validate(args []interface{}) error {
+func (f *ExpFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ExpFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ExpFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -371,11 +371,11 @@ func NewFloorFunction() *FloorFunction {
 	}
 }
 
-func (f *FloorFunction) Validate(args []interface{}) error {
+func (f *FloorFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *FloorFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *FloorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -394,11 +394,11 @@ func NewLnFunction() *LnFunction {
 	}
 }
 
-func (f *LnFunction) Validate(args []interface{}) error {
+func (f *LnFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *LnFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *LnFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -420,11 +420,11 @@ func NewLogFunction() *LogFunction {
 	}
 }
 
-func (f *LogFunction) Validate(args []interface{}) error {
+func (f *LogFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *LogFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *LogFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -446,11 +446,11 @@ func NewLog10Function() *Log10Function {
 	}
 }
 
-func (f *Log10Function) Validate(args []interface{}) error {
+func (f *Log10Function) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *Log10Function) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *Log10Function) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -472,11 +472,11 @@ func NewLog2Function() *Log2Function {
 	}
 }
 
-func (f *Log2Function) Validate(args []interface{}) error {
+func (f *Log2Function) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *Log2Function) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *Log2Function) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -498,11 +498,11 @@ func NewModFunction() *ModFunction {
 	}
 }
 
-func (f *ModFunction) Validate(args []interface{}) error {
+func (f *ModFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *ModFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *ModFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	x, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -528,11 +528,11 @@ func NewRandFunction() *RandFunction {
 	}
 }
 
-func (f *RandFunction) Validate(args []interface{}) error {
+func (f *RandFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *RandFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *RandFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 使用当前时间作为种子
 	rand.Seed(time.Now().UnixNano())
 	return rand.Float64(), nil
@@ -549,11 +549,11 @@ func NewRoundFunction() *RoundFunction {
 	}
 }
 
-func (f *RoundFunction) Validate(args []interface{}) error {
+func (f *RoundFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *RoundFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *RoundFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 检查第一个参数是否为nil
 	if args[0] == nil {
 		return nil, nil
@@ -593,11 +593,11 @@ func NewSignFunction() *SignFunction {
 	}
 }
 
-func (f *SignFunction) Validate(args []interface{}) error {
+func (f *SignFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *SignFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *SignFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -622,11 +622,11 @@ func NewSinFunction() *SinFunction {
 	}
 }
 
-func (f *SinFunction) Validate(args []interface{}) error {
+func (f *SinFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *SinFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *SinFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -645,11 +645,11 @@ func NewSinhFunction() *SinhFunction {
 	}
 }
 
-func (f *SinhFunction) Validate(args []interface{}) error {
+func (f *SinhFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *SinhFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *SinhFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -668,11 +668,11 @@ func NewTanFunction() *TanFunction {
 	}
 }
 
-func (f *TanFunction) Validate(args []interface{}) error {
+func (f *TanFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *TanFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *TanFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -691,11 +691,11 @@ func NewTanhFunction() *TanhFunction {
 	}
 }
 
-func (f *TanhFunction) Validate(args []interface{}) error {
+func (f *TanhFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *TanhFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *TanhFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
@@ -714,11 +714,11 @@ func NewPowerFunction() *PowerFunction {
 	}
 }
 
-func (f *PowerFunction) Validate(args []interface{}) error {
+func (f *PowerFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-func (f *PowerFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
+func (f *PowerFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	x, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
