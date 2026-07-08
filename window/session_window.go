@@ -155,8 +155,9 @@ func (sw *SessionWindow) Add(data interface{}) {
 		sw.initialized = true
 	}
 
-	// Get data timestamp
-	timestamp := GetTimestamp(data, sw.config.TsProp, sw.config.TimeUnit)
+	// Extract event timestamp; event-time drops rows without one instead of
+	// silently substituting wall-clock time (which corrupts watermark/placement).
+	timestamp, tsOk := extractTimestamp(data, sw.config.TsProp, sw.config.TimeUnit)
 
 	// Determine time characteristic (default to ProcessingTime for backward compatibility)
 	timeChar := sw.config.TimeCharacteristic
@@ -164,25 +165,34 @@ func (sw *SessionWindow) Add(data interface{}) {
 		timeChar = types.ProcessingTime
 	}
 
-	// For event time, update watermark and check for late data
-	if timeChar == types.EventTime && sw.watermark != nil {
-		sw.watermark.UpdateEventTime(timestamp)
-		// Check if data is late and handle allowedLateness
-		if sw.watermark.IsEventTimeLate(timestamp) {
-			// Data is late, check if it's within allowedLateness
-			allowedLateness := sw.config.AllowedLateness
-			if allowedLateness > 0 {
-				// Check if this late data belongs to any triggered session that's still open
-				sw.handleLateData(timestamp, allowedLateness)
-			}
-			// If allowedLateness is 0 or data is too late, we still add it but it won't trigger updates
-		}
-	}
-
 	// Create Row object
 	row := types.Row{
 		Data:      data,
 		Timestamp: timestamp,
+	}
+
+	// For event time, update watermark and check for late data
+	if timeChar == types.EventTime {
+		if !tsOk {
+			return // unplaceable event: drop instead of fake wall-clock time
+		}
+		if sw.watermark != nil {
+			sw.watermark.UpdateEventTime(timestamp)
+			if sw.watermark.IsEventTimeLate(timestamp) {
+				allowedLateness := sw.config.AllowedLateness
+				if allowedLateness > 0 {
+					// Absorb into a still-open triggered session (append + re-emit);
+					// done if absorbed.
+					if sw.handleLateData(row) {
+						return
+					}
+				}
+			}
+		}
+	} else if !tsOk {
+		// Processing time: fall back to wall-clock when no timestamp is present.
+		timestamp = time.Now()
+		row.Timestamp = timestamp
 	}
 
 	// Extract session key (supports multiple group by keys)
@@ -563,20 +573,20 @@ func (sw *SessionWindow) SetCallback(callback func([]types.Row)) {
 	sw.callback = callback
 }
 
-// handleLateData handles late data that arrives within allowedLateness
-func (sw *SessionWindow) handleLateData(eventTime time.Time, allowedLateness time.Duration) {
-	sw.mu.Lock()
-	defer sw.mu.Unlock()
-
-	// Find which triggered session this late data belongs to
+// handleLateData absorbs a late event into a still-open triggered session:
+// appends the row, then re-emits an updated result. Must be called with sw.mu
+// held (the "Locked" convention — re-entering the non-reentrant mutex would
+// deadlock). Returns true if the event was absorbed into a triggered session.
+func (sw *SessionWindow) handleLateData(row types.Row) bool {
 	for _, info := range sw.triggeredSessions {
-		if info.session.slot.Contains(eventTime) {
-			// This late data belongs to a triggered session that's still open
-			// Trigger session again with updated data (late update)
+		if info.session.slot.Contains(row.Timestamp) {
+			// Append the late event before re-emitting so the update includes it.
+			info.session.data = append(info.session.data, row)
 			sw.triggerLateUpdateLocked(info.session)
-			return
+			return true
 		}
 	}
+	return false
 }
 
 // triggerLateUpdateLocked triggers a late update for a session (must be called with lock held)

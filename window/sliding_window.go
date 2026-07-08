@@ -164,8 +164,9 @@ func (sw *SlidingWindow) Add(data interface{}) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 
-	// Get timestamp
-	eventTime := GetTimestamp(data, sw.config.TsProp, sw.config.TimeUnit)
+	// Extract event timestamp; event-time drops rows without one instead of
+	// silently substituting wall-clock time (which corrupts watermark/placement).
+	eventTime, tsOk := extractTimestamp(data, sw.config.TsProp, sw.config.TimeUnit)
 
 	// Determine time characteristic (default to ProcessingTime for backward compatibility)
 	timeChar := sw.config.TimeCharacteristic
@@ -173,9 +174,15 @@ func (sw *SlidingWindow) Add(data interface{}) {
 		timeChar = types.ProcessingTime
 	}
 
-	// For event time, update watermark
-	if timeChar == types.EventTime && sw.watermark != nil {
-		sw.watermark.UpdateEventTime(eventTime)
+	if timeChar == types.EventTime {
+		if !tsOk {
+			return // unplaceable event: drop instead of fake wall-clock time
+		}
+		if sw.watermark != nil {
+			sw.watermark.UpdateEventTime(eventTime)
+		}
+	} else if !tsOk {
+		eventTime = time.Now()
 	}
 
 	// Add data to the window's data list first (needed for late data handling)

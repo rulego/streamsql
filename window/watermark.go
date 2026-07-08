@@ -27,6 +27,11 @@ import (
 type Watermark struct {
 	// currentWatermark is the current watermark time
 	currentWatermark time.Time
+	// lastSentWatermark is the highest watermark successfully delivered to the
+	// channel. Tracked separately from currentWatermark so a dropped send (channel
+	// full) is retried on the next tick — otherwise the final watermark could be
+	// lost and tail windows never fire.
+	lastSentWatermark time.Time
 	// maxEventTime is the maximum event time seen so far
 	maxEventTime time.Time
 	// maxOutOfOrderness is the maximum allowed out-of-orderness
@@ -111,12 +116,23 @@ func (wm *Watermark) update() {
 
 		if newWatermark.After(wm.currentWatermark) {
 			wm.currentWatermark = newWatermark
-			// Send watermark update (non-blocking)
-			select {
-			case wm.watermarkChan <- wm.currentWatermark:
-			default:
-				// Channel full, skip
-			}
+		}
+		// Retry delivery each tick so a previously dropped send (channel full) is
+		// resent — otherwise the final watermark could be lost and tail windows
+		// never fire.
+		wm.sendWatermarkLocked()
+	}
+}
+
+// sendWatermarkLocked delivers currentWatermark if it is higher than the last
+// value successfully sent. Must be called with wm.mu held. On a full channel the
+// send is skipped and lastSentWatermark stays stale, so the next tick retries.
+func (wm *Watermark) sendWatermarkLocked() {
+	if wm.currentWatermark.After(wm.lastSentWatermark) {
+		select {
+		case wm.watermarkChan <- wm.currentWatermark:
+			wm.lastSentWatermark = wm.currentWatermark
+		default:
 		}
 	}
 }
@@ -135,14 +151,10 @@ func (wm *Watermark) UpdateEventTime(eventTime time.Time) {
 		newWatermark := eventTime.Add(-wm.maxOutOfOrderness)
 		if newWatermark.After(wm.currentWatermark) {
 			wm.currentWatermark = newWatermark
-			// Send watermark update (non-blocking)
-			select {
-			case wm.watermarkChan <- wm.currentWatermark:
-			default:
-				// Channel full, skip
-			}
 		}
 	}
+	// Always attempt delivery (no-op if already sent); retries dropped sends.
+	wm.sendWatermarkLocked()
 }
 
 // GetCurrentWatermark returns the current watermark time

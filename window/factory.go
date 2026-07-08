@@ -67,34 +67,46 @@ func (cw *CountingWindow) SetCallback(callback func([]types.Row)) {
 	cw.callback = callback
 }
 
-// GetTimestamp extracts timestamp from data
+// GetTimestamp extracts timestamp from data, falling back to time.Now() when no
+// timestamp can be derived (processing-time semantics). Event-time callers that
+// must reject unplaceable events should use extractTimestamp and drop on !ok,
+// since substituting wall-clock time silently corrupts event-time semantics.
 func GetTimestamp(data interface{}, tsProp string, timeUnit time.Duration) time.Time {
-	if ts, ok := data.(interface{ GetTimestamp() time.Time }); ok {
-		return ts.GetTimestamp()
-	} else if tsProp != "" {
-		v := reflect.ValueOf(data)
+	t, ok := extractTimestamp(data, tsProp, timeUnit)
+	if !ok {
+		return time.Now()
+	}
+	return t
+}
 
-		// Handle different types
-		switch v.Kind() {
-		case reflect.Struct:
-			// If it's a struct, use reflection to get field value
-			if f := v.FieldByName(tsProp); f.IsValid() {
-				if t, ok := f.Interface().(time.Time); ok {
-					return t
-				}
+// extractTimestamp returns the event timestamp and true when one can be derived
+// from the data (a GetTimestamp() time.Time method, or a tsProp field of
+// time.Time or int64). Returns (zero, false) otherwise.
+func extractTimestamp(data interface{}, tsProp string, timeUnit time.Duration) (time.Time, bool) {
+	if ts, ok := data.(interface{ GetTimestamp() time.Time }); ok {
+		return ts.GetTimestamp(), true
+	}
+	if tsProp == "" {
+		return time.Time{}, false
+	}
+	v := reflect.ValueOf(data)
+	switch v.Kind() {
+	case reflect.Struct:
+		if f := v.FieldByName(tsProp); f.IsValid() {
+			if t, ok := f.Interface().(time.Time); ok {
+				return t, true
 			}
-		case reflect.Map:
-			// If it's a map, get value directly through key
-			if v.Type().Key().Kind() == reflect.String {
-				if value := v.MapIndex(reflect.ValueOf(tsProp)); value.IsValid() {
-					if t, ok := value.Interface().(time.Time); ok {
-						return t
-					} else if timestampInt, isInt := value.Interface().(int64); isInt {
-						return cast.ConvertIntToTime(timestampInt, timeUnit)
-					}
+		}
+	case reflect.Map:
+		if v.Type().Key().Kind() == reflect.String {
+			if value := v.MapIndex(reflect.ValueOf(tsProp)); value.IsValid() {
+				if t, ok := value.Interface().(time.Time); ok {
+					return t, true
+				} else if timestampInt, isInt := value.Interface().(int64); isInt {
+					return cast.ConvertIntToTime(timestampInt, timeUnit), true
 				}
 			}
 		}
 	}
-	return time.Now()
+	return time.Time{}, false
 }

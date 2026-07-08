@@ -92,8 +92,8 @@ func TestEventTimeSessionCloseExpired(t *testing.T) {
 }
 
 func TestSessionHandleLateDataDirect(t *testing.T) {
-	// handleLateData cannot be reached via Add() without a reentrant-lock deadlock,
-	// so exercise it directly with a pre-populated triggered session.
+	// Exercise handleLateData directly with a pre-populated triggered session.
+	// Verifies the late event is appended before re-emitting (B2 fix).
 	sw := newEventTimeSession(t, 2*time.Second, 500*time.Millisecond, 5*time.Second)
 	defer sw.Stop()
 
@@ -116,16 +116,47 @@ func TestSessionHandleLateDataDirect(t *testing.T) {
 	}
 	sw.mu.Unlock()
 
-	// late event inside the triggered session range
-	sw.handleLateData(base.Add(1*time.Second), 5*time.Second)
+	// late event inside the triggered session range; handleLateData is "Locked",
+	// so the caller holds the mutex.
+	lateRow := types.Row{
+		Data:      map[string]interface{}{"user": "a", "ts": base.Add(1 * time.Second), "v": 2},
+		Timestamp: base.Add(1 * time.Second),
+	}
+	sw.mu.Lock()
+	absorbed := sw.handleLateData(lateRow)
+	sw.mu.Unlock()
+	assert.True(t, absorbed, "late event should be absorbed into the triggered session")
 
 	select {
 	case res := <-sw.OutputChan():
-		// session late update re-emits the session's existing data
-		require.Len(t, res, 1)
-		assert.Equal(t, "a", res[0].Data.(map[string]interface{})["user"])
+		// late update re-emits existing data + the appended late event (B2 fix)
+		require.Len(t, res, 2)
 	case <-time.After(2 * time.Second):
 		t.Fatal("timeout waiting for session late update")
+	}
+}
+
+// TestSessionLateDataViaAddNoDeadlock is a regression test for B1: under EventTime
+// + AllowedLateness>0, Add() used to call handleLateData() which re-entered the
+// non-reentrant sw.mu and deadlocked, stalling the data path. Add must return.
+func TestSessionLateDataViaAddNoDeadlock(t *testing.T) {
+	sw := newEventTimeSession(t, 2*time.Second, 500*time.Millisecond, 5*time.Second)
+	defer sw.Stop()
+
+	base := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	// Push the watermark high so the next event is judged late.
+	sw.Add(map[string]interface{}{"user": "a", "ts": base.Add(20 * time.Second), "v": 1})
+
+	// Late event (ts < watermark) reaches the handleLateData call path.
+	done := make(chan struct{})
+	go func() {
+		sw.Add(map[string]interface{}{"user": "a", "ts": base.Add(1 * time.Second), "v": 2})
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Add with late data deadlocked (B1 regression)")
 	}
 }
 

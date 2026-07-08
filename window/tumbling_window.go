@@ -156,8 +156,9 @@ func (tw *TumblingWindow) Add(data interface{}) {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 
-	// Get timestamp
-	eventTime := GetTimestamp(data, tw.config.TsProp, tw.config.TimeUnit)
+	// Extract event timestamp; event-time drops rows without one instead of
+	// silently substituting wall-clock time (which corrupts watermark/placement).
+	eventTime, tsOk := extractTimestamp(data, tw.config.TsProp, tw.config.TimeUnit)
 
 	// Determine time characteristic (default to ProcessingTime for backward compatibility)
 	timeChar := tw.config.TimeCharacteristic
@@ -165,9 +166,15 @@ func (tw *TumblingWindow) Add(data interface{}) {
 		timeChar = types.ProcessingTime
 	}
 
-	// For event time, update watermark
-	if timeChar == types.EventTime && tw.watermark != nil {
-		tw.watermark.UpdateEventTime(eventTime)
+	if timeChar == types.EventTime {
+		if !tsOk {
+			return // unplaceable event: drop instead of fake wall-clock time
+		}
+		if tw.watermark != nil {
+			tw.watermark.UpdateEventTime(eventTime)
+		}
+	} else if !tsOk {
+		eventTime = time.Now()
 	}
 
 	// Append data to window's data list first (needed for late data handling)
