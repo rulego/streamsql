@@ -81,7 +81,9 @@ func GetTimestamp(data interface{}, tsProp string, timeUnit time.Duration) time.
 
 // extractTimestamp returns the event timestamp and true when one can be derived
 // from the data (a GetTimestamp() time.Time method, or a tsProp field of
-// time.Time or int64). Returns (zero, false) otherwise.
+// time.Time or int64 epoch). An int64 epoch requires a non-zero TimeUnit;
+// otherwise the unit is ambiguous and it is treated as unplaceable.
+// Returns (zero, false) otherwise.
 func extractTimestamp(data interface{}, tsProp string, timeUnit time.Duration) (time.Time, bool) {
 	if ts, ok := data.(interface{ GetTimestamp() time.Time }); ok {
 		return ts.GetTimestamp(), true
@@ -103,6 +105,10 @@ func extractTimestamp(data interface{}, tsProp string, timeUnit time.Duration) (
 				if t, ok := value.Interface().(time.Time); ok {
 					return t, true
 				} else if timestampInt, isInt := value.Interface().(int64); isInt {
+					// int epoch without TimeUnit is ambiguous (s vs ms); don't guess.
+					if timeUnit == 0 {
+						return time.Time{}, false
+					}
 					return cast.ConvertIntToTime(timestampInt, timeUnit), true
 				}
 			}

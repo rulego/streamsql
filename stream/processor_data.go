@@ -362,8 +362,26 @@ func (dp *DataProcessor) processWindowBatch(batch []types.Row) {
 
 	// Get and send aggregation results
 	if results, err := dp.stream.aggregator.GetResults(); err == nil {
+		stampWindowID(results, batch)
 		dp.processAggregationResults(results)
 		dp.stream.aggregator.Reset()
+	}
+}
+
+// stampWindowID stamps a stable window_id (window time bounds) onto each
+// result. It is identical across the initial emit and accumulating late
+// re-emits (AllowedLateness>0), so sinks can dedup/replace by group + window_id.
+func stampWindowID(results []map[string]interface{}, batch []types.Row) {
+	if len(batch) == 0 {
+		return
+	}
+	slot := batch[0].Slot
+	if slot == nil || slot.Start == nil || slot.End == nil {
+		return
+	}
+	id := fmt.Sprintf("%d_%d", slot.Start.UnixNano(), slot.End.UnixNano())
+	for _, r := range results {
+		r["window_id"] = id
 	}
 }
 

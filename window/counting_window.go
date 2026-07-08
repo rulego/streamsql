@@ -33,16 +33,15 @@ import (
 var _ Window = (*CountingWindow)(nil)
 
 type CountingWindow struct {
-	config       types.WindowConfig
-	threshold    int
-	count        int
-	mu           sync.Mutex
-	callback     func([]types.Row)
-	dataBuffer   []types.Row
-	outputChan   chan []types.Row
-	ctx          context.Context
-	cancelFunc   context.CancelFunc
-	triggerChan  chan types.Row
+	config      types.WindowConfig
+	threshold   int
+	mu          sync.Mutex
+	callback    func([]types.Row)
+	dataBuffer  []types.Row
+	outputChan  chan []types.Row
+	ctx         context.Context
+	cancelFunc  context.CancelFunc
+	triggerChan chan types.Row
 	// keyedBuffer/keyedCount accumulate rows per group key until threshold is hit.
 	// No eviction: with high-cardinality GroupByKeys where each key receives fewer
 	// than `threshold` rows, these grow unbounded over long runs. Count windows
@@ -53,8 +52,8 @@ type CountingWindow struct {
 	lastActive    map[string]time.Time
 	countStateTTL time.Duration
 	sentCount     int64
-	droppedCount int64
-	stopped      bool
+	droppedCount  int64
+	stopped       bool
 }
 
 func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
@@ -86,13 +85,13 @@ func NewCountingWindow(config types.WindowConfig) (*CountingWindow, error) {
 	}
 
 	cw := &CountingWindow{
-		config:      config,
-		threshold:   threshold,
-		dataBuffer:  make([]types.Row, 0, threshold),
-		outputChan:  make(chan []types.Row, bufferSize),
-		ctx:         ctx,
-		cancelFunc:  cancel,
-		triggerChan: make(chan types.Row, bufferSize),
+		config:        config,
+		threshold:     threshold,
+		dataBuffer:    make([]types.Row, 0, threshold),
+		outputChan:    make(chan []types.Row, bufferSize),
+		ctx:           ctx,
+		cancelFunc:    cancel,
+		triggerChan:   make(chan types.Row, bufferSize),
 		keyedBuffer:   make(map[string][]types.Row),
 		keyedCount:    make(map[string]int),
 		lastActive:    make(map[string]time.Time),
@@ -285,7 +284,6 @@ func (cw *CountingWindow) Reset() {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
-	cw.count = 0
 	cw.dataBuffer = nil
 	cw.keyedBuffer = make(map[string][]types.Row)
 	cw.keyedCount = make(map[string]int)

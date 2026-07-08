@@ -360,18 +360,20 @@ func (sw *SessionWindow) checkExpiredSessions() {
 	// otherwise, with allowedLateness > 0, they accumulate forever (the event-time
 	// path does this in checkAndTriggerSessions).
 	sw.closeExpiredSessions(now)
+	callback := sw.callback
 	sw.mu.Unlock()
 
-	sw.sendResults(resultsToSend)
+	sw.sendResults(resultsToSend, callback)
 }
 
 func (sw *SessionWindow) checkAndTriggerSessions(watermarkTime time.Time) {
 	sw.mu.Lock()
 	resultsToSend := sw.collectExpiredSessions(watermarkTime)
 	sw.closeExpiredSessions(watermarkTime)
+	callback := sw.callback
 	sw.mu.Unlock()
 
-	sw.sendResults(resultsToSend)
+	sw.sendResults(resultsToSend, callback)
 }
 
 func (sw *SessionWindow) collectExpiredSessions(currentTime time.Time) [][]types.Row {
@@ -411,15 +413,17 @@ func (sw *SessionWindow) collectExpiredSessions(currentTime time.Time) [][]types
 	return resultsToSend
 }
 
-func (sw *SessionWindow) sendResults(resultsToSend [][]types.Row) {
+// sendResults dispatches collected results to the callback and output channel.
+// callback must be captured under sw.mu by the caller to avoid racing SetCallback.
+func (sw *SessionWindow) sendResults(resultsToSend [][]types.Row, callback func([]types.Row)) {
 	for _, result := range resultsToSend {
 		// Skip empty results to avoid filling up channels
 		if len(result) == 0 {
 			continue
 		}
 
-		if sw.callback != nil {
-			sw.callback(result)
+		if callback != nil {
+			callback(result)
 		}
 
 		sw.sendResult(result)
@@ -500,23 +504,11 @@ func (sw *SessionWindow) Trigger() {
 	// Clear all sessions
 	sw.sessionMap = make(map[string]*session)
 
-	// Release lock before sending to channel and calling callback to avoid blocking
+	// Capture callback under the lock; release before sending to avoid blocking.
+	callback := sw.callback
 	sw.mu.Unlock()
 
-	// Send results and call callbacks outside of lock to avoid blocking
-	for _, result := range resultsToSend {
-		// Skip empty results to avoid filling up channels
-		if len(result) == 0 {
-			continue
-		}
-
-		// If callback function is set, execute it
-		if sw.callback != nil {
-			sw.callback(result)
-		}
-
-		sw.sendResult(result)
-	}
+	sw.sendResults(resultsToSend, callback)
 }
 
 // Reset resets session window data

@@ -63,7 +63,7 @@ func TestParseLeftJoinAndCompositeKey(t *testing.T) {
 	if jc.JoinType != "LEFT" {
 		t.Errorf("joinType = %q, want LEFT", jc.JoinType)
 	}
-	want := []types.JoinOnPair{{"k1", "k1"}, {"k2", "k2"}}
+	want := []types.JoinOnPair{{StreamField: "k1", TableField: "k1"}, {StreamField: "k2", TableField: "k2"}}
 	if len(jc.OnPairs) != 2 {
 		t.Fatalf("onpairs len = %d, want 2", len(jc.OnPairs))
 	}
