@@ -575,9 +575,9 @@ func (p *Parser) parseWindowFunction(stmt *SelectStatement, winType string) erro
 
 // parseGlobalWindow parses "GLOBAL WINDOW [TRIGGER WHEN <predicate>]".
 // Unlike other windows, the global window takes no parentheses/params; its
-// output is driven by the TRIGGER WHEN predicate (Flink GlobalWindows + custom
-// trigger). The predicate is collected as a raw string and evaluated at runtime
-// against the group's running aggregate values.
+// output is driven by the TRIGGER WHEN predicate. The predicate is collected
+// as a raw string and evaluated at runtime against the group's running
+// aggregate values.
 //
 // Convention (same as parseWindowFunction): the GLOBAL keyword has already been
 // consumed by the caller (the parseGroupBy initial peek path consumes it via

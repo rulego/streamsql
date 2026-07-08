@@ -9,10 +9,8 @@ import (
 )
 
 // TestPTWindowEpochAlignment verifies processing-time windows align to epoch
-// boundaries (D1): a window's start lands on a size/slide boundary regardless of
-// when the first data arrived. Matches Flink TumblingProcessingTimeWindows
-// (getWindowStartWithOffset) and eKuiper ("align to the nature time ...
-// regardless of the rule start time").
+// boundaries: a window's start lands on a size/slide boundary regardless of
+// when the first data arrived.
 func TestPTWindowEpochAlignment(t *testing.T) {
 	// First-data time with a sub-second offset that is NOT on any boundary.
 	odd := time.Date(2025, 4, 7, 16, 46, 57, 789000000, time.UTC) // xx:57.789

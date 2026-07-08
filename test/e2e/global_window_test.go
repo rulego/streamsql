@@ -27,7 +27,7 @@ import (
 
 // TestGlobalWindow_CountDrivenAlert: COUNT(*) reaches the trigger threshold and
 // the global window fires the running aggregate, then purges (next batch starts
-// from 0 again). This is the Flink GlobalWindows + CountTrigger pattern.
+// from 0 again). This is the GlobalWindows + CountTrigger pattern.
 func TestGlobalWindow_CountDrivenAlert(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()

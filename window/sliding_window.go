@@ -411,7 +411,7 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 	allowedLateness := sw.config.AllowedLateness
 
 	// Trigger all windows whose end time is <= watermark
-	// In Flink, windows are triggered when watermark >= windowEnd.
+	// Windows are triggered when watermark >= windowEnd.
 	// Watermark calculation: watermark = maxEventTime - maxOutOfOrderness
 	// So watermark >= windowEnd means: maxEventTime - maxOutOfOrderness >= windowEnd
 	// Which means: maxEventTime >= windowEnd + maxOutOfOrderness
@@ -475,7 +475,7 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 			// Count data in window before triggering (re-count? redundant but harmless)
 			// Actually we already counted dataInWindow above
 
-			// Save snapshot data before triggering (for Flink-like late update behavior)
+			// Save snapshot data before triggering
 			var snapshotData []types.Row
 			if allowedLateness > 0 {
 				// Create a deep copy of window data for snapshot
@@ -838,7 +838,7 @@ func (sw *SlidingWindow) handleLateData(eventTime time.Time, allowedLateness tim
 }
 
 // triggerLateUpdateLocked triggers a late update for a window (must be called with lock held)
-// This implements Flink-like behavior: late updates include complete window data (original + late data)
+// Late updates include complete window data (original + late data)
 func (sw *SlidingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
 	// Find the triggered window info to get snapshot data
 	var windowInfo *triggeredWindowInfo

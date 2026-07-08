@@ -103,16 +103,16 @@ type WindowConfig struct {
 	WatermarkInterval  time.Duration      `json:"watermarkInterval"`  // Watermark update interval for event time (default: 200ms)
 	AllowedLateness    time.Duration      `json:"allowedLateness"`    // Maximum allowed lateness for event time windows (default: 0, meaning no late data accepted after window closes)
 	IdleTimeout        time.Duration      `json:"idleTimeout"`        // Idle source timeout: when no data arrives within this duration, the watermark advances to (now - maxOutOfOrderness) so idle event-time windows can close. Default 0 disables it. Trade-off: a finite IdleTimeout (e.g. 60s) reaps idle state and closes windows promptly, but events arriving after an idle gap with an event-time behind the advanced watermark are dropped as late; keep IdleTimeout=0 if stale events on resume must not be lost (then idle event-time windows stay open until new data arrives).
-	CountStateTTL      time.Duration      `json:"countStateTtl"`      // Counting-window keyed state TTL: keys inactive longer than this are reaped (lazy, in the Start goroutine). Default 0 = disabled (Flink-aligned). Set via SQL STATETTL='24h'.
+	CountStateTTL      time.Duration      `json:"countStateTtl"`      // Counting-window keyed state TTL: keys inactive longer than this are reaped (lazy, in the Start goroutine). Default 0 = disabled. Set via SQL STATETTL='24h'.
 	GroupByKeys        []string           `json:"groupByKeys"`        // Multiple grouping keys for keyed windows
 	PerformanceConfig  PerformanceConfig  `json:"performanceConfig"`  // Performance configuration
 	Callback           func([]Row)        `json:"-"`                  // Callback function (not serialized)
 
-	// Global-window (B2). TriggerCondition is the TRIGGER WHEN predicate string
+	// Global-window: TriggerCondition is the TRIGGER WHEN predicate string
 	// (e.g. "COUNT(*) >= 1000"). SelectFields/FieldAlias mirror the SELECT
 	// aggregation map so the global window maintains running aggregate state per
-	// group without buffering raw rows (Flink GlobalWindows + NeverTrigger +
-	// custom trigger). Populated from the parsed SELECT for windowType=global only.
+	// group without buffering raw rows. Populated from the parsed SELECT for
+	// windowType=global only.
 	TriggerCondition string                              `json:"triggerCondition,omitempty"`
 	SelectFields     map[string]aggregator.AggregateType `json:"selectFields,omitempty"`
 	FieldAlias       map[string]string                   `json:"fieldAlias,omitempty"`

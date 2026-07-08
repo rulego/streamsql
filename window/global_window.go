@@ -47,12 +47,11 @@ var aggTriggerFuncNames = map[string]bool{
 
 var aggCallRe = regexp.MustCompile(`(?i)\b([a-z_]+)\s*\(\s*([^)]*?)\s*\)`)
 
-// GlobalWindow aligns with Flink GlobalWindows + Trigger: it has no built-in
-// boundary and never fires on its own. Each arriving row updates a per-group
-// running aggregate (O(1) state per group, raw rows are not buffered); the
-// TRIGGER WHEN predicate is evaluated against that running aggregate and, on a
-// hit, the group emits its current aggregate result and is purged
-// (FIRE_AND_PURGE, the Flink default for global windows).
+// GlobalWindow has no built-in boundary and never fires on its own. Each
+// arriving row updates a per-group running aggregate (O(1) state per group,
+// raw rows are not buffered); the TRIGGER WHEN predicate is evaluated against
+// that running aggregate and, on a hit, the group emits its current aggregate
+// result and is purged (FIRE_AND_PURGE, the default for global windows).
 //
 // Memory bound: O(group count x aggregate state). When TRIGGER WHEN rarely
 // fires, set WITH(STATETTL='...') so idle groups are reaped (same reapIdleKeys

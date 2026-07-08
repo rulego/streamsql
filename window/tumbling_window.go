@@ -49,7 +49,7 @@ var _ Window = (*TumblingWindow)(nil)
 type triggeredWindowInfo struct {
 	slot         *types.TimeSlot
 	closeTime    time.Time   // window end + allowedLateness
-	snapshotData []types.Row // snapshot of window data when first triggered (for Flink-like late update behavior)
+	snapshotData []types.Row // snapshot of window data when first triggered
 }
 
 // TumblingWindow represents a tumbling window for collecting data and triggering processing at fixed time intervals
@@ -264,8 +264,6 @@ func (tw *TumblingWindow) Add(data any) {
 func (tw *TumblingWindow) createSlot(t time.Time) *types.TimeSlot {
 	// Processing-time windows align to epoch boundaries (like event time): a 1m
 	// window ends at whole-minute marks regardless of when the first data arrived.
-	// Matches Flink TumblingProcessingTimeWindows and eKuiper ("align to the
-	// nature time ... regardless of the rule start time").
 	start := alignWindowStart(t, tw.size)
 	end := start.Add(tw.size)
 	slot := types.NewTimeSlot(&start, &end)
@@ -426,7 +424,7 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 
 	// Trigger all windows whose end time is <= watermark
 	// Note: window end time is exclusive [start, end), so we trigger when watermark >= end
-	// In Flink, windows are triggered when watermark >= windowEnd.
+	// Windows are triggered when watermark >= windowEnd.
 	// However, due to watermark calculation (watermark = maxEventTime - maxOutOfOrderness),
 	// watermark may be slightly less than windowEnd. We need to handle this case.
 	// If watermark is very close to windowEnd (within a small threshold), we should also trigger.
@@ -474,7 +472,7 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 		// Trigger current window only if it has data
 		if hasData {
 
-			// Save snapshot data before triggering (for Flink-like late update behavior)
+			// Save snapshot data before triggering
 			var snapshotData []types.Row
 			if allowedLateness > 0 {
 				// Create a deep copy of window data for snapshot
@@ -604,7 +602,7 @@ func (tw *TumblingWindow) handleLateData(eventTime time.Time, allowedLateness ti
 }
 
 // extractLateUpdateDataLocked extracts late update data for a window (must be called with lock held)
-// This implements Flink-like behavior: late updates include complete window data (original + late data)
+// Late updates include complete window data (original + late data)
 func (tw *TumblingWindow) extractLateUpdateDataLocked(slot *types.TimeSlot) []types.Row {
 	// Find the triggered window info to get snapshot data
 	var windowInfo *triggeredWindowInfo

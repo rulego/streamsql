@@ -68,8 +68,8 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		windowType = window.TypeSession
 	case "GLOBALWINDOW":
 		windowType = window.TypeGlobal
-		// Global window with no TRIGGER WHEN == Flink NeverTrigger: it would never
-		// emit. Reject at parse time rather than silently swallowing data.
+		// Global window with no TRIGGER WHEN would never emit.
+		// Reject at parse time rather than silently swallowing data.
 		if strings.TrimSpace(s.Window.TriggerCondition) == "" {
 			return nil, "", fmt.Errorf("GLOBAL WINDOW requires a TRIGGER WHEN clause (without it the window never emits)")
 		}
