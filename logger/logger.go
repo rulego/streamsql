@@ -77,6 +77,7 @@ type Logger interface {
 // defaultLogger is the default log implementation
 type defaultLogger struct {
 	level  Level
+	format Format
 	logger *log.Logger
 }
 
