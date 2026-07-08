@@ -20,7 +20,7 @@ English| [简体中文](README_ZH.md)
 - Data processing with SQL syntax
   - **Nested field access**: Support dot notation syntax (`device.info.name`) and array indexing (`sensors[0].value`) for accessing nested structured data
 - Data analysis
-    - Built-in multiple window types: sliding window, tumbling window, counting window
+    - Built-in multiple window types: sliding window, tumbling window, counting window, global window
     - Built-in aggregate functions: MAX, MIN, AVG, SUM, STDDEV, MEDIAN, PERCENTILE, etc.
     - Support for group-by aggregation
     - Support for filtering conditions
@@ -338,6 +338,17 @@ Since stream data is unbounded, it cannot be processed as a whole. Windows provi
   - **Definition**: A dynamic window based on data activity. When the interval between data exceeds a specified timeout, the current session ends and triggers the window.
   - **Characteristics**: Window size changes dynamically, automatically dividing sessions based on data arrival intervals. When data arrives continuously, the session continues; when the data interval exceeds the timeout, the session ends and triggers the window.
   - **Application Scenario**: In user behavior analysis, maintain a session when users operate continuously, and close the session and count operations within that session when users stop operating for more than 5 minutes.
+
+- **Global Window**
+  - **Definition**: A window with no fixed boundary that never closes on its own; output is driven entirely by a `TRIGGER WHEN` predicate evaluated against each group's running aggregate as rows arrive.
+  - **Characteristics**: Each group maintains O(1) running aggregate state (raw rows are not buffered). When the predicate becomes true, the group emits its current aggregate result and is purged (the next batch starts from 0). A `TRIGGER WHEN` clause is mandatory — without it the window never emits and the SQL is rejected at parse time.
+  - **Application Scenario**: Threshold-driven alerts that are independent of time, e.g. "emit a device's average and reset every time 1000 events accumulate for it", or "emit when the max temperature in a group exceeds 50".
+  - **Example**:
+    ```sql
+    SELECT deviceId, AVG(temperature) AS avg_t, COUNT(*) AS cnt
+    FROM stream
+    GROUP BY deviceId, GLOBAL WINDOW TRIGGER WHEN COUNT(*) >= 1000
+    ```
 
 ### Stream
 
