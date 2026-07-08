@@ -29,7 +29,7 @@ func TestExpressionInAggregation(t *testing.T) {
 
 	// 添加测试数据，温度使用摄氏度
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "aa", "temperature": 0.0},   // 华氏度应为 32
 		{"device": "aa", "temperature": 100.0}, // 华氏度应为 212
 		{"device": "bb", "temperature": 20.0},  // 华氏度应为 68
@@ -43,10 +43,10 @@ func TestExpressionInAggregation(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -63,7 +63,7 @@ func TestExpressionInAggregation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -73,8 +73,8 @@ func TestExpressionInAggregation(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 2, "应该有2个设备的聚合结果")
@@ -113,7 +113,7 @@ func TestAdvancedFunctionsInSQL(t *testing.T) {
 
 	// 添加测试数据
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1", "temperature": 15.0}, // abs(15-20) = 5
 		{"device": "sensor1", "temperature": 25.0}, // abs(25-20) = 5
 		{"device": "sensor2", "temperature": 18.0}, // abs(18-20) = 2
@@ -127,10 +127,10 @@ func TestAdvancedFunctionsInSQL(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -147,7 +147,7 @@ func TestAdvancedFunctionsInSQL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -157,8 +157,8 @@ func TestAdvancedFunctionsInSQL(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 2, "应该有2个设备的聚合结果")
@@ -190,7 +190,7 @@ func TestCustomFunctionInSQL(t *testing.T) {
 	t.Parallel()
 	// 注册自定义函数：温度华氏度转摄氏度
 	err := functions.RegisterCustomFunction("fahrenheit_to_celsius", functions.TypeCustom, "温度转换", "华氏度转摄氏度", 1, 1,
-		func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
+		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			fahrenheit := cast.ToFloat64(args[0])
 			celsius := (fahrenheit - 32) * 5 / 9
 			return celsius, nil
@@ -211,7 +211,7 @@ func TestCustomFunctionInSQL(t *testing.T) {
 
 	// 添加测试数据（华氏度）
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "thermometer1", "temperature": 32.0},  // 0°C
 		{"device": "thermometer1", "temperature": 212.0}, // 100°C
 		{"device": "thermometer2", "temperature": 68.0},  // 20°C
@@ -225,10 +225,10 @@ func TestCustomFunctionInSQL(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -245,7 +245,7 @@ func TestCustomFunctionInSQL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -255,8 +255,8 @@ func TestCustomFunctionInSQL(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 2, "应该有2个设备的聚合结果")
@@ -295,7 +295,7 @@ func TestNewAggregateFunctionsInSQL(t *testing.T) {
 
 	// 添加测试数据
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1", "temperature": 15.0, "status": "good"},
 		{"device": "sensor1", "temperature": 25.0, "status": "ok"},
 		{"device": "sensor2", "temperature": 18.0, "status": "good"},
@@ -309,10 +309,10 @@ func TestNewAggregateFunctionsInSQL(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -329,7 +329,7 @@ func TestNewAggregateFunctionsInSQL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -339,8 +339,8 @@ func TestNewAggregateFunctionsInSQL(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 2, "应该有2个设备的聚合结果")
@@ -358,7 +358,7 @@ func TestNewAggregateFunctionsInSQL(t *testing.T) {
 
 		if device == "sensor1" {
 			// collect函数应该收集[15.0, 25.0]
-			values, ok := tempValues.([]interface{})
+			values, ok := tempValues.([]any)
 			assert.True(t, ok, "temp_values应该是数组")
 			assert.Len(t, values, 2, "sensor1应该有2个温度值")
 			assert.Contains(t, values, 15.0)
@@ -371,7 +371,7 @@ func TestNewAggregateFunctionsInSQL(t *testing.T) {
 			assert.Equal(t, "good,ok", allStatus)
 		} else if device == "sensor2" {
 			// collect函数应该收集[18.0, 22.0]
-			values, ok := tempValues.([]interface{})
+			values, ok := tempValues.([]any)
 			assert.True(t, ok, "temp_values应该是数组")
 			assert.Len(t, values, 2, "sensor2应该有2个温度值")
 			assert.Contains(t, values, 18.0)
@@ -403,7 +403,7 @@ func TestStatisticalAggregateFunctionsInSQL(t *testing.T) {
 
 	// 添加测试数据
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1", "temperature": 10.0},
 		{"device": "sensor1", "temperature": 20.0},
 		{"device": "sensor1", "temperature": 30.0},
@@ -418,10 +418,10 @@ func TestStatisticalAggregateFunctionsInSQL(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -438,7 +438,7 @@ func TestStatisticalAggregateFunctionsInSQL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -448,8 +448,8 @@ func TestStatisticalAggregateFunctionsInSQL(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 2, "应该有2个设备的聚合结果")
@@ -502,7 +502,7 @@ func TestDeduplicateAggregateInSQL(t *testing.T) {
 
 	// 添加测试数据，包含重复的状态
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1", "status": "good"},
 		{"device": "sensor1", "status": "good"}, // 重复
 		{"device": "sensor1", "status": "warning"},
@@ -519,10 +519,10 @@ func TestDeduplicateAggregateInSQL(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -539,7 +539,7 @@ func TestDeduplicateAggregateInSQL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -549,8 +549,8 @@ func TestDeduplicateAggregateInSQL(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 2, "应该有2个设备的聚合结果")
@@ -564,14 +564,14 @@ func TestDeduplicateAggregateInSQL(t *testing.T) {
 
 		if device == "sensor1" {
 			// sensor1应该有去重后的状态：["good", "warning"]
-			statusArray, ok := uniqueStatus.([]interface{})
+			statusArray, ok := uniqueStatus.([]any)
 			assert.True(t, ok, "unique_status应该是数组")
 			assert.Len(t, statusArray, 2, "sensor1应该有2个不同的状态")
 			assert.Contains(t, statusArray, "good")
 			assert.Contains(t, statusArray, "warning")
 		} else if device == "sensor2" {
 			// sensor2应该有去重后的状态：["error", "ok"]
-			statusArray, ok := uniqueStatus.([]interface{})
+			statusArray, ok := uniqueStatus.([]any)
 			assert.True(t, ok, "unique_status应该是数组")
 			assert.Len(t, statusArray, 2, "sensor2应该有2个不同的状态")
 			assert.Contains(t, statusArray, "error")
@@ -608,7 +608,7 @@ func TestExprAggregationFunctions(t *testing.T) {
 
 	// 添加测试数据
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		// device1的数据
 		{"device": "device1", "temperature": 20.0, "humidity": 60.0, "status": "normal"},  // 华氏度=68, 偏差=0, 和=80
 		{"device": "device1", "temperature": 25.0, "humidity": 65.0, "status": "warning"}, // 华氏度=77, 偏差=10, 和=90
@@ -627,10 +627,10 @@ func TestExprAggregationFunctions(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -647,7 +647,7 @@ func TestExprAggregationFunctions(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -657,8 +657,8 @@ func TestExprAggregationFunctions(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 2, "应该有2个设备的聚合结果")
@@ -694,7 +694,7 @@ func TestExprAggregationFunctions(t *testing.T) {
 			assert.InEpsilon(t, 0.167, tempVar, 0.01, "device1的温度方差应约为0.167")
 
 			// 温度和湿度的和数组
-			tempHumSumArray, ok := tempHumSum.([]interface{})
+			tempHumSumArray, ok := tempHumSum.([]any)
 			assert.True(t, ok, "temp_hum_sum应该是数组")
 			assert.Len(t, tempHumSumArray, 3, "device1应该有3个温度和湿度的和")
 			assert.Contains(t, tempHumSumArray, 80.0)
@@ -709,7 +709,7 @@ func TestExprAggregationFunctions(t *testing.T) {
 			assert.Contains(t, deviceStatus, "device1_warning")
 
 			// 状态设备组合去重
-			uniqueArray, ok := uniqueStatusDevice.([]interface{})
+			uniqueArray, ok := uniqueStatusDevice.([]any)
 			assert.True(t, ok, "unique_status_device应该是数组")
 			assert.Len(t, uniqueArray, 2, "device1应该有2个不同的状态设备组合")
 			assert.Contains(t, uniqueArray, "normal_device1")
@@ -727,7 +727,7 @@ func TestExprAggregationFunctions(t *testing.T) {
 			assert.InEpsilon(t, 0.082, tempVar, 0.01, "device2的温度方差应约为0.082")
 
 			// 温度和湿度的和数组
-			tempHumSumArray, ok := tempHumSum.([]interface{})
+			tempHumSumArray, ok := tempHumSum.([]any)
 			assert.True(t, ok, "temp_hum_sum应该是数组")
 			assert.Len(t, tempHumSumArray, 3, "device2应该有3个温度和湿度的和")
 			assert.Contains(t, tempHumSumArray, 70.0)
@@ -742,7 +742,7 @@ func TestExprAggregationFunctions(t *testing.T) {
 			assert.Contains(t, deviceStatus, "device2_normal")
 
 			// 状态设备组合去重
-			uniqueArray, ok := uniqueStatusDevice.([]interface{})
+			uniqueArray, ok := uniqueStatusDevice.([]any)
 			assert.True(t, ok, "unique_status_device应该是数组")
 			assert.Len(t, uniqueArray, 2, "device2应该有2个不同的状态设备组合")
 			assert.Contains(t, uniqueArray, "error_device2")
@@ -768,7 +768,7 @@ func TestAnalyticalFunctionsInSQL(t *testing.T) {
 
 	// 添加测试数据
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1", "temperature": 20.0},
 		{"device": "sensor1", "temperature": 25.0},
 		{"device": "sensor1", "temperature": 25.0}, // 重复值，测试had_changed
@@ -783,10 +783,10 @@ func TestAnalyticalFunctionsInSQL(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -803,7 +803,7 @@ func TestAnalyticalFunctionsInSQL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -813,8 +813,8 @@ func TestAnalyticalFunctionsInSQL(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 2, "应该有2个设备的聚合结果")
@@ -864,26 +864,24 @@ func TestLagFunctionInSQL(t *testing.T) {
 
 	// 添加测试数据 - 按顺序添加，测试LAG功能
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "temp_sensor", "temperature": 10.0},
 		{"device": "temp_sensor", "temperature": 15.0},
 		{"device": "temp_sensor", "temperature": 20.0},
 		{"device": "temp_sensor", "temperature": 25.0}, // 最后一个值
 	}
 
-	// 添加数据
-	//fmt.Println("添加测试数据：", testData)
+	// 添加数据：背靠背发送（不加 sleep）。顺序由 dataChan FIFO 保证；且处理时间窗口
+	// 对齐 epoch（D1），4 条必须落在同一秒窗——背靠背发出（<1ms 跨度）才不会跨过整点边界。
 	for _, data := range testData {
-		//fmt.Printf("添加第%d个数据: temperature=%.1f\n", i+1, data.(map[string]interface{})["temperature"])
 		strm.Emit(data)
-		time.Sleep(100 * time.Millisecond) // 稍微延迟确保顺序
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -900,7 +898,7 @@ func TestLagFunctionInSQL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -910,8 +908,8 @@ func TestLagFunctionInSQL(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 1, "应该有1个设备的聚合结果")
@@ -961,7 +959,7 @@ func TestHadChangedFunctionInSQL(t *testing.T) {
 
 	// 添加测试数据 - 包含重复值和变化值
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "monitor", "temperature": 20.0},
 		{"device": "monitor", "temperature": 20.0}, // 相同值
 		{"device": "monitor", "temperature": 25.0}, // 变化值
@@ -976,10 +974,10 @@ func TestHadChangedFunctionInSQL(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -996,7 +994,7 @@ func TestHadChangedFunctionInSQL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -1006,8 +1004,8 @@ func TestHadChangedFunctionInSQL(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 1, "应该有1个设备的聚合结果")
@@ -1041,7 +1039,7 @@ func TestLatestFunctionInSQL(t *testing.T) {
 
 	// 添加测试数据
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "thermometer", "temperature": 10.0},
 		{"device": "thermometer", "temperature": 15.0},
 		{"device": "thermometer", "temperature": 20.0},
@@ -1055,10 +1053,10 @@ func TestLatestFunctionInSQL(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1075,7 +1073,7 @@ func TestLatestFunctionInSQL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -1085,8 +1083,8 @@ func TestLatestFunctionInSQL(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 1, "应该有1个设备的聚合结果")
@@ -1121,18 +1119,18 @@ func TestChangedColFunctionInSQL(t *testing.T) {
 
 	// 添加测试数据 - 使用map作为数据测试changed_col
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{
 			"device": "datacollector",
-			"data":   map[string]interface{}{"temp": 20.0, "humidity": 60.0},
+			"data":   map[string]any{"temp": 20.0, "humidity": 60.0},
 		},
 		{
 			"device": "datacollector",
-			"data":   map[string]interface{}{"temp": 25.0, "humidity": 60.0}, // temp变化
+			"data":   map[string]any{"temp": 25.0, "humidity": 60.0}, // temp变化
 		},
 		{
 			"device": "datacollector",
-			"data":   map[string]interface{}{"temp": 25.0, "humidity": 65.0}, // humidity变化
+			"data":   map[string]any{"temp": 25.0, "humidity": 65.0}, // humidity变化
 		},
 	}
 
@@ -1143,10 +1141,10 @@ func TestChangedColFunctionInSQL(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1163,7 +1161,7 @@ func TestChangedColFunctionInSQL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -1173,8 +1171,8 @@ func TestChangedColFunctionInSQL(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 1, "应该有1个设备的聚合结果")
@@ -1208,7 +1206,7 @@ func TestAnalyticalFunctionsIncrementalComputation(t *testing.T) {
 
 	// 添加测试数据
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1", "temperature": 15.0, "status": "good"},
 		{"device": "sensor1", "temperature": 25.0, "status": "good"},
 		{"device": "sensor1", "temperature": 35.0, "status": "warning"},
@@ -1223,10 +1221,10 @@ func TestAnalyticalFunctionsIncrementalComputation(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1243,7 +1241,7 @@ func TestAnalyticalFunctionsIncrementalComputation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -1253,8 +1251,8 @@ func TestAnalyticalFunctionsIncrementalComputation(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 2, "应该有2个设备的聚合结果")
@@ -1306,7 +1304,7 @@ func TestIncrementalComputationBasic(t *testing.T) {
 
 	// 添加测试数据
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1", "temperature": 10.0},
 		{"device": "sensor1", "temperature": 20.0},
 		{"device": "sensor1", "temperature": 30.0},
@@ -1321,10 +1319,10 @@ func TestIncrementalComputationBasic(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		//fmt.Printf("接收到结果: %v\n", result)
 		resultChan <- result
 	})
@@ -1341,7 +1339,7 @@ func TestIncrementalComputationBasic(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		//fmt.Println("成功接收到结果")
@@ -1351,8 +1349,8 @@ func TestIncrementalComputationBasic(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 
 	// 验证结果数量
 	assert.Len(t, resultSlice, 2, "应该有2个设备的聚合结果")
@@ -1407,15 +1405,15 @@ func TestExprFunctions(t *testing.T) {
 	strm := ssql
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "SensorA"},
 		{"device": "SensorB"},
 	}
@@ -1426,7 +1424,7 @@ func TestExprFunctions(t *testing.T) {
 	}
 
 	// 等待结果
-	var results []interface{}
+	var results []any
 	var resultsMutex sync.Mutex
 	timeout := time.After(2 * time.Second)
 	done := false
@@ -1453,15 +1451,15 @@ func TestExprFunctions(t *testing.T) {
 	// 验证结果
 	resultsMutex.Lock()
 	finalResultCount := len(results)
-	resultsCopy := make([]interface{}, len(results))
+	resultsCopy := make([]any, len(results))
 	copy(resultsCopy, results)
 	resultsMutex.Unlock()
 
 	assert.Greater(t, finalResultCount, 0, "应该收到至少一条结果")
 
 	for _, result := range resultsCopy {
-		resultSlice, ok := result.([]map[string]interface{})
-		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+		resultSlice, ok := result.([]map[string]any)
+		require.True(t, ok, "结果应该是[]map[string]any类型")
 
 		for _, item := range resultSlice {
 			device, _ := item["device"].(string)
@@ -1490,7 +1488,7 @@ func TestExprFunctionsInAggregation(t *testing.T) {
 
 	// 添加测试数据
 	// 不使用事件时间，不需要时间戳字段
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1", "temperature": 23.5}, // abs(23.5-25) = 1.5, ceil(23.5) = 24
 		{"device": "sensor1", "temperature": 26.8}, // abs(26.8-25) = 1.8, ceil(26.8) = 27
 		{"device": "sensor2", "temperature": 24.2}, // abs(24.2-25) = 0.8, ceil(24.2) = 25
@@ -1498,10 +1496,10 @@ func TestExprFunctionsInAggregation(t *testing.T) {
 	}
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
@@ -1520,7 +1518,7 @@ func TestExprFunctionsInAggregation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var actual interface{}
+	var actual any
 	select {
 	case actual = <-resultChan:
 		cancel()
@@ -1529,8 +1527,8 @@ func TestExprFunctionsInAggregation(t *testing.T) {
 	}
 
 	// 验证结果
-	resultSlice, ok := actual.([]map[string]interface{})
-	require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+	resultSlice, ok := actual.([]map[string]any)
+	require.True(t, ok, "结果应该是[]map[string]any类型")
 	assert.Len(t, resultSlice, 2, "应该有2个设备的聚合结果")
 
 	// 检查聚合结果
@@ -1568,15 +1566,15 @@ func TestNestedExprFunctions(t *testing.T) {
 	strm := ssql
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1"},      // upper -> "SENSOR1", split by "SENSOR" -> ["", "1"], len -> 2
 		{"device": "sensorsensor"}, // upper -> "SENSORSENSOR", split by "SENSOR" -> ["", "", ""], len -> 3
 		{"device": "device1"},      // upper -> "DEVICE1", split by "SENSOR" -> ["DEVICE1"], len -> 1
@@ -1588,7 +1586,7 @@ func TestNestedExprFunctions(t *testing.T) {
 	}
 
 	// 等待结果
-	var results []interface{}
+	var results []any
 	var resultsMutex sync.Mutex
 	timeout := time.After(2 * time.Second)
 	done := false
@@ -1615,7 +1613,7 @@ func TestNestedExprFunctions(t *testing.T) {
 	// 验证结果
 	resultsMutex.Lock()
 	finalResultCount := len(results)
-	resultsCopy := make([]interface{}, len(results))
+	resultsCopy := make([]any, len(results))
 	copy(resultsCopy, results)
 	resultsMutex.Unlock()
 
@@ -1623,8 +1621,8 @@ func TestNestedExprFunctions(t *testing.T) {
 
 	deviceResults := make(map[string]float64)
 	for _, result := range resultsCopy {
-		resultSlice, ok := result.([]map[string]interface{})
-		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+		resultSlice, ok := result.([]map[string]any)
+		require.True(t, ok, "结果应该是[]map[string]any类型")
 
 		for _, item := range resultSlice {
 			device, _ := item["device"].(string)
@@ -1660,15 +1658,15 @@ func TestExprFunctionsWithStreamSQLFunctions(t *testing.T) {
 	strm := ssql
 
 	// 创建结果接收通道
-	resultChan := make(chan interface{}, 10)
+	resultChan := make(chan any, 10)
 
 	// 添加结果回调
-	strm.AddSink(func(result []map[string]interface{}) {
+	strm.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
 	// 添加测试数据
-	testData := []map[string]interface{}{
+	testData := []map[string]any{
 		{"device": "sensor1"},
 		{"device": "device2"},
 	}
@@ -1679,7 +1677,7 @@ func TestExprFunctionsWithStreamSQLFunctions(t *testing.T) {
 	}
 
 	// 等待结果
-	var results []interface{}
+	var results []any
 	var resultsMutex sync.Mutex
 	timeout := time.After(2 * time.Second)
 	done := false
@@ -1706,15 +1704,15 @@ func TestExprFunctionsWithStreamSQLFunctions(t *testing.T) {
 	// 验证结果
 	resultsMutex.Lock()
 	finalResultCount := len(results)
-	resultsCopy := make([]interface{}, len(results))
+	resultsCopy := make([]any, len(results))
 	copy(resultsCopy, results)
 	resultsMutex.Unlock()
 
 	assert.Greater(t, finalResultCount, 0, "应该收到至少一条结果")
 
 	for _, result := range resultsCopy {
-		resultSlice, ok := result.([]map[string]interface{})
-		require.True(t, ok, "结果应该是[]map[string]interface{}类型")
+		resultSlice, ok := result.([]map[string]any)
+		require.True(t, ok, "结果应该是[]map[string]any类型")
 
 		for _, item := range resultSlice {
 			device, _ := item["device"].(string)
