@@ -17,6 +17,7 @@
 package window
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -71,7 +72,7 @@ func TestEventTimeSessionCloseExpired(t *testing.T) {
 	sw.Add(map[string]any{"user": "a", "ts": base, "v": 1})
 	sw.Add(map[string]any{"user": "b", "ts": base.Add(3 * time.Second), "v": 2})
 	require.Eventually(t, func() bool {
-		return sw.sentCount > 0
+		return atomic.LoadInt64(&sw.sentCount) > 0
 	}, 2*time.Second, 10*time.Millisecond)
 	<-sw.OutputChan()
 

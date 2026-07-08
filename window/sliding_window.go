@@ -69,6 +69,9 @@ type SlidingWindow struct {
 	ctx context.Context
 	// cancelFunc cancels the context
 	cancelFunc context.CancelFunc
+	// wg tracks the background trigger goroutine; Stop/Reset join it before
+	// mutating state the goroutine reads (e.g. watermark) outside the data lock.
+	wg sync.WaitGroup
 	// timer for triggering window periodically (used for ProcessingTime)
 	timer       *time.Ticker
 	currentSlot *types.TimeSlot
@@ -278,7 +281,9 @@ func (sw *SlidingWindow) Start() {
 
 // startProcessingTime starts the processing time trigger mechanism
 func (sw *SlidingWindow) startProcessingTime() {
+	sw.wg.Add(1)
 	go func() {
+		defer sw.wg.Done()
 		// Wait for initialization complete or context cancellation
 		select {
 		case <-sw.initChan:
@@ -370,7 +375,9 @@ func (sw *SlidingWindow) startProcessingTime() {
 
 // startEventTime starts the event time trigger mechanism based on watermark
 func (sw *SlidingWindow) startEventTime() {
+	sw.wg.Add(1)
 	go func() {
+		defer sw.wg.Done()
 		if sw.watermark != nil {
 			defer sw.watermark.Stop()
 		}
@@ -734,6 +741,8 @@ func (sw *SlidingWindow) ResetStats() {
 func (sw *SlidingWindow) Reset() {
 	// First cancel context to stop all running goroutines
 	sw.cancelFunc()
+	// Wait for the goroutine to exit before resetting state.
+	sw.wg.Wait()
 
 	// Lock to ensure thread safety
 	sw.mu.Lock()

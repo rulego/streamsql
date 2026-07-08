@@ -70,6 +70,9 @@ type TumblingWindow struct {
 	ctx context.Context
 	// cancelFunc cancels window operations
 	cancelFunc context.CancelFunc
+	// wg tracks the background trigger goroutine; Stop/Reset join it before
+	// mutating state the goroutine reads (e.g. watermark) outside the data lock.
+	wg sync.WaitGroup
 	// timer for triggering window periodically (used for ProcessingTime)
 	timer       *time.Ticker
 	currentSlot *types.TimeSlot
@@ -337,7 +340,9 @@ func (tw *TumblingWindow) Start() {
 
 // startProcessingTime starts the processing time trigger mechanism
 func (tw *TumblingWindow) startProcessingTime() {
+	tw.wg.Add(1)
 	go func() {
+		defer tw.wg.Done()
 		// Wait for initialization complete or context cancellation
 		select {
 		case <-tw.initChan:
@@ -382,7 +387,9 @@ func (tw *TumblingWindow) startProcessingTime() {
 
 // startEventTime starts the event time trigger mechanism based on watermark
 func (tw *TumblingWindow) startEventTime() {
+	tw.wg.Add(1)
 	go func() {
+		defer tw.wg.Done()
 		if tw.watermark != nil {
 			defer tw.watermark.Stop()
 		}
@@ -811,6 +818,8 @@ func (tw *TumblingWindow) Trigger() {
 func (tw *TumblingWindow) Reset() {
 	// First cancel context to stop all running goroutines
 	tw.cancelFunc()
+	// Wait for the goroutine to exit before resetting state.
+	tw.wg.Wait()
 
 	// Lock to ensure thread safety
 	tw.mu.Lock()

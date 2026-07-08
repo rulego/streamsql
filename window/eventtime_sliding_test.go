@@ -17,6 +17,7 @@
 package window
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -111,7 +112,7 @@ func TestEventTimeSlidingCloseExpiredWindows(t *testing.T) {
 	sw.Add(etRow(base, 1))
 	sw.Add(etRow(base.Add(5*time.Second), 2))
 	require.Eventually(t, func() bool {
-		return sw.sentCount > 0
+		return atomic.LoadInt64(&sw.sentCount) > 0
 	}, 2*time.Second, 10*time.Millisecond)
 	<-sw.OutputChan()
 

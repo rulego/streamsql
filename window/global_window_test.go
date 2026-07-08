@@ -46,9 +46,11 @@ func buildTestGlobalWindow(t *testing.T, trigger string, ttl time.Duration) *Glo
 	return gw
 }
 
-// collectResults drains the output channel synchronously after each emit by
-// installing a callback; the window pushes one batch per fire.
-func (gw *GlobalWindow) collectOnCallback() *[]map[string]any {
+// collectOnCallback installs a callback that collects fired rows and returns a
+// thread-safe snapshot function. The callback fires from the window's goroutine,
+// so callers MUST read via the returned function — never a raw slice, which
+// would race with concurrent appends.
+func (gw *GlobalWindow) collectOnCallback() func() []map[string]any {
 	var mu sync.Mutex
 	var got []map[string]any
 	gw.SetCallback(func(rows []types.Row) {
@@ -60,7 +62,13 @@ func (gw *GlobalWindow) collectOnCallback() *[]map[string]any {
 			}
 		}
 	})
-	return &got
+	return func() []map[string]any {
+		mu.Lock()
+		defer mu.Unlock()
+		out := make([]map[string]any, len(got))
+		copy(out, got)
+		return out
+	}
 }
 
 func TestGlobalWindow_FiresWhenPredicateHits(t *testing.T) {
@@ -76,13 +84,13 @@ func TestGlobalWindow_FiresWhenPredicateHits(t *testing.T) {
 	// triggerChan consumer), so by the time the channelized Add returns the row
 	// may still be queued. Give the consumer a moment.
 	waitFor(t, func() bool {
-		return len(*got) > 0
+		return len(got()) > 0
 	})
-	if len(*got) != 1 {
-		t.Fatalf("expected 1 fire, got %d", len(*got))
+	if len(got()) != 1 {
+		t.Fatalf("expected 1 fire, got %d", len(got()))
 	}
-	if c, _ := (*got)[0]["cnt"].(float64); c != 3 {
-		t.Errorf("cnt = %v, want 3 (FIRE_AND_PURGE at >=3)", (*got)[0]["cnt"])
+	if c, _ := got()[0]["cnt"].(float64); c != 3 {
+		t.Errorf("cnt = %v, want 3 (FIRE_AND_PURGE at >=3)", got()[0]["cnt"])
 	}
 }
 
@@ -96,8 +104,8 @@ func TestGlobalWindow_DoesNotFireBelowThreshold(t *testing.T) {
 		gw.Add(map[string]any{"deviceId": "d1"})
 	}
 	time.Sleep(100 * time.Millisecond)
-	if len(*got) != 0 {
-		t.Fatalf("expected no fire below threshold, got %d results", len(*got))
+	if len(got()) != 0 {
+		t.Fatalf("expected no fire below threshold, got %d results", len(got()))
 	}
 }
 
@@ -113,12 +121,12 @@ func TestGlobalWindow_PurgesStateAfterFire(t *testing.T) {
 		gw.Add(map[string]any{"deviceId": "d1"})
 	}
 	waitFor(t, func() bool {
-		return len(*got) >= 2
+		return len(got()) >= 2
 	})
-	if len(*got) != 2 {
-		t.Fatalf("expected 2 fires (3+3 after purge), got %d", len(*got))
+	if len(got()) != 2 {
+		t.Fatalf("expected 2 fires (3+3 after purge), got %d", len(got()))
 	}
-	for i, r := range *got {
+	for i, r := range got() {
 		if c, _ := r["cnt"].(float64); c != 3 {
 			t.Errorf("fire %d cnt = %v, want 3 (state should purge between fires)", i, r["cnt"])
 		}
@@ -138,13 +146,13 @@ func TestGlobalWindow_GroupsFireIndependently(t *testing.T) {
 	gw.Add(map[string]any{"deviceId": "b"}) // b fires (cnt=2)
 
 	waitFor(t, func() bool {
-		return len(*got) >= 2
+		return len(got()) >= 2
 	})
-	if len(*got) != 2 {
-		t.Fatalf("expected 2 independent group fires, got %d", len(*got))
+	if len(got()) != 2 {
+		t.Fatalf("expected 2 independent group fires, got %d", len(got()))
 	}
 	devs := map[string]bool{}
-	for _, r := range *got {
+	for _, r := range got() {
 		devs[r["deviceId"].(string)] = true
 	}
 	if !devs["a"] || !devs["b"] {
@@ -177,13 +185,13 @@ func TestGlobalWindow_FieldDrivenTrigger(t *testing.T) {
 	gw.Add(map[string]any{"deviceId": "d1", "temp": float64(40)}) // no fire
 	gw.Add(map[string]any{"deviceId": "d1", "temp": float64(55)}) // fire, max=55
 	waitFor(t, func() bool {
-		return len(*got) > 0
+		return len(got()) > 0
 	})
-	if len(*got) != 1 {
-		t.Fatalf("expected 1 fire on max>50, got %d", len(*got))
+	if len(got()) != 1 {
+		t.Fatalf("expected 1 fire on max>50, got %d", len(got()))
 	}
-	if mx, _ := (*got)[0]["mx"].(float64); mx != 55 {
-		t.Errorf("mx = %v, want 55", (*got)[0]["mx"])
+	if mx, _ := got()[0]["mx"].(float64); mx != 55 {
+		t.Errorf("mx = %v, want 55", got()[0]["mx"])
 	}
 }
 
@@ -257,8 +265,8 @@ func TestGlobalWindow_NeverTriggerNoOutput(t *testing.T) {
 		gw.Add(map[string]any{"deviceId": "d1"})
 	}
 	time.Sleep(100 * time.Millisecond)
-	if len(*got) != 0 {
-		t.Fatalf("expected 0 fires for unreachable predicate, got %d", len(*got))
+	if len(got()) != 0 {
+		t.Fatalf("expected 0 fires for unreachable predicate, got %d", len(got()))
 	}
 	gw.mu.Lock()
 	groupCount := len(gw.groups)
@@ -283,7 +291,7 @@ func waitFor(t *testing.T, cond func() bool) {
 }
 
 // makeGlobalWindow is a thin helper for tests that want to vary SELECT fields.
-func makeGlobalWindow(t *testing.T, selectFields map[string]aggregator.AggregateType, fieldAlias map[string]string, trigger string) (*GlobalWindow, *[]map[string]any) {
+func makeGlobalWindow(t *testing.T, selectFields map[string]aggregator.AggregateType, fieldAlias map[string]string, trigger string) (*GlobalWindow, func() []map[string]any) {
 	t.Helper()
 	cfg := types.WindowConfig{
 		Type:             TypeGlobal,
@@ -312,15 +320,15 @@ func TestGlobalWindow_CompoundAndTrigger(t *testing.T) {
 
 	gw.Add(map[string]any{"deviceId": "d1", "temp": float64(40)}) // cnt=1, mx=40: no fire
 	gw.Add(map[string]any{"deviceId": "d1", "temp": float64(55)}) // cnt=2, mx=55: fire
-	waitFor(t, func() bool { return len(*got) > 0 })
-	if len(*got) != 1 {
-		t.Fatalf("expected 1 fire for compound AND, got %d", len(*got))
+	waitFor(t, func() bool { return len(got()) > 0 })
+	if len(got()) != 1 {
+		t.Fatalf("expected 1 fire for compound AND, got %d", len(got()))
 	}
-	if c, _ := (*got)[0]["cnt"].(float64); c != 2 {
-		t.Errorf("cnt = %v, want 2", (*got)[0]["cnt"])
+	if c, _ := got()[0]["cnt"].(float64); c != 2 {
+		t.Errorf("cnt = %v, want 2", got()[0]["cnt"])
 	}
-	if mx, _ := (*got)[0]["mx"].(float64); mx != 55 {
-		t.Errorf("mx = %v, want 55", (*got)[0]["mx"])
+	if mx, _ := got()[0]["mx"].(float64); mx != 55 {
+		t.Errorf("mx = %v, want 55", got()[0]["mx"])
 	}
 }
 
@@ -334,9 +342,9 @@ func TestGlobalWindow_CompoundOrTrigger(t *testing.T) {
 	defer gw.Stop()
 
 	gw.Add(map[string]any{"deviceId": "d1", "temp": float64(55)}) // mx>50 fires at once
-	waitFor(t, func() bool { return len(*got) > 0 })
-	if len(*got) != 1 {
-		t.Fatalf("expected 1 fire for compound OR, got %d", len(*got))
+	waitFor(t, func() bool { return len(got()) > 0 })
+	if len(got()) != 1 {
+		t.Fatalf("expected 1 fire for compound OR, got %d", len(got()))
 	}
 }
 
@@ -351,15 +359,15 @@ func TestGlobalWindow_TriggerOnlyAggregate(t *testing.T) {
 
 	gw.Add(map[string]any{"deviceId": "d1", "amount": float64(60)}) // sum=60: no
 	gw.Add(map[string]any{"deviceId": "d1", "amount": float64(50)}) // sum=110: fire
-	waitFor(t, func() bool { return len(*got) > 0 })
-	if len(*got) != 1 {
-		t.Fatalf("expected 1 fire, got %d", len(*got))
+	waitFor(t, func() bool { return len(got()) > 0 })
+	if len(got()) != 1 {
+		t.Fatalf("expected 1 fire, got %d", len(got()))
 	}
-	if c, _ := (*got)[0]["cnt"].(float64); c != 2 {
-		t.Errorf("cnt = %v, want 2", (*got)[0]["cnt"])
+	if c, _ := got()[0]["cnt"].(float64); c != 2 {
+		t.Errorf("cnt = %v, want 2", got()[0]["cnt"])
 	}
-	if _, present := (*got)[0]["amount"]; present {
-		t.Errorf("trigger-only SUM should not appear in output, got %v", (*got)[0])
+	if _, present := got()[0]["amount"]; present {
+		t.Errorf("trigger-only SUM should not appear in output, got %v", got()[0])
 	}
 }
 
@@ -374,9 +382,9 @@ func TestGlobalWindow_EqualityTrigger(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		gw.Add(map[string]any{"deviceId": "d1"})
 	}
-	waitFor(t, func() bool { return len(*got) > 0 })
-	if len(*got) != 1 {
-		t.Fatalf("expected 1 fire for bare = trigger, got %d", len(*got))
+	waitFor(t, func() bool { return len(got()) > 0 })
+	if len(got()) != 1 {
+		t.Fatalf("expected 1 fire for bare = trigger, got %d", len(got()))
 	}
 }
 

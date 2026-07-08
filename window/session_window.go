@@ -51,6 +51,9 @@ type SessionWindow struct {
 	ctx context.Context
 	// cancelFunc is used to cancel window operations
 	cancelFunc context.CancelFunc
+	// wg tracks the background trigger goroutine; Stop/Reset join it before
+	// mutating state the goroutine reads (e.g. watermark) outside the data lock.
+	wg sync.WaitGroup
 	// Channel for initializing window
 	initChan    chan struct{}
 	initialized bool
@@ -252,7 +255,9 @@ func (sw *SessionWindow) Start() {
 
 // startProcessingTime starts the processing time trigger mechanism
 func (sw *SessionWindow) startProcessingTime() {
+	sw.wg.Add(1)
 	go func() {
+		defer sw.wg.Done()
 		// Wait for initialization completion or context cancellation
 		select {
 		case <-sw.initChan:
@@ -289,7 +294,9 @@ func (sw *SessionWindow) startProcessingTime() {
 
 // startEventTime starts the event time trigger mechanism based on watermark
 func (sw *SessionWindow) startEventTime() {
+	sw.wg.Add(1)
 	go func() {
+		defer sw.wg.Done()
 		if sw.watermark != nil {
 			defer sw.watermark.Stop()
 		}
@@ -513,6 +520,11 @@ func (sw *SessionWindow) Trigger() {
 
 // Reset resets session window data
 func (sw *SessionWindow) Reset() {
+	// Cancel context and join the background goroutine before resetting state
+	// it reads (watermark/sessionMap) outside the data lock.
+	sw.cancelFunc()
+	sw.wg.Wait()
+
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 

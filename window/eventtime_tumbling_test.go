@@ -17,6 +17,7 @@
 package window
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -144,7 +145,7 @@ func TestEventTimeTumblingCloseExpiredWindows(t *testing.T) {
 	// trigger window [base, base+2s) and keep it open for late data
 	tw.Add(etRow(base.Add(3*time.Second), 2))
 	require.Eventually(t, func() bool {
-		return len(tw.OutputChan()) > 0 || tw.sentCount > 0
+		return len(tw.OutputChan()) > 0 || atomic.LoadInt64(&tw.sentCount) > 0
 	}, 2*time.Second, 10*time.Millisecond)
 	// drain the initial trigger
 	<-tw.OutputChan()
