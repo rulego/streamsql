@@ -31,7 +31,7 @@ jobs:
         run: go test -bench=. -benchmem -run='^$' -benchtime=2s -count=1 -timeout 300s . ./functions/ ./window/ > bench-output.txt 2>&1
 
       - name: Compare and store baseline
-        uses: benchmark-action/github-action-bench@v1
+        uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: 'go'
           output-file-path: bench-output.txt
