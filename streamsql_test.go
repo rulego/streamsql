@@ -277,6 +277,7 @@ func TestStreamSQLExecuteErrorHandling(t *testing.T) {
 
 	t.Run("filter registration failure", func(t *testing.T) {
 		ssql := New()
+		defer ssql.Stop()
 		// 使用可能导致过滤器注册失败的SQL
 		err := ssql.Execute("SELECT id FROM stream WHERE INVALID_CONDITION")
 		if err != nil {
@@ -842,6 +843,7 @@ func TestSQLIntegration_StrategyDrop(t *testing.T) {
 func TestPrintTable(t *testing.T) {
 	// 创建StreamSQL实例并测试PrintTable
 	ssql := New()
+	defer ssql.Stop()
 	err := ssql.Execute("SELECT device, AVG(temperature) as avg_temp FROM stream GROUP BY device, TumblingWindow('2s')")
 	assert.NoError(t, err)
 

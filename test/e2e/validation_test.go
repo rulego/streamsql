@@ -54,6 +54,7 @@ func TestFunctionValidationIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ssql := streamsql.New()
+		defer ssql.Stop()
 			err := ssql.Execute(tt.sql)
 
 			if tt.expectError {
@@ -75,6 +76,7 @@ func TestFunctionValidationWithCustomFunctions(t *testing.T) {
 
 	// 在没有注册自定义函数时应该报错
 	ssql := streamsql.New()
+	defer ssql.Stop()
 	err := ssql.Execute(sql)
 	assert.Error(t, err, "Should error when custom function is not registered")
 	assert.Contains(t, err.Error(), "custom_func", "Error should mention the unknown function")

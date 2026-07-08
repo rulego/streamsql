@@ -16,6 +16,7 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 	t.Parallel()
 	t.Run("invalid SQL syntax", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("INVALID SQL STATEMENT")
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "SQL parsing failed")
@@ -23,6 +24,7 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 
 	t.Run("missing SELECT keyword", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("FROM stream WHERE id > 1")
 		// 修改后的解析器会对缺少SELECT关键字进行严格检查
 		require.NotNil(t, err)
@@ -31,12 +33,14 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 
 	t.Run("invalid function name", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT INVALID_FUNCTION(id) FROM stream")
 		require.NotNil(t, err)
 	})
 
 	t.Run("invalid window function", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT id FROM stream GROUP BY InvalidWindow('5s')")
 		// TODO InvalidWindow 在SQL解析阶段被当作普通字段处理，而不是窗口函数
 		// 因此不会在stream创建阶段报错，这是当前解析器的设计行为
@@ -45,6 +49,7 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 
 	t.Run("EmitSync without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		_, err := ssql.EmitSync(map[string]interface{}{"id": 1})
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "stream not initialized")
@@ -52,6 +57,7 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 
 	t.Run("EmitSync with aggregation query", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT COUNT(*) FROM stream")
 		require.Nil(t, err)
 
@@ -62,18 +68,21 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 
 	t.Run("Emit without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		// 这不应该引发panic，但也不会有任何效果
 		ssql.Emit(map[string]interface{}{"id": 1})
 	})
 
 	t.Run("Stop without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		// 这不应该引发panic
 		ssql.Stop()
 	})
 
 	t.Run("GetStats without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		stats := ssql.GetStats()
 		require.NotNil(t, stats)
 		require.Equal(t, 0, len(stats))
@@ -81,6 +90,7 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 
 	t.Run("GetDetailedStats without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		stats := ssql.GetDetailedStats()
 		require.NotNil(t, stats)
 		require.Equal(t, 0, len(stats))
@@ -88,30 +98,35 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 
 	t.Run("ToChannel without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		ch := ssql.ToChannel()
 		require.Nil(t, ch)
 	})
 
 	t.Run("Stream without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		stream := ssql.Stream()
 		require.Nil(t, stream)
 	})
 
 	t.Run("IsAggregationQuery without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		isAgg := ssql.IsAggregationQuery()
 		require.False(t, isAgg)
 	})
 
 	t.Run("AddSink without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		// 这不应该引发panic
 		ssql.AddSink(func(results []map[string]interface{}) {})
 	})
 
 	t.Run("PrintTable without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		// 这不应该引发panic
 		ssql.PrintTable()
 	})
@@ -122,18 +137,21 @@ func TestStreamSQLEdgeCases(t *testing.T) {
 	t.Parallel()
 	t.Run("empty SQL string", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("")
 		require.NotNil(t, err)
 	})
 
 	t.Run("whitespace only SQL", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("   \n\t   ")
 		require.NotNil(t, err)
 	})
 
 	t.Run("SQL with comments", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("-- This is a comment\nSELECT id FROM stream")
 		// 根据实际的SQL解析器行为，这可能成功或失败
 		// 这里我们只是确保不会panic
@@ -142,6 +160,7 @@ func TestStreamSQLEdgeCases(t *testing.T) {
 
 	t.Run("very long SQL statement", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		longSQL := "SELECT "
 		for i := 0; i < 1000; i++ {
 			if i > 0 {
@@ -157,6 +176,7 @@ func TestStreamSQLEdgeCases(t *testing.T) {
 
 	t.Run("multiple Execute calls", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err1 := ssql.Execute("SELECT id FROM stream")
 		require.Nil(t, err1)
 
@@ -168,6 +188,7 @@ func TestStreamSQLEdgeCases(t *testing.T) {
 
 	t.Run("Execute after Stop", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT id FROM stream")
 		require.Nil(t, err)
 
@@ -181,6 +202,7 @@ func TestStreamSQLEdgeCases(t *testing.T) {
 
 	t.Run("concurrent Execute calls", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 
 		done := make(chan bool, 2)
 		var successCount int32
@@ -224,6 +246,7 @@ func TestStreamSQLNilHandling(t *testing.T) {
 	t.Parallel()
 	t.Run("emit nil map", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT id FROM stream")
 		require.Nil(t, err)
 
@@ -234,6 +257,7 @@ func TestStreamSQLNilHandling(t *testing.T) {
 
 	t.Run("emit map with nil values", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT id, name FROM stream")
 		require.Nil(t, err)
 
@@ -247,6 +271,7 @@ func TestStreamSQLNilHandling(t *testing.T) {
 
 	t.Run("EmitSync with nil data", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT id FROM stream")
 		require.Nil(t, err)
 
@@ -263,6 +288,7 @@ func TestStreamSQLComplexQueries(t *testing.T) {
 	t.Parallel()
 	t.Run("query with multiple fields", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT id, name, value, timestamp FROM stream")
 		require.Nil(t, err)
 
@@ -277,6 +303,7 @@ func TestStreamSQLComplexQueries(t *testing.T) {
 
 	t.Run("query with WHERE clause", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT id, value FROM stream WHERE value > 50")
 		require.Nil(t, err)
 
@@ -287,6 +314,7 @@ func TestStreamSQLComplexQueries(t *testing.T) {
 
 	t.Run("query with aggregation functions", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT COUNT(*), SUM(value), AVG(value) FROM stream")
 		require.Nil(t, err)
 
@@ -298,6 +326,7 @@ func TestStreamSQLComplexQueries(t *testing.T) {
 
 	t.Run("query with window functions", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT id, value FROM stream GROUP BY TumblingWindow('5s')")
 		// 根据实际实现，这可能成功或失败
 		_ = err
@@ -312,6 +341,7 @@ func TestStreamSQLDataTypes(t *testing.T) {
 	t.Parallel()
 	t.Run("string data types", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT name FROM stream")
 		require.Nil(t, err)
 
@@ -323,6 +353,7 @@ func TestStreamSQLDataTypes(t *testing.T) {
 
 	t.Run("numeric data types", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT value FROM stream")
 		require.Nil(t, err)
 
@@ -335,6 +366,7 @@ func TestStreamSQLDataTypes(t *testing.T) {
 
 	t.Run("boolean data types", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT active FROM stream")
 		require.Nil(t, err)
 
@@ -345,6 +377,7 @@ func TestStreamSQLDataTypes(t *testing.T) {
 
 	t.Run("time data types", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT timestamp FROM stream")
 		require.Nil(t, err)
 
@@ -356,6 +389,7 @@ func TestStreamSQLDataTypes(t *testing.T) {
 
 	t.Run("array and slice data types", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT data FROM stream")
 		require.Nil(t, err)
 
@@ -367,6 +401,7 @@ func TestStreamSQLDataTypes(t *testing.T) {
 
 	t.Run("map data types", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT metadata FROM stream")
 		require.Nil(t, err)
 
@@ -386,6 +421,7 @@ func TestStreamSQLStressTest(t *testing.T) {
 	t.Parallel()
 	t.Run("high frequency emissions", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT id FROM stream")
 		require.Nil(t, err)
 
@@ -398,6 +434,7 @@ func TestStreamSQLStressTest(t *testing.T) {
 
 	t.Run("large data payloads", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT data FROM stream")
 		require.Nil(t, err)
 
@@ -415,6 +452,7 @@ func TestStreamSQLStressTest(t *testing.T) {
 
 	t.Run("concurrent operations", func(t *testing.T) {
 		ssql := streamsql.New()
+		defer ssql.Stop()
 		err := ssql.Execute("SELECT id FROM stream")
 		require.Nil(t, err)
 
