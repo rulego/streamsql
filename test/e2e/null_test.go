@@ -13,6 +13,7 @@ import (
 
 // TestIsNullOperatorInSQL 测试IS NULL和IS NOT NULL语法功能
 func TestIsNullOperatorInSQL(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name     string
 		sql      string
@@ -193,6 +194,7 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 
 // TestIsNullInAggregation 测试聚合查询中的IS NULL
 func TestIsNullInAggregation(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -260,6 +262,7 @@ func TestIsNullInAggregation(t *testing.T) {
 
 // TestIsNullInHaving 测试HAVING子句中真正的IS NULL功能
 func TestIsNullInHaving(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -325,6 +328,7 @@ func TestIsNullInHaving(t *testing.T) {
 
 // TestIsNullInHavingWithIsNotNull 测试HAVING子句中的IS NOT NULL功能
 func TestIsNullInHavingWithIsNotNull(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -393,6 +397,7 @@ func TestIsNullInHavingWithIsNotNull(t *testing.T) {
 
 // TestIsNullWithOtherOperators 测试IS NULL与其他操作符的组合
 func TestIsNullWithOtherOperators(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -455,6 +460,7 @@ collecting:
 
 // TestCaseWhenWithIsNull 测试CASE WHEN表达式中使用IS NULL和IS NOT NULL
 func TestCaseWhenWithIsNull(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name     string
 		sql      string
@@ -678,6 +684,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 
 // TestNullComparisons 测试 = nil、!= nil、= null、!= null 等语法
 func TestNullComparisons(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name     string
 		sql      string
@@ -905,6 +912,7 @@ func TestNullComparisons(t *testing.T) {
 
 // TestNullComparisonInAggregation 测试聚合查询中的 = nil 和 != nil
 func TestNullComparisonInAggregation(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -972,6 +980,7 @@ func TestNullComparisonInAggregation(t *testing.T) {
 
 // TestMixedNullComparisons 测试混合使用 IS NULL、= nil、= null、!= null 等语法
 func TestMixedNullComparisons(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 

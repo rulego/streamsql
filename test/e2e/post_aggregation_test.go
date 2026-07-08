@@ -77,6 +77,7 @@ collecting:
 
 // TestPostAggregationExpressions 测试分阶段聚合功能
 func TestPostAggregationExpressions(t *testing.T) {
+	t.Parallel()
 	t.Run("基础聚合函数复杂运算", func(t *testing.T) {
 		rsql := `SELECT deviceId, 
 				FIRST_VALUE(value) as firstVal,

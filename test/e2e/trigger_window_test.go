@@ -12,6 +12,7 @@ import (
 // TumblingWindow('5s') ProcessingTime：Trigger 提前触发当前窗口（不等满 5s）。
 // 注：CountingWindow.Trigger 为空实现（按 count 触发，设计如此），故用 TumblingWindow 验证。
 func TestTriggerWindow(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, COUNT(*) AS cnt FROM stream GROUP BY deviceId, TumblingWindow('5s')"); err != nil {
@@ -53,6 +54,7 @@ func TestTriggerWindow(t *testing.T) {
 
 // TestTriggerWindowNoWindow 验证非窗口（直接路径）查询调 TriggerWindow 不 panic（无窗口可触发）。
 func TestTriggerWindowNoWindow(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId FROM stream"); err != nil {

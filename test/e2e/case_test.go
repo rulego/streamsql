@@ -13,6 +13,7 @@ import (
 
 // TestCaseExpressionInSQL 测试CASE表达式在SQL查询中的使用
 func TestCaseExpressionInSQL(t *testing.T) {
+	t.Parallel()
 	// 测试非聚合场景中的CASE表达式
 	sql := `SELECT deviceId, 
 	              CASE WHEN temperature > 30 THEN 'HOT' 
@@ -62,6 +63,7 @@ func TestCaseExpressionInSQL(t *testing.T) {
 
 // TestCaseExpressionInAggregation 测试CASE表达式在聚合查询中的使用
 func TestCaseExpressionInAggregation(t *testing.T) {
+	t.Parallel()
 	// 使用处理时间窗口，避免需要推进watermark的复杂性
 	// 这个测试主要验证CASE表达式在聚合函数中的使用，而不是事件时间窗口
 	sql := `SELECT deviceId,
@@ -196,6 +198,7 @@ func getFloat64Value(value interface{}) float64 {
 
 // TestComplexCaseExpressionsInAggregation 测试复杂CASE表达式在聚合查询中的使用
 func TestComplexCaseExpressionsInAggregation(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name        string
 		sql         string
@@ -287,6 +290,7 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 
 // TestCaseExpressionNonAggregated 测试非聚合场景下的CASE表达式
 func TestCaseExpressionNonAggregated(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		sql      string
@@ -486,6 +490,7 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 
 // TestCaseExpressionAggregated 测试聚合场景下的CASE表达式
 func TestCaseExpressionAggregated(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		sql      string
@@ -608,6 +613,7 @@ func TestCaseExpressionAggregated(t *testing.T) {
 
 // TestCaseExpressionNullHandlingInAggregation 测试CASE表达式在聚合函数中正确处理NULL值
 func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name                  string
 		sql                   string
@@ -746,6 +752,7 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 
 // TestHavingWithCaseExpression 测试HAVING子句中的CASE表达式
 func TestHavingWithCaseExpression(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		sql     string
@@ -808,6 +815,7 @@ func TestHavingWithCaseExpression(t *testing.T) {
 
 // TestHavingWithCaseExpressionFunctional 功能测试HAVING子句中的CASE表达式
 func TestHavingWithCaseExpressionFunctional(t *testing.T) {
+	t.Parallel()
 	sql := `SELECT deviceId, 
 	              AVG(temperature) as avg_temp,
 	              COUNT(*) as total_count,
@@ -897,6 +905,7 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 
 // TestNegativeNumberInSQL 测试负数在完整SQL中的使用
 func TestNegativeNumberInSQL(t *testing.T) {
+	t.Parallel()
 	sql := `SELECT deviceId,
 	              temperature,
 	              CASE 

@@ -49,6 +49,7 @@ func (m *mockSource) put(k string, row map[string]interface{}) {
 // TestJoinCustomTableSource verifies a user-implemented TableSource drives the
 // JOIN enrichment, and that Init runs at registration.
 func TestJoinCustomTableSource(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
@@ -73,6 +74,7 @@ func TestJoinCustomTableSource(t *testing.T) {
 
 // TestJoinCustomSourceClosedOnStop verifies Stop closes registered sources.
 func TestJoinCustomSourceClosedOnStop(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -92,6 +94,7 @@ func TestJoinCustomSourceClosedOnStop(t *testing.T) {
 // (external mutation of the source's cache) is visible to subsequent emits,
 // without re-registering.
 func TestJoinCustomSourceRefresh(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
@@ -118,6 +121,7 @@ func TestJoinCustomSourceRefresh(t *testing.T) {
 // TestJoinAsyncEmit verifies enrichment runs on the async Emit path
 // (processDirectData), not only EmitSync.
 func TestJoinAsyncEmit(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
@@ -161,6 +165,7 @@ func TestJoinAsyncEmit(t *testing.T) {
 
 // TestJoinUpsertTableAndDelete covers the incremental update wrappers.
 func TestJoinUpsertTableAndDelete(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId"); err != nil {
@@ -191,6 +196,7 @@ func TestJoinUpsertTableAndDelete(t *testing.T) {
 // TestJoinWithWhere verifies WHERE filtering on a STREAM column coexists with
 // enrichment (WHERE applies after enrichment, stream columns still visible).
 func TestJoinWithWhere(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId WHERE temperature > 30"); err != nil {
@@ -215,6 +221,7 @@ func TestJoinWithWhere(t *testing.T) {
 // TestJoinWhereOnMetadata verifies WHERE can filter on a JOINED metadata column
 // (enrichment runs before filtering).
 func TestJoinWhereOnMetadata(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId, m.location FROM stream JOIN meta m ON deviceId = m.deviceId WHERE m.type = 'temp'"); err != nil {
@@ -239,6 +246,7 @@ func TestJoinWhereOnMetadata(t *testing.T) {
 // TestJoinLeftWhereMetadataIsNull verifies LEFT JOIN + WHERE m.<col> IS NULL
 // selects stream rows with no metadata match.
 func TestJoinLeftWhereMetadataIsNull(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT deviceId FROM stream LEFT JOIN meta m ON deviceId = m.deviceId WHERE m.location IS NULL"); err != nil {
@@ -263,6 +271,7 @@ func TestJoinLeftWhereMetadataIsNull(t *testing.T) {
 // TestJoinWithAggregationRejected verifies JOIN + aggregation is rejected at
 // Execute (v0.5: JOIN is transform-only).
 func TestJoinWithAggregationRejected(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 	err := ssql.Execute("SELECT m.location, AVG(temperature) FROM stream JOIN meta m ON deviceId = m.deviceId GROUP BY m.location")
@@ -274,6 +283,7 @@ func TestJoinWithAggregationRejected(t *testing.T) {
 // TestJoinStreamAliasAndNestedField verifies FROM-alias-qualified stream fields
 // (s.deviceId) and nested table fields (m.profile.id) resolve correctly.
 func TestJoinStreamAliasAndNestedField(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 	if err := ssql.Execute("SELECT s.deviceId, m.location, m.profile.id AS pid FROM stream s JOIN meta m ON s.deviceId = m.deviceId"); err != nil {

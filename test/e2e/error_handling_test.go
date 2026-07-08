@@ -13,6 +13,7 @@ import (
 
 // TestStreamSQLErrorHandling 测试StreamSQL的错误处理机制
 func TestStreamSQLErrorHandling(t *testing.T) {
+	t.Parallel()
 	t.Run("invalid SQL syntax", func(t *testing.T) {
 		ssql := streamsql.New()
 		err := ssql.Execute("INVALID SQL STATEMENT")
@@ -118,6 +119,7 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 
 // TestStreamSQLEdgeCases 测试边界条件和特殊情况
 func TestStreamSQLEdgeCases(t *testing.T) {
+	t.Parallel()
 	t.Run("empty SQL string", func(t *testing.T) {
 		ssql := streamsql.New()
 		err := ssql.Execute("")
@@ -219,6 +221,7 @@ func TestStreamSQLEdgeCases(t *testing.T) {
 
 // TestStreamSQLNilHandling 测试nil值处理
 func TestStreamSQLNilHandling(t *testing.T) {
+	t.Parallel()
 	t.Run("emit nil map", func(t *testing.T) {
 		ssql := streamsql.New()
 		err := ssql.Execute("SELECT id FROM stream")
@@ -257,6 +260,7 @@ func TestStreamSQLNilHandling(t *testing.T) {
 
 // TestStreamSQLComplexQueries 测试复杂查询
 func TestStreamSQLComplexQueries(t *testing.T) {
+	t.Parallel()
 	t.Run("query with multiple fields", func(t *testing.T) {
 		ssql := streamsql.New()
 		err := ssql.Execute("SELECT id, name, value, timestamp FROM stream")
@@ -305,6 +309,7 @@ func TestStreamSQLComplexQueries(t *testing.T) {
 
 // TestStreamSQLDataTypes 测试不同数据类型
 func TestStreamSQLDataTypes(t *testing.T) {
+	t.Parallel()
 	t.Run("string data types", func(t *testing.T) {
 		ssql := streamsql.New()
 		err := ssql.Execute("SELECT name FROM stream")
@@ -378,6 +383,7 @@ func TestStreamSQLDataTypes(t *testing.T) {
 
 // TestStreamSQLStressTest 压力测试
 func TestStreamSQLStressTest(t *testing.T) {
+	t.Parallel()
 	t.Run("high frequency emissions", func(t *testing.T) {
 		ssql := streamsql.New()
 		err := ssql.Execute("SELECT id FROM stream")

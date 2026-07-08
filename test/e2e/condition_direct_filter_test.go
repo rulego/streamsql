@@ -16,6 +16,7 @@ import (
 // the raw stream data and yields identical pass/drop outcomes. This test locks
 // that down across the sync and async paths.
 func TestDirectPathFilterUnchanged(t *testing.T) {
+	t.Parallel()
 	// Sync path (EmitSync): matching row projected, non-matching row nil.
 	t.Run("sync match and drop", func(t *testing.T) {
 		ssql := streamsql.New()

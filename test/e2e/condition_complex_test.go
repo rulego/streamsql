@@ -24,6 +24,7 @@ import (
 
 // TestComplexConditions 测试复杂条件和组合条件的支持
 func TestComplexConditions(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		sql         string
@@ -172,6 +173,7 @@ func TestComplexConditions(t *testing.T) {
 
 // TestComplexConditionsWithLike 测试LIKE条件与其他条件的组合
 func TestComplexConditionsWithLike(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		sql         string
@@ -228,6 +230,7 @@ func TestComplexConditionsWithLike(t *testing.T) {
 
 // TestComplexConditionsWithNullChecks 测试NULL检查与其他条件的组合
 func TestComplexConditionsWithNullChecks(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		sql         string

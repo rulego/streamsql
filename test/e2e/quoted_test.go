@@ -176,6 +176,9 @@ func executeFunctionTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCas
 	})
 }
 
+// 本文件测试串行执行（不加 t.Parallel）：向全局 function registry 注册自定义函数（func01/func02/get_type 等），
+// 与 custom_functions 等存在重名注册，并行会导致 "already registered" 冲突。
+
 // TestQuotedIdentifiersAndStringLiterals 测试反引号标识符和字符串常量支持
 func TestQuotedIdentifiersAndStringLiterals(t *testing.T) {
 	// 注册测试函数（因为有测试用例使用自定义函数）

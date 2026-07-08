@@ -10,6 +10,7 @@ import (
 )
 
 func TestSQLCountingWindow_GroupByDevice(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -50,6 +51,7 @@ func TestSQLCountingWindow_GroupByDevice(t *testing.T) {
 }
 
 func TestSQLCountingWindow_GroupedCounting_MixedDevices(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -93,6 +95,7 @@ func TestSQLCountingWindow_GroupedCounting_MixedDevices(t *testing.T) {
 }
 
 func TestSQLCountingWindow_MultiKeyGroupedCounting(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 

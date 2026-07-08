@@ -52,6 +52,7 @@ func runOrderByWindow(t *testing.T, sql string, emit []map[string]interface{}, w
 }
 
 func TestIntegration_OrderBy_DescOnAggAlias(t *testing.T) {
+	t.Parallel()
 	sql := `SELECT deviceId, avg(temperature) AS m
 	        FROM stream
 	        GROUP BY deviceId, TumblingWindow('100ms')
@@ -69,6 +70,7 @@ func TestIntegration_OrderBy_DescOnAggAlias(t *testing.T) {
 }
 
 func TestIntegration_OrderBy_AscOnAggAlias(t *testing.T) {
+	t.Parallel()
 	sql := `SELECT deviceId, avg(temperature) AS m
 	        FROM stream
 	        GROUP BY deviceId, TumblingWindow('100ms')
@@ -86,6 +88,7 @@ func TestIntegration_OrderBy_AscOnAggAlias(t *testing.T) {
 }
 
 func TestIntegration_OrderBy_WithLimitTopN(t *testing.T) {
+	t.Parallel()
 	sql := `SELECT deviceId, avg(temperature) AS m
 	        FROM stream
 	        GROUP BY deviceId, TumblingWindow('100ms')
@@ -103,6 +106,7 @@ func TestIntegration_OrderBy_WithLimitTopN(t *testing.T) {
 }
 
 func TestIntegration_OrderBy_OnGroupKey(t *testing.T) {
+	t.Parallel()
 	sql := `SELECT deviceId, avg(temperature) AS m
 	        FROM stream
 	        GROUP BY deviceId, TumblingWindow('100ms')
@@ -121,6 +125,7 @@ func TestIntegration_OrderBy_OnGroupKey(t *testing.T) {
 // TestIntegration_OrderBy_MultiKey: primary m DESC, secondary deviceId ASC.
 // Two devices share the same m so the secondary key decides their order.
 func TestIntegration_OrderBy_MultiKey(t *testing.T) {
+	t.Parallel()
 	sql := `SELECT deviceId, avg(temperature) AS m
 	        FROM stream
 	        GROUP BY deviceId, TumblingWindow('100ms')
@@ -140,6 +145,7 @@ func TestIntegration_OrderBy_MultiKey(t *testing.T) {
 // TestIntegration_OrderBy_NonWindowNoCrash: ORDER BY on a non-aggregation query
 // must not break per-row processing (ordering a single-row batch is a no-op).
 func TestIntegration_OrderBy_NonWindowNoCrash(t *testing.T) {
+	t.Parallel()
 	sql := `SELECT deviceId, temperature FROM stream WHERE temperature > 20 ORDER BY temperature DESC`
 	ssql := streamsql.New()
 	defer ssql.Stop()

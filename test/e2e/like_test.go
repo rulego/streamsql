@@ -14,6 +14,7 @@ import (
 
 // TestLikeOperatorInSQL 测试LIKE语法功能
 func TestLikeOperatorInSQL(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -409,6 +410,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 
 // TestLikeFunctionEquivalence 测试LIKE语法与现有字符串函数的等价性
 func TestLikeFunctionEquivalence(t *testing.T) {
+	t.Parallel()
 	// 简化测试，重点验证LIKE功能已经正常工作
 	t.Run("LIKE语法工作正常验证", func(t *testing.T) {
 		ssql := streamsql.New()
@@ -470,6 +472,7 @@ func TestLikeFunctionEquivalence(t *testing.T) {
 
 // TestLikePatternMatching 测试LIKE模式匹配算法的正确性
 func TestLikePatternMatching(t *testing.T) {
+	t.Parallel()
 	// 这些是单元测试，直接测试LIKE匹配函数
 	tests := []struct {
 		text     string

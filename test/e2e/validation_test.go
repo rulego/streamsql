@@ -8,6 +8,7 @@ import (
 )
 
 func TestFunctionValidationIntegration(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name          string
 		sql           string
@@ -68,6 +69,7 @@ func TestFunctionValidationIntegration(t *testing.T) {
 }
 
 func TestFunctionValidationWithCustomFunctions(t *testing.T) {
+	t.Parallel()
 	// 测试自定义函数注册后的验证
 	sql := "SELECT custom_func(temperature) FROM stream"
 

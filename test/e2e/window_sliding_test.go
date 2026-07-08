@@ -14,6 +14,7 @@ import (
 // TestSQLSlidingWindow_ProcessingTime 测试处理时间的滑动窗口
 // 验证不使用 WITH 子句时，滑动窗口基于处理时间（系统时钟）工作
 func TestSQLSlidingWindow_ProcessingTime(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -115,6 +116,7 @@ END:
 }
 
 func TestSQLSlidingWindow_WithAggregations(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -204,6 +206,7 @@ END:
 }
 
 func TestSQLSlidingWindow_MultipleWindowsAlignment(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -319,6 +322,7 @@ END:
 }
 
 func TestSQLSlidingWindow_MultiKeyGrouped(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -429,6 +433,7 @@ END:
 // TestSQLSlidingWindow_FirstWindowTiming 测试第一个窗口的触发时机
 // 验证第一个窗口应该在窗口大小时间后触发，而不是滑动步长时间后触发
 func TestSQLSlidingWindow_FirstWindowTiming(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -532,6 +537,7 @@ END:
 // TestSQLSlidingWindow_DataOverlap 测试滑动窗口的数据重叠正确性
 // 验证数据在多个窗口中正确保留，不会过早清理
 func TestSQLSlidingWindow_DataOverlap(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -668,6 +674,7 @@ END:
 // TestSQLSlidingWindow_DataRetention 测试滑动窗口的数据保留逻辑
 // 验证数据在后续窗口中正确保留，不会过早清理
 func TestSQLSlidingWindow_DataRetention(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -776,6 +783,7 @@ END:
 
 // TestSQLSlidingWindow_EventTimeWithWithClause 测试使用 WITH 子句指定事件时间
 func TestSQLSlidingWindow_EventTimeWithWithClause(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -860,6 +868,7 @@ END:
 // TestSQLSlidingWindow_LateDataHandling 测试延迟数据的处理
 // 验证即使数据延迟到达，只要在允许的延迟范围内，也能正确统计到对应窗口
 func TestSQLSlidingWindow_LateDataHandling(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -992,6 +1001,7 @@ END:
 // TestSQLSlidingWindow_MaxOutOfOrderness 测试最大延迟时间配置
 // 验证设置 MaxOutOfOrderness 后，延迟数据能否在允许的延迟范围内被正确处理
 func TestSQLSlidingWindow_MaxOutOfOrderness(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -1153,6 +1163,7 @@ END:
 // TestSQLSlidingWindow_AllowedLateness 测试滑动窗口的 AllowedLateness 配置
 // 验证窗口触发后，延迟数据能否在允许的延迟时间内更新窗口结果
 func TestSQLSlidingWindow_AllowedLateness(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -1374,6 +1385,7 @@ END:
 
 // TestSQLSlidingWindow_EventTimeWindowAlignment 测试事件时间滑动窗口对齐到epoch
 func TestSQLSlidingWindow_EventTimeWindowAlignment(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -1478,6 +1490,7 @@ END:
 
 // TestSQLSlidingWindow_WatermarkTriggerTiming 测试滑动窗口Watermark触发时机
 func TestSQLSlidingWindow_WatermarkTriggerTiming(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -1593,6 +1606,7 @@ END:
 
 // TestSQLSlidingWindow_IdleSourceMechanism 测试滑动窗口的Idle Source机制
 func TestSQLSlidingWindow_IdleSourceMechanism(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 

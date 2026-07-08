@@ -13,6 +13,7 @@ import (
 // TestSQLSessionWindow_ProcessingTime 测试处理时间的会话窗口
 // 验证不使用 WITH 子句时，会话窗口基于处理时间（系统时钟）工作
 func TestSQLSessionWindow_ProcessingTime(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -61,6 +62,7 @@ func TestSQLSessionWindow_ProcessingTime(t *testing.T) {
 }
 
 func TestSQLSessionWindow_GroupedSession_MixedDevices(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -115,6 +117,7 @@ func TestSQLSessionWindow_GroupedSession_MixedDevices(t *testing.T) {
 }
 
 func TestSQLSessionWindow_MultiKeyGroupedSession(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -209,6 +212,7 @@ func TestSQLSessionWindow_MultiKeyGroupedSession(t *testing.T) {
 
 // TestSQLSessionWindow_EventTimeWithWithClause 测试使用 WITH 子句指定事件时间的会话窗口
 func TestSQLSessionWindow_EventTimeWithWithClause(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -269,6 +273,7 @@ func TestSQLSessionWindow_EventTimeWithWithClause(t *testing.T) {
 
 // TestSQLSessionWindow_ProcessingTimeWithoutWithClause 测试不使用 WITH 子句时默认使用处理时间
 func TestSQLSessionWindow_ProcessingTimeWithoutWithClause(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -316,6 +321,7 @@ func TestSQLSessionWindow_ProcessingTimeWithoutWithClause(t *testing.T) {
 
 // TestSQLSessionWindow_EventTimeWindowAlignment 测试事件时间会话窗口
 func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -472,6 +478,7 @@ END:
 
 // TestSQLSessionWindow_WatermarkTriggerTiming 测试会话窗口Watermark触发时机
 func TestSQLSessionWindow_WatermarkTriggerTiming(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -608,6 +615,7 @@ END:
 
 // TestSQLSessionWindow_IdleSourceMechanism 测试会话窗口的Idle Source机制
 func TestSQLSessionWindow_IdleSourceMechanism(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 

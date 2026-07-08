@@ -18,6 +18,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// 本文件测试串行执行（不加 t.Parallel）：向全局 function registry 注册自定义函数，
+// 跨测试/跨文件存在重名注册（square/distance/get_type 等），并行会导致 "already registered" 冲突。
+
 // TestCustomMathFunctions 测试自定义数学函数
 func TestCustomMathFunctions(t *testing.T) {
 	// 注册平方函数

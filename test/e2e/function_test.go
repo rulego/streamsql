@@ -13,6 +13,7 @@ import (
 
 // TestFunctionIntegrationNonAggregation 测试非聚合函数在SQL中的集成
 func TestFunctionIntegrationNonAggregation(t *testing.T) {
+	t.Parallel()
 	t.Run("MathFunctions", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
@@ -376,6 +377,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 // TestFunctionIntegrationAggregation 测试聚合函数在SQL中的集成
 func TestFunctionIntegrationAggregation(t *testing.T) {
+	t.Parallel()
 	t.Run("BasicAggregationFunctions", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
@@ -555,6 +557,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 
 // TestFunctionIntegrationMixed 测试混合函数场景
 func TestFunctionIntegrationMixed(t *testing.T) {
+	t.Parallel()
 	t.Run("AggregationWithNonAggregationFunctions", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
@@ -718,6 +721,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 
 // TestNestedFunctionSupport 测试嵌套函数支持
 func TestNestedFunctionSupport(t *testing.T) {
+	t.Parallel()
 	t.Run("NormalFunctionNestingAggregation", func(t *testing.T) {
 		// 测试普通函数嵌套聚合函数：round(avg(temperature), 2)
 		ssql := streamsql.New()
@@ -911,6 +915,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 // TestNestedFunctionExecutionOrder 测试嵌套函数的执行顺序和不同类型函数的组合
 func TestNestedFunctionExecutionOrder(t *testing.T) {
+	t.Parallel()
 
 	// 测试1: 字符串函数嵌套数学函数
 	t.Run("StringFunctionNestingMathFunction", func(t *testing.T) {
@@ -1192,6 +1197,7 @@ func flattenUnnestRows(result []map[string]interface{}, alias string) []map[stri
 // - 描述: 将数组展开为多行
 // - 示例: SELECT unnest(tags) as tag FROM stream
 func TestUnnestFunctionIntegration(t *testing.T) {
+	t.Parallel()
 	t.Run("PrimitiveArray", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()

@@ -29,6 +29,7 @@ import (
 
 // TestEmitSyncWithAddSink 测试EmitSync同时触发AddSink回调
 func TestEmitSyncWithAddSink(t *testing.T) {
+	t.Parallel()
 	t.Run("非聚合查询同步+异步结果", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
@@ -262,6 +263,7 @@ func TestEmitSyncWithAddSink(t *testing.T) {
 
 // TestEmitSyncPerformance 测试EmitSync性能（包括AddSink触发）
 func TestEmitSyncPerformance(t *testing.T) {
+	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 

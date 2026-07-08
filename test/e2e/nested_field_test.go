@@ -12,6 +12,7 @@ import (
 
 // TestComprehensiveNestedFieldAccess 全面测试嵌套字段访问功能
 func TestComprehensiveNestedFieldAccess(t *testing.T) {
+	t.Parallel()
 	t.Run("多层嵌套字段访问", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer func() {
@@ -316,6 +317,7 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 
 // TestArrayFieldAccess 测试数组字段访问功能
 func TestArrayFieldAccess(t *testing.T) {
+	t.Parallel()
 	t.Run("数组索引访问", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer func() {

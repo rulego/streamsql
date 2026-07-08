@@ -11,6 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// 本文件测试串行执行（不加 t.Parallel）：向全局 function registry 注册自定义函数，
+// 与 custom_functions/quoted 等存在重名注册，并行会导致 "already registered" 冲突。
+
 // TestPluginStyleCustomFunctions 测试插件式自定义函数
 func TestPluginStyleCustomFunctions(t *testing.T) {
 
