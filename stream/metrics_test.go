@@ -43,10 +43,12 @@ func TestStreamRegistry_CountersOnInit(t *testing.T) {
 	assert.NotNil(t, s.metricsRegistry)
 	assert.NotNil(t, s.mInput)
 	assert.NotNil(t, s.mOutput)
-	assert.NotNil(t, s.mDropped)
+	assert.NotNil(t, s.mInputDropped)
+	assert.NotNil(t, s.mOutputDropped)
 	assert.Equal(t, int64(0), s.mInput.Value())
 	assert.Equal(t, int64(0), s.mOutput.Value())
-	assert.Equal(t, int64(0), s.mDropped.Value())
+	assert.Equal(t, int64(0), s.mInputDropped.Value())
+	assert.Equal(t, int64(0), s.mOutputDropped.Value())
 	// The three counters are registered under their stat keys.
 	_, ok := s.metricsRegistry.Get(InputCount)
 	assert.True(t, ok)
@@ -72,11 +74,13 @@ func TestStream_ResetStats(t *testing.T) {
 	s := newTestStream(t)
 	s.mInput.IncBy(5)
 	s.mOutput.IncBy(3)
-	s.mDropped.IncBy(2)
+	s.mInputDropped.IncBy(2)
+	s.mOutputDropped.IncBy(1)
 	s.ResetStats()
 	assert.Equal(t, int64(0), s.mInput.Value())
 	assert.Equal(t, int64(0), s.mOutput.Value())
-	assert.Equal(t, int64(0), s.mDropped.Value())
+	assert.Equal(t, int64(0), s.mInputDropped.Value())
+	assert.Equal(t, int64(0), s.mOutputDropped.Value())
 }
 
 func TestStream_MetricsRegistrySnapshot(t *testing.T) {

@@ -90,7 +90,8 @@ type Stream struct {
 	metricsRegistry *metrics.Registry
 	mInput          *metrics.Counter
 	mOutput         *metrics.Counter
-	mDropped        *metrics.Counter
+	mInputDropped   *metrics.Counter
+	mOutputDropped  *metrics.Counter
 
 	// Log throttling fields for "Result channel is full" messages
 	lastDropLogTime int64 // Last time drop log was printed (unix timestamp)

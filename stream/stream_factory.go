@@ -132,7 +132,8 @@ func (sf *StreamFactory) createStreamInstance(config types.Config, win window.Wi
 		metricsRegistry:  reg,
 		mInput:           reg.Counter(InputCount),
 		mOutput:          reg.Counter(OutputCount),
-		mDropped:         reg.Counter(DroppedCount),
+		mInputDropped:    reg.Counter(InputDroppedCount),
+		mOutputDropped:   reg.Counter(OutputDroppedCount),
 	}
 }
 

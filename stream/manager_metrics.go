@@ -36,17 +36,19 @@ func (s *Stream) GetStats() map[string]int64 {
 	s.dataChanMux.RUnlock()
 
 	stats := map[string]int64{
-		InputCount:    s.mInput.Value(),
-		OutputCount:   s.mOutput.Value(),
-		DroppedCount:  s.mDropped.Value(),
-		DataChanLen:   dataChanLen,
-		DataChanCap:   dataChanCap,
-		ResultChanLen: int64(len(s.resultChan)),
-		ResultChanCap: int64(cap(s.resultChan)),
-		SinkPoolLen:   int64(len(s.sinkWorkerPool)),
-		SinkPoolCap:   int64(cap(s.sinkWorkerPool)),
-		ActiveRetries: int64(atomic.LoadInt32(&s.activeRetries)),
-		Expanding:     int64(atomic.LoadInt32(&s.expanding)),
+		InputCount:         s.mInput.Value(),
+		OutputCount:        s.mOutput.Value(),
+		InputDroppedCount:  s.mInputDropped.Value(),
+		OutputDroppedCount: s.mOutputDropped.Value(),
+		DroppedCount:       s.mInputDropped.Value() + s.mOutputDropped.Value(),
+		DataChanLen:        dataChanLen,
+		DataChanCap:        dataChanCap,
+		ResultChanLen:      int64(len(s.resultChan)),
+		ResultChanCap:      int64(cap(s.resultChan)),
+		SinkPoolLen:        int64(len(s.sinkWorkerPool)),
+		SinkPoolCap:        int64(cap(s.sinkWorkerPool)),
+		ActiveRetries:      int64(atomic.LoadInt32(&s.activeRetries)),
+		Expanding:          int64(atomic.LoadInt32(&s.expanding)),
 	}
 
 	if s.Window != nil {
@@ -100,5 +102,6 @@ func (s *Stream) GetDetailedStats() map[string]any {
 func (s *Stream) ResetStats() {
 	s.mInput.Reset()
 	s.mOutput.Reset()
-	s.mDropped.Reset()
+	s.mInputDropped.Reset()
+	s.mOutputDropped.Reset()
 }

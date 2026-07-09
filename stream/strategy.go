@@ -63,56 +63,36 @@ func NewBlockingStrategy() *BlockingStrategy {
 	return &BlockingStrategy{}
 }
 
-// ProcessData implements blocking mode data processing
+// ProcessData implements blocking mode data processing.
+// blockingTimeout <= 0: block forever (pure backpressure, never drops).
+// blockingTimeout > 0: block up to the timeout, then drop so a slow consumer
+// cannot hang the producer — bounded block is the explicit contract.
 func (bs *BlockingStrategy) ProcessData(data map[string]any) {
-	// Check if stream is stopped
 	if atomic.LoadInt32(&bs.stream.stopped) == 1 {
 		return
 	}
-
-	if bs.stream.blockingTimeout <= 0 {
-		// No timeout limit, block permanently until success
-		dataChan := bs.stream.safeGetDataChan()
-		if dataChan == nil {
-			return
-		}
-		select {
-		case dataChan <- data:
-			return
-		case <-bs.stream.done:
-			return
-		}
-	}
-
-	// Blocking with timeout
-	timer := time.NewTimer(bs.stream.blockingTimeout)
-	defer timer.Stop()
 
 	dataChan := bs.stream.safeGetDataChan()
 	if dataChan == nil {
 		return
 	}
 
+	if bs.stream.blockingTimeout <= 0 {
+		select {
+		case dataChan <- data:
+		case <-bs.stream.done:
+		}
+		return
+	}
+
+	timer := time.NewTimer(bs.stream.blockingTimeout)
+	defer timer.Stop()
 	select {
 	case dataChan <- data:
-		// Successfully added data
-		return
 	case <-timer.C:
-		// Timeout but don't drop data, log error but continue blocking
-		bs.stream.log.Error("Data addition timeout, but continue waiting to avoid data loss")
-		// Continue blocking indefinitely, re-get current channel reference
-		finalDataChan := bs.stream.safeGetDataChan()
-		if finalDataChan == nil {
-			return
-		}
-		select {
-		case finalDataChan <- data:
-			return
-		case <-bs.stream.done:
-			return
-		}
+		bs.stream.log.Warn("Data channel still full after %s, dropping input data", bs.stream.blockingTimeout)
+		bs.stream.mInputDropped.Inc()
 	case <-bs.stream.done:
-		return
 	}
 }
 
@@ -197,97 +177,34 @@ func NewDropStrategy() *DropStrategy {
 	return &DropStrategy{}
 }
 
-// ProcessData implements drop mode data processing
+// ProcessData implements drop mode: non-blocking send, a few short retries to
+// absorb micro-bursts, then drop.
 func (ds *DropStrategy) ProcessData(data map[string]any) {
-	// Intelligent non-blocking add with layered backpressure control
 	if ds.stream.safeSendToDataChan(data) {
 		return
 	}
 
-	// Data channel is full, use layered backpressure strategy, get channel status
-	ds.stream.dataChanMux.RLock()
-	chanLen := len(ds.stream.dataChan)
-	chanCap := cap(ds.stream.dataChan)
-	currentDataChan := ds.stream.dataChan
-	ds.stream.dataChanMux.RUnlock()
-
-	usage := float64(chanLen) / float64(chanCap)
-
-	// Adjust strategy based on channel usage rate and buffer size
-	var waitTime time.Duration
-	var maxRetries int
-
-	switch {
-	case chanCap >= 100000: // Extra large buffer (benchmark mode)
-		switch {
-		case usage > 0.99:
-			waitTime = 1 * time.Millisecond // Longer wait
-			maxRetries = 3
-		case usage > 0.95:
-			waitTime = 500 * time.Microsecond
-			maxRetries = 2
-		case usage > 0.90:
-			waitTime = 100 * time.Microsecond
-			maxRetries = 1
-		default:
-			// Drop immediately
-			ds.stream.log.Warn("Data channel is full, dropping input data")
-			ds.stream.mDropped.Inc()
-			return
-		}
-
-	case chanCap >= 50000: // High performance mode
-		switch {
-		case usage > 0.99:
-			waitTime = 500 * time.Microsecond
-			maxRetries = 2
-		case usage > 0.95:
-			waitTime = 200 * time.Microsecond
-			maxRetries = 1
-		case usage > 0.90:
-			waitTime = 50 * time.Microsecond
-			maxRetries = 1
-		default:
-			ds.stream.log.Warn("Data channel is full, dropping input data")
-			ds.stream.mDropped.Inc()
-			return
-		}
-
-	default: // Default mode
-		switch {
-		case usage > 0.99:
-			waitTime = 100 * time.Microsecond
-			maxRetries = 1
-		case usage > 0.95:
-			waitTime = 50 * time.Microsecond
-			maxRetries = 1
-		default:
-			ds.stream.log.Warn("Data channel is full, dropping input data")
-			ds.stream.mDropped.Inc()
-			return
-		}
+	dataChan := ds.stream.safeGetDataChan()
+	if dataChan == nil {
+		return
 	}
 
-	// Multiple retries to add data, using thread-safe approach
-	for retry := 0; retry < maxRetries; retry++ {
-		timer := time.NewTimer(waitTime)
+	// Channel full: a few short retries give the consumer a chance to drain.
+	for i := 0; i < 3; i++ {
+		timer := time.NewTimer(100 * time.Microsecond)
 		select {
-		case currentDataChan <- data:
-			// Retry successful
+		case dataChan <- data:
 			timer.Stop()
 			return
 		case <-timer.C:
-			// Timeout, continue to next retry or drop
-			if retry == maxRetries-1 {
-				// Last retry failed, record drop
-				ds.stream.log.Warn("Data channel is full, dropping input data")
-				ds.stream.mDropped.Inc()
-			}
 		case <-ds.stream.done:
 			timer.Stop()
 			return
 		}
 	}
+
+	ds.stream.log.Warn("Data channel is full, dropping input data")
+	ds.stream.mInputDropped.Inc()
 }
 
 // GetStrategyName gets strategy name

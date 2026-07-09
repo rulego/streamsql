@@ -106,15 +106,15 @@ func (s *Stream) handleResultChannelBackpressure(results []map[string]any) {
 				s.mOutput.Inc()
 			default:
 				s.logDroppedDataWithThrottling()
-				s.mDropped.Inc()
+				s.mOutputDropped.Inc()
 			}
 		default:
 			s.logDroppedDataWithThrottling()
-			s.mDropped.Inc()
+			s.mOutputDropped.Inc()
 		}
 	} else {
 		s.logDroppedDataWithThrottling()
-		s.mDropped.Inc()
+		s.mOutputDropped.Inc()
 	}
 }
 
@@ -131,7 +131,7 @@ func (s *Stream) logDroppedDataWithThrottling() {
 		if atomic.CompareAndSwapInt64(&s.lastDropLogTime, lastLogTime, now) {
 			// Reset drop count and log the summary
 			atomic.StoreInt64(&s.dropLogCount, 0)
-			totalDropped := s.mDropped.Value()
+			totalDropped := s.mOutputDropped.Value()
 			s.log.Warn("Result channel is full, dropped %d data items in last period (total dropped: %d)", dropCount, totalDropped+1)
 		}
 	}
