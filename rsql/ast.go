@@ -177,6 +177,7 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		GroupFields:        extractGroupFields(s),
 		SelectFields:       aggs,
 		FieldAlias:         fields,
+		SelectAlias:        buildSelectAliasMap(s.Fields),
 		Distinct:           s.Distinct,
 		Limit:              s.Limit,
 		NeedWindow:         needWindow,
@@ -270,6 +271,20 @@ func extractGroupFields(s *SelectStatement) []string {
 		}
 	}
 	return fields
+}
+
+// buildSelectAliasMap maps each SELECT item's raw expression to its AS alias.
+// Items without an alias are omitted. Used by the aggregation path to name
+// output columns for grouped non-aggregate columns (e.g. "m.location AS loc"),
+// matching the direct path.
+func buildSelectAliasMap(fields []Field) map[string]string {
+	m := make(map[string]string, len(fields))
+	for _, f := range fields {
+		if f.Alias != "" {
+			m[f.Expression] = f.Alias
+		}
+	}
+	return m
 }
 
 func buildSelectFields(fields []Field) (aggMap map[string]aggregator.AggregateType, fieldMap map[string]string, err error) {

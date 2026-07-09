@@ -2,6 +2,7 @@ package stream
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -74,6 +75,161 @@ func (s *Stream) stripJoinAlias(name string) string {
 		}
 	}
 	return name
+}
+
+// groupFieldOutputName returns the OUTPUT column name for a GROUP BY field: the
+// SELECT AS alias if one was given for that expression, otherwise the
+// join-alias-stripped name. Mirrors the direct path's alias > stripped rule.
+func (s *Stream) groupFieldOutputName(gf string) string {
+	if a, ok := s.config.SelectAlias[gf]; ok && a != "" {
+		return a
+	}
+	return s.stripJoinAlias(gf)
+}
+
+// isInternalAggPlaceholder reports whether a SelectFields key is an internal
+// placeholder (e.g. "__count_12345__") that post-aggregation cleanup removes
+// before output, so it is excluded from collision detection.
+func isInternalAggPlaceholder(name string) bool {
+	return strings.HasPrefix(name, "__") && strings.HasSuffix(name, "__")
+}
+
+// compileOutputNames resolves GROUP BY output column names and rejects queries
+// whose output columns would collide after join-alias stripping. The error is
+// surfaced via CreateStream -> Execute so ambiguous SELECTs like
+// "SELECT a.name, b.name" fail fast instead of silently shadowing in the map
+// (a map[string]any cannot hold two same-named columns).
+//
+// Detection is split by execution path, since each query takes exactly one:
+//   - window/aggregation path (NeedWindow): output = GROUP BY fields + agg aliases
+//   - direct path: output = simple fields + expression fields
+func (s *Stream) compileOutputNames() error {
+	s.groupOutputNames = make([]string, len(s.config.GroupFields))
+	seen := make(map[string]bool)
+
+	if s.config.NeedWindow {
+		// Window/aggregation path.
+		for i, gf := range s.config.GroupFields {
+			out := s.groupFieldOutputName(gf)
+			s.groupOutputNames[i] = out
+			if seen[out] {
+				return errAmbiguousColumn(out, "multiple GROUP BY fields resolve to it")
+			}
+			seen[out] = true
+		}
+		for alias, aggType := range s.config.SelectFields {
+			// Skip internal placeholders and "expression"-typed markers (those
+			// are direct-path expression fields, not aggregate outputs).
+			if isInternalAggPlaceholder(alias) || string(aggType) == "expression" {
+				continue
+			}
+			if seen[alias] {
+				return errAmbiguousColumn(alias, "aggregate alias collides with another output column")
+			}
+			seen[alias] = true
+		}
+	} else {
+		// Direct path: simple fields (expression fields are produced via
+		// FieldExpressions, so skip them here to avoid double counting).
+		for _, spec := range s.config.SimpleFields {
+			info := s.compiledFieldInfo[spec]
+			if info == nil || info.isSelectAll {
+				continue
+			}
+			if _, isExpr := s.config.FieldExpressions[info.outputName]; isExpr {
+				continue
+			}
+			if seen[info.outputName] {
+				return errAmbiguousColumn(info.outputName, "multiple SELECT fields resolve to it (e.g. joined tables sharing a column name)")
+			}
+			seen[info.outputName] = true
+		}
+		for name := range s.config.FieldExpressions {
+			if seen[name] {
+				return errAmbiguousColumn(name, "expression output collides with another output column")
+			}
+			seen[name] = true
+		}
+	}
+
+	// Rewrite HAVING/ORDER BY references to qualified columns (m.location) into
+	// their flat output names (location), since expr-lang parses "m.location" as
+	// nested access and cannot resolve it against the flat result map.
+	s.rewriteGroupColumnRefs()
+	return nil
+}
+
+// errAmbiguousColumn formats a compile-time error for a colliding output column.
+func errAmbiguousColumn(col, detail string) error {
+	return fmt.Errorf("ambiguous output column %q: %s; use AS aliases to disambiguate", col, detail)
+}
+
+// projectGroupColumns renames each GROUP BY field from its qualified key to its
+// output name (alias > stripped) on every result row. The qualified key is how
+// the aggregator/global-window emit the value (needed to resolve it from the
+// enriched row); the output name is what reaches sinks. No-op when unchanged.
+func (s *Stream) projectGroupColumns(results []map[string]any) {
+	for i, gf := range s.config.GroupFields {
+		if i >= len(s.groupOutputNames) {
+			break
+		}
+		out := s.groupOutputNames[i]
+		if out == gf {
+			continue
+		}
+		for _, row := range results {
+			if v, ok := row[gf]; ok {
+				if _, exists := row[out]; !exists {
+					row[out] = v
+				}
+				delete(row, gf)
+			}
+		}
+	}
+}
+
+// qualifiedRefRe matches dotted identifiers like "m.location" (a maximal run of
+// identifier segments joined by "."). Used to rewrite qualified column refs in
+// HAVING/ORDER BY to their flat output names without touching substrings.
+var qualifiedRefRe = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+`)
+
+// rewriteQualifiedRefs replaces whole-token qualified field references in expr
+// with their output names, returning expr unchanged when there is nothing to do.
+func rewriteQualifiedRefs(expr string, refs map[string]string) string {
+	if expr == "" || len(refs) == 0 {
+		return expr
+	}
+	return qualifiedRefRe.ReplaceAllStringFunc(expr, func(tok string) string {
+		if out, ok := refs[tok]; ok {
+			return out
+		}
+		return tok
+	})
+}
+
+// rewriteGroupColumnRefs rewrites HAVING and ORDER BY so references to qualified
+// GROUP BY / joined columns use their flat output names. expr-lang parses
+// "m.location" as nested access (m -> location), which does not resolve against
+// the flat result map; rewriting to "location" makes HAVING/ORDER BY work.
+func (s *Stream) rewriteGroupColumnRefs() {
+	refs := make(map[string]string)
+	for i, gf := range s.config.GroupFields {
+		if i < len(s.groupOutputNames) && s.groupOutputNames[i] != gf {
+			refs[gf] = s.groupOutputNames[i]
+		}
+	}
+	for _, info := range s.compiledFieldInfo {
+		if info.outputName != "" && info.outputName != info.fieldName && strings.Contains(info.fieldName, ".") {
+			refs[info.fieldName] = info.outputName
+		}
+	}
+	if len(refs) == 0 {
+		return
+	}
+	s.config.Having = rewriteQualifiedRefs(s.config.Having, refs)
+	for i := range s.config.OrderBy {
+		s.config.OrderBy[i].Expression = rewriteQualifiedRefs(s.config.OrderBy[i].Expression, refs)
+	}
 }
 
 // compileSimpleFieldInfo compiles simple field information

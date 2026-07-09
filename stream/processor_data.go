@@ -400,6 +400,10 @@ func stampWindowID(results []map[string]any, batch []types.Row) {
 
 // processAggregationResults processes aggregation results
 func (dp *DataProcessor) processAggregationResults(results []map[string]any) {
+	// Project GROUP BY columns to output names (AS alias > stripped), keeping
+	// the qualified key temporarily so HAVING/ORDER BY can reference either form.
+	dp.stream.projectGroupColumns(results)
+
 	var finalResults []map[string]any
 
 	// Process DISTINCT

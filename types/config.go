@@ -23,6 +23,11 @@ type Config struct {
 	GroupFields        []string                            `json:"groupFields"`
 	SelectFields       map[string]aggregator.AggregateType `json:"selectFields"`
 	FieldAlias         map[string]string                   `json:"fieldAlias"`
+	// SelectAlias maps a SELECT item's raw expression to its AS alias (e.g.
+	// "m.location" -> "loc"). The aggregation path uses it to name output
+	// columns for grouped non-aggregate columns, matching the direct path
+	// (where the alias is applied during SimpleField compilation).
+	SelectAlias        map[string]string                   `json:"selectAlias"`
 	SimpleFields       []string                            `json:"simpleFields"`
 	FieldExpressions   map[string]FieldExpression          `json:"fieldExpressions"`
 	PostAggExpressions []PostAggregationExpression         `json:"postAggExpressions"` // Post-aggregation expressions

@@ -109,6 +109,12 @@ type Stream struct {
 	compiledFieldInfo map[string]*fieldProcessInfo      // Field processing information cache
 	compiledExprInfo  map[string]*expressionProcessInfo // Expression processing information cache
 
+	// groupOutputNames holds the OUTPUT column name for each GROUP BY field
+	// (parallel to config.GroupFields): the SELECT AS alias if present, else the
+	// join-alias-stripped name. The aggregator/global-window emit the qualified
+	// group key (needed to resolve values); this maps it to the output name.
+	groupOutputNames []string
+
 	// Unnest function optimization flags
 	// hasUnnestFunction 标识查询是否使用了 unnest 函数，在预处理阶段确定
 	// 用于优化 expandUnnestResults 函数的性能，避免不必要的字段遍历检查

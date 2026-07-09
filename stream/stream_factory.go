@@ -91,6 +91,12 @@ func (sf *StreamFactory) createStreamWithUnifiedConfig(config types.Config) (*St
 	// Pre-compile field processing information
 	stream.compileFieldProcessInfo()
 
+	// Resolve GROUP BY output names and reject ambiguous output columns
+	// (e.g. SELECT a.name, b.name) before any data flows.
+	if err := stream.compileOutputNames(); err != nil {
+		return nil, err
+	}
+
 	// Start worker routines
 	sf.startWorkerRoutines(stream, config.PerformanceConfig)
 

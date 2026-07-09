@@ -38,7 +38,7 @@ func TestJoinAggregationGroupByTableField(t *testing.T) {
 	select {
 	case res := <-ch:
 		for _, row := range res {
-			loc, _ := row["m.location"].(string)
+			loc, _ := row["location"].(string)
 			avg[loc] = row["avg_t"].(float64)
 		}
 	case <-time.After(5 * time.Second):
@@ -74,7 +74,7 @@ func TestJoinLeftAggregationNullGroup(t *testing.T) {
 		var nullAvg, plantAAvg *float64
 		for _, row := range res {
 			v := row["avg_t"].(float64)
-			if row["m.location"] == nil {
+			if row["location"] == nil {
 				nullAvg = &v
 			} else {
 				plantAAvg = &v
@@ -113,7 +113,7 @@ func TestJoinInnerAggregationDropsUnmatched(t *testing.T) {
 	select {
 	case res := <-ch:
 		require.Len(t, res, 1, "only plantA expected (d9 dropped), got %v", res)
-		assert.Equal(t, "plantA", res[0]["m.location"])
+		assert.Equal(t, "plantA", res[0]["location"])
 		assert.Equal(t, float64(2), res[0]["cnt"])
 	case <-time.After(5 * time.Second):
 		t.Fatal("timeout waiting for aggregation batch")
@@ -157,7 +157,7 @@ loop:
 		select {
 		case res := <-ch:
 			for _, row := range res {
-				if row["m.location"] == "plantC" {
+				if row["location"] == "plantC" {
 					sawPlantC = true
 					assert.Equal(t, float64(1), row["cnt"])
 				}
@@ -196,7 +196,7 @@ func TestJoinAggregationCompositeKey(t *testing.T) {
 	select {
 	case res := <-ch:
 		for _, row := range res {
-			loc, _ := row["m.loc"].(string)
+			loc, _ := row["loc"].(string)
 			got[loc] = row["cnt"].(float64)
 		}
 	case <-time.After(5 * time.Second):
@@ -232,7 +232,7 @@ func TestJoinAggregationWhereOnTableField(t *testing.T) {
 	select {
 	case res := <-ch:
 		require.Len(t, res, 1, "only plantA expected (d2 filtered), got %v", res)
-		assert.Equal(t, "plantA", res[0]["m.location"])
+		assert.Equal(t, "plantA", res[0]["location"])
 		assert.Equal(t, float64(3), res[0]["cnt"])
 	case <-time.After(5 * time.Second):
 		t.Fatal("timeout waiting for WHERE-filtered aggregation")
@@ -279,7 +279,7 @@ loop:
 		select {
 		case res := <-ch:
 			for _, row := range res {
-				if row["m.location"] == "plantA" {
+				if row["location"] == "plantA" {
 					plantACnt = row["cnt"].(float64)
 					if plantACnt == 3 {
 						saw = true
@@ -320,7 +320,7 @@ func TestJoinAggregationTumblingWindow(t *testing.T) {
 	select {
 	case res := <-ch:
 		for _, row := range res {
-			loc, _ := row["m.location"].(string)
+			loc, _ := row["location"].(string)
 			if loc == "plantA" {
 				got["plantA_avg"] = row["avg_temp"].(float64)
 				got["plantA_cnt"] = row["cnt"].(float64)
@@ -365,7 +365,7 @@ func TestJoinAggregationGlobalWindow(t *testing.T) {
 		select {
 		case res := <-ch:
 			for _, row := range res {
-				loc, _ := row["m.location"].(string)
+				loc, _ := row["location"].(string)
 				got[loc] = row["cnt"].(float64)
 			}
 		case <-time.After(5 * time.Second):
@@ -404,8 +404,8 @@ func TestJoinAggregationMultipleTables(t *testing.T) {
 	select {
 	case res := <-ch:
 		require.Len(t, res, 1, "expected one group (plantA, MX-1), got %v", res)
-		assert.Equal(t, "plantA", res[0]["l.location"])
-		assert.Equal(t, "MX-1", res[0]["s.model"])
+		assert.Equal(t, "plantA", res[0]["location"])
+		assert.Equal(t, "MX-1", res[0]["model"])
 		assert.Equal(t, float64(2), res[0]["cnt"])
 	case <-time.After(5 * time.Second):
 		t.Fatal("timeout waiting for multi-table aggregation")
