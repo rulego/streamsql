@@ -7,7 +7,6 @@ import (
 
 	"github.com/rulego/streamsql/expr"
 	"github.com/rulego/streamsql/functions"
-	"github.com/rulego/streamsql/logger"
 	"github.com/rulego/streamsql/utils/fieldpath"
 )
 
@@ -225,7 +224,7 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]any
 		// For function calls, use bridge processor
 		exprResult, err := bridge.EvaluateExpression(exprInfo.processedExpr, dataMap)
 		if err != nil {
-			logger.Error("Function call evaluation failed for field %s: %v", fieldName, err)
+			s.log.Error("Function call evaluation failed for field %s: %v", fieldName, err)
 			result[fieldName] = nil
 			return
 		}
@@ -236,7 +235,7 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]any
 			// Use EvaluateValueWithNull to get actual value (including strings)
 			exprResult, isNull, err := exprInfo.compiledExpr.EvaluateValueWithNull(dataMap)
 			if err != nil {
-				logger.Error("Expression evaluation failed for field %s: %v", fieldName, err)
+				s.log.Error("Expression evaluation failed for field %s: %v", fieldName, err)
 				result[fieldName] = nil
 				return
 			}
@@ -264,7 +263,7 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]any
 		} else {
 			exprResult, berr := bridge.EvaluateExpression(exprInfo.processedExpr, dataMap)
 			if berr != nil {
-				logger.Error("Expression evaluation failed for field %s: %v", fieldName, berr)
+				s.log.Error("Expression evaluation failed for field %s: %v", fieldName, berr)
 				result[fieldName] = nil
 				return
 			}
@@ -279,7 +278,7 @@ func (s *Stream) processExpressionField(fieldName string, dataMap map[string]any
 				// Use EvaluateValueWithNull to get actual value (including strings)
 				exprResult, isNull, evalErr := exprInfo.compiledExpr.EvaluateValueWithNull(dataMap)
 				if evalErr != nil {
-					logger.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
+					s.log.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
 					result[fieldName] = nil
 					return
 				}
@@ -340,7 +339,7 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 		// For function calls, prioritize bridge processor
 		exprResult, err := bridge.EvaluateExpression(processedExpr, dataMap)
 		if err != nil {
-			logger.Error("Function call evaluation failed for field %s: %v", fieldName, err)
+			s.log.Error("Function call evaluation failed for field %s: %v", fieldName, err)
 			result[fieldName] = nil
 			return
 		}
@@ -355,7 +354,7 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 		}
 		expression, parseErr := expr.NewExpression(exprToUse)
 		if parseErr != nil {
-			logger.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
+			s.log.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
 			result[fieldName] = nil
 			return
 		}
@@ -363,7 +362,7 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 		// Use EvaluateValueWithNull to get actual value (including strings)
 		exprResult, isNull, err := expression.EvaluateValueWithNull(dataMap)
 		if err != nil {
-			logger.Error("Expression evaluation failed for field %s: %v", fieldName, err)
+			s.log.Error("Expression evaluation failed for field %s: %v", fieldName, err)
 			result[fieldName] = nil
 			return
 		}
@@ -385,7 +384,7 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 			}
 			expression, parseErr := expr.NewExpression(exprToUse)
 			if parseErr != nil {
-				logger.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
+				s.log.Error("Expression parse failed for field %s: %v", fieldName, parseErr)
 				result[fieldName] = nil
 				return
 			}
@@ -393,7 +392,7 @@ func (s *Stream) processExpressionFieldFallback(fieldName string, dataMap map[st
 			// Use EvaluateValueWithNull to get actual value (including strings)
 			exprResult, isNull, evalErr := expression.EvaluateValueWithNull(dataMap)
 			if evalErr != nil {
-				logger.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
+				s.log.Error("Expression evaluation failed for field %s: %v", fieldName, evalErr)
 				result[fieldName] = nil
 				return
 			}
@@ -442,7 +441,7 @@ func (s *Stream) processSimpleField(fieldSpec string, dataMap map[string]any, da
 		if funcResult, err := s.executeFunction(info.fieldName, dataMap); err == nil {
 			result[info.outputName] = funcResult
 		} else {
-			logger.Error("Function execution error %s: %v", info.fieldName, err)
+			s.log.Error("Function execution error %s: %v", info.fieldName, err)
 			result[info.outputName] = nil
 		}
 	} else {
@@ -522,7 +521,7 @@ func (s *Stream) processSingleFieldFallback(fieldSpec string, dataMap map[string
 		if funcResult, err := s.executeFunction(fieldName, dataMap); err == nil {
 			result[outputName] = funcResult
 		} else {
-			logger.Error("Function execution error %s: %v", fieldName, err)
+			s.log.Error("Function execution error %s: %v", fieldName, err)
 			result[outputName] = nil
 		}
 	} else {

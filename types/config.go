@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/rulego/streamsql/aggregator"
+	"github.com/rulego/streamsql/logger"
 )
 
 const (
@@ -46,6 +47,11 @@ type Config struct {
 	// SourceAlias is the optional FROM alias (e.g. "s" in "FROM stream AS s").
 	// When set, stream fields can be qualified as "s.<field>" in SELECT/WHERE.
 	SourceAlias string `json:"sourceAlias"`
+
+	// Logger is the per-instance logger for the stream pipeline. Injected by
+	// Streamsql.Execute (from WithLogger, else the process default); nil falls
+	// back to logger.GetDefault() at construction. Immutable after construction.
+	Logger logger.Logger `json:"-"`
 
 	// Performance configuration
 	PerformanceConfig PerformanceConfig `json:"performanceConfig"`

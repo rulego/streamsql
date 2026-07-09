@@ -26,7 +26,6 @@ import (
 	"github.com/rulego/streamsql/condition"
 	"github.com/rulego/streamsql/expr"
 	"github.com/rulego/streamsql/functions"
-	"github.com/rulego/streamsql/logger"
 	"github.com/rulego/streamsql/types"
 	"github.com/rulego/streamsql/window"
 )
@@ -80,7 +79,7 @@ func (dp *DataProcessor) Process() {
 				if dp.stream.hasJoin() {
 					wm, k, jerr := dp.stream.enrichJoin(data)
 					if jerr != nil {
-						logger.Error("join enrichment error: %v", jerr)
+						dp.stream.log.Error("join enrichment error: %v", jerr)
 						keep = false
 					} else if !k {
 						keep = false // INNER JOIN no match: drop the row
@@ -323,7 +322,7 @@ func (dp *DataProcessor) startWindowProcessing() {
 		defer dp.stream.lifecycle.Done()
 		defer func() {
 			if r := recover(); r != nil {
-				logger.Error("Window processing goroutine panic recovered: %v", r)
+				dp.stream.log.Error("Window processing goroutine panic recovered: %v", r)
 			}
 		}()
 
@@ -364,13 +363,13 @@ func (dp *DataProcessor) processWindowBatch(batch []types.Row) {
 	// Process window batch data
 	for _, item := range batch {
 		if err := dp.stream.aggregator.Put(WindowStartField, item.Slot.WindowStart()); err != nil {
-			logger.Error("failed to put window start: %v", err)
+			dp.stream.log.Error("failed to put window start: %v", err)
 		}
 		if err := dp.stream.aggregator.Put(WindowEndField, item.Slot.WindowEnd()); err != nil {
-			logger.Error("failed to put window end: %v", err)
+			dp.stream.log.Error("failed to put window end: %v", err)
 		}
 		if err := dp.stream.aggregator.Add(item.Data); err != nil {
-			logger.Error("aggregate error: %v", err)
+			dp.stream.log.Error("aggregate error: %v", err)
 		}
 	}
 
@@ -441,7 +440,7 @@ func (dp *DataProcessor) applyDistinct(results []map[string]any) []map[string]an
 	for _, result := range results {
 		serializedResult, jsonErr := json.Marshal(result)
 		if jsonErr != nil {
-			logger.Error("Error serializing result for distinct check: %v", jsonErr)
+			dp.stream.log.Error("Error serializing result for distinct check: %v", jsonErr)
 			finalResults = append(finalResults, result)
 			continue
 		}
@@ -483,7 +482,7 @@ func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]any)
 	}
 	expression, err := expr.NewExpression(exprToUse)
 	if err != nil {
-		logger.Error("having filter error (CASE expression): %v", err)
+		dp.stream.log.Error("having filter error (CASE expression): %v", err)
 		return results
 	}
 
@@ -493,7 +492,7 @@ func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]any)
 		// Use EvaluateValueWithNull method to support NULL value processing
 		havingResult, isNull, err := expression.EvaluateValueWithNull(result)
 		if err != nil {
-			logger.Error("having filter evaluation error: %v", err)
+			dp.stream.log.Error("having filter evaluation error: %v", err)
 			continue
 		}
 
@@ -545,7 +544,7 @@ func (dp *DataProcessor) applyHavingWithCondition(results []map[string]any) []ma
 	// Create HAVING condition
 	havingFilter, err := condition.NewExprCondition(processedHaving)
 	if err != nil {
-		logger.Error("having filter error: %v", err)
+		dp.stream.log.Error("having filter error: %v", err)
 		return results
 	}
 
@@ -570,7 +569,7 @@ func (dp *DataProcessor) processDirectData(data map[string]any) {
 	if dp.stream.hasJoin() {
 		wm, keep, jerr := dp.stream.enrichJoin(data)
 		if jerr != nil {
-			logger.Error("join enrichment error: %v", jerr)
+			dp.stream.log.Error("join enrichment error: %v", jerr)
 			return
 		}
 		if !keep {

@@ -41,7 +41,7 @@ type Streamsql struct {
 	stream *stream.Stream
 
 	// Performance configuration mode
-	performanceMode string // "default", "high_performance", "low_latency", "zero_data_loss", "custom"
+	performanceMode string // "default", "high_performance", "low_latency", "custom"
 	customConfig    *types.PerformanceConfig
 
 	// Save original SELECT field order to maintain field order for table output
@@ -49,6 +49,10 @@ type Streamsql struct {
 
 	// Flag to track if Execute has been called
 	executed int32
+
+	// Per-instance logger (set via WithLogger, defaults to logger.GetDefault());
+	// immutable after New, injected into the stream pipeline at Execute.
+	log logger.Logger
 
 	// Opt-in input validation. schemaValidator is non-nil only when WithSchema
 	// is set; nil means Emit/EmitSync skip validation entirely (zero overhead).
@@ -72,12 +76,10 @@ type Streamsql struct {
 //
 //	// Create high performance instance
 //	ssql := streamsql.New(streamsql.WithHighPerformance())
-//
-//	// Create zero data loss instance
-//	ssql := streamsql.New(streamsql.WithZeroDataLoss())
 func New(options ...Option) *Streamsql {
 	s := &Streamsql{
 		performanceMode: "default", // Default to standard performance configuration
+		log:             logger.GetDefault(),
 	}
 
 	// Apply all configuration options
@@ -148,6 +150,9 @@ func (s *Streamsql) Execute(sql string) error {
 	// Get field order information from parsing result
 	s.fieldOrder = config.FieldOrder
 
+	// Inject the per-instance logger into the stream pipeline.
+	config.Logger = s.log
+
 	// Create stream processor based on performance mode
 	var streamInstance *stream.Stream
 
@@ -217,7 +222,7 @@ func (s *Streamsql) Emit(data map[string]interface{}) {
 		if err := s.schemaValidator.Validate(data); err != nil {
 			n := atomic.AddInt64(&s.schemaDropped, 1)
 			if n == 1 || n%1000 == 0 {
-				logger.Warn("schema validation failed, dropping row (total %d): %v", n, err)
+				s.log.Warn("schema validation failed, dropping row (total %d): %v", n, err)
 			}
 			return
 		}

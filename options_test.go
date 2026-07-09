@@ -23,8 +23,10 @@ import (
 	"time"
 
 	"github.com/rulego/streamsql/logger"
+	"github.com/rulego/streamsql/schema"
 	"github.com/rulego/streamsql/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestWithLogLevel 测试日志级别设置选项
@@ -79,15 +81,6 @@ func TestWithLowLatency(t *testing.T) {
 		s := New(WithLowLatency())
 
 		assert.Equal(t, "low_latency", s.performanceMode)
-	})
-}
-
-// TestWithZeroDataLoss 测试零数据丢失配置选项
-func TestWithZeroDataLoss(t *testing.T) {
-	t.Run("设置零数据丢失模式", func(t *testing.T) {
-		s := New(WithZeroDataLoss())
-
-		assert.Equal(t, "zero_data_loss", s.performanceMode)
 	})
 }
 
@@ -325,29 +318,47 @@ func (c *captureLogger) record(level, format string, args ...any) {
 	c.mu.Unlock()
 }
 
-// TestWithLogger 验证 WithLogger 把引擎日志路由到指定 logger。
+// TestWithLogger 验证 WithLogger 按实例路由引擎日志（实例间不串扰）。
 func TestWithLogger(t *testing.T) {
-	prev := logger.GetDefault()
-	defer logger.SetDefault(prev)
+	sch := schema.Schema{Fields: []schema.FieldDef{{Name: "v", Type: schema.TypeInt, Required: true}}}
 
 	t.Run("路由到自定义 logger", func(t *testing.T) {
 		cap := &captureLogger{}
-		s := New(WithLogger(cap))
+		s := New(WithLogger(cap), WithSchema(sch))
 		defer s.Stop()
+		require.NoError(t, s.Execute("SELECT v FROM stream"))
 
-		logger.Info("hello %s", "world")
-		logger.Error("boom %d", 42)
+		s.Emit(map[string]any{"v": "bad"}) // schema fail -> s.log.Warn (synchronous)
 
 		cap.mu.Lock()
 		defer cap.mu.Unlock()
-		assert.Contains(t, cap.msgs, "INFO:hello world")
-		assert.Contains(t, cap.msgs, "ERROR:boom 42")
+		require.NotEmpty(t, cap.msgs, "engine warn should route to the instance logger")
+		assert.Contains(t, cap.msgs[0], "schema validation failed")
 	})
 
 	t.Run("nil 保持默认", func(t *testing.T) {
-		before := logger.GetDefault()
+		prev := logger.GetDefault()
 		s := New(WithLogger(nil))
 		defer s.Stop()
-		assert.Same(t, before, logger.GetDefault(), "nil 不应改变默认 logger")
+		assert.Same(t, prev, s.log, "nil keeps the process default")
+	})
+
+	t.Run("按实例无串扰", func(t *testing.T) {
+		capA, capB := &captureLogger{}, &captureLogger{}
+		a := New(WithLogger(capA), WithSchema(sch))
+		defer a.Stop()
+		require.NoError(t, a.Execute("SELECT v FROM stream"))
+		b := New(WithLogger(capB), WithSchema(sch))
+		defer b.Stop()
+		require.NoError(t, b.Execute("SELECT v FROM stream"))
+
+		a.Emit(map[string]any{"v": "bad"}) // -> capA only
+
+		capA.mu.Lock()
+		capB.mu.Lock()
+		defer capA.mu.Unlock()
+		defer capB.mu.Unlock()
+		assert.NotEmpty(t, capA.msgs, "A's logger got A's warn")
+		assert.Empty(t, capB.msgs, "B's logger must not get A's warn (no cross-talk)")
 	})
 }

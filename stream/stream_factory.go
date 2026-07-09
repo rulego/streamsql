@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/rulego/streamsql/logger"
 	"github.com/rulego/streamsql/metrics"
 	"github.com/rulego/streamsql/types"
 	"github.com/rulego/streamsql/window"
@@ -110,9 +111,14 @@ func (sf *StreamFactory) createWindow(config types.Config) (window.Window, error
 func (sf *StreamFactory) createStreamInstance(config types.Config, win window.Window) *Stream {
 	perfConfig := config.PerformanceConfig
 	reg := metrics.NewRegistry()
+	log := config.Logger
+	if log == nil {
+		log = logger.GetDefault()
+	}
 	return &Stream{
 		dataChan:         make(chan map[string]any, perfConfig.BufferConfig.DataChannelSize),
 		config:           config,
+		log:              log,
 		Window:           win,
 		tables:           newTableStore(),
 		resultChan:       make(chan []map[string]any, perfConfig.BufferConfig.ResultChannelSize),
@@ -168,10 +174,9 @@ func (sf *StreamFactory) validatePerformanceConfig(config types.PerformanceConfi
 
 	// Validate overflow configuration
 	validStrategies := map[string]bool{
-		"drop":    true,
-		"block":   true,
-		"expand":  true,
-		"persist": true,
+		"drop":   true,
+		"block":  true,
+		"expand": true,
 	}
 	if config.OverflowConfig.Strategy != "" && !validStrategies[config.OverflowConfig.Strategy] {
 		return fmt.Errorf("invalid overflow strategy: %s", config.OverflowConfig.Strategy)

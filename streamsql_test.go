@@ -69,16 +69,6 @@ func TestStreamSQLPerformanceModesExtended(t *testing.T) {
 		ssql.Stop()
 	})
 
-	t.Run("zero data loss mode", func(t *testing.T) {
-		ssql := New(WithZeroDataLoss())
-		assert.Equal(t, "zero_data_loss", ssql.performanceMode)
-
-		err := ssql.Execute("SELECT id FROM stream")
-		require.NoError(t, err)
-		assert.NotNil(t, ssql.stream)
-		ssql.Stop()
-	})
-
 	t.Run("custom performance mode", func(t *testing.T) {
 		customConfig := types.DefaultPerformanceConfig()
 		customConfig.BufferConfig.DataChannelSize = 2000

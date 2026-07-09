@@ -41,15 +41,13 @@ func WithDiscardLog() Option {
 	}
 }
 
-// WithLogger sets the logger used by the engine. The library routes all internal
-// logging through a single process-global logger (see logger.SetDefault), so this
-// is equivalent to logger.SetDefault(l); it is exposed as an Option so callers
-// configure it alongside New. Pass nil to keep the default. A true per-instance
-// logger would require threading one through every internal call site.
+// WithLogger sets the per-instance logger used by this stream's pipeline. Each
+// Streamsql instance logs only to its own logger (no global cross-talk between
+// instances). Pass nil to keep the process default (logger.GetDefault).
 func WithLogger(l logger.Logger) Option {
 	return func(s *Streamsql) {
 		if l != nil {
-			logger.SetDefault(l)
+			s.log = l
 		}
 	}
 }
@@ -67,14 +65,6 @@ func WithHighPerformance() Option {
 func WithLowLatency() Option {
 	return func(s *Streamsql) {
 		s.performanceMode = "low_latency"
-	}
-}
-
-// WithZeroDataLoss uses zero data loss configuration
-// Suitable for critical business data, ensuring no data loss
-func WithZeroDataLoss() Option {
-	return func(s *Streamsql) {
-		s.performanceMode = "zero_data_loss"
 	}
 }
 

@@ -70,15 +70,16 @@ type Stream struct {
 	sinkWorkerPool chan func()   // Sink worker pool to avoid blocking
 
 	// Thread safety control
-	dataChanMux      sync.RWMutex // Read-write lock protecting dataChan access
-	sinksMux         sync.RWMutex // Read-write lock protecting sinks access
-	expansionMux     sync.Mutex   // Mutex preventing concurrent expansion
-	retryMux         sync.Mutex   // Mutex controlling persistence retry
-	expanding        int32        // Expansion status flag using atomic operations
-	activeRetries    int32        // Active retry count using atomic operations
-	maxRetryRoutines int32        // Maximum retry goroutine limit
-	stopped          int32        // Stop status flag using atomic operations
-	startMu          sync.Mutex   // serializes Start's stopped-check+Add with Stop's flag set
+	dataChanMux      sync.RWMutex  // Read-write lock protecting dataChan access
+	sinksMux         sync.RWMutex  // Read-write lock protecting sinks access
+	expansionMux     sync.Mutex    // Mutex preventing concurrent expansion
+	retryMux         sync.Mutex    // Mutex controlling persistence retry
+	expanding        int32         // Expansion status flag using atomic operations
+	activeRetries    int32         // Active retry count using atomic operations
+	maxRetryRoutines int32         // Maximum retry goroutine limit
+	stopped          int32         // Stop status flag using atomic operations
+	startMu          sync.Mutex    // serializes Start's stopped-check+Add with Stop's flag set
+	log              logger.Logger // per-instance logger; set at construction, immutable after
 
 	// lifecycle tracks goroutines that run user code or sinks (data processor,
 	// window-output consumer, sink workers). Stop joins them so it returns only
@@ -98,7 +99,7 @@ type Stream struct {
 	// Data loss strategy configuration
 	allowDataDrop    bool          // Whether to allow data loss
 	blockingTimeout  time.Duration // Blocking timeout duration
-	overflowStrategy string        // Overflow strategy: "drop", "block", "expand", "persist"
+	overflowStrategy string        // Overflow strategy: "drop", "block", "expand"
 
 	// Data processing strategy using strategy pattern for better extensibility
 	dataStrategy DataProcessingStrategy // Data processing strategy instance
@@ -265,7 +266,7 @@ func (s *Stream) Stop() {
 	// Stop and clean up data processing strategy resources
 	if s.dataStrategy != nil {
 		if err := s.dataStrategy.Stop(); err != nil {
-			logger.Error("Failed to stop data strategy: %v", err)
+			s.log.Error("Failed to stop data strategy: %v", err)
 		}
 	}
 
@@ -352,7 +353,7 @@ func (s *Stream) waitLifecycle() {
 	select {
 	case <-drained:
 	case <-time.After(defaultStopGrace):
-		logger.Warn("Stream.Stop: goroutines did not exit within %s; a sink may be blocked", defaultStopGrace)
+		s.log.Warn("Stream.Stop: goroutines did not exit within %s; a sink may be blocked", defaultStopGrace)
 	}
 }
 

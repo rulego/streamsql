@@ -22,7 +22,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/rulego/streamsql/logger"
 	"github.com/rulego/streamsql/types"
 )
 
@@ -100,7 +99,7 @@ func (bs *BlockingStrategy) ProcessData(data map[string]any) {
 		return
 	case <-timer.C:
 		// Timeout but don't drop data, log error but continue blocking
-		logger.Error("Data addition timeout, but continue waiting to avoid data loss")
+		bs.stream.log.Error("Data addition timeout, but continue waiting to avoid data loss")
 		// Continue blocking indefinitely, re-get current channel reference
 		finalDataChan := bs.stream.safeGetDataChan()
 		if finalDataChan == nil {
@@ -155,7 +154,7 @@ func (es *ExpansionStrategy) ProcessData(data map[string]any) {
 
 	// Retry after expansion, re-acquire channel reference
 	if es.stream.safeSendToDataChan(data) {
-		logger.Debug("Successfully added data after data channel expansion")
+		es.stream.log.Debug("Successfully added data after data channel expansion")
 		return
 	}
 
@@ -232,7 +231,7 @@ func (ds *DropStrategy) ProcessData(data map[string]any) {
 			maxRetries = 1
 		default:
 			// Drop immediately
-			logger.Warn("Data channel is full, dropping input data")
+			ds.stream.log.Warn("Data channel is full, dropping input data")
 			ds.stream.mDropped.Inc()
 			return
 		}
@@ -249,7 +248,7 @@ func (ds *DropStrategy) ProcessData(data map[string]any) {
 			waitTime = 50 * time.Microsecond
 			maxRetries = 1
 		default:
-			logger.Warn("Data channel is full, dropping input data")
+			ds.stream.log.Warn("Data channel is full, dropping input data")
 			ds.stream.mDropped.Inc()
 			return
 		}
@@ -263,7 +262,7 @@ func (ds *DropStrategy) ProcessData(data map[string]any) {
 			waitTime = 50 * time.Microsecond
 			maxRetries = 1
 		default:
-			logger.Warn("Data channel is full, dropping input data")
+			ds.stream.log.Warn("Data channel is full, dropping input data")
 			ds.stream.mDropped.Inc()
 			return
 		}
@@ -281,7 +280,7 @@ func (ds *DropStrategy) ProcessData(data map[string]any) {
 			// Timeout, continue to next retry or drop
 			if retry == maxRetries-1 {
 				// Last retry failed, record drop
-				logger.Warn("Data channel is full, dropping input data")
+				ds.stream.log.Warn("Data channel is full, dropping input data")
 				ds.stream.mDropped.Inc()
 			}
 		case <-ds.stream.done:

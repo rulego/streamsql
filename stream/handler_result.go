@@ -19,8 +19,6 @@ package stream
 import (
 	"sync/atomic"
 	"time"
-
-	"github.com/rulego/streamsql/logger"
 )
 
 // ResultHandler handles result output and sink function calls
@@ -54,7 +52,7 @@ func (s *Stream) startSinkWorkerPool(workerCount int) {
 						defer func() {
 							// Enhanced error recovery to prevent single worker crash
 							if r := recover(); r != nil {
-								logger.Error("Sink worker %d panic recovered: %v", workerID, r)
+								s.log.Error("Sink worker %d panic recovered: %v", workerID, r)
 							}
 						}()
 						task()
@@ -134,7 +132,7 @@ func (s *Stream) logDroppedDataWithThrottling() {
 			// Reset drop count and log the summary
 			atomic.StoreInt64(&s.dropLogCount, 0)
 			totalDropped := s.mDropped.Value()
-			logger.Warn("Result channel is full, dropped %d data items in last period (total dropped: %d)", dropCount, totalDropped+1)
+			s.log.Warn("Result channel is full, dropped %d data items in last period (total dropped: %d)", dropCount, totalDropped+1)
 		}
 	}
 }
@@ -161,7 +159,7 @@ func (s *Stream) callSinksAsync(results []map[string]any) {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					logger.Error("Sync sink execution exception: %v", r)
+					s.log.Error("Sync sink execution exception: %v", r)
 				}
 			}()
 			sink(results)
@@ -179,7 +177,7 @@ func (s *Stream) submitSinkTask(sink func([]map[string]any), results []map[strin
 		defer func() {
 			// Recover panic to prevent single sink error from affecting entire system
 			if r := recover(); r != nil {
-				logger.Error("Sink execution exception: %v", r)
+				s.log.Error("Sink execution exception: %v", r)
 			}
 		}()
 		currentSink(results)

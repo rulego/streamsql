@@ -64,12 +64,6 @@ Configurable performance profiles for different scenarios:
 	// - Immediate processing
 	stream := NewStreamWithLowLatency(config)
 
-	// Zero Data Loss Mode
-	// - Guaranteed data persistence
-	// - Synchronous processing
-	// - Enhanced error recovery
-	stream := NewStreamWithZeroDataLoss(config)
-
 	// Custom Performance Mode
 	// - User-defined performance parameters
 	customConfig := &PerformanceConfig{

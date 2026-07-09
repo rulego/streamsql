@@ -39,7 +39,7 @@ func TestSchemaValidation_OptIn(t *testing.T) {
 		mu.Unlock()
 	})
 
-	ssql.Emit(map[string]any{"deviceId": "d1", "temperature": 25.0})           // valid -> passes
+	ssql.Emit(map[string]any{"deviceId": "d1", "temperature": 25.0})          // valid -> passes
 	ssql.Emit(map[string]any{"deviceId": "d2", "temperature": "hot", "x": 1}) // wrong type + unknown -> dropped
 	ssql.Emit(map[string]any{"temperature": 30.0})                            // missing required -> dropped
 

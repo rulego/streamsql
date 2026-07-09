@@ -19,8 +19,6 @@ package stream
 import (
 	"sync/atomic"
 	"time"
-
-	"github.com/rulego/streamsql/logger"
 )
 
 // DataHandler handles data processing for different strategies
@@ -64,7 +62,7 @@ func (s *Stream) safeSendToDataChan(data map[string]any) bool {
 func (s *Stream) expandDataChannel() {
 	// Use atomic operation to check if expansion is in progress, prevent concurrent expansion
 	if !atomic.CompareAndSwapInt32(&s.expanding, 0, 1) {
-		logger.Debug("Channel expansion already in progress, skipping")
+		s.log.Debug("Channel expansion already in progress, skipping")
 		return
 	}
 	defer atomic.StoreInt32(&s.expanding, 0)
@@ -81,7 +79,7 @@ func (s *Stream) expandDataChannel() {
 
 	// No expansion needed if current channel usage is below 80%
 	if float64(currentLen)/float64(oldCap) < 0.8 {
-		logger.Debug("Channel usage below threshold, expansion not needed")
+		s.log.Debug("Channel usage below threshold, expansion not needed")
 		return
 	}
 
@@ -90,7 +88,7 @@ func (s *Stream) expandDataChannel() {
 		newCap = oldCap + 1000 // At least increase by 1000
 	}
 
-	logger.Debug("Dynamic expansion of data channel: %d -> %d", oldCap, newCap)
+	s.log.Debug("Dynamic expansion of data channel: %d -> %d", oldCap, newCap)
 
 	// Create new larger channel
 	newChan := make(chan map[string]any, newCap)
@@ -111,11 +109,11 @@ func (s *Stream) expandDataChannel() {
 			case newChan <- data:
 				migratedCount++
 			case <-migrationTimeout.C:
-				logger.Warn("Data migration timeout, some data may be lost during expansion")
+				s.log.Warn("Data migration timeout, some data may be lost during expansion")
 				goto migration_done
 			}
 		case <-migrationTimeout.C:
-			logger.Warn("Data migration timeout during channel drain")
+			s.log.Warn("Data migration timeout during channel drain")
 			goto migration_done
 		default:
 			// Old channel is empty, migration completed
@@ -128,5 +126,5 @@ migration_done:
 	s.dataChan = newChan
 	s.dataChanMux.Unlock()
 
-	logger.Debug("Channel expansion completed: migrated %d items", migratedCount)
+	s.log.Debug("Channel expansion completed: migrated %d items", migratedCount)
 }
