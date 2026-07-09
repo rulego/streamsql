@@ -72,10 +72,24 @@ func (dp *DataProcessor) Process() {
 				return
 			}
 			if dp.stream.config.NeedWindow {
-				// Window mode: filter raw stream data, then window it. (JOIN is
-				// transform-only in v0.5 and rejected at Execute for aggregation.)
-				if dp.stream.filter == nil || dp.stream.filter.Evaluate(data) {
-					dp.stream.Window.Add(data)
+				// Window mode: enrich (if JOIN) -> filter -> window. Mirrors
+				// processDirectData so WHERE and GROUP BY can reference joined
+				// columns. INNER no-match and WHERE misses drop before the window.
+				dataMap := data
+				keep := true
+				if dp.stream.hasJoin() {
+					wm, k, jerr := dp.stream.enrichJoin(data)
+					if jerr != nil {
+						logger.Error("join enrichment error: %v", jerr)
+						keep = false
+					} else if !k {
+						keep = false // INNER JOIN no match: drop the row
+					} else {
+						dataMap = wm
+					}
+				}
+				if keep && (dp.stream.filter == nil || dp.stream.filter.Evaluate(dataMap)) {
+					dp.stream.Window.Add(dataMap)
 				}
 			} else {
 				// Non-window mode: processDirectData does enrich(if JOIN) ->

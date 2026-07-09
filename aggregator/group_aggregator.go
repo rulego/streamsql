@@ -11,6 +11,12 @@ import (
 	"github.com/rulego/streamsql/utils/fieldpath"
 )
 
+// nullGroupKeyMarker is the group-key segment for a missing/nil group field
+// (e.g. a LEFT JOIN row with no match). Rows sharing it collapse into one NULL
+// group; GetResults maps it back to nil. The \x00 byte avoids collisions with
+// realistic field values.
+const nullGroupKeyMarker = "\x00NULL"
+
 // Aggregator aggregator interface
 type Aggregator interface {
 	Add(data any) error
@@ -196,12 +202,12 @@ func (ga *GroupAggregator) Add(data any) error {
 			}
 		}
 
-		if !found {
-			return fmt.Errorf("field %s not found", field)
-		}
-
-		if fieldVal == nil {
-			return fmt.Errorf("field %s has nil value", field)
+		// Missing or nil group field (e.g. a LEFT JOIN row with no match)
+		// collapses into a single NULL group keyed by the sentinel; GetResults
+		// maps it back to nil. Avoids dropping the whole row on a nullable key.
+		if !found || fieldVal == nil {
+			key += nullGroupKeyMarker + "|"
+			continue
 		}
 
 		if str, ok := fieldVal.(string); ok {
@@ -342,7 +348,12 @@ func (ga *GroupAggregator) GetResults() ([]map[string]any, error) {
 		group := make(map[string]any)
 		fields := strings.Split(key, "|")
 		for i, field := range ga.groupFields {
-			if i < len(fields) {
+			if i >= len(fields) {
+				continue
+			}
+			if fields[i] == nullGroupKeyMarker {
+				group[field] = nil
+			} else {
 				group[field] = fields[i]
 			}
 		}

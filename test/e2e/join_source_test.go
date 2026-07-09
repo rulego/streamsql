@@ -268,15 +268,16 @@ func TestJoinLeftWhereMetadataIsNull(t *testing.T) {
 	}
 }
 
-// TestJoinWithAggregationRejected verifies JOIN + aggregation is rejected at
-// Execute (v0.5: JOIN is transform-only).
-func TestJoinWithAggregationRejected(t *testing.T) {
+// TestJoinWithAggregation verifies JOIN + aggregation is accepted at Execute
+// (stream-table JOIN now enriches before the window). End-to-end behavior is
+// covered by TestJoinAggregationGroupByTableField and friends.
+func TestJoinWithAggregation(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 	err := ssql.Execute("SELECT m.location, AVG(temperature) FROM stream JOIN meta m ON deviceId = m.deviceId GROUP BY m.location")
-	if err == nil {
-		t.Error("expected error for JOIN + aggregation, got nil")
+	if err != nil {
+		t.Fatalf("JOIN + aggregation should be accepted, got: %v", err)
 	}
 }
 

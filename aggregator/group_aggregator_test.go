@@ -351,9 +351,9 @@ func TestGroupAggregator_ErrorHandling(t *testing.T) {
 	err = agg.Add("invalid data")
 	assert.Error(t, err)
 
-	// 测试添加缺少分组字段的数据
+	// 缺少分组字段：归入 NULL 分组，不再报错
 	err = agg.Add(map[string]any{"temperature": 25.5})
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }
 
 // TestGroupAggregator_DifferentAggregateTypes 测试不同聚合类型
@@ -1774,7 +1774,7 @@ func TestGroupAggregatorUnsupportedDataType(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported data type")
 }
 
-// TestGroupAggregatorGroupFieldNilValue 测试分组字段为 nil 的情况
+// TestGroupAggregatorGroupFieldNilValue 测试分组字段为 nil 时归入 NULL 分组（不丢行）
 func TestGroupAggregatorGroupFieldNilValue(t *testing.T) {
 	ga := NewGroupAggregator(
 		[]string{"group"},
@@ -1787,15 +1787,18 @@ func TestGroupAggregatorGroupFieldNilValue(t *testing.T) {
 		},
 	)
 
-	// 添加分组字段为 nil 的数据
+	// 分组字段为 nil：归入 NULL 分组，不再报错丢行
 	err := ga.Add(map[string]any{
-		"group": nil, // 分组字段为 nil
+		"group": nil,
 		"value": 10.0,
 	})
+	assert.NoError(t, err)
 
-	// 应该返回错误
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "field group has nil value")
+	results, err := ga.GetResults()
+	assert.NoError(t, err)
+	if assert.Len(t, results, 1) {
+		assert.Nil(t, results[0]["group"])
+	}
 }
 
 // TestIsNumericAggregatorAdvanced 测试 isNumericAggregator 的更多分支
@@ -1852,7 +1855,7 @@ func TestGroupAggregatorNilData(t *testing.T) {
 	assert.Contains(t, err.Error(), "data cannot be nil")
 }
 
-// TestGroupAggregatorMissingGroupField 测试缺少分组字段
+// TestGroupAggregatorMissingGroupField 测试缺少分组字段时归入 NULL 分组（不丢行）
 func TestGroupAggregatorMissingGroupField(t *testing.T) {
 	ga := NewGroupAggregator(
 		[]string{"missing_group"},
@@ -1865,13 +1868,17 @@ func TestGroupAggregatorMissingGroupField(t *testing.T) {
 		},
 	)
 
-	// 添加缺少分组字段的数据
+	// 缺少分组字段：归入 NULL 分组，不再报错丢行
 	err := ga.Add(map[string]any{
 		"value": 10,
-		// 缺少 missing_group 字段
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "field missing_group not found")
+	assert.NoError(t, err)
+
+	results, err := ga.GetResults()
+	assert.NoError(t, err)
+	if assert.Len(t, results, 1) {
+		assert.Nil(t, results[0]["missing_group"])
+	}
 }
 
 // TestGroupAggregatorMissingAggregationField 测试缺少聚合字段但有上下文
