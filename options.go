@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/rulego/streamsql/logger"
+	"github.com/rulego/streamsql/schema"
 	"github.com/rulego/streamsql/types"
 )
 
@@ -37,6 +38,19 @@ func WithLogLevel(level logger.Level) Option {
 func WithDiscardLog() Option {
 	return func(s *Streamsql) {
 		logger.SetDefault(logger.NewDiscardLogger())
+	}
+}
+
+// WithLogger sets the logger used by the engine. The library routes all internal
+// logging through a single process-global logger (see logger.SetDefault), so this
+// is equivalent to logger.SetDefault(l); it is exposed as an Option so callers
+// configure it alongside New. Pass nil to keep the default. A true per-instance
+// logger would require threading one through every internal call site.
+func WithLogger(l logger.Logger) Option {
+	return func(s *Streamsql) {
+		if l != nil {
+			logger.SetDefault(l)
+		}
 	}
 }
 
@@ -117,5 +131,16 @@ func WithMonitoring(updateInterval time.Duration, enableDetailedStats bool) Opti
 		config.MonitoringConfig.StatsUpdateInterval = updateInterval
 		config.MonitoringConfig.EnableDetailedStats = enableDetailedStats
 		s.customConfig = &config
+	}
+}
+
+// WithSchema registers an input-validation schema for this stream. Emit/EmitSync
+// validate data against it and drop rows that fail (Emit logs+drops, EmitSync
+// returns the error). Without WithSchema, Emit/EmitSync perform no validation
+// (zero overhead). One Streamsql instance is one stream/query; for multiple
+// streams, use multiple instances, each with its own schema.
+func WithSchema(s schema.Schema) Option {
+	return func(ss *Streamsql) {
+		ss.schemaValidator = &s
 	}
 }

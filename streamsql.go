@@ -20,8 +20,10 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/rulego/streamsql/logger"
 	"github.com/rulego/streamsql/metrics"
 	"github.com/rulego/streamsql/rsql"
+	"github.com/rulego/streamsql/schema"
 	"github.com/rulego/streamsql/stream"
 	"github.com/rulego/streamsql/types"
 	"github.com/rulego/streamsql/utils/table"
@@ -47,6 +49,11 @@ type Streamsql struct {
 
 	// Flag to track if Execute has been called
 	executed int32
+
+	// Opt-in input validation. schemaValidator is non-nil only when WithSchema
+	// is set; nil means Emit/EmitSync skip validation entirely (zero overhead).
+	schemaValidator *schema.Schema
+	schemaDropped   int64
 }
 
 // New creates a new StreamSQL instance.
@@ -203,9 +210,19 @@ func (s *Streamsql) Execute(sql string) error {
 //	    "page": "/home",
 //	})
 func (s *Streamsql) Emit(data map[string]interface{}) {
-	if s.stream != nil {
-		s.stream.Emit(data)
+	if s.stream == nil {
+		return
 	}
+	if s.schemaValidator != nil {
+		if err := s.schemaValidator.Validate(data); err != nil {
+			n := atomic.AddInt64(&s.schemaDropped, 1)
+			if n == 1 || n%1000 == 0 {
+				logger.Warn("schema validation failed, dropping row (total %d): %v", n, err)
+			}
+			return
+		}
+	}
+	s.stream.Emit(data)
 }
 
 // EmitSync processes data synchronously, returning results immediately.
@@ -241,7 +258,18 @@ func (s *Streamsql) EmitSync(data map[string]interface{}) (map[string]interface{
 		return nil, fmt.Errorf("synchronous mode only supports non-aggregation queries, use Emit() method for aggregation queries")
 	}
 
+	if s.schemaValidator != nil {
+		if err := s.schemaValidator.Validate(data); err != nil {
+			atomic.AddInt64(&s.schemaDropped, 1)
+			return nil, fmt.Errorf("schema validation failed: %w", err)
+		}
+	}
 	return s.stream.ProcessSync(data)
+}
+
+// SchemaDropped returns the count of rows dropped by schema validation.
+func (s *Streamsql) SchemaDropped() int64 {
+	return atomic.LoadInt64(&s.schemaDropped)
 }
 
 // IsAggregationQuery checks if the current query is an aggregation query

@@ -17,6 +17,8 @@
 package streamsql
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -302,5 +304,50 @@ func TestOptionsEdgeCases(t *testing.T) {
 		assert.True(t, s.customConfig.MonitoringConfig.EnableMonitoring)
 		assert.Equal(t, time.Duration(0), s.customConfig.MonitoringConfig.StatsUpdateInterval)
 		assert.False(t, s.customConfig.MonitoringConfig.EnableDetailedStats)
+	})
+}
+
+// captureLogger records formatted messages for assertion.
+type captureLogger struct {
+	mu   sync.Mutex
+	msgs []string
+}
+
+func (c *captureLogger) Debug(format string, args ...any) { c.record("DEBUG", format, args...) }
+func (c *captureLogger) Info(format string, args ...any)  { c.record("INFO", format, args...) }
+func (c *captureLogger) Warn(format string, args ...any)  { c.record("WARN", format, args...) }
+func (c *captureLogger) Error(format string, args ...any) { c.record("ERROR", format, args...) }
+func (c *captureLogger) SetLevel(logger.Level)            {}
+
+func (c *captureLogger) record(level, format string, args ...any) {
+	c.mu.Lock()
+	c.msgs = append(c.msgs, level+":"+fmt.Sprintf(format, args...))
+	c.mu.Unlock()
+}
+
+// TestWithLogger 验证 WithLogger 把引擎日志路由到指定 logger。
+func TestWithLogger(t *testing.T) {
+	prev := logger.GetDefault()
+	defer logger.SetDefault(prev)
+
+	t.Run("路由到自定义 logger", func(t *testing.T) {
+		cap := &captureLogger{}
+		s := New(WithLogger(cap))
+		defer s.Stop()
+
+		logger.Info("hello %s", "world")
+		logger.Error("boom %d", 42)
+
+		cap.mu.Lock()
+		defer cap.mu.Unlock()
+		assert.Contains(t, cap.msgs, "INFO:hello world")
+		assert.Contains(t, cap.msgs, "ERROR:boom 42")
+	})
+
+	t.Run("nil 保持默认", func(t *testing.T) {
+		before := logger.GetDefault()
+		s := New(WithLogger(nil))
+		defer s.Stop()
+		assert.Same(t, before, logger.GetDefault(), "nil 不应改变默认 logger")
 	})
 }
