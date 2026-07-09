@@ -122,33 +122,41 @@ func NewExpansionStrategy() *ExpansionStrategy {
 	return &ExpansionStrategy{}
 }
 
-// ProcessData implements expansion mode data processing
+// ProcessData implements expansion mode: non-blocking send, expand on full,
+// retry, then a few short waits for the consumer to drain before dropping. It
+// never blocks on a cached channel reference — under concurrent expansion such
+// a reference can be swapped out and strand the send (and hang the caller).
 func (es *ExpansionStrategy) ProcessData(data map[string]any) {
-	// First attempt to add data
+	if atomic.LoadInt32(&es.stream.stopped) == 1 {
+		return
+	}
 	if es.stream.safeSendToDataChan(data) {
 		return
 	}
 
-	// Channel is full, dynamically expand
+	// Full: grow capacity once, then retry.
 	es.stream.expandDataChannel()
-
-	// Retry after expansion, re-acquire channel reference
 	if es.stream.safeSendToDataChan(data) {
 		es.stream.log.Debug("Successfully added data after data channel expansion")
 		return
 	}
 
-	// If still full after expansion, block and wait
-	dataChan := es.stream.safeGetDataChan()
-	if dataChan == nil {
-		return
+	// Still full: a few short retries give the consumer a chance to drain.
+	for i := 0; i < 3; i++ {
+		timer := time.NewTimer(100 * time.Microsecond)
+		select {
+		case <-timer.C:
+		case <-es.stream.done:
+			timer.Stop()
+			return
+		}
+		if es.stream.safeSendToDataChan(data) {
+			return
+		}
 	}
-	select {
-	case dataChan <- data:
-		return
-	case <-es.stream.done:
-		return
-	}
+
+	es.stream.log.Warn("Data channel still full after expansion, dropping input data")
+	es.stream.mInputDropped.Inc()
 }
 
 // GetStrategyName gets strategy name

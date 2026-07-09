@@ -38,20 +38,20 @@ func (s *Stream) safeGetDataChan() chan map[string]any {
 	return s.dataChan
 }
 
-// safeSendToDataChan safely sends data to dataChan
+// safeSendToDataChan attempts a non-blocking send. The send runs under the
+// data-channel read lock so a concurrent expandDataChannel cannot swap the
+// channel out from under the send and strand the data on an orphaned channel.
 func (s *Stream) safeSendToDataChan(data map[string]any) bool {
-	// Check if stream is stopped before attempting to send
 	if atomic.LoadInt32(&s.stopped) == 1 {
 		return false
 	}
-
-	dataChan := s.safeGetDataChan()
-	if dataChan == nil {
+	s.dataChanMux.RLock()
+	defer s.dataChanMux.RUnlock()
+	if s.dataChan == nil {
 		return false
 	}
-
 	select {
-	case dataChan <- data:
+	case s.dataChan <- data:
 		return true
 	default:
 		return false
@@ -71,21 +71,55 @@ func (s *Stream) expandDataChannel() {
 	s.expansionMux.Lock()
 	defer s.expansionMux.Unlock()
 
-	// Double-check if expansion is needed (double-checked locking pattern)
+	// Double-check if expansion is needed (double-checked locking pattern).
+	// Growth factor, increment, trigger threshold and the hard ceiling all come
+	// from PerformanceConfig.BufferConfig — the expansion knobs are not dead.
+	buf := s.config.PerformanceConfig.BufferConfig
+	exp := s.config.PerformanceConfig.OverflowConfig.ExpansionConfig
 	s.dataChanMux.RLock()
 	oldCap := cap(s.dataChan)
 	currentLen := len(s.dataChan)
 	s.dataChanMux.RUnlock()
 
-	// No expansion needed if current channel usage is below 80%
-	if float64(currentLen)/float64(oldCap) < 0.8 {
+	if oldCap <= 0 {
+		return
+	}
+	// Already at the configured ceiling: do not grow further. The expand
+	// strategy drops when the channel stays full past the cap.
+	if buf.MaxBufferSize > 0 && oldCap >= buf.MaxBufferSize {
+		s.log.Debug("Data channel at max buffer size %d, not expanding", buf.MaxBufferSize)
+		return
+	}
+
+	// No expansion needed if current channel usage is below the trigger threshold.
+	threshold := exp.TriggerThreshold
+	if threshold <= 0 {
+		threshold = 0.8
+	}
+	if float64(currentLen)/float64(oldCap) < threshold {
 		s.log.Debug("Channel usage below threshold, expansion not needed")
 		return
 	}
 
-	newCap := int(float64(oldCap) * 1.5) // Expand by 50%
-	if newCap < oldCap+1000 {
-		newCap = oldCap + 1000 // At least increase by 1000
+	growth := exp.GrowthFactor
+	if growth <= 1 {
+		growth = 1.5
+	}
+	minInc := exp.MinIncrement
+	if minInc <= 0 {
+		minInc = 1000
+	}
+	newCap := int(float64(oldCap) * growth)
+	if newCap < oldCap+minInc {
+		newCap = oldCap + minInc
+	}
+	// Honor the configured ceiling.
+	if buf.MaxBufferSize > 0 && newCap > buf.MaxBufferSize {
+		newCap = buf.MaxBufferSize
+	}
+	if newCap <= oldCap {
+		// Ceiling prevents any further growth.
+		return
 	}
 
 	s.log.Debug("Dynamic expansion of data channel: %d -> %d", oldCap, newCap)
