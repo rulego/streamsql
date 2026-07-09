@@ -104,6 +104,9 @@ func NewSlidingWindow(config types.WindowConfig) (*SlidingWindow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid size for sliding window: %v", err)
 	}
+	if size <= 0 {
+		return nil, fmt.Errorf("sliding window size must be positive, got: %v", size)
+	}
 
 	// Get slide parameter from params array
 	if len(config.Params) < 2 {
@@ -114,6 +117,9 @@ func NewSlidingWindow(config types.WindowConfig) (*SlidingWindow, error) {
 	slide, err := cast.ToDurationE(slideVal)
 	if err != nil {
 		return nil, fmt.Errorf("invalid slide for sliding window: %v", err)
+	}
+	if slide <= 0 {
+		return nil, fmt.Errorf("sliding window slide must be positive, got: %v", slide)
 	}
 
 	// Use unified performance config to get window output buffer size
@@ -227,36 +233,41 @@ func (sw *SlidingWindow) Add(data any) {
 		sw.currentSlot.Start.UnixMilli(), sw.currentSlot.End.UnixMilli(),
 		sw.currentSlot.Contains(eventTime))
 
-	// Check if data is late and handle allowedLateness (after data is added)
-	if timeChar == types.EventTime && sw.watermark != nil {
-		if sw.watermark.IsEventTimeLate(eventTime) {
-			allowedLateness := sw.config.AllowedLateness
-			if allowedLateness > 0 {
-				// IMPORTANT: First check if this late data belongs to any triggered window that's still open
-				// This ensures late data is correctly assigned to its original window, even if
-				// the event time happens to fall within the current window's range
-				belongsToTriggeredWindow := false
-				for _, info := range sw.triggeredWindows {
-					if info.slot.Contains(eventTime) {
-						belongsToTriggeredWindow = true
-						// Trigger late update for this window (data is already in sw.data)
-						sw.handleLateData(eventTime, allowedLateness)
-						break
-					}
-				}
-
-				// If not belonging to triggered window, check if it belongs to currentSlot
-				// This handles the case where watermark has advanced but window hasn't triggered yet
-				if !belongsToTriggeredWindow && sw.initialized && sw.currentSlot != nil && sw.currentSlot.Contains(eventTime) {
-					// Data belongs to currentSlot, it will be included when window triggers
-					// No need to do anything here
-				} else if !belongsToTriggeredWindow {
-					// Check if this late data belongs to any triggered window that's still open
-					sw.handleLateData(eventTime, allowedLateness)
+	// Late data (event time): keep only what will actually be processed — a row in
+	// the current not-yet-triggered window, or (when AllowedLateness > 0) a row
+	// landing in a triggered window still open for late updates. Drop the rest so
+	// sw.data cannot grow without bound under sustained out-of-order input.
+	if timeChar == types.EventTime && sw.watermark != nil && sw.watermark.IsEventTimeLate(eventTime) {
+		switch {
+		case sw.initialized && sw.currentSlot != nil && sw.currentSlot.Contains(eventTime):
+			// watermark advanced past the window start but the window has not
+			// triggered yet; the row triggers normally, keep it.
+		case sw.config.AllowedLateness > 0:
+			placed := false
+			for _, info := range sw.triggeredWindows {
+				if info.slot.Contains(eventTime) {
+					sw.handleLateData(eventTime, sw.config.AllowedLateness)
+					placed = true
+					break
 				}
 			}
-			// If allowedLateness is 0 or data is too late, we still add it but it won't trigger updates
+			if !placed {
+				// beyond allowed lateness with no open triggered window: drop
+				sw.dropLastRow()
+			}
+		default:
+			// AllowedLateness == 0 (default) and not in the current window: drop
+			sw.dropLastRow()
 		}
+	}
+}
+
+// dropLastRow removes the row just appended by the current Add call (the last
+// element of sw.data) — a late event that cannot be placed. Caller holds sw.mu.
+func (sw *SlidingWindow) dropLastRow() {
+	if n := len(sw.data); n > 0 {
+		sw.data[n-1] = types.Row{}
+		sw.data = sw.data[:n-1]
 	}
 }
 

@@ -110,6 +110,10 @@ func NewTumblingWindow(config types.WindowConfig) (*TumblingWindow, error) {
 		cancel()
 		return nil, fmt.Errorf("invalid size for tumbling window: %v", err)
 	}
+	if size <= 0 {
+		cancel()
+		return nil, fmt.Errorf("tumbling window size must be positive, got: %v", size)
+	}
 
 	// Use unified performance config to get window output buffer size
 	bufferSize := 1000 // Default value
@@ -228,40 +232,43 @@ func (tw *TumblingWindow) Add(data any) {
 		tw.currentSlot.Start.UnixMilli(), tw.currentSlot.End.UnixMilli(),
 		tw.currentSlot.Contains(eventTime))
 
-	// Check if data is late and handle allowedLateness (after data is added)
-	if timeChar == types.EventTime && tw.watermark != nil {
-		if tw.watermark.IsEventTimeLate(eventTime) {
-			allowedLateness := tw.config.AllowedLateness
-			if allowedLateness > 0 {
-				// IMPORTANT: First check if this late data belongs to any triggered window that's still open
-				// This ensures late data is correctly assigned to its original window, even if
-				// the event time happens to fall within the current window's range
-				// Example: window [1000, 2000) triggered, moved to [2000, 3000), late data with
-				// eventTime=1500 should go to [1000, 2000), not [2000, 3000)
-				belongsToTriggeredWindow := false
-				for _, info := range tw.triggeredWindows {
-					if info.slot.Contains(eventTime) {
-						belongsToTriggeredWindow = true
-						// Trigger late update for this window (data is already in tw.data)
-						tw.handleLateData(eventTime, allowedLateness)
-						break
-					}
-				}
-
-				// If not belonging to triggered window, check if it belongs to currentSlot
-				// This handles the case where watermark has advanced but window hasn't triggered yet
-				if !belongsToTriggeredWindow && tw.initialized && tw.currentSlot != nil && tw.currentSlot.Contains(eventTime) {
-					// Data belongs to currentSlot, it will be included when window triggers
-					// No need to do anything here
-				} else if !belongsToTriggeredWindow {
-					// Check if this late data belongs to any triggered window that's still open
-					tw.handleLateData(eventTime, allowedLateness)
+	// Late data (event time): keep only what will actually be processed — a row in
+	// the current not-yet-triggered window, or (when AllowedLateness > 0) a row
+	// landing in a triggered window still open for late updates. Drop the rest so
+	// tw.data cannot grow without bound under sustained out-of-order input.
+	if timeChar == types.EventTime && tw.watermark != nil && tw.watermark.IsEventTimeLate(eventTime) {
+		switch {
+		case tw.initialized && tw.currentSlot != nil && tw.currentSlot.Contains(eventTime):
+			// watermark advanced past the window start but the window has not
+			// triggered yet; the row triggers normally, keep it.
+		case tw.config.AllowedLateness > 0:
+			placed := false
+			for _, info := range tw.triggeredWindows {
+				if info.slot.Contains(eventTime) {
+					tw.handleLateData(eventTime, tw.config.AllowedLateness)
+					placed = true
+					break
 				}
 			}
-			// If allowedLateness is 0 or data is too late, we still add it but it won't trigger updates
+			if !placed {
+				// beyond allowed lateness with no open triggered window: drop
+				tw.dropLastRow()
+			}
+		default:
+			// AllowedLateness == 0 (default) and not in the current window: drop
+			tw.dropLastRow()
 		}
 	}
 
+}
+
+// dropLastRow removes the row just appended by the current Add call (the last
+// element of tw.data) — a late event that cannot be placed. Caller holds tw.mu.
+func (tw *TumblingWindow) dropLastRow() {
+	if n := len(tw.data); n > 0 {
+		tw.data[n-1] = types.Row{}
+		tw.data = tw.data[:n-1]
+	}
 }
 
 func (tw *TumblingWindow) createSlot(t time.Time) *types.TimeSlot {

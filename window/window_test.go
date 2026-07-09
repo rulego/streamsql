@@ -749,6 +749,118 @@ func TestGetTimestampEdgeCases(t *testing.T) {
 	}
 }
 
+// TestExtractTimestampNumericEpochs 校验 event-time 时间戳提取接受全部数值族
+// （JSON 把数字解码成 float64，Go 整数字面量是 int）与数字字符串，且需非零 TimeUnit。
+// 无 TimeUnit 的数值 epoch 因 s/ms 歧义被拒（丢行）。
+func TestExtractTimestampNumericEpochs(t *testing.T) {
+	const msEpoch int64 = 1700000000000 // 2023-11-14T22:13:20Z
+	want := time.Unix(0, msEpoch*int64(time.Millisecond))
+
+	cases := []struct {
+		name     string
+		data     any
+		tsProp   string
+		timeUnit time.Duration
+		wantOK   bool
+	}{
+		{"float64 ms epoch (JSON)", map[string]any{"ts": float64(msEpoch)}, "ts", time.Millisecond, true},
+		{"int ms epoch", map[string]any{"ts": int(msEpoch)}, "ts", time.Millisecond, true},
+		{"int64 ms epoch", map[string]any{"ts": msEpoch}, "ts", time.Millisecond, true},
+		{"numeric string ms epoch", map[string]any{"ts": "1700000000000"}, "ts", time.Millisecond, true},
+		{"struct int64 ms epoch", struct{ Ts int64 }{Ts: msEpoch}, "Ts", time.Millisecond, true},
+		{"float64 without TimeUnit drops", map[string]any{"ts": float64(msEpoch)}, "ts", 0, false},
+		{"time.Time field", map[string]any{"ts": want}, "ts", time.Millisecond, true},
+		{"missing field drops", map[string]any{"other": 1}, "ts", time.Millisecond, false},
+		{"non-numeric string drops", map[string]any{"ts": "not-a-number"}, "ts", time.Millisecond, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := extractTimestamp(tc.data, tc.tsProp, tc.timeUnit)
+			assert.Equal(t, tc.wantOK, ok)
+			if tc.wantOK {
+				assert.True(t, got.Equal(want), "got %v want %v", got, want)
+			}
+		})
+	}
+}
+
+// TestNewWindowRejectsNonPositiveDuration 校验构造函数拒绝非正 duration，
+// 避免 NewTicker(<=0) 在 Add/Start 里 panic 拖垮进程（SQL 路径由 validateWindowParams
+// 兜底，这里覆盖直接构造路径）。
+func TestNewWindowRejectsNonPositiveDuration(t *testing.T) {
+	cases := []struct {
+		name string
+		fn   func() (Window, error)
+	}{
+		{"tumbling zero", func() (Window, error) { return NewTumblingWindow(types.WindowConfig{Params: []any{time.Duration(0)}}) }},
+		{"tumbling negative", func() (Window, error) { return NewTumblingWindow(types.WindowConfig{Params: []any{-time.Second}}) }},
+		{"sliding zero size", func() (Window, error) {
+			return NewSlidingWindow(types.WindowConfig{Params: []any{time.Duration(0), time.Second}})
+		}},
+		{"sliding zero slide", func() (Window, error) {
+			return NewSlidingWindow(types.WindowConfig{Params: []any{time.Second, time.Duration(0)}})
+		}},
+		{"session zero", func() (Window, error) { return NewSessionWindow(types.WindowConfig{Params: []any{time.Duration(0)}}) }},
+		{"session negative", func() (Window, error) { return NewSessionWindow(types.WindowConfig{Params: []any{-time.Second}}) }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			w, err := tc.fn()
+			assert.NotNil(t, err, "non-positive duration must be rejected")
+			assert.Nil(t, w, "no window should be returned on error")
+		})
+	}
+}
+
+// TestEventTimeWindowDropsUnplaceableLateData 校验 event-time 窗口丢弃无法落位的
+// 迟到行（AllowedLateness=0 默认），避免 tw.data/sw.data 无界增长 OOM。
+func TestEventTimeWindowDropsUnplaceableLateData(t *testing.T) {
+	mkWindow := func(typ string) Window {
+		params := []any{time.Second}
+		if typ == TypeSliding {
+			params = []any{time.Second, time.Second}
+		}
+		w, err := CreateWindow(types.WindowConfig{
+			Type: typ, Params: params,
+			TimeCharacteristic: types.EventTime,
+			TsProp:             "ts",
+			TimeUnit:           time.Millisecond,
+		})
+		assert.Nil(t, err)
+		w.Start()
+		return w
+	}
+
+	for _, typ := range []string{TypeTumbling, TypeSliding} {
+		t.Run(typ, func(t *testing.T) {
+			w := mkWindow(typ)
+			defer w.Stop()
+
+			// in-order row at ts=1000s advances the watermark far forward
+			w.Add(map[string]any{"ts": int64(1000000), "v": 1})
+			// flood of late rows near epoch: all before the watermark and the
+			// current window — must be dropped, not retained.
+			for i := 0; i < 200; i++ {
+				w.Add(map[string]any{"ts": int64(i), "v": 2})
+			}
+			time.Sleep(100 * time.Millisecond)
+
+			retained := 0
+			switch win := w.(type) {
+			case *TumblingWindow:
+				win.mu.Lock()
+				retained = len(win.data)
+				win.mu.Unlock()
+			case *SlidingWindow:
+				win.mu.Lock()
+				retained = len(win.data)
+				win.mu.Unlock()
+			}
+			assert.True(t, retained < 50, "%s: late rows should be dropped, not retained (got %d)", typ, retained)
+		})
+	}
+}
+
 // TestSessionWindowSessionKey 测试会话窗口的会话键提取
 func TestSessionWindowSessionKey(t *testing.T) {
 	config := types.WindowConfig{

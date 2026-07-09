@@ -18,7 +18,9 @@ package window
 
 import (
 	"fmt"
+	"log"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/rulego/streamsql/utils/cast"
@@ -80,9 +82,10 @@ func GetTimestamp(data any, tsProp string, timeUnit time.Duration) time.Time {
 }
 
 // extractTimestamp returns the event timestamp and true when one can be derived
-// from the data (a GetTimestamp() time.Time method, or a tsProp field of
-// time.Time or int64 epoch). An int64 epoch requires a non-zero TimeUnit;
-// otherwise the unit is ambiguous and it is treated as unplaceable.
+// from the data: a GetTimestamp() time.Time method, a tsProp field holding a
+// time.Time, or a numeric epoch (int/int64/float64 — JSON decodes numbers to
+// float64 — or a numeric string). A numeric epoch requires a non-zero TimeUnit;
+// otherwise the unit is ambiguous (s vs ms) and it is treated as unplaceable.
 // Returns (zero, false) otherwise.
 func extractTimestamp(data any, tsProp string, timeUnit time.Duration) (time.Time, bool) {
 	if ts, ok := data.(interface{ GetTimestamp() time.Time }); ok {
@@ -91,28 +94,47 @@ func extractTimestamp(data any, tsProp string, timeUnit time.Duration) (time.Tim
 	if tsProp == "" {
 		return time.Time{}, false
 	}
-	v := reflect.ValueOf(data)
-	switch v.Kind() {
+	var fieldVal any
+	switch v := reflect.ValueOf(data); v.Kind() {
 	case reflect.Struct:
 		if f := v.FieldByName(tsProp); f.IsValid() {
-			if t, ok := f.Interface().(time.Time); ok {
-				return t, true
-			}
+			fieldVal = f.Interface()
 		}
 	case reflect.Map:
 		if v.Type().Key().Kind() == reflect.String {
-			if value := v.MapIndex(reflect.ValueOf(tsProp)); value.IsValid() {
-				if t, ok := value.Interface().(time.Time); ok {
-					return t, true
-				} else if timestampInt, isInt := value.Interface().(int64); isInt {
-					// int epoch without TimeUnit is ambiguous (s vs ms); don't guess.
-					if timeUnit == 0 {
-						return time.Time{}, false
-					}
-					return cast.ConvertIntToTime(timestampInt, timeUnit), true
-				}
+			if mv := v.MapIndex(reflect.ValueOf(tsProp)); mv.IsValid() {
+				fieldVal = mv.Interface()
 			}
 		}
 	}
-	return time.Time{}, false
+	if fieldVal == nil {
+		return time.Time{}, false
+	}
+	if t, ok := fieldVal.(time.Time); ok {
+		return t, true
+	}
+	// Numeric/string epoch. JSON numbers arrive as float64, so accept the full
+	// numeric family rather than only int64.
+	timestampInt, err := cast.ToInt64E(fieldVal)
+	if err != nil {
+		return time.Time{}, false
+	}
+	if timeUnit == 0 {
+		warnUnplaceableTimestamp(tsProp)
+		return time.Time{}, false
+	}
+	return cast.ConvertIntToTime(timestampInt, timeUnit), true
+}
+
+var tsWarnOnce sync.Once
+
+// warnUnplaceableTimestamp warns once that an event-time query is dropping
+// events because a numeric timestamp field has no TIMEUNIT set (the unit is
+// ambiguous). Once-per-process keeps the log from flooding under sustained input.
+func warnUnplaceableTimestamp(tsProp string) {
+	tsWarnOnce.Do(func() {
+		log.Printf("[streamsql] event-time: numeric timestamp field %q has no TIMEUNIT set; "+
+			"events are being dropped. Declare WITH (TIMESTAMP=%q, TIMEUNIT='ms'|'s'|'us'|'ns')",
+			tsProp, tsProp)
+	})
 }

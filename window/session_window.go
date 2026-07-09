@@ -98,6 +98,10 @@ func NewSessionWindow(config types.WindowConfig) (*SessionWindow, error) {
 		cancel()
 		return nil, fmt.Errorf("invalid timeout for session window: %v", err)
 	}
+	if timeout <= 0 {
+		cancel()
+		return nil, fmt.Errorf("session window timeout must be positive, got: %v", timeout)
+	}
 
 	// Use unified performance configuration to get window output buffer size
 	bufferSize := 1000 // Default value
