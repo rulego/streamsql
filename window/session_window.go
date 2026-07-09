@@ -194,6 +194,10 @@ func (sw *SessionWindow) Add(data any) {
 						return
 					}
 				}
+				// Late and not absorbed (or AllowedLateness == 0): drop instead of
+				// creating a new session at a stale timestamp that would expire at
+				// once and emit a spurious single-event result.
+				return
 			}
 		}
 	} else if !tsOk {

@@ -861,6 +861,48 @@ func TestEventTimeWindowDropsUnplaceableLateData(t *testing.T) {
 	}
 }
 
+// TestWatermarkCapsFutureTimestamp 校验单个 far-future 事件不会把 watermark 撬到
+// 天文数字（否则所有真实事件被判迟到）。future 事件被夹到 now+maxOutOfOrderness。
+func TestWatermarkCapsFutureTimestamp(t *testing.T) {
+	wm := NewWatermark(0, 50*time.Millisecond, 0)
+	defer wm.Stop()
+
+	wm.UpdateEventTime(time.Now())
+	wm.UpdateEventTime(time.Now().Add(100 * 365 * 24 * time.Hour)) // ~100 years out
+	time.Sleep(120 * time.Millisecond)
+
+	got := wm.GetCurrentWatermark()
+	// The +100y event is clamped to ~now+24h, not allowed to set the watermark
+	// a century ahead.
+	assert.True(t, got.Before(time.Now().Add(48*time.Hour)),
+		"watermark poisoned by future event: %v", got)
+}
+
+// TestSessionWindowDropsLateEvent 校验 event-time session 窗口丢弃不可吸收的迟到行，
+// 而非按陈旧 timestamp 建立即刻过期的伪单事件会话。
+func TestSessionWindowDropsLateEvent(t *testing.T) {
+	cfg := types.WindowConfig{
+		Type: TypeSession, Params: []any{time.Hour}, // long timeout keeps the in-order session alive
+		GroupByKeys:        []string{"k"},
+		TimeCharacteristic: types.EventTime, TsProp: "ts", TimeUnit: time.Millisecond,
+	}
+	sw, err := NewSessionWindow(cfg)
+	require.NoError(t, err)
+	sw.Start()
+	defer sw.Stop()
+
+	sw.Add(map[string]any{"ts": int64(1000000), "k": "a"}) // in-order
+	for i := 0; i < 100; i++ {
+		sw.Add(map[string]any{"ts": int64(i), "k": strconv.Itoa(i)}) // late, distinct groups
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	sw.mu.Lock()
+	n := len(sw.sessionMap)
+	sw.mu.Unlock()
+	assert.True(t, n <= 2, "late events must not create sessions, got %d", n)
+}
+
 // TestSessionWindowSessionKey 测试会话窗口的会话键提取
 func TestSessionWindowSessionKey(t *testing.T) {
 	config := types.WindowConfig{

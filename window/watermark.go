@@ -22,6 +22,14 @@ import (
 	"time"
 )
 
+// maxFutureSlack bounds how far an event timestamp may run ahead of processing
+// time (the cap is now + maxOutOfOrderness + maxFutureSlack). Events beyond it
+// are almost certainly corrupt (e.g. year-2099 garbage) and would permanently
+// poison the watermark, so they are clamped. The slack is generous enough that
+// legitimate ahead-of-processing-time events (clock skew, accelerated replay)
+// are never affected.
+const maxFutureSlack = 24 * time.Hour
+
 // Watermark represents a watermark for event time processing
 // Watermark indicates that no events with timestamp less than watermark time are expected
 type Watermark struct {
@@ -144,6 +152,16 @@ func (wm *Watermark) UpdateEventTime(eventTime time.Time) {
 
 	// Update last event time for idle detection
 	wm.lastEventTime = time.Now()
+
+	// Guard against far-future timestamps (corrupt data, e.g. year-2099 garbage)
+	// permanently ratcheting the watermark: clamp the effective event time to at
+	// most now + maxOutOfOrderness + maxFutureSlack so a single bogus event
+	// cannot jump the watermark past every real event. The slack is generous
+	// enough that legitimate ahead-of-processing-time events (clock skew,
+	// accelerated replay) are never affected.
+	if ceiling := time.Now().Add(wm.maxOutOfOrderness + maxFutureSlack); eventTime.After(ceiling) {
+		eventTime = ceiling
+	}
 
 	if wm.maxEventTime.IsZero() || eventTime.After(wm.maxEventTime) {
 		wm.maxEventTime = eventTime

@@ -206,12 +206,22 @@ func TestGlobalWindow_StateTTLReapsIdleGroup(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		gw.Add(map[string]any{"deviceId": "idle"})
 	}
-	// Wait until the rows are consumed and the group exists.
+	// Wait until all 5 rows are processed, not just until the group exists — Add
+	// is async (triggerChan), so existence can precede full processing and leave
+	// queued rows that would resurrect the group after the reap below.
 	waitFor(t, func() bool {
 		gw.mu.Lock()
 		defer gw.mu.Unlock()
-		_, exists := gw.groups["idle"]
-		return exists
+		gs, exists := gw.groups["idle"]
+		if !exists {
+			return false
+		}
+		if a := gs.outputAggs["cnt"]; a != nil {
+			if r, ok := a.Result().(float64); ok {
+				return int(r) >= 5
+			}
+		}
+		return false
 	})
 
 	// Force the group's lastActive into the distant past and reap.
