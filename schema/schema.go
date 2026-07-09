@@ -107,9 +107,10 @@ type FieldDef struct {
 	Type DataType
 	// Required reports whether an absent key is an error.
 	Required bool
-	// Default, when non-nil, suppresses the required-missing error.
-	// Callers must use a typed value (for example float64(0)) so that the
-	// interface is non-nil even when the default is a zero value.
+	// Default, when non-nil, fills an absent key with this value (and so also
+	// suppresses the required-missing error). Callers must use a typed value
+	// (for example float64(0)) so that the interface is non-nil even when the
+	// default is a zero value.
 	Default any
 }
 
@@ -202,12 +203,13 @@ var Default = NewRegistry()
 
 // Validate reports every problem found in data with respect to s.
 //
-// An absent key errors only when the field is Required and has no Default.
-// Present values are checked with InferType; numeric fields (int, int64,
-// float) accept any numeric value interchangeably, and TypeAny accepts every
-// value including nil. When Strict is true, keys in data that are not declared
-// as fields are reported as errors. All problems are aggregated and returned
-// together, with a nil result when data is clean.
+// An absent key errors only when the field is Required and has no Default; a
+// field with a non-nil Default is filled with that value in data. Present
+// values are checked with InferType; numeric fields (int, int64, float) accept
+// any numeric value interchangeably, and TypeAny accepts every value including
+// nil. When Strict is true, keys in data that are not declared as fields are
+// reported as errors. All problems are aggregated and returned together, with
+// a nil result when data is clean.
 func (s *Schema) Validate(data map[string]any) error {
 	var errs MultiError
 
@@ -228,6 +230,8 @@ func (s *Schema) Validate(data map[string]any) error {
 		v, present := data[f.Name]
 		if !present {
 			if f.Default != nil {
+				// Fill the declared default so downstream sees the value, not nil.
+				data[f.Name] = f.Default
 				continue
 			}
 			if f.Required {

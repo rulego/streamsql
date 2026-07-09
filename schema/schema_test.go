@@ -178,6 +178,15 @@ func TestSchema_Validate(t *testing.T) {
 	}
 }
 
+func TestSchema_ValidateFillsDefault(t *testing.T) {
+	s := Schema{Name: "t", Fields: []FieldDef{
+		{Name: "score", Type: TypeFloat, Default: float64(0)},
+	}}
+	data := map[string]any{"other": 1}
+	require.NoError(t, s.Validate(data))
+	require.Equal(t, float64(0), data["score"], "missing field with Default should be filled in data")
+}
+
 func TestSchema_Validate_Aggregates(t *testing.T) {
 	sch := Schema{
 		Name: "multi",
