@@ -1,6 +1,8 @@
 package aggregator
 
 import (
+	"fmt"
+
 	"github.com/rulego/streamsql/functions"
 )
 
@@ -64,6 +66,30 @@ func CreateBuiltinAggregator(aggType AggregateType) AggregatorFunction {
 	}
 
 	return functions.CreateLegacyAggregator(aggType)
+}
+
+// perRowWindowFunctions compute a value per row. The engine's aggregation
+// model produces one result per group, so these cannot be evaluated: row_number
+// has no AggregatorFunction (would crash), lead implements it but its Result is
+// a nil-returning stub. Reject both up front with a clear error instead.
+var perRowWindowFunctions = map[string]bool{
+	"row_number": true,
+	"lead":       true,
+}
+
+// ValidateAggregateType reports whether aggType can be evaluated in an
+// aggregation query. It rejects per-row window functions (row_number, lead) the
+// per-group model cannot compute, so they fail at Execute with a clear error
+// instead of crashing on the data path or silently returning nil. Other types
+// are allowed: genuine aggregators resolve via CreateBuiltinAggregator, and
+// scalar functions that appear in SelectFields for non-aggregation queries are
+// evaluated through the field-expression path (not the aggregator path), so
+// rejecting them here would break legitimate scalar-function SELECTs.
+func ValidateAggregateType(aggType AggregateType) error {
+	if perRowWindowFunctions[string(aggType)] {
+		return fmt.Errorf("%s() is a per-row window function and is not supported in aggregation queries; the engine computes one result per group (per-row OVER-window support is planned)", aggType)
+	}
+	return nil
 }
 
 // PostAggregationPlaceholder is a placeholder aggregator for post-aggregation fields

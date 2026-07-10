@@ -42,9 +42,11 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 		err := ssql.Execute("SELECT id FROM stream GROUP BY InvalidWindow('5s')")
-		// TODO InvalidWindow 在SQL解析阶段被当作普通字段处理，而不是窗口函数
-		// 因此不会在stream创建阶段报错，这是当前解析器的设计行为
-		require.Nil(t, err)
+		// Unknown/misspelled window functions are rejected at parse time.
+		// (Previously InvalidWindow was silently treated as a plain GROUP BY
+		// field, running the query with no window and wrong grouping — no error.)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown window function")
 	})
 
 	t.Run("EmitSync without Execute", func(t *testing.T) {

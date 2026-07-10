@@ -861,21 +861,29 @@ func TestEventTimeWindowDropsUnplaceableLateData(t *testing.T) {
 	}
 }
 
-// TestWatermarkCapsFutureTimestamp 校验单个 far-future 事件不会把 watermark 撬到
-// 天文数字（否则所有真实事件被判迟到）。future 事件被夹到 now+maxOutOfOrderness。
-func TestWatermarkCapsFutureTimestamp(t *testing.T) {
-	wm := NewWatermark(0, 50*time.Millisecond, 0)
+// TestWatermarkIgnoresFarFutureTimestamp verifies a single far-future (corrupt)
+// event does NOT poison the watermark: it is ignored for watermark bookkeeping,
+// so the watermark stays near the last real event and subsequent real events
+// are not judged late. (Earlier the event was clamped to now+24h and still
+// ratcheted maxEventTime, dropping all real events as late for 24h.)
+func TestWatermarkIgnoresFarFutureTimestamp(t *testing.T) {
+	wm := NewWatermark(0, 50*time.Millisecond, 0) // maxOutOfOrderness = 0
 	defer wm.Stop()
 
-	wm.UpdateEventTime(time.Now())
-	wm.UpdateEventTime(time.Now().Add(100 * 365 * 24 * time.Hour)) // ~100 years out
+	real := time.Now()
+	wm.UpdateEventTime(real)
+	wm.UpdateEventTime(real.Add(100 * 365 * 24 * time.Hour)) // corrupt: ~100 years out
 	time.Sleep(120 * time.Millisecond)
 
 	got := wm.GetCurrentWatermark()
-	// The +100y event is clamped to ~now+24h, not allowed to set the watermark
-	// a century ahead.
-	assert.True(t, got.Before(time.Now().Add(48*time.Hour)),
-		"watermark poisoned by future event: %v", got)
+	// The corrupt event must not ratchet maxEventTime, so the watermark stays
+	// near the real event instead of jumping ~24h ahead.
+	assert.True(t, got.Before(real.Add(time.Second)),
+		"far-future event poisoned watermark: got %v, want near %v", got, real)
+
+	// A subsequent real event must not be dropped as late.
+	assert.False(t, wm.IsEventTimeLate(real.Add(1*time.Second)),
+		"real event judged late after a corrupt far-future event")
 }
 
 // TestSessionWindowDropsLateEvent 校验 event-time session 窗口丢弃不可吸收的迟到行，

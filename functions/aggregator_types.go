@@ -118,8 +118,11 @@ func CreateLegacyAggregator(aggType AggregateType) LegacyAggregatorFunction {
 		return constructor()
 	}
 
-	// If none found, throw error
-	panic("unsupported aggregator type: " + aggType)
+	// If none found, return nil instead of panicking. Callers must validate the
+	// aggregate type up front (see aggregator.ValidateAggregateType) so this is
+	// unreachable from a normal query; returning nil degrades to an empty field
+	// rather than crashing the engine if a gap ever slips through.
+	return nil
 }
 
 // FunctionAggregatorWrapper wraps functions module aggregator to make it compatible with original interface

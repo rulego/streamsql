@@ -118,15 +118,15 @@ func TestRegisterLegacyAggregator(t *testing.T) {
 	}
 }
 
-// TestCreateLegacyAggregatorPanic 测试创建不存在的聚合器时的panic
-func TestCreateLegacyAggregatorPanic(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("Expected panic for unsupported aggregator type")
-		}
-	}()
-
-	CreateLegacyAggregator("nonexistent_aggregator")
+// TestCreateLegacyAggregatorUnsupportedReturnsNil verifies an unsupported
+// aggregator type returns nil instead of panicking (so a registration gap
+// degrades to an empty field rather than crashing the engine). Query-time
+// validation (aggregator.ValidateAggregateType) rejects such types at Execute.
+func TestCreateLegacyAggregatorUnsupportedReturnsNil(t *testing.T) {
+	agg := CreateLegacyAggregator("nonexistent_aggregator")
+	if agg != nil {
+		t.Errorf("expected nil for unsupported aggregator type, got %T", agg)
+	}
 }
 
 // TestCreateLegacyAggregatorPercentile verifies percentile aggregates without

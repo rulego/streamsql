@@ -23,9 +23,10 @@ import (
 )
 
 // maxFutureSlack bounds how far an event timestamp may run ahead of processing
-// time (the cap is now + maxOutOfOrderness + maxFutureSlack). Events beyond it
-// are almost certainly corrupt (e.g. year-2099 garbage) and would permanently
-// poison the watermark, so they are clamped. The slack is generous enough that
+// time (the threshold is now + maxOutOfOrderness + maxFutureSlack). Events
+// beyond it are almost certainly corrupt (e.g. year-2099 garbage) and are
+// ignored for watermark bookkeeping so a single bogus event cannot ratchet the
+// watermark ahead and drop real events. The slack is generous enough that
 // legitimate ahead-of-processing-time events (clock skew, accelerated replay)
 // are never affected.
 const maxFutureSlack = 24 * time.Hour
@@ -153,14 +154,16 @@ func (wm *Watermark) UpdateEventTime(eventTime time.Time) {
 	// Update last event time for idle detection
 	wm.lastEventTime = time.Now()
 
-	// Guard against far-future timestamps (corrupt data, e.g. year-2099 garbage)
-	// permanently ratcheting the watermark: clamp the effective event time to at
-	// most now + maxOutOfOrderness + maxFutureSlack so a single bogus event
-	// cannot jump the watermark past every real event. The slack is generous
-	// enough that legitimate ahead-of-processing-time events (clock skew,
-	// accelerated replay) are never affected.
-	if ceiling := time.Now().Add(wm.maxOutOfOrderness + maxFutureSlack); eventTime.After(ceiling) {
-		eventTime = ceiling
+	// Guard against far-future timestamps (corrupt data, e.g. year-2099
+	// garbage): ignore them for watermark bookkeeping entirely. The earlier
+	// approach clamped the event to now+maxOutOfOrderness+maxFutureSlack and
+	// still ratcheted maxEventTime, which jumped the watermark ~24h ahead and
+	// dropped every real event as late for the next 24h. Discarding the corrupt
+	// timestamp here leaves real events unaffected; the corrupt event itself is
+	// still placed by the window (its far-future window simply never fires).
+	ceiling := time.Now().Add(wm.maxOutOfOrderness + maxFutureSlack)
+	if eventTime.After(ceiling) {
+		return
 	}
 
 	if wm.maxEventTime.IsZero() || eventTime.After(wm.maxEventTime) {

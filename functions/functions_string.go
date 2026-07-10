@@ -288,7 +288,13 @@ func (f *IndexofFunction) Execute(ctx *FunctionContext, args []any) (any, error)
 	return int64(strings.Index(str, substr)), nil
 }
 
-// SubstringFunction 提取子字符串
+// SubstringFunction 提取子字符串。
+//
+// Dialect note: positions are 0-based and a negative start counts from the end
+// (Go / ekuiper style), which DEVIATES from ANSI SQL / MySQL / PostgreSQL where
+// SUBSTRING is 1-based. So substring('hello',1,2) returns "el" here, not "he".
+// This is an intentional lightweight-engine dialect choice; changing it would
+// silently break existing queries.
 type SubstringFunction struct {
 	*BaseFunction
 }

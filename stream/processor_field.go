@@ -785,17 +785,35 @@ func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]any) ([]any,
 		} else if value, exists := data[arg]; exists {
 			// If it's a data field
 			args[i] = value
-		} else {
-			// Try to parse as number
-			if val, err := strconv.ParseFloat(arg, 64); err == nil {
-				args[i] = val
+		} else if val, err := strconv.ParseFloat(arg, 64); err == nil {
+			// Numeric literal
+			args[i] = val
+		} else if containsExpressionOperator(arg) {
+			// Argument is an arithmetic/logical expression (e.g. v/3, a+b, x>5)
+			// that the field/literal lookups above cannot resolve. Evaluate it
+			// against the row so functions like round(v/total, 2) return a value
+			// instead of silently nil-ing (the raw string failing ToFloat64).
+			// Args containing '(' are already handled as nested functions above,
+			// so this branch only sees operator-only expressions — no recursion.
+			if result, err := functions.GetExprBridge().EvaluateExpression(arg, data); err == nil {
+				args[i] = result
 			} else {
 				args[i] = arg
 			}
+		} else {
+			args[i] = arg
 		}
 	}
 
 	return args, nil
+}
+
+// containsExpressionOperator reports whether s contains an arithmetic or
+// logical operator, i.e. looks like an expression rather than a bare
+// identifier or literal. Pure numbers (incl. negatives/exponents) and known
+// fields are resolved before this is consulted.
+func containsExpressionOperator(s string) bool {
+	return strings.ContainsAny(s, "+-*/%<>!=&|")
 }
 
 // smartSplitArgs intelligently splits arguments, considering bracket nesting and quotes

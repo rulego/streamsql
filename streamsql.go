@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/rulego/streamsql/aggregator"
 	"github.com/rulego/streamsql/logger"
 	"github.com/rulego/streamsql/metrics"
 	"github.com/rulego/streamsql/rsql"
@@ -145,6 +146,16 @@ func (s *Streamsql) Execute(sql string) error {
 		// Reset executed flag on error
 		atomic.StoreInt32(&s.executed, 0)
 		return fmt.Errorf("SQL parsing failed: %w", err)
+	}
+
+	// Validate aggregation functions up front: reject per-row window functions
+	// (row_number/lead) the per-group model cannot evaluate, so they fail here
+	// with a clear error instead of crashing on the data path or returning nil.
+	for _, aggType := range config.SelectFields {
+		if err := aggregator.ValidateAggregateType(aggType); err != nil {
+			atomic.StoreInt32(&s.executed, 0)
+			return fmt.Errorf("unsupported aggregation: %w", err)
+		}
 	}
 
 	// Get field order information from parsing result

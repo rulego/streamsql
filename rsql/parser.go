@@ -1440,5 +1440,17 @@ func Parse(sql string) (*types.Config, string, error) {
 		return nil, "", err
 	}
 
+	// Reject malformed GROUP BY. An unknown/misspelled window function (e.g.
+	// TumbingWindow) is not recognized as a window keyword, so its name and the
+	// quoted duration argument leak into the group fields as separate entries
+	// (e.g. ["TumblingWindow", "'1s'"]). A legitimate group field is a plain
+	// identifier, so any quote/paren artifact means the query would silently run
+	// with no window and wrong grouping. Fail loudly instead.
+	for _, g := range config.GroupFields {
+		if strings.ContainsAny(g, "'\"()") {
+			return nil, "", fmt.Errorf("invalid GROUP BY field %q: unknown window function or unsupported expression", g)
+		}
+	}
+
 	return config, condition, nil
 }

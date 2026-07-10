@@ -12,7 +12,9 @@ const (
 	OverflowStrategyBlock = "block"
 	// OverflowStrategyDrop drops data when buffer is full
 	OverflowStrategyDrop = "drop"
-	// OverflowStrategyExpand expands buffer when full (not implemented for windows yet)
+	// OverflowStrategyExpand dynamically expands buffer capacity when full,
+	// up to BufferConfig.MaxBufferSize; above the ceiling it drops. Effective
+	// for the data channel (see stream.expandDataChannel).
 	OverflowStrategyExpand = "expand"
 )
 
