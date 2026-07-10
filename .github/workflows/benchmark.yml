@@ -18,13 +18,14 @@ jobs:
     name: Performance regression
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-
       - name: Check out code
         uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
 
       - name: Run benchmarks
         # 主路径 + ExprBridge + 窗口吞吐。固定 -count 与 -benchtime 便于可比。
