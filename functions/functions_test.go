@@ -239,8 +239,6 @@ func TestFunctionExecution(t *testing.T) {
 		{"var basic", "var", []any{1.0, 2.0, 3.0, 4.0, 5.0}, 2.0, false},
 		{"vars basic", "vars", []any{1.0, 2.0, 3.0, 4.0, 5.0}, 2.5, false},
 
-		// 窗口函数
-		{"row_number basic", "row_number", []any{}, int64(1), false},
 
 		// 分析函数
 		{"latest basic", "latest", []any{"hello"}, "hello", false},
@@ -367,7 +365,6 @@ func TestFunctionValidation(t *testing.T) {
 		{"trim too many args", "trim", []any{"hello", "world"}, true, "function trim accepts at most 1 arguments"},
 		{"format too many args", "format", []any{"hello", "pattern", "locale", "extra"}, true, "function format accepts at most 3 arguments"},
 		{"collect no args", "collect", []any{}, true, "function collect requires at least 1 arguments"},
-		{"row_number with args", "row_number", []any{"invalid"}, true, "function row_number accepts at most 0 arguments"},
 		{"latest no args", "latest", []any{}, true, "function latest requires at least 1 arguments"},
 		{"had_changed no args", "had_changed", []any{}, true, "function had_changed requires at least 1 arguments"},
 	}
@@ -403,7 +400,6 @@ func TestFunctionTypes(t *testing.T) {
 		{TypeConversion, []string{"cast", "hex2dec", "dec2hex", "encode", "decode"}},
 		{TypeDateTime, []string{"now", "current_time", "current_date"}},
 		{TypeAggregation, []string{"sum", "avg", "min", "max", "count", "stddev", "median", "collect", "last_value", "merge_agg", "stddevs", "deduplicate", "var", "vars"}},
-		{TypeWindow, []string{"row_number"}},
 		{TypeAnalytical, []string{"lag", "latest", "changed_col", "had_changed"}},
 	}
 

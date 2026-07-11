@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/rulego/streamsql/aggregator"
 	"github.com/rulego/streamsql/logger"
 	"github.com/rulego/streamsql/metrics"
 	"github.com/rulego/streamsql/rsql"
@@ -59,6 +58,9 @@ type Streamsql struct {
 	// is set; nil means Emit/EmitSync skip validation entirely (zero overhead).
 	schemaValidator *schema.Schema
 	schemaDropped   int64
+
+	// 分析函数 PARTITION 分区数上限（≤0 用默认）。由 WithAnalyticMaxPartitions 设置。
+	analyticMaxPartitions int
 }
 
 // New creates a new StreamSQL instance.
@@ -148,21 +150,14 @@ func (s *Streamsql) Execute(sql string) error {
 		return fmt.Errorf("SQL parsing failed: %w", err)
 	}
 
-	// Validate aggregation functions up front: reject per-row window functions
-	// (row_number/lead) the per-group model cannot evaluate, so they fail here
-	// with a clear error instead of crashing on the data path or returning nil.
-	for _, aggType := range config.SelectFields {
-		if err := aggregator.ValidateAggregateType(aggType); err != nil {
-			atomic.StoreInt32(&s.executed, 0)
-			return fmt.Errorf("unsupported aggregation: %w", err)
-		}
-	}
-
 	// Get field order information from parsing result
 	s.fieldOrder = config.FieldOrder
 
 	// Inject the per-instance logger into the stream pipeline.
 	config.Logger = s.log
+
+	// 分析函数分区上限（≤0 时引擎用默认值）。
+	config.AnalyticMaxPartitions = s.analyticMaxPartitions
 
 	// Create stream processor based on performance mode
 	var streamInstance *stream.Stream

@@ -118,10 +118,10 @@ func CreateLegacyAggregator(aggType AggregateType) LegacyAggregatorFunction {
 		return constructor()
 	}
 
-	// If none found, return nil instead of panicking. Callers must validate the
-	// aggregate type up front (see aggregator.ValidateAggregateType) so this is
-	// unreachable from a normal query; returning nil degrades to an empty field
-	// rather than crashing the engine if a gap ever slips through.
+	// If none found, return nil instead of panicking. Unknown/unregistered
+	// aggregate types are rejected at parse time, so this is unreachable from a
+	// normal query; returning nil degrades to an empty field rather than crashing
+	// the engine if a gap ever slips through.
 	return nil
 }
 

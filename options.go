@@ -134,3 +134,21 @@ func WithSchema(s schema.Schema) Option {
 		ss.schemaValidator = &s
 	}
 }
+
+// WithAnalyticMaxPartitions caps the number of PARTITION states kept per analytic
+// function field (lag/had_changed/changed_col(s)/acc_*/latest with OVER(PARTITION BY...)).
+// The least-recently-used partition is evicted above the cap. Only raise it when
+// the partition key is genuinely high-cardinality (e.g. tens of thousands of
+// devices behind one node) and memory allows: each partition holds one state plus
+// its last result, ~150B for acc_* but up to several hundred bytes for
+// changed_cols/had_changed('*') on wide rows. Default (n<=0) is 10000.
+//
+// Note: evicting a partition resets its analytic state silently — acc_* counters
+// restart from 0, lag returns its default, had_changed/changed_col treat the next
+// row as the first. Size the cap above the peak active-partition count when
+// cumulative accuracy matters.
+func WithAnalyticMaxPartitions(n int) Option {
+	return func(ss *Streamsql) {
+		ss.analyticMaxPartitions = n
+	}
+}

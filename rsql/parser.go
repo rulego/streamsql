@@ -355,7 +355,7 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 			}
 
 			// 只有在括号层级为0时，逗号才被视为字段分隔符
-			if parenthesesLevel == 0 && (currentToken.Type == TokenFROM || currentToken.Type == TokenComma || currentToken.Type == TokenAS || currentToken.Type == TokenEOF) {
+			if parenthesesLevel == 0 && (currentToken.Type == TokenFROM || currentToken.Type == TokenComma || currentToken.Type == TokenAS || currentToken.Type == TokenEOF || currentToken.Type == TokenOVER) {
 				break
 			}
 
@@ -420,6 +420,18 @@ func (p *Parser) parseSelect(stmt *SelectStatement) error {
 		}
 
 		field := Field{Expression: strings.TrimSpace(expr.String())}
+
+		// 解析可选的 OVER 子句（分析函数。OVER 在断点条件中被识别，
+		// 此处 currentToken == TokenOVER；parseOverClause 消费 OVER(...)，返回后 )
+		// 已读出，再 NextToken 取后续 token（AS/FROM/Comma/EOF）。
+		if currentToken.Type == TokenOVER {
+			over, err := p.parseOverClause()
+			if err != nil {
+				return err
+			}
+			field.OverSpec = over
+			currentToken = p.lexer.NextToken()
+		}
 
 		// 处理别名
 		if currentToken.Type == TokenAS {
@@ -517,12 +529,14 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 		}
 	}
 
-	// Validate functions in WHERE condition
+	// Validate functions in WHERE condition. 分析函数调用（含 OVER）先替换为占位符，
+	// 避免 OVER 被误判为未知函数；stmt.Condition 保留原文，由 ToStreamConfig 提取。
 	whereCondition := strings.Join(conditions, " ")
 	if whereCondition != "" {
+		validated, _, _ := extractWhereAnalyticCalls(whereCondition)
 		validator := NewFunctionValidator(p.errorRecovery)
 		pos, _, _ := p.lexer.GetPosition()
-		validator.ValidateExpression(whereCondition, pos-len(whereCondition))
+		validator.ValidateExpression(validated, pos-len(whereCondition))
 	}
 
 	stmt.Condition = whereCondition
@@ -637,6 +651,97 @@ func (p *Parser) parseGlobalWindow(stmt *SelectStatement) error {
 	}
 	stmt.Window.TriggerCondition = strings.Join(parts, " ")
 	return nil
+}
+
+// parseOverClause 解析分析函数的 OVER 子句：OVER ([PARTITION BY ...] [WHEN ...])。
+// 仅支持 PARTITION BY 和 WHEN，ORDER BY / ROWS / BETWEEN 一律报错。
+// 约定：调用时 currentToken == TokenOVER（已读出），lexer 待读为 '('；返回时
+// OVER(...) 已全部消费，'(' 内的 ')' 是最后读出的 token，调用者需 NextToken 取后续。
+func (p *Parser) parseOverClause() (*types.OverSpec, error) {
+	lp := p.lexer.NextToken()
+	if lp.Type != TokenLParen {
+		return nil, fmt.Errorf("expected '(' after OVER, got %q", lp.Value)
+	}
+	spec := &types.OverSpec{}
+	for {
+		t := p.lexer.NextToken()
+		switch t.Type {
+		case TokenRParen:
+			return spec, nil
+		case TokenPARTITION:
+			if err := p.parseOverPartitionBy(spec); err != nil {
+				return nil, err
+			}
+		case TokenWHEN:
+			pred, err := p.parseOverWhen()
+			if err != nil {
+				return nil, err
+			}
+			spec.When = pred
+		default:
+			return nil, fmt.Errorf("OVER clause only supports PARTITION BY and WHEN (ORDER BY/ROWS not supported), got %q", t.Value)
+		}
+	}
+}
+
+// parseOverPartitionBy 解析 PARTITION BY <field>[, <field>...]。PARTITION 已读出。
+func (p *Parser) parseOverPartitionBy(spec *types.OverSpec) error {
+	by := p.lexer.NextToken()
+	if by.Type != TokenBY {
+		return fmt.Errorf("expected BY after PARTITION, got %q", by.Value)
+	}
+	for {
+		id := p.lexer.NextToken()
+		if id.Type != TokenIdent && id.Type != TokenQuotedIdent {
+			return fmt.Errorf("expected partition field after PARTITION BY, got %q", id.Value)
+		}
+		// 去掉反引号
+		name := id.Value
+		if len(name) >= 2 && name[0] == '`' && name[len(name)-1] == '`' {
+			name = name[1 : len(name)-1]
+		}
+		spec.PartitionBy = append(spec.PartitionBy, name)
+		snap := p.lexer.save()
+		sep := p.lexer.NextToken()
+		if sep.Type == TokenComma {
+			continue
+		}
+		p.lexer.restore(snap) // 回退（WHEN 或 ')'），交给上层循环
+		return nil
+	}
+}
+
+// parseOverWhen 解析 WHEN <predicate>，收集到 ) 或 PARTITION 为止。WHEN 已读出。
+// 跟踪括号深度：WHEN 谓词里的函数调用（如 had_changed(true, status)）的括号要计入，
+// 仅在深度归零时 ')' 才是 OVER 子句结束。
+func (p *Parser) parseOverWhen() (string, error) {
+	var parts []string
+	depth := 0
+	for i := 0; i < 100; i++ {
+		snap := p.lexer.save()
+		t := p.lexer.NextToken()
+		if depth == 0 && (t.Type == TokenRParen || t.Type == TokenPARTITION) {
+			p.lexer.restore(snap)
+			return strings.Join(parts, " "), nil
+		}
+		switch t.Type {
+		case TokenLParen:
+			depth++
+		case TokenRParen:
+			depth--
+		}
+		switch t.Type {
+		case TokenEQ:
+			parts = append(parts, "==")
+		case TokenAND:
+			parts = append(parts, "&&")
+		case TokenOR:
+			parts = append(parts, "||")
+		default:
+			parts = append(parts, t.Value)
+		}
+	}
+	return "", errors.New("OVER WHEN predicate too long")
 }
 
 func convertValue(s string) any {
@@ -912,6 +1017,18 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 				return err
 			}
 			// After parsing window function, skip adding it to GroupBy and continue
+			continue
+		}
+		if tok.Type == TokenOVER {
+			// GROUP BY window 的 OVER(...) 子句（仅 WHEN 输入门控）。校验在 ToStreamConfig
+			// 做（parseGroupBy 的返回错误会被 errorRecovery 当作可恢复错误吞掉）。
+			over, err := p.parseOverClause()
+			if err != nil {
+				return err
+			}
+			if over != nil && stmt.Window.Over == nil {
+				stmt.Window.Over = over
+			}
 			continue
 		}
 

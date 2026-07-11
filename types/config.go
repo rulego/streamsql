@@ -55,6 +55,17 @@ type Config struct {
 	// When set, stream fields can be qualified as "s.<field>" in SELECT/WHERE.
 	SourceAlias string `json:"sourceAlias"`
 
+	// AnalyticFields 分析函数字段（带可选 OVER）。走直连路径，由
+	// 流级状态机逐条求值，不进聚合路径。空表示无分析函数。
+	AnalyticFields []AnalyticField `json:"analyticFields"`
+	// WhereAnalyticCalls WHERE 中出现的分析函数调用；解析期从 WHERE 文本提取并
+	// 替换为占位符，求值期在 WHERE 之前算出值注入 dataMap[Placeholder]。
+	WhereAnalyticCalls []WhereAnalyticCall `json:"whereAnalyticCalls"`
+	// AnalyticMaxPartitions 每个分析函数字段 PARTITION 状态的分区数上限，超出按
+	// LRU 淘汰最久未用的分区。≤0 表示用默认值（见 stream.defaultMaxPartitions）。
+	// 由 WithAnalyticMaxPartitions 注入。高基数分区键（如设备上万）且内存充裕时可调高。
+	AnalyticMaxPartitions int `json:"analyticMaxPartitions"`
+
 	// Logger is the per-instance logger for the stream pipeline. Injected by
 	// Streamsql.Execute (from WithLogger, else the process default); nil falls
 	// back to logger.GetDefault() at construction. Immutable after construction.
@@ -127,7 +138,7 @@ type WindowConfig struct {
 	// group without buffering raw rows. Populated from the parsed SELECT for
 	// windowType=global only.
 	TriggerCondition string                              `json:"triggerCondition,omitempty"`
-	SelectFields     map[string]aggregator.AggregateType `json:"selectFields,omitempty"`
+	SelectFields    map[string]aggregator.AggregateType `json:"selectFields,omitempty"`
 	FieldAlias       map[string]string                   `json:"fieldAlias,omitempty"`
 }
 

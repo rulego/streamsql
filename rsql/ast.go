@@ -35,6 +35,7 @@ type Field struct {
 	Expression string
 	Alias      string
 	AggType    string
+	OverSpec   *types.OverSpec // 分析函数 OVER 子句，nil 表示无
 }
 
 type WindowDefinition struct {
@@ -47,6 +48,7 @@ type WindowDefinition struct {
 	IdleTimeout       time.Duration // Idle source timeout: when no data arrives within this duration, watermark advances based on processing time
 	CountStateTTL     time.Duration // Counting-window keyed state TTL; inactive keys reaped after this (0 = disabled)
 	TriggerCondition  string        // Global-window TRIGGER WHEN predicate (raw string)
+	Over              *types.OverSpec // GROUP BY window OVER(...) 子句（仅 WHEN 输入门控）
 }
 
 // ToStreamConfig converts AST to Stream configuration
@@ -91,9 +93,26 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 	needWindow := s.Window.Type != ""
 	var simpleFields []string
 
+	// 分离分析函数字段：分析函数走直连路径状态机，不进聚合路径。
+	// 剩余字段（真聚合 + 普通字段）保持原解析逻辑。
+	analyticFields := make([]types.AnalyticField, 0, len(s.Fields))
+	otherFields := make([]Field, 0, len(s.Fields))
+	for _, f := range s.Fields {
+		if isAnalyticField(f) {
+			// 校验分析函数自身的嵌套：分析套分析、聚合套分析均不允许
+			// （分析套聚合在窗口查询里允许，由 extractInlineAggregates 处理）。
+			if err := detectNestedAggregation(f.Expression); err != nil {
+				return nil, "", err
+			}
+			analyticFields = append(analyticFields, buildAnalyticField(f))
+		} else {
+			otherFields = append(otherFields, f)
+		}
+	}
+
 	// Check if there are aggregation functions
 	hasAggregation := false
-	for _, field := range s.Fields {
+	for _, field := range otherFields {
 		if isAggregationFunction(field.Expression) {
 			hasAggregation = true
 			break
@@ -107,13 +126,17 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		params = []any{10 * time.Second} // Default 10-second window
 	}
 
+	// 窗口查询里允许分析函数：分析函数在窗口产出行上求值，状态跨窗口保留
+	// （见 stream.processAggregationResults）。分析函数参数里的内联聚合
+	// （如 changed_cols("t", true, avg(temperature))）在下方提取为隐藏计算字段。
+
 	// If no aggregation functions, collect simple fields
 	if !hasAggregation {
 		// If SELECT * query, set special marker
 		if s.SelectAll {
 			simpleFields = append(simpleFields, "*")
 		} else {
-			for _, field := range s.Fields {
+			for _, field := range otherFields {
 				fieldName := field.Expression
 				if field.Alias != "" {
 					// If has alias, use alias as field name
@@ -138,9 +161,34 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 	}
 
 	// Build field mapping and expression information
-	aggs, fields, expressions, postAggExpressions, err := buildSelectFieldsWithExpressions(s.Fields)
+	aggs, fields, expressions, postAggExpressions, err := buildSelectFieldsWithExpressions(otherFields)
 	if err != nil {
 		return nil, "", err
+	}
+
+	// 窗口查询里的分析函数：把参数中的内联聚合（如 changed_cols 内的 avg(...)））
+	// 提取为隐藏计算字段，重写参数为隐藏键引用，供窗口聚合计算后供分析函数消费。
+	if needWindow && len(analyticFields) > 0 {
+		extractInlineAggregates(analyticFields, aggs, fields)
+		// 分析函数默认按 GROUP BY 键分区：跨窗口为每个分组各自保留状态，
+		// 避免不同分组的窗口输出共享状态而串扰。
+		gk := extractGroupFields(s)
+		if len(gk) > 0 {
+			for i := range analyticFields {
+				af := &analyticFields[i]
+				if af.Over == nil {
+					af.Over = &types.OverSpec{}
+				}
+				if len(af.Over.PartitionBy) == 0 {
+					af.Over.PartitionBy = append([]string(nil), gk...)
+				}
+			}
+		}
+		// 校验：窗口查询里分析函数的参数必须引用窗口输出字段（聚合或 GROUP BY 键），
+		// 不能引用裸原始列——否则求值时取不到值，会静默得到列名字符串而非结果。
+		if err := validateWindowAnalyticArgs(analyticFields, gk); err != nil {
+			return nil, "", err
+		}
 	}
 
 	// Extract field order information
@@ -149,11 +197,34 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		return nil, "", err
 	}
 
+	// D3: an analytic-field alias must not silently override another output
+	// column (e.g. "SELECT temperature, lag(temperature) AS temperature").
+	// fieldOrder already resolves every SELECT item to its final output name, so
+	// an analytic alias appearing more than once collides with another field —
+	// reject at parse time instead of letting map writes silently overwrite.
+	if len(analyticFields) > 0 {
+		nameCount := make(map[string]int, len(fieldOrder))
+		for _, n := range fieldOrder {
+			nameCount[n]++
+		}
+		for _, af := range analyticFields {
+			if nameCount[af.Alias] > 1 {
+				return nil, "", fmt.Errorf("duplicate output column %q: analytic alias collides with another field; use a distinct AS alias", af.Alias)
+			}
+		}
+	}
+
 	// Determine time characteristic based on whether TIMESTAMP is specified in WITH clause
 	// If TsProp is set, use EventTime; otherwise use ProcessingTime (default)
 	timeCharacteristic := types.ProcessingTime
 	if s.Window.TsProp != "" {
 		timeCharacteristic = types.EventTime
+	}
+
+	// GROUP BY 窗口上的 OVER(...) 不支持：主流引擎（Flink/Spark/eKuiper）都用
+	// 窗口 + HAVING 做阈值/持续检测，窗口 OVER 的输入门控语义会隐藏 dip、破坏检测。
+	if s.Window.Over != nil {
+		return nil, "", fmt.Errorf("OVER(...) on a GROUP BY window is not supported; for threshold/sustained detection use HAVING (e.g. HAVING min(concurrency) > 200)")
 	}
 
 	// Build Stream configuration
@@ -181,6 +252,7 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		Distinct:           s.Distinct,
 		Limit:              s.Limit,
 		NeedWindow:         needWindow,
+		AnalyticFields:     analyticFields,
 		SimpleFields:       simpleFields,
 		Having:             s.Having,
 		FieldExpressions:   expressions,
@@ -191,7 +263,191 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		SourceAlias:        s.SourceAlias,
 	}
 
-	return &config, s.Condition, nil
+	// 提取 WHERE 中的分析函数调用（含 OVER），替换为占位符，供直连路径状态机求值。
+	rewrittenCondition, whereCalls, err := extractWhereAnalyticCalls(s.Condition)
+	if err != nil {
+		return nil, "", err
+	}
+	config.WhereAnalyticCalls = whereCalls
+
+	return &config, rewrittenCondition, nil
+}
+
+// isAnalyticField 判断 Field 是否为分析函数（TypeAnalytical）。
+func isAnalyticField(f Field) bool {
+	funcName := extractFunctionName(f.Expression)
+	if funcName == "" {
+		return false
+	}
+	if fn, exists := functions.Get(strings.ToLower(funcName)); exists {
+		return fn.GetType() == functions.TypeAnalytical
+	}
+	return false
+}
+
+// buildAnalyticField 将分析函数 Field 转为 AnalyticField，保留 OVER 子句。
+func buildAnalyticField(f Field) types.AnalyticField {
+	funcName := extractFunctionName(f.Expression)
+	alias := f.Alias
+	if alias == "" {
+		alias = f.Expression
+	}
+	af := types.AnalyticField{
+		FuncName:   strings.ToLower(funcName),
+		Expression: f.Expression,
+		Alias:      alias,
+		Over:       f.OverSpec,
+		Args:       splitCallArgs(f.Expression),
+	}
+	// changed_cols 输出多列（动态列名 prefix+colname），仅 SELECT。
+	if strings.ToLower(funcName) == "changed_cols" {
+		af.MultiColumn = true
+	}
+	return af
+}
+
+// extractInlineAggregates 把分析函数参数里的内联聚合提取为隐藏计算字段。
+// 如 changed_cols("t", true, avg(temperature)) → 注册 aggs[__winagg_0__]=avg(temperature)，
+// 参数重写为 __winagg_0__，InlineAggDisplay 记录 {__winagg_0__:"avg"}。
+// 隐藏键前缀 __winagg_ 在窗口产出后被剥离，不进最终输出；显示名用于 changed_cols 输出列名。
+func extractInlineAggregates(analyticFields []types.AnalyticField, aggs map[string]aggregator.AggregateType, fieldMap map[string]string) {
+	pattern := regexp.MustCompile(`(?i)\b([a-z_]+)\s*\(`)
+	seq := 0
+	for i := range analyticFields {
+		af := &analyticFields[i]
+		for j, arg := range af.Args {
+			trimmed := strings.TrimSpace(arg)
+			m := pattern.FindStringSubmatch(trimmed)
+			if m == nil {
+				continue
+			}
+			fn, ok := functions.Get(strings.ToLower(m[1]))
+			if !ok || fn.GetType() != functions.TypeAggregation {
+				continue
+			}
+			aggType, name, _, _, perr := ParseAggregateTypeWithExpression(trimmed)
+			if perr != nil || aggType == "" {
+				continue
+			}
+			hidden := fmt.Sprintf("__winagg_%d__", seq)
+			seq++
+			aggs[hidden] = aggType
+			// 输入字段：name 为聚合的输入字段（如 avg(temperature) 的 temperature）；
+			// 无显式字段时（如 count(*)）用隐藏键本身，聚合器按需处理。
+			if name != "" {
+				fieldMap[hidden] = name
+			} else {
+				fieldMap[hidden] = hidden
+			}
+			if af.InlineAggDisplay == nil {
+				af.InlineAggDisplay = make(map[string]string)
+			}
+			af.InlineAggDisplay[hidden] = strings.ToLower(m[1])
+			af.Args[j] = hidden
+			af.Expression = strings.Replace(af.Expression, trimmed, hidden, 1)
+		}
+	}
+}
+
+// validateWindowAnalyticArgs 校验窗口查询里分析函数参数不得引用裸原始列：
+// 窗口产出行只含聚合与 GROUP BY 键，裸列取不到值会静默得到列名字符串。
+// 允许：字面量、__winagg_ 隐藏聚合键、GROUP BY 键、函数调用、复杂表达式（含运算符）。
+// 仅拦截"裸列名且非 GROUP BY 键"这一最常见误用。
+func validateWindowAnalyticArgs(analyticFields []types.AnalyticField, groupKeys []string) error {
+	keySet := make(map[string]bool, len(groupKeys))
+	for _, k := range groupKeys {
+		keySet[k] = true
+	}
+	for _, af := range analyticFields {
+		for _, arg := range af.Args {
+			a := strings.TrimSpace(arg)
+			if a == "" || strings.HasPrefix(a, "__winagg_") {
+				continue
+			}
+			if isLiteralToken(a) {
+				continue
+			}
+			// 函数调用或含运算符的复杂表达式：聚合提取已处理 func()，此处不深判。
+			if strings.ContainsAny(a, " ()<>=+-*/%") {
+				continue
+			}
+			last := a
+			if dot := strings.LastIndex(a, "."); dot >= 0 {
+				last = a[dot+1:]
+			}
+			if !keySet[last] {
+				return fmt.Errorf("analytic argument %q in a windowed query must reference an aggregate or a GROUP BY field, not a raw column", a)
+			}
+		}
+	}
+	return nil
+}
+
+// isLiteralToken 判断是否为字面量（数字/布尔/nil/引号字符串）。
+func isLiteralToken(s string) bool {
+	if s == "true" || s == "false" || s == "nil" {
+		return true
+	}
+	if len(s) >= 2 && (s[0] == '"' || s[0] == '\'') && s[len(s)-1] == s[0] {
+		return true
+	}
+	if s == "" {
+		return false
+	}
+	c := s[0]
+	return (c >= '0' && c <= '9') || c == '-' || c == '+' || c == '.'
+}
+
+// splitCallArgs 从函数调用文本中拆出顶层参数表达式片段（未求值）。
+// 如 changed_cols("c_", true, temperature, humidity) → ["\"c_\"", "true", "temperature", "humidity"]。
+// 解析失败或无参时返回 nil。
+func splitCallArgs(expr string) []string {
+	open := strings.IndexByte(expr, '(')
+	if open < 0 {
+		return nil
+	}
+	close := strings.LastIndexByte(expr, ')')
+	if close <= open {
+		return nil
+	}
+	body := expr[open+1 : close]
+	return splitTopLevelCommas(body)
+}
+
+// splitTopLevelCommas 按顶层逗号拆分，忽略嵌套括号与字符串字面量内的逗号。
+func splitTopLevelCommas(s string) []string {
+	var args []string
+	depth := 0
+	last := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+		case '"':
+			i++
+			for i < len(s) && s[i] != '"' {
+				i++
+			}
+		case '\'':
+			i++
+			for i < len(s) && s[i] != '\'' {
+				i++
+			}
+		case ',':
+			if depth == 0 {
+				args = append(args, strings.TrimSpace(s[last:i]))
+				last = i + 1
+			}
+		}
+	}
+	tail := strings.TrimSpace(s[last:])
+	if tail == "" && len(args) == 0 {
+		return nil
+	}
+	args = append(args, tail)
+	return args
 }
 
 // Check if expression is an aggregation function
@@ -327,13 +583,14 @@ func buildSelectFields(fields []Field) (aggMap map[string]aggregator.AggregateTy
 // detectNestedAggregation 检测表达式中是否存在聚合函数嵌套聚合函数的情况
 // 如果发现嵌套聚合函数，返回错误信息
 func detectNestedAggregation(expr string) error {
-	return detectNestedAggregationRecursive(expr, false)
+	return detectNestedAggregationRecursive(expr, false, false)
 }
 
-// detectNestedAggregationRecursive 递归检测嵌套聚合函数
-// inAggregation 表示当前是否在聚合函数内部
-func detectNestedAggregationRecursive(expr string, inAggregation bool) error {
-	// 使用正则表达式匹配函数调用模式
+// detectNestedAggregationRecursive 递归检测嵌套聚合/分析函数。
+// inAggregation：当前在真聚合（TypeAggregation）内部；inAnalytic：当前在分析函数内部。
+// 规则：聚合套聚合 → 报错；分析套分析 → 报错；聚合套分析 → 报错；
+//       分析套聚合 → 允许（如 changed_cols(avg(...))，分析函数对窗口聚合输出求值）。
+func detectNestedAggregationRecursive(expr string, inAggregation, inAnalytic bool) error {
 	pattern := regexp.MustCompile(`(?i)([a-z_]+)\s*\(`)
 	matches := pattern.FindAllStringSubmatchIndex(expr, -1)
 
@@ -341,24 +598,34 @@ func detectNestedAggregationRecursive(expr string, inAggregation bool) error {
 		funcStart := match[0]
 		funcName := strings.ToLower(expr[match[2]:match[3]])
 
-		// 检查函数是否为聚合函数
 		if fn, exists := functions.Get(funcName); exists {
-			switch fn.GetType() {
-			case functions.TypeAggregation, functions.TypeAnalytical, functions.TypeWindow:
-				// 如果当前已经在聚合函数内部，且又发现了聚合函数，则报错
-				if inAggregation {
-					return fmt.Errorf("aggregate function calls cannot be nested")
+			ft := fn.GetType()
+			if ft == functions.TypeAggregation || ft == functions.TypeAnalytical || ft == functions.TypeWindow {
+				switch ft {
+				case functions.TypeAggregation:
+					// 聚合函数内部不能再套聚合函数。
+					if inAggregation {
+						return fmt.Errorf("aggregate function calls cannot be nested")
+					}
+				case functions.TypeAnalytical:
+					// 分析套分析、或聚合套分析 → 报错（分析函数只可包裹聚合）。
+					if inAnalytic || inAggregation {
+						return fmt.Errorf("analytic functions cannot be nested in %s", funcName)
+					}
+				case functions.TypeWindow:
+					if inAggregation || inAnalytic {
+						return fmt.Errorf("window function %s cannot be nested here", funcName)
+					}
 				}
-
-				// 找到该函数的参数部分
 				funcEnd := findMatchingParenInternal(expr, funcStart+len(funcName))
 				if funcEnd > funcStart {
-					// 提取函数参数
 					paramStart := funcStart + len(funcName) + 1
 					params := expr[paramStart:funcEnd]
-
-					// 在聚合函数参数内部递归检查
-					if err := detectNestedAggregationRecursive(params, true); err != nil {
+					// 进入真聚合：标记 inAggregation；进入分析：标记 inAnalytic（不标记 inAggregation，
+					// 这样分析函数内部允许再出现聚合，即"分析套聚合"）。
+					nextAgg := inAggregation || ft == functions.TypeAggregation
+					nextAna := inAnalytic || ft == functions.TypeAnalytical
+					if err := detectNestedAggregationRecursive(params, nextAgg, nextAna); err != nil {
 						return err
 					}
 				}

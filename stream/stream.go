@@ -120,6 +120,9 @@ type Stream struct {
 	// 用于优化 expandUnnestResults 函数的性能，避免不必要的字段遍历检查
 	hasUnnestFunction bool // Whether the query uses unnest function, determined during preprocessing
 
+	// 分析函数状态机引擎，lazy 初始化。直连路径在 WHERE 前求值。
+	analytic     *AnalyticEngine
+	analyticOnce sync.Once
 }
 
 // NewStream creates Stream using unified configuration
@@ -369,6 +372,150 @@ func (s *Stream) IsAggregationQuery() bool {
 	return s.config.NeedWindow
 }
 
+// ensureAnalytic 懒初始化分析函数状态机引擎（SELECT 分析函数 + WHERE 占位符调用统一管理）。
+func (s *Stream) ensureAnalytic() {
+	s.analyticOnce.Do(func() {
+		if len(s.config.AnalyticFields) == 0 && len(s.config.WhereAnalyticCalls) == 0 {
+			return
+		}
+		all := make([]types.AnalyticField, 0, len(s.config.AnalyticFields)+len(s.config.WhereAnalyticCalls))
+		all = append(all, s.config.AnalyticFields...)
+		for _, wc := range s.config.WhereAnalyticCalls {
+			all = append(all, types.AnalyticField{
+				Alias:      wc.Placeholder,
+				FuncName:   wc.FuncName,
+				Expression: wc.Expression,
+				Args:       wc.Args,
+				Over:       wc.Over,
+			})
+		}
+		e, err := NewAnalyticEngine(s, all)
+		if err != nil {
+			s.log.Error("analytic engine init failed: %v", err)
+			return
+		}
+		s.analytic = e
+	})
+}
+
+// evalAnalytic 求值分析函数并把结果注入 dataMap（供 WHERE 占位符引用），返回结果供投影。
+// 在 WHERE 之前调用（分析函数最先求值，不受 WHERE 影响）。
+func (s *Stream) evalAnalytic(dataMap map[string]any) map[string]any {
+	s.ensureAnalytic()
+	if s.analytic == nil || !s.analytic.HasFields() {
+		return nil
+	}
+	results := s.analytic.Evaluate(dataMap)
+	// SELECT 分析函数注入 dataMap：多列函数按 prefix+列名 扇出，供 WHERE/HAVING 引用。
+	for _, af := range s.config.AnalyticFields {
+		v, ok := results[af.Alias]
+		if !ok {
+			continue
+		}
+		if af.MultiColumn {
+			if m, ok := v.(map[string]any); ok {
+				for k, vv := range m {
+					dataMap[k] = vv
+				}
+			}
+			continue
+		}
+		dataMap[af.Alias] = v
+	}
+	// WHERE 占位符调用：注入占位符键值，供改写后的 WHERE 引用。
+	for _, wc := range s.config.WhereAnalyticCalls {
+		if v, ok := results[wc.Placeholder]; ok {
+			dataMap[wc.Placeholder] = v
+		}
+	}
+	return results
+}
+
+// projectAnalytic 把 SELECT 分析函数结果写入投影输出：单列按 alias，多列按 prefix+列名 扇出。
+func (s *Stream) projectAnalytic(result map[string]any, analyticResults map[string]any) {
+	if analyticResults == nil {
+		return
+	}
+	for _, af := range s.config.AnalyticFields {
+		v, ok := analyticResults[af.Alias]
+		if !ok {
+			continue
+		}
+		if af.MultiColumn {
+			if m, ok := v.(map[string]any); ok {
+				for k, vv := range m {
+					result[k] = vv
+				}
+			}
+			continue
+		}
+		// changed_col 未变化时返回 nil：投影时省略该字段（避免 null 刷屏）。
+		if af.FuncName == "changed_col" && v == nil {
+			continue
+		}
+		result[af.Alias] = v
+	}
+}
+
+// hasOmitEmptyAnalytic 是否含 changed_col/changed_cols 这类变化检测函数：
+// 当它们的输出全为空（无变化）时，整行抑制输出。
+func (s *Stream) hasOmitEmptyAnalytic() bool {
+	for _, af := range s.config.AnalyticFields {
+		if af.MultiColumn || af.FuncName == "changed_col" {
+			return true
+		}
+	}
+	return false
+}
+
+// hasAnalyticFields 是否有 SELECT 分析函数字段。
+func (s *Stream) hasAnalyticFields() bool { return len(s.config.AnalyticFields) > 0 }
+
+// applyWindowAnalytic 在窗口查询里对结果行求值分析函数（状态跨窗口保留），
+// 把输出合并进结果行，剥离内联聚合隐藏键。返回 false 表示该行应抑制（变化检测无变化）。
+func (s *Stream) applyWindowAnalytic(row map[string]any) bool {
+	s.ensureAnalytic()
+	if s.analytic == nil || !s.analytic.HasFields() {
+		return true
+	}
+	results := s.analytic.Evaluate(row)
+	changedAny := false
+	for _, af := range s.config.AnalyticFields {
+		v, ok := results[af.Alias]
+		if !ok {
+			continue
+		}
+		if af.MultiColumn {
+			if m, ok := v.(map[string]any); ok {
+				for k, vv := range m {
+					row[k] = vv
+				}
+				if len(m) > 0 {
+					changedAny = true
+				}
+			}
+			continue
+		}
+		// changed_col 未变化时返回 nil：投影省略该字段。
+		if af.FuncName == "changed_col" && v == nil {
+			continue
+		}
+		row[af.Alias] = v
+		changedAny = true
+	}
+	// 剥离内联聚合隐藏键（不进最终输出）。
+	for k := range row {
+		if strings.HasPrefix(k, "__winagg_") {
+			delete(row, k)
+		}
+	}
+	// omitEmpty：仅选了变化检测函数且本次无变化 → 抑制整行。
+	if !changedAny && s.hasOmitEmptyAnalytic() {
+		return false
+	}
+	return true
+}
+
 // ProcessSync synchronously processes single data, returns result immediately
 // Only applicable to non-aggregation queries, aggregation queries will return error
 // Parameters:
@@ -408,6 +555,9 @@ func (s *Stream) processDirectDataSync(data map[string]any) (map[string]any, err
 		}
 		dataMap = wm
 	}
+	// 分析函数最先求值（不受 WHERE 影响），结果注入 dataMap 供 WHERE
+	// 占位符引用；返回值由 projectAnalytic 写入投影输出。
+	analyticResults := s.evalAnalytic(dataMap)
 	// Apply WHERE on the (possibly enriched) data so metadata columns are visible.
 	if s.filter != nil && !s.filter.Evaluate(dataMap) {
 		return nil, nil
@@ -430,11 +580,19 @@ func (s *Stream) processDirectDataSync(data map[string]any) (map[string]any, err
 		for _, fieldSpec := range s.config.SimpleFields {
 			s.processSimpleField(fieldSpec, dataMap, dataMap, result)
 		}
-	} else if len(s.config.FieldExpressions) == 0 {
+	} else if len(s.config.FieldExpressions) == 0 && len(s.config.AnalyticFields) == 0 {
 		// If no fields specified and no expression fields, keep all fields
 		for k, v := range dataMap {
 			result[k] = v
 		}
+	}
+
+	// 分析函数字段输出（SELECT 中的分析函数，alias 为输出列名）
+	s.projectAnalytic(result, analyticResults)
+
+	// omitEmpty：若仅选了 changed_cols 这类多列函数且本次无变化（结果为空），抑制整行输出。
+	if len(result) == 0 && s.hasOmitEmptyAnalytic() {
+		return nil, nil
 	}
 
 	// Increment output count

@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"sync"
 	"testing"
 	"time"
 )
@@ -184,42 +183,6 @@ func TestPercentileScalar(t *testing.T) {
 // TestRowNumberConcurrent (M11): concurrent Execute calls on the shared
 // row_number instance must not race (run under -race to catch it) and must
 // produce exactly N distinct increments.
-func TestRowNumberConcurrent(t *testing.T) {
-	fn, ok := Get("row_number")
-	if !ok {
-		t.Fatal("row_number not found")
-	}
-	rf, ok := fn.(*RowNumberFunction)
-	if !ok {
-		t.Fatal("row_number is not *RowNumberFunction")
-	}
-	rf.Reset()
-
-	const n = 200
-	var wg sync.WaitGroup
-	seen := make(map[int64]bool)
-	var mu sync.Mutex
-	for i := 0; i < n; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			v, err := fn.Execute(nil, nil)
-			if err != nil {
-				t.Errorf("Execute error: %v", err)
-				return
-			}
-			mu.Lock()
-			seen[v.(int64)] = true
-			mu.Unlock()
-		}()
-	}
-	wg.Wait()
-
-	if len(seen) != n {
-		t.Errorf("row_number produced %d distinct values under concurrency, want %d (lost increments = data race)", len(seen), n)
-	}
-}
-
 // TestLikeMatcherNoBacktracking (M16): the LIKE matcher must complete quickly on
 // an adversarial pattern that caused exponential backtracking before the fix
 // (the old implementation took ~2min at n=60). It runs in a goroutine with a

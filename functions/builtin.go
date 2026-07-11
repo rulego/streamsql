@@ -94,15 +94,19 @@ func registerBuiltinFunctions() {
 	// Window functions
 	_ = Register(NewWindowStartFunction())
 	_ = Register(NewWindowEndFunction())
-	_ = Register(NewRowNumberFunction())
-	_ = Register(NewLeadFunction())
 	_ = Register(NewNthValueFunction())
 
 	// Analytical functions
 	_ = Register(NewLagFunction())
 	_ = Register(NewLatestFunction())
 	_ = Register(NewChangedColFunction())
+	_ = Register(NewChangedColsFunction())
 	_ = Register(NewHadChangedFunction())
+	_ = Register(NewAccSumFunction())
+	_ = Register(NewAccMaxFunction())
+	_ = Register(NewAccMinFunction())
+	_ = Register(NewAccCountFunction())
+	_ = Register(NewAccAvgFunction())
 
 	// Expression functions
 	_ = Register(NewExpressionFunction())

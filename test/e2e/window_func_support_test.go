@@ -9,12 +9,71 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPerRowWindowFunctionsRejectedAtExecute guards the P0/P1 fix: row_number()
-// and lead() are per-row window functions the per-group aggregation model
-// cannot evaluate. They must fail at Execute with a clear error — NOT crash on
-// the data path (row_number used to panic) and NOT silently return nil (lead
-// used to return <nil>). Regression for the "registered-but-unwired window
-// function" half-feature that CI missed due to zero e2e coverage.
+// TestWindowHavingSustainedDetection 验证主流写法：窗口聚合全部事件，HAVING 拦 dip。
+// 全 >5 的窗口通过 HAVING；含 dip(<5) 的窗口被 HAVING 拦住无输出。
+// 注意：streamsql 的 HAVING 引用 SELECT 别名（mn），不复述聚合函数。
+func TestWindowHavingSustainedDetection(t *testing.T) {
+	t.Parallel()
+
+	// 窗口全 >5 → 通过 HAVING，输出 mn=9。
+	s1 := streamsql.New()
+	require.NoError(t, s1.Execute(`SELECT min(v) AS mn FROM stream GROUP BY CountingWindow(3) HAVING mn > 5`))
+	ch1 := make(chan []map[string]any, 4)
+	s1.AddSink(func(r []map[string]any) { ch1 <- r })
+	for _, v := range []float64{9, 9, 9} {
+		s1.Emit(map[string]any{"v": v})
+	}
+	select {
+	case rows := <-ch1:
+		require.Len(t, rows, 1)
+		assert.Equal(t, 9.0, rows[0]["mn"])
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout: 全 >5 的窗口应通过 HAVING")
+	}
+	s1.Stop()
+
+	// 窗口含 dip → 被 HAVING 拦住，不应输出含数值的结果。
+	s2 := streamsql.New()
+	require.NoError(t, s2.Execute(`SELECT min(v) AS mn FROM stream GROUP BY CountingWindow(3) HAVING mn > 5`))
+	ch2 := make(chan []map[string]any, 4)
+	s2.AddSink(func(r []map[string]any) { ch2 <- r })
+	for _, v := range []float64{9, 1, 9} {
+		s2.Emit(map[string]any{"v": v})
+	}
+	select {
+	case rows := <-ch2:
+		for _, r := range rows {
+			if mn, ok := r["mn"]; ok && mn != nil {
+				t.Fatalf("含 dip 的窗口应被 HAVING 拦住，却收到 mn=%v", mn)
+			}
+		}
+	case <-time.After(500 * time.Millisecond):
+		// 期望：无输出（HAVING 拦住了 dip 窗口）。
+	}
+	s2.Stop()
+}
+
+// TestWindowOverRejected：GROUP BY 窗口上的 OVER(...) 一律拒绝，引导用 HAVING。
+func TestWindowOverRejected(t *testing.T) {
+	t.Parallel()
+	for _, sql := range []string{
+		`SELECT count(*) AS c FROM stream GROUP BY CountingWindow(3) OVER (WHEN v > 5)`,
+		`SELECT count(*) AS c FROM stream GROUP BY CountingWindow(3) OVER (PARTITION BY k)`,
+	} {
+		ssql := streamsql.New()
+		err := ssql.Execute(sql)
+		require.Error(t, err, "窗口上的 OVER 应被拒绝: %s", sql)
+		assert.Contains(t, err.Error(), "not supported")
+		ssql.Stop()
+	}
+}
+
+// TestPerRowWindowFunctionsRejectedAtExecute guards the eKuiper alignment:
+// row_number() and lead() are not eKuiper analytic functions and have been
+// removed from the registry, so referencing them must fail at Execute (parse
+// rejects them as unknown functions) rather than silently returning nil or
+// crashing the data path. Regression for the old "registered-but-unwired
+// window function" half-feature.
 func TestPerRowWindowFunctionsRejectedAtExecute(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -32,9 +91,8 @@ func TestPerRowWindowFunctionsRejectedAtExecute(t *testing.T) {
 			ssql := streamsql.New()
 			defer ssql.Stop()
 			err := ssql.Execute(c.sql)
-			require.Error(t, err, "%s() must be rejected at Execute", c.fn)
-			assert.Contains(t, err.Error(), c.fn, "error should name the unsupported function")
-			assert.Contains(t, err.Error(), "not supported", "error should explain it is not supported")
+			require.Error(t, err, "%s() must be rejected (function removed; not an eKuiper analytic)", c.fn)
+			assert.Contains(t, err.Error(), c.fn, "error should name the unknown function")
 		})
 	}
 }

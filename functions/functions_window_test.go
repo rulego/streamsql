@@ -8,10 +8,8 @@ import (
 // isWindowFunction 判断是否为窗口函数
 func isWindowFunction(funcName string) bool {
 	windowFunctions := map[string]bool{
-		"row_number":   true,
 		"window_start": true,
 		"window_end":   true,
-		"lead":         true,
 		"lag":          true,
 		"first_value":  true,
 		"last_value":   true,
@@ -111,35 +109,6 @@ func TestNewWindowFunctions(t *testing.T) {
 		{
 			name:     "lag invalid offset type",
 			funcName: "lag",
-			args:     []any{"test", "invalid"},
-			wantErr:  true,
-			setup:    func(fn AggregatorFunction) {},
-		},
-
-		// lead 函数测试
-		{
-			name:     "lead default offset",
-			funcName: "lead",
-			args:     []any{"test"},
-			want:     nil, // Lead函数简化实现返回nil
-			wantErr:  false,
-			setup: func(fn AggregatorFunction) {
-				fn.Add("first")
-				fn.Add("second")
-				fn.Add("third")
-			},
-		},
-		{
-			name:     "lead with default value",
-			funcName: "lead",
-			args:     []any{"test", 1, "default"},
-			want:     "default",
-			wantErr:  false,
-			setup:    func(fn AggregatorFunction) {},
-		},
-		{
-			name:     "lead invalid offset type",
-			funcName: "lead",
 			args:     []any{"test", "invalid"},
 			wantErr:  true,
 			setup:    func(fn AggregatorFunction) {},
@@ -268,36 +237,6 @@ func TestNewWindowFunctions(t *testing.T) {
 
 // 测试窗口函数的基本功能
 func TestWindowFunctionBasics(t *testing.T) {
-	// 测试row_number函数
-	t.Run("RowNumberFunction", func(t *testing.T) {
-		rowNumFunc, exists := Get("row_number")
-		if !exists {
-			t.Fatal("row_number function not found")
-		}
-
-		// 重置函数状态
-		if rowNum, ok := rowNumFunc.(*RowNumberFunction); ok {
-			rowNum.Reset()
-		}
-
-		// 测试行号递增
-		result1, err := rowNumFunc.Execute(nil, []any{})
-		if err != nil {
-			t.Errorf("Execute() error = %v", err)
-		}
-		if result1 != int64(1) {
-			t.Errorf("First call should return 1, got %v", result1)
-		}
-
-		result2, err := rowNumFunc.Execute(nil, []any{})
-		if err != nil {
-			t.Errorf("Execute() error = %v", err)
-		}
-		if result2 != int64(2) {
-			t.Errorf("Second call should return 2, got %v", result2)
-		}
-	})
-
 	// 测试window_start和window_end函数
 	t.Run("WindowStartEndFunctions", func(t *testing.T) {
 		windowStartFunc, exists := Get("window_start")
@@ -458,33 +397,6 @@ func TestFirstValueFunction(t *testing.T) {
 	}
 }
 
-func TestLeadFunction(t *testing.T) {
-	fn := NewLeadFunction()
-
-	// 测试聚合器方法
-	agg := fn.New().(*LeadFunction)
-	agg.Add("x")
-	agg.Add("y")
-	agg.Add("z")
-	res := agg.Result()
-	if res != nil {
-		t.Errorf("Agg lead result = %v, want nil", res)
-	}
-
-	// 测试Reset
-	agg.Reset()
-	res2 := agg.Result()
-	if res2 != nil {
-		t.Errorf("Reset failed, result = %v, want nil", res2)
-	}
-
-	// 测试Clone
-	clone := agg.Clone().(*LeadFunction)
-	if clone.defaultValue != agg.defaultValue || clone.offset != agg.offset {
-		t.Errorf("Clone failed")
-	}
-}
-
 func TestNthValueFunction(t *testing.T) {
 	fn := NewNthValueFunction()
 
@@ -513,25 +425,12 @@ func TestNthValueFunction(t *testing.T) {
 }
 
 func TestWindowFunctionEdgeCases(t *testing.T) {
-	// LeadFunction Validate/Execute边界
-	lead := NewLeadFunction()
-	if err := lead.Validate([]any{}); err == nil {
-		t.Error("LeadFunction.Validate should fail for insufficient args")
-	}
-	_, err := lead.Execute(nil, []any{})
-	if err == nil {
-		t.Error("LeadFunction.Execute should fail for empty args")
-	}
-	agg := lead.New().(*LeadFunction)
-	agg.Reset()
-	_ = agg.Clone()
-
 	// NthValueFunction Validate/Execute边界
 	nth := NewNthValueFunction()
 	if err := nth.Validate([]any{}); err == nil {
 		t.Error("NthValueFunction.Validate should fail for insufficient args")
 	}
-	_, err = nth.Execute(nil, []any{})
+	_, err := nth.Execute(nil, []any{})
 	if err == nil {
 		t.Error("NthValueFunction.Execute should fail for empty args")
 	}

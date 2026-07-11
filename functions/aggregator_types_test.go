@@ -120,8 +120,8 @@ func TestRegisterLegacyAggregator(t *testing.T) {
 
 // TestCreateLegacyAggregatorUnsupportedReturnsNil verifies an unsupported
 // aggregator type returns nil instead of panicking (so a registration gap
-// degrades to an empty field rather than crashing the engine). Query-time
-// validation (aggregator.ValidateAggregateType) rejects such types at Execute.
+// degrades to an empty field rather than crashing the engine). Unknown aggregate
+// types are rejected at parse time.
 func TestCreateLegacyAggregatorUnsupportedReturnsNil(t *testing.T) {
 	agg := CreateLegacyAggregator("nonexistent_aggregator")
 	if agg != nil {

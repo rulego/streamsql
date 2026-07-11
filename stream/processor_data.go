@@ -404,6 +404,18 @@ func (dp *DataProcessor) processAggregationResults(results []map[string]any) {
 	// the qualified key temporarily so HAVING/ORDER BY can reference either form.
 	dp.stream.projectGroupColumns(results)
 
+	// 窗口查询里分析函数对结果行求值（状态跨窗口保留），在 HAVING 之前，
+	// 这样 HAVING 可引用分析函数别名。
+	if dp.stream.hasAnalyticFields() {
+		kept := results[:0]
+		for _, r := range results {
+			if dp.stream.applyWindowAnalytic(r) {
+				kept = append(kept, r)
+			}
+		}
+		results = kept
+	}
+
 	var finalResults []map[string]any
 
 	// Process DISTINCT
@@ -581,6 +593,8 @@ func (dp *DataProcessor) processDirectData(data map[string]any) {
 		}
 		dataMap = wm
 	}
+	// 分析函数最先求值，注入 dataMap 供 WHERE 占位符引用。
+	analyticResults := dp.stream.evalAnalytic(dataMap)
 	// Apply WHERE on the (possibly enriched) data so metadata columns are visible.
 	if dp.stream.filter != nil && !dp.stream.filter.Evaluate(dataMap) {
 		return
@@ -603,11 +617,19 @@ func (dp *DataProcessor) processDirectData(data map[string]any) {
 		for _, fieldSpec := range dp.stream.config.SimpleFields {
 			dp.stream.processSimpleField(fieldSpec, dataMap, dataMap, result)
 		}
-	} else if len(dp.stream.config.FieldExpressions) == 0 {
+	} else if len(dp.stream.config.FieldExpressions) == 0 && len(dp.stream.config.AnalyticFields) == 0 {
 		// If no fields specified and no expression fields, keep all fields
 		for k, v := range dataMap {
 			result[k] = v
 		}
+	}
+
+	// 分析函数字段输出
+	dp.stream.projectAnalytic(result, analyticResults)
+
+	// omitEmpty：仅 changed_cols 且无变化（结果为空）→ 跳过输出。
+	if len(result) == 0 && dp.stream.hasOmitEmptyAnalytic() {
+		return
 	}
 
 	// Check if any field contains unnest function result and expand to multiple rows

@@ -65,6 +65,9 @@ const (
 	// 数组索引相关token
 	TokenLBracket
 	TokenRBracket
+	// 分析函数 OVER 子句相关 token
+	TokenOVER
+	TokenPARTITION
 	// 点号token
 	TokenDot
 )
@@ -423,6 +426,10 @@ func (l *Lexer) lookupIdent(ident string) Token {
 		return Token{Type: TokenELSE, Value: ident}
 	case "END":
 		return Token{Type: TokenEND, Value: ident}
+	case "OVER":
+		return Token{Type: TokenOVER, Value: ident}
+	case "PARTITION":
+		return Token{Type: TokenPARTITION, Value: ident}
 	default:
 		// Check for common typos
 		if l.errorRecovery != nil {

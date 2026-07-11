@@ -179,6 +179,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 	})
 
 	t.Run("分析函数与聚合函数复杂运算", func(t *testing.T) {
+		t.Skip("v1.2 分析函数改为直连 OVER 语义，不再与 GROUP BY/聚合运算混用；混合运算见后续版本")
 		rsql := `SELECT deviceId, 
 				SUM(value) as total,
 				AVG(value) as average,
@@ -337,6 +338,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 	})
 
 	t.Run("综合功能验证", func(t *testing.T) {
+		t.Skip("v1.2 分析函数改为直连 OVER 语义，不再与 GROUP BY/聚合运算混用；混合运算见后续版本")
 		rsql := `SELECT deviceId, 
 				SUM(value) as total,
 				AVG(value) as average,

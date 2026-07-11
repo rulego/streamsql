@@ -334,9 +334,7 @@ func init() {
 	Register(NewMinFunction())
 
 	// Register window functions
-	Register(NewRowNumberFunction())
 	Register(NewLagFunction())
-	Register(NewLeadFunction())
 	Register(NewFirstValueFunction())
 	Register(NewNthValueFunction())
 
