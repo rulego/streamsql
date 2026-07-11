@@ -1296,6 +1296,29 @@ func (f *PercentileAggregatorFunction) Clone() AggregatorFunction {
 	return clone
 }
 
+// Init 实现 ParameterizedFunction：从 SQL 第二参数取分位 p。
+// percentile(field, p) 中 p∈[0,1] 为第二参数（args[1]），field 的数据经 Add 累积。
+// 未实现本接口时，窗口聚合走 CreateParameterizedAggregator 的兜底分支 New()，p 退化为默认 0.95。
+func (f *PercentileAggregatorFunction) Init(args []any) error {
+	if len(args) < 2 {
+		return fmt.Errorf("percentile requires (field, p); got %v", args)
+	}
+	switch p := args[1].(type) {
+	case float64:
+		f.p = p
+	case int:
+		f.p = float64(p)
+	case int64:
+		f.p = float64(p)
+	default:
+		return fmt.Errorf("percentile p must be a number in [0,1], got %T (%v)", args[1], args[1])
+	}
+	if f.p < 0 || f.p > 1 {
+		return fmt.Errorf("percentile p must be in [0,1], got %v", f.p)
+	}
+	return nil
+}
+
 // 为CollectFunction添加AggregatorFunction接口实现
 type CollectAggregatorFunction struct {
 	*BaseFunction
