@@ -103,13 +103,6 @@ func CreateLegacyAggregator(aggType AggregateType) LegacyAggregatorFunction {
 		}
 	}
 
-	// Try to create analytical function aggregator from functions module
-	if analFunc := CreateAnalyticalAggregatorFromFunctions(string(aggType)); analFunc != nil {
-		if adapter, ok := analFunc.(*AnalyticalAggregatorAdapter); ok {
-			return &AnalyticalAggregatorWrapper{adapter: adapter}
-		}
-	}
-
 	// Check custom registry
 	legacyRegistryMutex.RLock()
 	constructor, exists := legacyAggregatorRegistry[string(aggType)]
@@ -157,20 +150,3 @@ func (w *FunctionAggregatorWrapper) GetContextKey() string {
 	return ""
 }
 
-// AnalyticalAggregatorWrapper wraps functions module analytical function aggregator to make it compatible with original interface
-type AnalyticalAggregatorWrapper struct {
-	adapter *AnalyticalAggregatorAdapter
-}
-
-func (w *AnalyticalAggregatorWrapper) New() LegacyAggregatorFunction {
-	newAdapter := w.adapter.New().(*AnalyticalAggregatorAdapter)
-	return &AnalyticalAggregatorWrapper{adapter: newAdapter}
-}
-
-func (w *AnalyticalAggregatorWrapper) Add(value any) {
-	w.adapter.Add(value)
-}
-
-func (w *AnalyticalAggregatorWrapper) Result() any {
-	return w.adapter.Result()
-}

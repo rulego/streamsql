@@ -51,49 +51,6 @@ func TestAggregatorFunctionInterface(t *testing.T) {
 	}
 }
 
-func TestAnalyticalFunctionInterface(t *testing.T) {
-	// Test Lag analytical function
-	lagFunc := NewLagFunction()
-
-	ctx := &FunctionContext{
-		Data: make(map[string]any),
-	}
-
-	// Test first value (should return default value nil)
-	result, err := lagFunc.Execute(ctx, []any{10})
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if result != nil {
-		t.Errorf("Expected nil for first value, got %v", result)
-	}
-
-	// Test second value (should return first value)
-	result, err = lagFunc.Execute(ctx, []any{20})
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if result != 10 {
-		t.Errorf("Expected 10, got %v", result)
-	}
-
-	// Test clone
-	cloned := lagFunc.Clone()
-	if cloned == nil {
-		t.Fatal("Failed to clone analytical function")
-	}
-
-	// Test reset
-	lagFunc.Reset()
-	result, err = lagFunc.Execute(ctx, []any{30})
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if result != nil {
-		t.Errorf("Expected nil after reset, got %v", result)
-	}
-}
-
 func TestCreateAggregator(t *testing.T) {
 	// Test creating registered aggregator
 	aggFunc, err := CreateAggregator("sum")
@@ -108,23 +65,6 @@ func TestCreateAggregator(t *testing.T) {
 	_, err = CreateAggregator("nonexistent")
 	if err == nil {
 		t.Error("Expected error for nonexistent aggregator")
-	}
-}
-
-func TestCreateAnalytical(t *testing.T) {
-	// Test creating registered analytical function
-	analFunc, err := CreateAnalytical("lag")
-	if err != nil {
-		t.Fatalf("Failed to create lag analytical function: %v", err)
-	}
-	if analFunc == nil {
-		t.Fatal("Created analytical function is nil")
-	}
-
-	// Test creating non-existent analytical function
-	_, err = CreateAnalytical("nonexistent")
-	if err == nil {
-		t.Error("Expected error for nonexistent analytical function")
 	}
 }
 
@@ -154,36 +94,6 @@ func TestAggregatorAdapter(t *testing.T) {
 	if result != 15.0 {
 		t.Errorf("Expected 15.0, got %v", result)
 	}
-}
-
-func TestAnalyticalAdapter(t *testing.T) {
-	// 测试分析函数适配器
-	adapter, err := NewAnalyticalAdapter("latest")
-	if err != nil {
-		t.Fatalf("Failed to create analytical adapter: %v", err)
-	}
-
-	ctx := &FunctionContext{
-		Data: make(map[string]any),
-	}
-
-	// 测试执行
-	result, err := adapter.Execute(ctx, []any{"test_value"})
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if result != "test_value" {
-		t.Errorf("Expected 'test_value', got %v", result)
-	}
-
-	// 测试克隆
-	cloned := adapter.Clone()
-	if cloned == nil {
-		t.Fatal("Failed to clone analytical adapter")
-	}
-
-	// 测试重置
-	adapter.Reset()
 }
 
 func TestCustomFunctionRegistration(t *testing.T) {
@@ -354,10 +264,11 @@ func (f *CustomProductFunction) Clone() AggregatorFunction {
 	}
 }
 
-// CustomMovingAverageFunction 自定义移动平均分析函数示例
+// CustomMovingAverageFunction 自定义移动平均分析函数示例。
+// 演示自定义分析函数的正确写法：实现 StatefulAnalytic（NewState→Apply），跨行状态
+// 放在独立 State 里，由 AnalyticEngine 为每个 PARTITION 各持一份逐条求值。
 type CustomMovingAverageFunction struct {
 	*BaseFunction
-	values     []float64
 	windowSize int
 }
 
@@ -366,7 +277,6 @@ func NewCustomMovingAverageFunction(windowSize int) *CustomMovingAverageFunction
 		BaseFunction: NewBaseFunction("moving_avg", TypeAnalytical, "自定义分析函数",
 			fmt.Sprintf("计算窗口大小为%d的移动平均", windowSize), 1, 1),
 		windowSize: windowSize,
-		values:     make([]float64, 0),
 	}
 }
 
@@ -374,75 +284,42 @@ func (f *CustomMovingAverageFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
+// Execute 标量路径禁用：分析函数需跨行状态，由 AnalyticEngine 的状态机求值。
 func (f *CustomMovingAverageFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
+	return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER, not in a scalar expression", f.GetName())
+}
+
+// NewState 实现 StatefulAnalytic：每个 PARTITION 一份独立窗口状态。
+func (f *CustomMovingAverageFunction) NewState() AnalyticState {
+	return &movingAvgState{windowSize: f.windowSize}
+}
+
+// movingAvgState 维护最近 windowSize 个值，Apply 返回当前窗口均值。
+type movingAvgState struct {
+	windowSize int
+	values     []float64
+}
+
+func (s *movingAvgState) Apply(args []any) any {
+	if len(args) == 0 {
+		return nil
+	}
 	val, err := cast.ToFloat64E(args[0])
 	if err != nil {
-		return nil, err
+		return nil
 	}
-
-	// 添加新值
-	f.values = append(f.values, val)
-
-	// 保持窗口大小
-	if len(f.values) > f.windowSize {
-		f.values = f.values[1:]
+	s.values = append(s.values, val)
+	if len(s.values) > s.windowSize {
+		s.values = s.values[len(s.values)-s.windowSize:]
 	}
-
-	// 计算移动平均
 	sum := 0.0
-	for _, v := range f.values {
+	for _, v := range s.values {
 		sum += v
 	}
-
-	return sum / float64(len(f.values)), nil
+	return sum / float64(len(s.values))
 }
 
-// 实现AnalyticalFunction接口
-func (f *CustomMovingAverageFunction) Reset() {
-	f.values = make([]float64, 0)
-}
-
-// 实现AggregatorFunction接口 - 增量计算支持
-func (f *CustomMovingAverageFunction) New() AggregatorFunction {
-	return &CustomMovingAverageFunction{
-		BaseFunction: f.BaseFunction,
-		windowSize:   f.windowSize,
-		values:       make([]float64, 0),
-	}
-}
-
-func (f *CustomMovingAverageFunction) Add(value any) {
-	if val, err := cast.ToFloat64E(value); err == nil {
-		// 添加新值
-		f.values = append(f.values, val)
-		// 保持窗口大小
-		if len(f.values) > f.windowSize {
-			f.values = f.values[1:]
-		}
-	}
-}
-
-func (f *CustomMovingAverageFunction) Result() any {
-	if len(f.values) == 0 {
-		return 0.0
-	}
-	// 计算移动平均
-	sum := 0.0
-	for _, v := range f.values {
-		sum += v
-	}
-	return sum / float64(len(f.values))
-}
-
-func (f *CustomMovingAverageFunction) Clone() AggregatorFunction {
-	clone := &CustomMovingAverageFunction{
-		BaseFunction: f.BaseFunction,
-		windowSize:   f.windowSize,
-		values:       make([]float64, len(f.values)),
-	}
-	copy(clone.values, f.values)
-	return clone
-}
+func (s *movingAvgState) Reset() { s.values = nil }
 
 // CustomGeometricMeanFunction 自定义几何平均聚合函数示例
 type CustomGeometricMeanFunction struct {
@@ -526,7 +403,6 @@ func RegisterCustomFunctions() {
 	// 注册适配器
 	RegisterAggregatorAdapter("product")
 	RegisterAggregatorAdapter("geomean")
-	RegisterAnalyticalAdapter("moving_avg")
 
 	// 使用RegisterCustomFunction的方式注册简单函数
 	RegisterCustomFunction("double", TypeAggregation, "自定义函数", "将值乘以2", 1, 1,

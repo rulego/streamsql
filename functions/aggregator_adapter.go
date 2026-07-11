@@ -46,44 +46,9 @@ func (a *AggregatorAdapter) GetFunctionName() string {
 	return ""
 }
 
-// AnalyticalAdapter provides adapter for analytical functions
-type AnalyticalAdapter struct {
-	analFunc AnalyticalFunction
-}
-
-// NewAnalyticalAdapter creates an analytical function adapter
-func NewAnalyticalAdapter(name string) (*AnalyticalAdapter, error) {
-	analFunc, err := CreateAnalytical(name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &AnalyticalAdapter{
-		analFunc: analFunc,
-	}, nil
-}
-
-// Execute executes the analytical function
-func (a *AnalyticalAdapter) Execute(ctx *FunctionContext, args []any) (any, error) {
-	return a.analFunc.Execute(ctx, args)
-}
-
-// Reset resets the state
-func (a *AnalyticalAdapter) Reset() {
-	a.analFunc.Reset()
-}
-
-// Clone clones the instance
-func (a *AnalyticalAdapter) Clone() *AnalyticalAdapter {
-	return &AnalyticalAdapter{
-		analFunc: a.analFunc.Clone(),
-	}
-}
-
 // Global adapter registry
 var (
 	aggregatorAdapters = make(map[string]func() any)
-	analyticalAdapters = make(map[string]func() *AnalyticalAdapter)
 	adapterMutex       sync.RWMutex
 )
 
@@ -102,36 +67,12 @@ func RegisterAggregatorAdapter(name string) error {
 	return nil
 }
 
-// RegisterAnalyticalAdapter registers analytical function adapter
-func RegisterAnalyticalAdapter(name string) error {
-	adapterMutex.Lock()
-	defer adapterMutex.Unlock()
-
-	analyticalAdapters[name] = func() *AnalyticalAdapter {
-		adapter, err := NewAnalyticalAdapter(name)
-		if err != nil {
-			return nil
-		}
-		return adapter
-	}
-	return nil
-}
-
 // GetAggregatorAdapter gets aggregator adapter
 func GetAggregatorAdapter(name string) (func() any, bool) {
 	adapterMutex.RLock()
 	defer adapterMutex.RUnlock()
 
 	constructor, exists := aggregatorAdapters[name]
-	return constructor, exists
-}
-
-// GetAnalyticalAdapter gets analytical function adapter
-func GetAnalyticalAdapter(name string) (func() *AnalyticalAdapter, bool) {
-	adapterMutex.RLock()
-	defer adapterMutex.RUnlock()
-
-	constructor, exists := analyticalAdapters[name]
 	return constructor, exists
 }
 
@@ -144,22 +85,6 @@ func CreateBuiltinAggregatorFromFunctions(aggType string) any {
 
 	// If not found, try to create directly
 	adapter, err := NewAggregatorAdapter(aggType)
-	if err != nil {
-		return nil
-	}
-
-	return adapter
-}
-
-// CreateAnalyticalFromFunctions creates analytical function from functions module
-func CreateAnalyticalFromFunctions(funcType string) *AnalyticalAdapter {
-	// First try to get from adapter registry
-	if constructor, exists := GetAnalyticalAdapter(funcType); exists {
-		return constructor()
-	}
-
-	// If not found, try to create directly
-	adapter, err := NewAnalyticalAdapter(funcType)
 	if err != nil {
 		return nil
 	}

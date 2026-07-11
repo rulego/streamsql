@@ -106,6 +106,12 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 			}
 			analyticFields = append(analyticFields, buildAnalyticField(f))
 		} else {
+			// 标量函数（如 UPPER/ABS）的参数里不得嵌分析函数：分析函数需跨行状态，走无状态
+			// 标量路径会静默求错。算术表达式（如 ts - lag(ts) OVER(...)）可含带 OVER 的合法
+			// 分析函数，不在此拦；聚合套分析由 detectNestedAggregation 拦截。
+			if topIsScalarFunction(f.Expression) && containsAnalyticCall(f.Expression) {
+				return nil, "", fmt.Errorf("analytic function in %q must be used as a standalone field or with OVER, not inside a scalar function", f.Expression)
+			}
 			otherFields = append(otherFields, f)
 		}
 	}
@@ -283,6 +289,56 @@ func isAnalyticField(f Field) bool {
 		return fn.GetType() == functions.TypeAnalytical
 	}
 	return false
+}
+
+// containsAnalyticCall 判断表达式里是否含分析函数（TypeAnalytical）调用。
+// 用于拦截把分析函数嵌进标量函数的写法（如 UPPER(changed_col(...))）：
+// 分析函数需跨行状态，走无状态标量路径会静默求错，必须在解析期拒绝。
+// 先去掉字符串字面量，避免把字面量里形如 "lag(" 的文本误判为函数调用。
+func containsAnalyticCall(expr string) bool {
+	for _, name := range extractAllFunctions(stripStringLiterals(expr)) {
+		if fn, exists := functions.Get(name); exists && fn.GetType() == functions.TypeAnalytical {
+			return true
+		}
+	}
+	return false
+}
+
+// stripStringLiterals 去掉单引号字符串字面量内容，仅保留字面量外的表达式文本。
+// 处理 SQL 转义的两个连续单引号（''）。
+func stripStringLiterals(expr string) string {
+	var b strings.Builder
+	b.Grow(len(expr))
+	inStr := false
+	for i := 0; i < len(expr); i++ {
+		c := expr[i]
+		if c == '\'' {
+			if inStr && i+1 < len(expr) && expr[i+1] == '\'' {
+				i++ // 转义引号，跳过，仍处于字面量内
+				continue
+			}
+			inStr = !inStr
+			continue
+		}
+		if !inStr {
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
+}
+
+// topIsScalarFunction 判断表达式顶层是否为已注册的标量函数（非聚合/分析/窗口）。
+// 用于区分"标量函数套分析"（非法）与"算术表达式含带 OVER 的分析函数"（合法）。
+func topIsScalarFunction(expr string) bool {
+	fn, exists := functions.Get(strings.ToLower(extractFunctionName(expr)))
+	if !exists {
+		return false
+	}
+	switch fn.GetType() {
+	case functions.TypeAggregation, functions.TypeAnalytical, functions.TypeWindow:
+		return false
+	}
+	return true
 }
 
 // buildAnalyticField 将分析函数 Field 转为 AnalyticField，保留 OVER 子句。

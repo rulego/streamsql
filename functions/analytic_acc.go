@@ -1,5 +1,7 @@
 package functions
 
+import "fmt"
+
 // accState 是 acc_sum/acc_max/acc_min/acc_count/acc_avg 的通用累积状态。
 // 累积范围为规则生命周期。可选的条件累计：acc_xxx(expr, startExpr, resetExpr)，
 // startExpr 命中或已开始才累计，resetExpr 命中则归零并停止（直到再次 start）。
@@ -97,17 +99,12 @@ type accFunction struct {
 
 func (f *accFunction) Validate(args []any) error { return f.ValidateArgCount(args) }
 
-// Execute 直连求值兜底（分析函数应通过状态机求值，此处不被调用）。
-func (f *accFunction) Execute(ctx *FunctionContext, args []any) (any, error) { return nil, nil }
+// Execute 标量路径禁用：分析函数需跨行状态，只能作为独立字段/OVER 由状态机求值。
+func (f *accFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
+	return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER, not in a scalar expression", f.GetName())
+}
 
 func (f *accFunction) NewState() AnalyticState { return &accState{kind: f.kind} }
-
-// AggregatorFunction 兼容实现（注册需要；P0 聚合+分析函数已报错，不走聚合路径）。
-func (f *accFunction) New() AggregatorFunction { return &accFunction{BaseFunction: f.BaseFunction, kind: f.kind} }
-func (f *accFunction) Add(value any)                            {}
-func (f *accFunction) Result() any                              { return nil }
-func (f *accFunction) Reset()                                   {}
-func (f *accFunction) Clone() AggregatorFunction                { return f.New() }
 
 func NewAccSumFunction() *accFunction {
 	return &accFunction{BaseFunction: NewBaseFunction("acc_sum", TypeAnalytical, "分析函数", "累积求和", 1, 3), kind: "acc_sum"}
@@ -200,7 +197,9 @@ func NewChangedColsFunction() *ChangedColsFunction {
 
 func (f *ChangedColsFunction) Validate(args []any) error { return f.ValidateArgCount(args) }
 
-// Execute 直连求值兜底（多列函数应通过状态机求值，此处不被调用）。
-func (f *ChangedColsFunction) Execute(ctx *FunctionContext, args []any) (any, error) { return nil, nil }
+// Execute 标量路径禁用：多列分析函数只能作为独立字段由状态机求值。
+func (f *ChangedColsFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
+	return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER, not in a scalar expression", f.GetName())
+}
 
 func (f *ChangedColsFunction) NewState() AnalyticState { return &changedColsState{} }

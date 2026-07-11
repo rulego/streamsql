@@ -78,82 +78,6 @@ func TestFunctionsAggregatorIntegration(t *testing.T) {
 	})
 }
 
-func TestAnalyticalFunctionsIntegration(t *testing.T) {
-	t.Run("LagFunction", func(t *testing.T) {
-		lagFunc := NewLagFunction()
-		ctx := &FunctionContext{
-			Data: make(map[string]any),
-		}
-
-		// 第一个值应该返回默认值nil
-		result, err := lagFunc.Execute(ctx, []any{10})
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-		if result != nil {
-			t.Errorf("Expected nil for first value, got %v", result)
-		}
-
-		// 第二个值应该返回第一个值
-		result, err = lagFunc.Execute(ctx, []any{20})
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-		if result != 10 {
-			t.Errorf("Expected 10, got %v", result)
-		}
-	})
-
-	t.Run("LatestFunction", func(t *testing.T) {
-		latestFunc := NewLatestFunction()
-		ctx := &FunctionContext{
-			Data: make(map[string]any),
-		}
-
-		result, err := latestFunc.Execute(ctx, []any{"test_value"})
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-		if result != "test_value" {
-			t.Errorf("Expected 'test_value', got %v", result)
-		}
-	})
-
-	t.Run("HadChangedFunction", func(t *testing.T) {
-		hadChangedFunc := NewHadChangedFunction()
-		ctx := &FunctionContext{
-			Data: make(map[string]any),
-		}
-
-		// 第一次调用应该返回true
-		result, err := hadChangedFunc.Execute(ctx, []any{10})
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-		if result != true {
-			t.Errorf("Expected true for first call, got %v", result)
-		}
-
-		// 相同值应该返回false
-		result, err = hadChangedFunc.Execute(ctx, []any{10})
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-		if result != false {
-			t.Errorf("Expected false for same value, got %v", result)
-		}
-
-		// 不同值应该返回true
-		result, err = hadChangedFunc.Execute(ctx, []any{20})
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-		if result != true {
-			t.Errorf("Expected true for different value, got %v", result)
-		}
-	})
-}
-
 func TestWindowFunctions(t *testing.T) {
 	t.Run("WindowStartFunction", func(t *testing.T) {
 		windowStartFunc := NewWindowStartFunction()
@@ -280,25 +204,6 @@ func TestAdapterFunctions(t *testing.T) {
 		result := newAdapter.Result()
 		if result != 30.0 {
 			t.Errorf("Expected 30.0, got %v", result)
-		}
-	})
-
-	t.Run("AnalyticalAggregatorAdapter", func(t *testing.T) {
-		adapter, err := NewAnalyticalAggregatorAdapter("latest")
-		if err != nil {
-			t.Fatalf("Failed to create analytical aggregator adapter: %v", err)
-		}
-
-		newInstance := adapter.New()
-		newAdapter, ok := newInstance.(*AnalyticalAggregatorAdapter)
-		if !ok {
-			t.Fatalf("New instance is not an AnalyticalAggregatorAdapter")
-		}
-
-		newAdapter.Add("test_value")
-		result := newAdapter.Result()
-		if result != "test_value" {
-			t.Errorf("Expected 'test_value', got %v", result)
 		}
 	})
 }

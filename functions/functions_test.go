@@ -240,9 +240,6 @@ func TestFunctionExecution(t *testing.T) {
 		{"vars basic", "vars", []any{1.0, 2.0, 3.0, 4.0, 5.0}, 2.5, false},
 
 
-		// 分析函数
-		{"latest basic", "latest", []any{"hello"}, "hello", false},
-		{"had_changed first", "had_changed", []any{"value1"}, true, false},
 	}
 
 	for _, tt := range tests {

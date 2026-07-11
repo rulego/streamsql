@@ -70,50 +70,6 @@ func TestNewWindowFunctions(t *testing.T) {
 			setup:    func(fn AggregatorFunction) {},
 		},
 
-		// lag 函数测试
-		{
-			name:     "lag default offset",
-			funcName: "lag",
-			args:     []any{"test"},
-			want:     "second",
-			wantErr:  false,
-			setup: func(fn AggregatorFunction) {
-				fn.Add("first")
-				fn.Add("second")
-				fn.Add("third")
-			},
-		},
-		{
-			name:     "lag with offset 2",
-			funcName: "lag",
-			args:     []any{"test", 2},
-			want:     "first",
-			wantErr:  false,
-			setup: func(fn AggregatorFunction) {
-				fn.Add("first")
-				fn.Add("second")
-				fn.Add("third")
-			},
-		},
-		{
-			name:     "lag with default value",
-			funcName: "lag",
-			args:     []any{"test", 5, "default"},
-			want:     "default",
-			wantErr:  false,
-			setup: func(fn AggregatorFunction) {
-				fn.Add("first")
-				fn.Add("second")
-			},
-		},
-		{
-			name:     "lag invalid offset type",
-			funcName: "lag",
-			args:     []any{"test", "invalid"},
-			wantErr:  true,
-			setup:    func(fn AggregatorFunction) {},
-		},
-
 		// nth_value 函数测试
 		{
 			name:     "nth_value first",

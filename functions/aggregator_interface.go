@@ -17,12 +17,6 @@ type AggregatorFunction interface {
 	Clone() AggregatorFunction
 }
 
-// AnalyticalFunction defines the interface for analytical functions with state management
-// Now inherits from AggregatorFunction to support incremental computation
-type AnalyticalFunction interface {
-	AggregatorFunction
-}
-
 // ParameterizedFunction defines the interface for functions that need parameter initialization
 type ParameterizedFunction interface {
 	AggregatorFunction
@@ -78,18 +72,4 @@ func IsAggregatorFunction(name string) bool {
 	}
 	_, ok := fn.(AggregatorFunction)
 	return ok
-}
-
-// CreateAnalytical creates an analytical function instance
-func CreateAnalytical(name string) (AnalyticalFunction, error) {
-	fn, exists := Get(name)
-	if !exists {
-		return nil, fmt.Errorf("analytical function %s not found", name)
-	}
-
-	if analFn, ok := fn.(AnalyticalFunction); ok {
-		return analFn.New().(AnalyticalFunction), nil
-	}
-
-	return nil, fmt.Errorf("function %s is not an analytical function", name)
 }

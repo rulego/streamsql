@@ -27,9 +27,9 @@ It serves as the central hub for all function-related operations in SQL expressi
 • Plugin Architecture - Runtime registration of custom functions without code modification
 • Type System - Comprehensive function categorization and type validation
 • Aggregation Support - Specialized interfaces for incremental aggregation functions
-• Analytical Functions - Advanced analytical functions with state management
+• Analytical Functions - Stateful per-event analytic functions (lag, changed_col, acc_*, etc.)
 • Performance Optimization - Efficient function dispatch and execution
-• Automatic Adaptation - Seamless integration between function types and aggregator modules
+• Aggregation Adaptation - Aggregation functions adapt to the aggregator module interface
 
 # Function Types
 
@@ -40,7 +40,7 @@ The package supports eight distinct function categories:
 	TypeConversion  - Type conversion functions (CAST, CONVERT, TO_NUMBER, etc.)
 	TypeDateTime    - Date and time functions (NOW, DATE_FORMAT, EXTRACT, etc.)
 	TypeAggregation - Aggregate functions (SUM, AVG, COUNT, MAX, MIN, etc.)
-	TypeAnalytical  - Analytical functions (ROW_NUMBER, RANK, LAG, LEAD, etc.)
+	TypeAnalytical  - Analytical functions (LAG, LATEST, CHANGED_COL, CHANGED_COLS, HAD_CHANGED, ACC_*, etc.)
 	TypeWindow      - Window functions (TUMBLING_WINDOW, SLIDING_WINDOW, etc.)
 	TypeCustom      - User-defined custom functions
 
@@ -121,24 +121,34 @@ The package defines several interfaces for different function types:
 		Clone() AggregatorFunction
 	}
 
-	// Analytical function interface
-	type AnalyticalFunction interface {
-		AggregatorFunction
+	// Stateful analytic function interface.
+	// Analytic functions keep state across events; NewState creates a fresh
+	// per-partition state machine that the stream's AnalyticEngine evaluates per event.
+	type StatefulAnalytic interface {
+		NewState() AnalyticState
 	}
+
+	// AnalyticState - per-event state machine (one held per PARTITION).
+	type AnalyticState interface {
+		Apply(args []any) any
+		Reset()
+	}
+
+Note: analytic functions still implement Function (required by the registry), but their
+Execute is a disabled guard — they must be evaluated as a SELECT field or with OVER by the
+AnalyticEngine, not nested inside a scalar expression such as UPPER(lag(x)).
 
 # Adapter System
 
-Automatic adaptation between function types and aggregator modules:
+Aggregation functions are adapted to the legacy aggregator interface:
 
-	// AggregatorAdapter - Adapts functions to aggregator interface
+	// AggregatorAdapter - Adapts an AggregatorFunction to the aggregator interface
 	type AggregatorAdapter struct {
 		function AggregatorFunction
 	}
 
-	// AnalyticalAdapter - Adapts analytical functions
-	type AnalyticalAdapter struct {
-		function AnalyticalFunction
-	}
+Analytic functions do NOT go through the adapter/aggregator path; they are evaluated per-event
+via StatefulAnalytic.NewState with one AnalyticState held per PARTITION.
 
 # Performance Features
 

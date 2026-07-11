@@ -71,30 +71,38 @@ func init() {
 ### 创建自定义分析函数
 
 ```go
-// 1. 定义函数结构
+// 1. 定义函数结构（分析函数本身无可变状态，跨行状态放在下面的 State 里）
 type CustomAnalyticalFunction struct {
     *BaseFunction
-    state interface{}
 }
 
-// 2. 实现基础接口
-func (f *CustomAnalyticalFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-    // 实现分析逻辑
+// 2. 实现基础接口（Execute 标量路径禁用：分析函数需跨行状态，由状态机求值）
+func (f *CustomAnalyticalFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
+    return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER", f.GetName())
 }
 
-// 3. 实现AnalyticalFunction接口
-func (f *CustomAnalyticalFunction) Reset() {
-    f.state = nil
+// 3. 实现 StatefulAnalytic：NewState 返回一份独立状态，引擎为每个 PARTITION 各持一份
+func (f *CustomAnalyticalFunction) NewState() AnalyticState {
+    return &customAnalyticalState{}
 }
 
-func (f *CustomAnalyticalFunction) Clone() AnalyticalFunction {
-    return &CustomAnalyticalFunction{BaseFunction: f.BaseFunction, state: f.state}
+type customAnalyticalState struct {
+    prev any
 }
 
-// 4. 注册函数
+// Apply 每条事件调用：用当前行参数更新状态，返回当前结果（这里返回上一行的值，即 lag 语义）
+func (s *customAnalyticalState) Apply(args []any) any {
+    cur := args[0]
+    result := s.prev
+    s.prev = cur
+    return result
+}
+
+func (s *customAnalyticalState) Reset() { s.prev = nil }
+
+// 4. 注册函数（分析函数 Register 即可，无需 RegisterAnalyticalAdapter）
 func init() {
     Register(NewCustomAnalyticalFunction())
-    RegisterAnalyticalAdapter("custom_analytical")
 }
 ```
 

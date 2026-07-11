@@ -2,21 +2,16 @@ package functions
 
 import (
 	"fmt"
-	"reflect"
 )
 
 // LagFunction LAG函数 - 返回当前行之前的第N行的值
 type LagFunction struct {
 	*BaseFunction
-	PreviousValues []any
-	DefaultValue   any
-	Offset         int
 }
 
 func NewLagFunction() *LagFunction {
 	return &LagFunction{
 		BaseFunction: NewBaseFunction("lag", TypeAnalytical, "分析函数", "返回前N行的值", 1, 4),
-		Offset:       1, // 设置默认偏移量为1
 	}
 }
 
@@ -29,98 +24,21 @@ func (f *LagFunction) Validate(args []any) error {
 		if !ok {
 			return fmt.Errorf("lag function second argument (offset) must be an integer")
 		}
-		f.Offset = offset
-		if f.Offset <= 0 {
+		if offset <= 0 {
 			return fmt.Errorf("lag function offset must be a positive integer")
 		}
-	} else {
-		f.Offset = 1 // 默认为1
-	}
-	if len(args) == 3 {
-		f.DefaultValue = args[2]
-	} else {
-		f.DefaultValue = nil // 默认值为nil
 	}
 	return nil
 }
 
+// Execute 标量路径禁用：分析函数需跨行状态，只能作为独立字段/OVER 由状态机求值。
 func (f *LagFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	currentValue := args[0]
-
-	var result any
-	if len(f.PreviousValues) < f.Offset {
-		result = f.DefaultValue
-	} else {
-		result = f.PreviousValues[len(f.PreviousValues)-f.Offset]
-	}
-
-	// 更新历史值队列
-	f.PreviousValues = append(f.PreviousValues, currentValue)
-	// 保持队列长度，移除最旧的值
-	if len(f.PreviousValues) > f.Offset*2 { // 保留足够的历史数据，可以根据需要调整
-		f.PreviousValues = f.PreviousValues[1:]
-	}
-
-	return result, nil
-}
-
-func (f *LagFunction) Reset() {
-	f.PreviousValues = nil
-}
-
-// 实现AggregatorFunction接口 - 增量计算支持
-func (f *LagFunction) New() AggregatorFunction {
-	// 确保Offset有默认值
-	offset := f.Offset
-	if offset <= 0 {
-		offset = 1
-	}
-	newFunc := &LagFunction{
-		BaseFunction:   f.BaseFunction,
-		DefaultValue:   f.DefaultValue,
-		Offset:         offset,
-		PreviousValues: make([]any, 0),
-	}
-	return newFunc
-}
-
-func (f *LagFunction) Add(value any) {
-	// 增量添加值，维护历史值队列
-	f.PreviousValues = append(f.PreviousValues, value)
-	// 保持队列长度
-	if len(f.PreviousValues) > f.Offset*2 {
-		f.PreviousValues = f.PreviousValues[1:]
-	}
-}
-
-func (f *LagFunction) Result() any {
-	// 检查是否有足够的历史值
-	if len(f.PreviousValues) <= f.Offset {
-		return f.DefaultValue
-	}
-	// 返回当前值之前第Offset个值
-	// 对于数组[first, second, third]，当前位置是最后一个元素third（索引2）
-	// offset=1时应该返回second（索引1），计算：len-1-offset = 3-1-1 = 1
-	// offset=2时应该返回first（索引0），计算：len-1-offset = 3-1-2 = 0
-	// 索引计算：len-1-offset，即从最后一个元素往前数offset个位置
-	return f.PreviousValues[len(f.PreviousValues)-1-f.Offset]
-}
-
-func (f *LagFunction) Clone() AggregatorFunction {
-	clone := &LagFunction{
-		BaseFunction:   f.BaseFunction,
-		DefaultValue:   f.DefaultValue,
-		Offset:         f.Offset,
-		PreviousValues: make([]any, len(f.PreviousValues)),
-	}
-	copy(clone.PreviousValues, f.PreviousValues)
-	return clone
+	return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER, not in a scalar expression", f.GetName())
 }
 
 // LatestFunction 最新值函数 - 返回指定列的最新值
 type LatestFunction struct {
 	*BaseFunction
-	LatestValue any
 }
 
 func NewLatestFunction() *LatestFunction {
@@ -134,47 +52,17 @@ func (f *LatestFunction) Validate(args []any) error {
 }
 
 func (f *LatestFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	f.LatestValue = args[0]
-	return f.LatestValue, nil
-}
-
-func (f *LatestFunction) Reset() {
-	f.LatestValue = nil
-}
-
-// 实现AggregatorFunction接口 - 增量计算支持
-func (f *LatestFunction) New() AggregatorFunction {
-	return &LatestFunction{
-		BaseFunction: f.BaseFunction,
-		LatestValue:  nil,
-	}
-}
-
-func (f *LatestFunction) Add(value any) {
-	f.LatestValue = value
-}
-
-func (f *LatestFunction) Result() any {
-	return f.LatestValue
-}
-
-func (f *LatestFunction) Clone() AggregatorFunction {
-	return &LatestFunction{
-		BaseFunction: f.BaseFunction,
-		LatestValue:  f.LatestValue,
-	}
+	return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER, not in a scalar expression", f.GetName())
 }
 
 // ChangedColFunction 变化列函数 - 返回发生变化的列名
 type ChangedColFunction struct {
 	*BaseFunction
-	PreviousValues map[string]any
 }
 
 func NewChangedColFunction() *ChangedColFunction {
 	return &ChangedColFunction{
-		BaseFunction:   NewBaseFunction("changed_col", TypeAnalytical, "分析函数", "返回变化的列值", 2, 2),
-		PreviousValues: make(map[string]any),
+		BaseFunction: NewBaseFunction("changed_col", TypeAnalytical, "分析函数", "返回变化的列值", 2, 2),
 	}
 }
 
@@ -183,73 +71,12 @@ func (f *ChangedColFunction) Validate(args []any) error {
 }
 
 func (f *ChangedColFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	currentValue := args[0]
-	// 假设currentValue是一个map[string]any，代表当前行数据
-	currentMap, ok := currentValue.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("changed_col function expects a map as input")
-	}
-
-	changedColumns := []string{}
-	for key, val := range currentMap {
-		if prevVal, exists := f.PreviousValues[key]; !exists || !valuesEqual(prevVal, val) {
-			changedColumns = append(changedColumns, key)
-		}
-		f.PreviousValues[key] = val // 更新上一行的值
-	}
-
-	return changedColumns, nil
-}
-
-func (f *ChangedColFunction) Reset() {
-	f.PreviousValues = make(map[string]any)
-}
-
-// 实现AggregatorFunction接口 - 增量计算支持
-func (f *ChangedColFunction) New() AggregatorFunction {
-	return &ChangedColFunction{
-		BaseFunction:   f.BaseFunction,
-		PreviousValues: make(map[string]any),
-	}
-}
-
-func (f *ChangedColFunction) Add(value any) {
-	// 对于changed_col函数，每次Add都会更新状态
-	currentMap, ok := value.(map[string]any)
-	if !ok {
-		return
-	}
-
-	for key, val := range currentMap {
-		f.PreviousValues[key] = val
-	}
-}
-
-func (f *ChangedColFunction) Result() any {
-	// 返回所有变化的列名
-	changedColumns := make([]string, 0, len(f.PreviousValues))
-	for key := range f.PreviousValues {
-		changedColumns = append(changedColumns, key)
-	}
-	return changedColumns
-}
-
-func (f *ChangedColFunction) Clone() AggregatorFunction {
-	clone := &ChangedColFunction{
-		BaseFunction:   f.BaseFunction,
-		PreviousValues: make(map[string]any),
-	}
-	for k, v := range f.PreviousValues {
-		clone.PreviousValues[k] = v
-	}
-	return clone
+	return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER, not in a scalar expression", f.GetName())
 }
 
 // HadChangedFunction 是否变化函数 - 判断指定列的值是否发生变化
 type HadChangedFunction struct {
 	*BaseFunction
-	PreviousValue any
-	IsSet         bool // 标记PreviousValue是否已被设置
 }
 
 func NewHadChangedFunction() *HadChangedFunction {
@@ -263,60 +90,7 @@ func (f *HadChangedFunction) Validate(args []any) error {
 }
 
 func (f *HadChangedFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	currentValue := args[0]
-	changed := false
-	if f.IsSet {
-		changed = !valuesEqual(f.PreviousValue, currentValue)
-	} else {
-		changed = true // 第一次调用，认为发生了变化
-	}
-	f.PreviousValue = currentValue
-	f.IsSet = true
-	return changed, nil
-}
-
-func (f *HadChangedFunction) Reset() {
-	f.PreviousValue = nil
-	f.IsSet = false
-}
-
-// 实现AggregatorFunction接口 - 增量计算支持
-func (f *HadChangedFunction) New() AggregatorFunction {
-	return &HadChangedFunction{
-		BaseFunction:  f.BaseFunction,
-		PreviousValue: nil,
-		IsSet:         false,
-	}
-}
-
-func (f *HadChangedFunction) Add(value any) {
-	f.PreviousValue = value
-	f.IsSet = true
-}
-
-func (f *HadChangedFunction) Result() any {
-	// 对于增量计算，返回是否发生了变化
-	return f.IsSet
-}
-
-func (f *HadChangedFunction) Clone() AggregatorFunction {
-	return &HadChangedFunction{
-		BaseFunction:  f.BaseFunction,
-		PreviousValue: f.PreviousValue,
-		IsSet:         f.IsSet,
-	}
-}
-
-// valuesEqual 比较两个值是否相等，处理不同类型和nil的情况
-func valuesEqual(a, b any) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	// 使用reflect.DeepEqual进行深度比较，可以处理复杂类型
-	return reflect.DeepEqual(a, b)
+	return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER, not in a scalar expression", f.GetName())
 }
 
 // ===== 流式状态机实现（走直连路径逐条 Apply）=====

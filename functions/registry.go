@@ -120,8 +120,6 @@ func (r *FunctionRegistry) Register(fn Function) error {
 	// Register aggregator adapter
 	if fn.GetType() == TypeAggregation {
 		_ = RegisterAggregatorAdapter(fn.GetName())
-	} else if fn.GetType() == TypeAnalytical {
-		_ = RegisterAnalyticalAdapter(fn.GetName())
 	}
 	return nil
 }
