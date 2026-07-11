@@ -37,7 +37,7 @@ err := functions.RegisterCustomFunction(
     1,                          // 最少参数个数
     1,                          // 最多参数个数
     func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-        val, err := functions.ConvertToFloat64(args[0])
+        val, err := cast.ToFloat64E(args[0])
         if err != nil {
             return nil, err
         }
@@ -79,10 +79,10 @@ func (f *AdvancedMathFunction) Validate(args []interface{}) error {
     
     // 自定义验证逻辑
     if len(args) >= 2 {
-        if _, err := functions.ConvertToFloat64(args[0]); err != nil {
+        if _, err := cast.ToFloat64E(args[0]); err != nil {
             return fmt.Errorf("第一个参数必须是数值")
         }
-        if _, err := functions.ConvertToFloat64(args[1]); err != nil {
+        if _, err := cast.ToFloat64E(args[1]); err != nil {
             return fmt.Errorf("第二个参数必须是数值")
         }
     }
@@ -92,12 +92,12 @@ func (f *AdvancedMathFunction) Validate(args []interface{}) error {
 
 // 4. 实现执行方法
 func (f *AdvancedMathFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-    a, _ := functions.ConvertToFloat64(args[0])
-    b, _ := functions.ConvertToFloat64(args[1])
+    a, _ := cast.ToFloat64E(args[0])
+    b, _ := cast.ToFloat64E(args[1])
     
     operation := "add" // 默认操作
     if len(args) > 2 {
-        op, err := functions.ConvertToString(args[2])
+        op, err := cast.ToStringE(args[2])
         if err == nil {
             operation = op
         }
@@ -135,13 +135,13 @@ func RegisterDistanceFunction() error {
         "计算两点间距离",
         4, 4,
         func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-            x1, err := functions.ConvertToFloat64(args[0])
+            x1, err := cast.ToFloat64E(args[0])
             if err != nil { return nil, err }
-            y1, err := functions.ConvertToFloat64(args[1])
+            y1, err := cast.ToFloat64E(args[1])
             if err != nil { return nil, err }
-            x2, err := functions.ConvertToFloat64(args[2])
+            x2, err := cast.ToFloat64E(args[2])
             if err != nil { return nil, err }
-            y2, err := functions.ConvertToFloat64(args[3])
+            y2, err := cast.ToFloat64E(args[3])
             if err != nil { return nil, err }
             
             distance := math.Sqrt(math.Pow(x2-x1, 2) + math.Pow(y2-y1, 2))
@@ -166,10 +166,10 @@ func RegisterJsonExtractFunction() error {
         "从JSON字符串中提取字段值",
         2, 2,
         func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-            jsonStr, err := functions.ConvertToString(args[0])
+            jsonStr, err := cast.ToStringE(args[0])
             if err != nil { return nil, err }
             
-            path, err := functions.ConvertToString(args[1])
+            path, err := cast.ToStringE(args[1])
             if err != nil { return nil, err }
             
             var data map[string]interface{}
@@ -204,10 +204,10 @@ func RegisterDateFormatFunction() error {
         "格式化时间戳为指定格式",
         2, 2,
         func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-            timestamp, err := functions.ConvertToInt64(args[0])
+            timestamp, err := cast.ToInt64E(args[0])
             if err != nil { return nil, err }
             
-            format, err := functions.ConvertToString(args[1])
+            format, err := cast.ToStringE(args[1])
             if err != nil { return nil, err }
             
             t := time.Unix(timestamp, 0)
@@ -243,7 +243,7 @@ func RegisterIpToIntFunction() error {
         "将IP地址转换为整数",
         1, 1,
         func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-            ipStr, err := functions.ConvertToString(args[0])
+            ipStr, err := cast.ToStringE(args[0])
             if err != nil { return nil, err }
             
             ip := net.ParseIP(ipStr)
@@ -268,76 +268,57 @@ func RegisterIpToIntFunction() error {
 
 ### 5. 自定义聚合函数示例
 
-对于聚合函数，需要同时实现函数和聚合器：
+聚合函数实现 `AggregatorFunction` 接口（`New`/`Add`/`Result`/`Reset`/`Clone`），用 `functions.Register` 注册一处即可——适配器自动接通，无需 `aggregator.Register`。
 
 ```go
-// 1. 实现自定义聚合函数
-type MedianAggFunction struct {
+import (
+    "sort"
+
+    "github.com/rulego/streamsql/functions"
+    "github.com/rulego/streamsql/utils/cast"
+)
+
+// MedianAgg 完整实现 AggregatorFunction
+type MedianAgg struct {
     *functions.BaseFunction
-}
-
-func NewMedianAggFunction() *MedianAggFunction {
-    return &MedianAggFunction{
-        BaseFunction: functions.NewBaseFunction(
-            "median_agg",
-            functions.TypeAggregation,
-            "统计聚合",
-            "计算中位数",
-            1, -1,
-        ),
-    }
-}
-
-func (f *MedianAggFunction) Validate(args []interface{}) error {
-    return f.ValidateArgCount(args)
-}
-
-func (f *MedianAggFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-    // 聚合函数的Execute在这里可能不会被直接调用
-    // 实际逻辑在聚合器中实现
-    return nil, nil
-}
-
-// 2. 实现对应的聚合器
-type MedianCustomAggregator struct {
     values []float64
 }
 
-func (m *MedianCustomAggregator) New() aggregator.AggregatorFunction {
-    return &MedianCustomAggregator{
-        values: make([]float64, 0),
-    }
+func NewMedianAgg() *MedianAgg {
+    return &MedianAgg{BaseFunction: functions.NewBaseFunction(
+        "median_agg", functions.TypeAggregation, "统计聚合", "计算中位数", 1, -1)}
 }
 
-func (m *MedianCustomAggregator) Add(value interface{}) {
-    if val, err := functions.ConvertToFloat64(value); err == nil {
-        m.values = append(m.values, val)
+func (f *MedianAgg) Validate(args []any) error                            { return f.ValidateArgCount(args) }
+func (f *MedianAgg) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
+    return nil, nil // 聚合走 Add/Result，Execute 仅满足接口
+}
+func (f *MedianAgg) New() functions.AggregatorFunction { return &MedianAgg{BaseFunction: f.BaseFunction} }
+func (f *MedianAgg) Add(value any) {
+    if v, err := cast.ToFloat64E(value); err == nil {
+        f.values = append(f.values, v)
     }
 }
-
-func (m *MedianCustomAggregator) Result() interface{} {
-    if len(m.values) == 0 {
+func (f *MedianAgg) Result() any {
+    if len(f.values) == 0 {
         return 0.0
     }
-    
-    sort.Float64s(m.values)
-    mid := len(m.values) / 2
-    
-    if len(m.values)%2 == 0 {
-        return (m.values[mid-1] + m.values[mid]) / 2
+    sort.Float64s(f.values)
+    mid := len(f.values) / 2
+    if len(f.values)%2 == 0 {
+        return (f.values[mid-1] + f.values[mid]) / 2
     }
-    return m.values[mid]
+    return f.values[mid]
+}
+func (f *MedianAgg) Reset()                                   { f.values = nil }
+func (f *MedianAgg) Clone() functions.AggregatorFunction {
+    cp := make([]float64, len(f.values))
+    copy(cp, f.values)
+    return &MedianAgg{BaseFunction: f.BaseFunction, values: cp}
 }
 
-// 3. 注册聚合器
 func init() {
-    // 注册函数
-    functions.Register(NewMedianAggFunction())
-    
-    // 注册聚合器
-    aggregator.Register("median_agg", func() aggregator.AggregatorFunction {
-        return &MedianCustomAggregator{}
-    })
+    functions.Register(NewMedianAgg())
 }
 
 // SQL使用示例:
@@ -390,7 +371,7 @@ func (f *MyFunction) Execute(ctx *functions.FunctionContext, args []interface{})
     }
     
     // 2. 类型转换
-    val, err := functions.ConvertToFloat64(args[0])
+    val, err := cast.ToFloat64E(args[0])
     if err != nil {
         return nil, fmt.Errorf("参数类型错误: %v", err)
     }

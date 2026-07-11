@@ -61,10 +61,9 @@ func (f *CustomSumFunction) Clone() AggregatorFunction {
     return &CustomSumFunction{BaseFunction: f.BaseFunction, sum: f.sum}
 }
 
-// 4. 注册函数
+// 4. 注册函数（TypeAggregation 自动接通聚合适配器，无需手动 RegisterAggregatorAdapter）
 func init() {
     Register(NewCustomSumFunction())
-    RegisterAggregatorAdapter("custom_sum")
 }
 ```
 

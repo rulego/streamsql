@@ -254,7 +254,10 @@ CASE表达式的处理遵循以下规则：
 ### 基本使用
 
 ```go
-import "github.com/rulego/streamsql/functions"
+import (
+    "github.com/rulego/streamsql/functions"
+    "github.com/rulego/streamsql/utils/cast"
+)
 
 // 直接使用桥接器评估表达式
 result, err := functions.EvaluateWithBridge("abs(-5) + len([1,2,3])", map[string]interface{}{})
@@ -315,7 +318,7 @@ exprLangFuncs := info["expr-lang"]
 err := functions.RegisterCustomFunction("celsius_to_fahrenheit", 
     functions.TypeMath, "温度转换", "摄氏度转华氏度", 1, 1,
     func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-        celsius, _ := functions.ConvertToFloat64(args[0])
+        celsius, _ := cast.ToFloat64E(args[0])
         return celsius*1.8 + 32, nil
     })
 

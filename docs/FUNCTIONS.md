@@ -58,7 +58,10 @@ GROUP BY device, TumblingWindow('1s');
 ### 自定义函数注册
 
 ```go
-import "github.com/rulego/streamsql/functions"
+import (
+    "github.com/rulego/streamsql/functions"
+    "github.com/rulego/streamsql/utils/cast"
+)
 
 // 注册华氏度转摄氏度函数
 err := functions.RegisterCustomFunction(
@@ -68,7 +71,7 @@ err := functions.RegisterCustomFunction(
     "华氏度转摄氏度", 
     1, 1,
     func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-        fahrenheit, err := functions.ConvertToFloat64(args[0])
+        fahrenheit, err := cast.ToFloat64E(args[0])
         if err != nil {
             return nil, err
         }
@@ -144,7 +147,7 @@ err := functions.RegisterCustomFunction(
     "将数值乘以2", 
     1, 1,
     func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-        val, err := functions.ConvertToFloat64(args[0])
+        val, err := cast.ToFloat64E(args[0])
         if err != nil {
             return nil, err
         }
@@ -177,10 +180,10 @@ go test -v -run TestExpressionInAggregation
 
 ```go
 // 使用内置转换函数
-val, err := functions.ConvertToFloat64(someValue)
-str, err := functions.ConvertToString(someValue)
-num, err := functions.ConvertToInt64(someValue)
-flag, err := functions.ConvertToBool(someValue)
+val, err := cast.ToFloat64E(someValue)
+str, err := cast.ToStringE(someValue)
+num, err := cast.ToInt64E(someValue)
+flag, err := cast.ToBoolE(someValue)
 ```
 
 ## 📈 性能考虑

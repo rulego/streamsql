@@ -9,8 +9,11 @@ package main
 
 import (
     "fmt"
+    "strings"
+
     "github.com/rulego/streamsql"
     "github.com/rulego/streamsql/functions"
+    "github.com/rulego/streamsql/utils/cast"
 )
 
 func main() {
@@ -22,7 +25,7 @@ func main() {
         "邮箱地址脱敏",         // 描述
         1, 1,                  // 参数数量
         func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-            email, _ := functions.ConvertToString(args[0])
+            email, _ := cast.ToStringE(args[0])
             parts := strings.Split(email, "@")
             if len(parts) != 2 {
                 return email, nil
@@ -47,8 +50,8 @@ func main() {
         "计算用户评分",
         2, 2,
         func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-            base, _ := functions.ConvertToFloat64(args[0])
-            bonus, _ := functions.ConvertToFloat64(args[1])
+            base, _ := cast.ToFloat64E(args[0])
+            bonus, _ := cast.ToFloat64E(args[1])
             return base + bonus*0.1, nil
         },
     )
@@ -61,7 +64,7 @@ func main() {
         "格式化状态显示", 
         1, 1,
         func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-            status, _ := functions.ConvertToString(args[0])
+            status, _ := cast.ToStringE(args[0])
             switch status {
             case "1": return "✅ 活跃", nil
             case "0": return "❌ 非活跃", nil
