@@ -44,7 +44,9 @@ type AggregatorFunction = functions.LegacyAggregatorFunction
 // ContextAggregator aggregator interface supporting context mechanism, re-exports functions.ContextAggregator
 type ContextAggregator = functions.ContextAggregator
 
-// Register adds custom aggregator to global registry, re-exports functions.RegisterLegacyAggregator
+// Register 将自定义聚合器注册到全局 registry（re-export functions.RegisterLegacyAggregator）。
+// 仅作 legacy 兜底：自定义聚合请实现 functions.AggregatorFunction 接口并用 functions.Register 注册，
+// 适配器会自动接通，无需调用本函数。
 func Register(name string, constructor func() AggregatorFunction) {
 	functions.RegisterLegacyAggregator(name, constructor)
 }

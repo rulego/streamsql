@@ -405,7 +405,7 @@ func RegisterCustomFunctions() {
 	RegisterAggregatorAdapter("geomean")
 
 	// 使用RegisterCustomFunction的方式注册简单函数
-	RegisterCustomFunction("double", TypeAggregation, "自定义函数", "将值乘以2", 1, 1,
+	RegisterCustomFunction("double", TypeMath, "自定义函数", "将值乘以2", 1, 1,
 		func(ctx *FunctionContext, args []any) (any, error) {
 			val, err := cast.ToFloat64E(args[0])
 			if err != nil {

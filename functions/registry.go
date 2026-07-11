@@ -98,22 +98,23 @@ func (r *FunctionRegistry) Register(fn Function) error {
 	}
 
 	name := strings.ToLower(fn.GetName())
+	aliases := fn.GetAliases()
 
-	// Check if function already exists
+	// 先校验主名和所有别名都未占用,再统一写入,避免中途失败留下半注册状态。
 	if _, exists := r.functions[name]; exists {
 		return fmt.Errorf("function %s already registered", name)
 	}
-
-	// 注册主函数名
-	r.functions[name] = fn
-
-	// 注册所有别名
-	for _, alias := range fn.GetAliases() {
-		alias = strings.ToLower(alias)
-		if _, exists := r.functions[alias]; exists {
-			return fmt.Errorf("function alias %s already registered", alias)
+	for _, alias := range aliases {
+		la := strings.ToLower(alias)
+		if _, exists := r.functions[la]; exists {
+			return fmt.Errorf("function alias %s already registered", la)
 		}
-		r.functions[alias] = fn
+	}
+
+	// 全部校验通过后统一写入主名与别名
+	r.functions[name] = fn
+	for _, alias := range aliases {
+		r.functions[strings.ToLower(alias)] = fn
 	}
 
 	r.categories[fn.GetType()] = append(r.categories[fn.GetType()], fn)
@@ -225,6 +226,11 @@ func RegisterCustomFunction(name string, fnType FunctionType, category, descript
 	if name == "" {
 		return fmt.Errorf("function name cannot be empty")
 	}
+	// 聚合/分析函数需实现 AggregatorFunction / StatefulAnalytic 接口，closure 形式无法满足，
+	// 注册后只会静默失效；请改为实现对应接口后用 functions.Register 注册。
+	if fnType == TypeAggregation || fnType == TypeAnalytical {
+		return fmt.Errorf("RegisterCustomFunction 不支持 %s 类型：聚合/分析函数请实现对应接口后用 Register 注册", fnType)
+	}
 
 	customFunc := &CustomFunction{
 		BaseFunction: NewBaseFunction(name, fnType, category, description, minArgs, maxArgs),
@@ -262,120 +268,4 @@ func (f *CustomFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 	return f.executor(ctx, args)
 }
 
-func init() {
-	// Register math functions
-	Register(NewAbsFunction())
-	Register(NewSqrtFunction())
-	Register(NewPowerFunction())
-	Register(NewCeilingFunction())
-	Register(NewFloorFunction())
-	Register(NewRoundFunction())
-	Register(NewModFunction())
-	Register(NewMaxFunction())
-	Register(NewMinFunction())
-	Register(NewRandFunction())
-
-	// Register string functions
-	Register(NewUpperFunction())
-	Register(NewLowerFunction())
-	Register(NewLengthFunction())
-	Register(NewSubstringFunction())
-	Register(NewConcatFunction())
-	Register(NewTrimFunction())
-	Register(NewLtrimFunction())
-	Register(NewRtrimFunction())
-	Register(NewReplaceFunction())
-	Register(NewSplitFunction())
-	Register(NewStartswithFunction())
-	Register(NewEndswithFunction())
-	Register(NewRegexpMatchesFunction())
-	Register(NewRegexpReplaceFunction())
-	Register(NewLpadFunction())
-	Register(NewRpadFunction())
-	Register(NewIndexofFunction())
-	Register(NewFormatFunction())
-
-	// Register date and time functions
-	Register(NewNowFunction())
-	Register(NewCurrentTimeFunction())
-	Register(NewCurrentDateFunction())
-	Register(NewDateAddFunction())
-	Register(NewDateSubFunction())
-	Register(NewDateDiffFunction())
-	Register(NewDateFormatFunction())
-	Register(NewDateParseFunction())
-	Register(NewExtractFunction())
-	Register(NewUnixTimestampFunction())
-	Register(NewFromUnixtimeFunction())
-	Register(NewYearFunction())
-	Register(NewMonthFunction())
-	Register(NewDayFunction())
-	Register(NewHourFunction())
-	Register(NewMinuteFunction())
-	Register(NewSecondFunction())
-	Register(NewDayOfWeekFunction())
-	Register(NewDayOfYearFunction())
-	Register(NewWeekOfYearFunction())
-
-	// Register conversion functions
-	Register(NewCastFunction())
-	Register(NewHex2DecFunction())
-	Register(NewDec2HexFunction())
-	Register(NewEncodeFunction())
-	Register(NewDecodeFunction())
-
-	// Register aggregation functions
-	Register(NewCountFunction())
-	Register(NewSumFunction())
-	Register(NewAvgFunction())
-	Register(NewMaxFunction())
-	Register(NewMinFunction())
-
-	// Register window functions
-	Register(NewLagFunction())
-	Register(NewFirstValueFunction())
-	Register(NewNthValueFunction())
-
-	// Register analytical functions
-	Register(NewLatestFunction())
-	Register(NewHadChangedFunction())
-
-	// Register JSON functions
-	Register(NewJsonExtractFunction())
-	Register(NewJsonValidFunction())
-	Register(NewJsonTypeFunction())
-	Register(NewJsonLengthFunction())
-	Register(NewToJsonFunction())
-	Register(NewFromJsonFunction())
-
-	// Register hash functions
-	Register(NewMd5Function())
-	Register(NewSha1Function())
-	Register(NewSha256Function())
-	Register(NewSha512Function())
-
-	// Register array functions
-	Register(NewArrayLengthFunction())
-	Register(NewArrayContainsFunction())
-	Register(NewArrayPositionFunction())
-	Register(NewArrayRemoveFunction())
-	Register(NewArrayDistinctFunction())
-	Register(NewArrayIntersectFunction())
-	Register(NewArrayUnionFunction())
-	Register(NewArrayExceptFunction())
-
-	// Register type checking functions
-	Register(NewIsNullFunction())
-	Register(NewIsNotNullFunction())
-	Register(NewIsStringFunction())
-	Register(NewIsNumericFunction())
-	Register(NewIsBoolFunction())
-	Register(NewIsArrayFunction())
-	Register(NewIsObjectFunction())
-
-	// Register conditional functions
-	Register(NewCoalesceFunction())
-	Register(NewNullIfFunction())
-	Register(NewGreatestFunction())
-	Register(NewLeastFunction())
-}
+// 内置函数注册见 builtin.go 的 registerBuiltinFunctions（由 init.go 的 init() 调用）。

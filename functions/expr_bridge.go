@@ -13,6 +13,19 @@ import (
 	"github.com/rulego/streamsql/utils/cast"
 )
 
+// exprLangBuiltinNames 是 expr-lang/expr 自带、且与 StreamSQL 函数不冲突的内置函数名，
+// 作为单一事实源供 ResolveFunction / IsExprLangFunction / GetFunctionInfo 共用。
+// concat 等与 StreamSQL 同名的函数不列入（StreamSQL 注册优先）。
+var exprLangBuiltinNames = []string{
+	"abs", "ceil", "floor", "round", "max", "min",
+	"trim", "upper", "lower", "split", "replace", "indexOf", "hasPrefix", "hasSuffix",
+	"all", "any", "filter", "map", "find", "count", "flatten",
+	"now", "duration", "date",
+	"int", "float", "string", "type",
+	"toJSON", "fromJSON", "toBase64", "fromBase64",
+	"len", "get",
+}
+
 // ExprBridge bridges StreamSQL function system with expr-lang/expr
 type ExprBridge struct {
 	streamSQLFunctions map[string]Function
@@ -713,7 +726,6 @@ func (bridge *ExprBridge) GetFunctionInfo() map[string]any {
 		"map":     map[string]any{"category": "array", "description": "transform elements", "source": "expr-lang"},
 		"find":    map[string]any{"category": "array", "description": "find element", "source": "expr-lang"},
 		"count":   map[string]any{"category": "array", "description": "count elements", "source": "expr-lang"},
-		"concat":  map[string]any{"category": "array", "description": "concatenate arrays", "source": "expr-lang"},
 		"flatten": map[string]any{"category": "array", "description": "flatten array", "source": "expr-lang"},
 
 		// 时间函数
@@ -755,19 +767,9 @@ func (bridge *ExprBridge) ResolveFunction(name string) (any, bool, string) {
 	}
 
 	// 然后检查是否是expr-lang内置函数
-	exprBuiltins := []string{
-		"abs", "ceil", "floor", "round", "max", "min", // math
-		"trim", "upper", "lower", "split", "replace", "indexOf", "hasPrefix", "hasSuffix", // string
-		"all", "any", "filter", "map", "find", "count", "flatten", // array (移除concat)
-		"now", "duration", "date", // time
-		"int", "float", "string", "type", // conversion
-		"toJSON", "fromJSON", "toBase64", "fromBase64", // encoding
-		"len", "get", // misc
-	}
-
-	for _, builtin := range exprBuiltins {
-		if strings.ToLower(builtin) == lowerName {
-			return nil, true, "expr-lang" // expr-lang会自动处理
+	for _, b := range exprLangBuiltinNames {
+		if strings.ToLower(b) == lowerName {
+			return nil, true, "expr-lang"
 		}
 	}
 
@@ -776,19 +778,8 @@ func (bridge *ExprBridge) ResolveFunction(name string) (any, bool, string) {
 
 // IsExprLangFunction 检查函数名是否是expr-lang内置函数
 func (bridge *ExprBridge) IsExprLangFunction(name string) bool {
-	// expr-lang内置函数列表（移除concat避免冲突）
-	exprBuiltins := []string{
-		"abs", "ceil", "floor", "round", "max", "min", // math
-		"trim", "upper", "lower", "split", "replace", "indexOf", "hasPrefix", "hasSuffix", // string
-		"all", "any", "filter", "map", "find", "count", "flatten", // array (移除concat)
-		"now", "duration", "date", // time
-		"int", "float", "string", "type", // conversion
-		"toJSON", "fromJSON", "toBase64", "fromBase64", // encoding
-		"len", "get", // misc
-	}
-
-	for _, builtin := range exprBuiltins {
-		if builtin == name {
+	for _, b := range exprLangBuiltinNames {
+		if b == name {
 			return true
 		}
 	}

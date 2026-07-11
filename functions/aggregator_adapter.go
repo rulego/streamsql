@@ -52,7 +52,9 @@ var (
 	adapterMutex       sync.RWMutex
 )
 
-// RegisterAggregatorAdapter registers an aggregator adapter
+// RegisterAggregatorAdapter 注册聚合器适配器。通常无需手动调用：
+// functions.Register 注册 TypeAggregation 函数时会自动调用本函数（见 registry.go）。
+// 仅在需要为已注册函数单独补建适配器时才显式调用。
 func RegisterAggregatorAdapter(name string) error {
 	adapterMutex.Lock()
 	defer adapterMutex.Unlock()
