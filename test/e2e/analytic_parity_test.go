@@ -268,3 +268,100 @@ func TestAnalytic_Window_AccSumOverAgg(t *testing.T) {
 		}
 	}
 }
+
+// === 解析放行但曾运行期静默错值/空的回归（B1-B4 修复）===
+
+// B1: 算术表达式包分析函数——分析结果回代入外层表达式再求值。
+func TestRuntimeFix_B1_ArithmeticAroundAnalytic(t *testing.T) {
+	d := []map[string]any{
+		{"k": "d1", "ts": 1}, {"k": "d1", "ts": 2}, {"k": "d1", "ts": 3}, {"k": "d2", "ts": 10},
+	}
+	// ts - lag(ts)：d1 → [nil,1,1]；d2 首行无 lag → nil。
+	got := runDirect(t, `SELECT ts - lag(ts) OVER (PARTITION BY k) AS d FROM stream`, d)
+	assertNumericField(t, "B1 ts-lag", got, "d", []any{nil, 1.0, 1.0, nil})
+	// 100 - lag(ts)：d1 → [nil,99,98]；d2 → nil。
+	got = runDirect(t, `SELECT 100 - lag(ts) OVER (PARTITION BY k) AS d FROM stream`, d)
+	assertNumericField(t, "B1 100-lag", got, "d", []any{nil, 99.0, 98.0, nil})
+	// 纯分析字段不受回代影响：lag 仍 [nil,1,2,nil]。
+	got = runDirect(t, `SELECT lag(ts) OVER (PARTITION BY k) AS p FROM stream`, d)
+	assertNumericField(t, "B1 plain lag", got, "p", []any{nil, 1.0, 2.0, nil})
+}
+
+// B2: 裸分析函数作 WHERE 条件——值型分析函数走 nil 判定（变化到 0 也要选中）。
+func TestRuntimeFix_B2_BareAnalyticInWhere(t *testing.T) {
+	d := []map[string]any{{"temp": 5}, {"temp": 5}, {"temp": 0}, {"temp": 3}}
+	// changed_col：变化行（含变化到 0）→ 5,0,3；未变化的第二行被过滤。
+	got := runDirect(t, `SELECT temp FROM stream WHERE changed_col(true, temp)`, d)
+	assertTempSeq(t, "B2 changed_col", got, []float64{5, 0, 3})
+	// 显式 > 0 排除 0 → 5,3（旧行为不变）。
+	got = runDirect(t, `SELECT temp FROM stream WHERE changed_col(true, temp) > 0`, d)
+	assertTempSeq(t, "B2 changed_col>0", got, []float64{5, 3})
+	// had_changed 裸作 WHERE：返回 bool 直判 → 5,0,3。
+	got = runDirect(t, `SELECT temp FROM stream WHERE had_changed(true, temp)`, d)
+	assertTempSeq(t, "B2 had_changed", got, []float64{5, 0, 3})
+}
+
+// B3: 窗口分析函数参数为"聚合+运算"复合表达式——抽内层聚合、留外层运算符。
+func TestRuntimeFix_B3_CompositeArgInlineAgg(t *testing.T) {
+	d := []map[string]any{{"temp": 23}, {"temp": 25}, {"temp": 25}, {"temp": 30}}
+	// CountingWindow(2) → 两窗 avg=24,27.5；avg(temp)+1 → 25,28.5。
+	got := runWindow(t, `SELECT changed_col(true, avg(temp) + 1) AS c FROM stream GROUP BY CountingWindow(2)`, d)
+	if vals := sortedFloatField(got, "c"); !reflect.DeepEqual(vals, []float64{25, 28.5}) {
+		t.Errorf("B3 avg+1: got %v, want [25, 28.5]", vals)
+	}
+	// 纯 avg(temp) 基线不变 → 24,27.5。
+	got = runWindow(t, `SELECT changed_col(true, avg(temp)) AS c FROM stream GROUP BY CountingWindow(2)`, d)
+	if vals := sortedFloatField(got, "c"); !reflect.DeepEqual(vals, []float64{24, 27.5}) {
+		t.Errorf("B3 avg baseline: got %v, want [24, 27.5]", vals)
+	}
+}
+
+// B4: 窗口分析函数参数用限定列（表.列）——运行期剥前缀解析到 GROUP BY 键值，不返回字面串。
+func TestRuntimeFix_B4_QualifiedColumnArg(t *testing.T) {
+	d := []map[string]any{{"k": "d1"}, {"k": "d1"}, {"k": "d2"}, {"k": "d2"}}
+	got := runWindow(t, `SELECT changed_col(true, stream.k) AS c FROM stream GROUP BY k, CountingWindow(2)`, d)
+	if len(got) == 0 {
+		t.Fatalf("B4: expected non-empty output")
+	}
+	for _, r := range got {
+		if s, _ := r["c"].(string); s == "stream.k" {
+			t.Errorf("B4: qualified arg leaked literal %q in %v", "stream.k", r)
+		}
+		if c, _ := r["c"].(string); c != r["k"] {
+			t.Errorf("B4: c=%v should equal group key k=%v in %v", r["c"], r["k"], r)
+		}
+	}
+}
+
+// assertNumericField 按序断言字段值：want[i]==nil 期望 nil；否则按浮点比较（容 int/float64）。
+func assertNumericField(t *testing.T, label string, got []map[string]any, key string, want []any) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Errorf("%s: got %d rows, want %d (%v)", label, len(got), len(want), got)
+		return
+	}
+	for i, row := range got {
+		v := row[key]
+		if want[i] == nil {
+			if v != nil {
+				t.Errorf("%s row %d: want nil, got %v", label, i, v)
+			}
+			continue
+		}
+		if toFloatVal(v) != toFloatVal(want[i]) {
+			t.Errorf("%s row %d: got %v, want %v", label, i, v, want[i])
+		}
+	}
+}
+
+// assertTempSeq 按序断言 temp 字段的浮点值序列（直连路径有序）。
+func assertTempSeq(t *testing.T, label string, got []map[string]any, want []float64) {
+	t.Helper()
+	vals := make([]float64, 0, len(got))
+	for _, r := range got {
+		vals = append(vals, toFloatVal(r["temp"]))
+	}
+	if !reflect.DeepEqual(vals, want) {
+		t.Errorf("%s: got %v, want %v", label, vals, want)
+	}
+}

@@ -122,7 +122,7 @@ func (fe *analyticFieldEngine) evaluate(s *Stream, row map[string]any) (result a
 	partKey := fe.partitionKey(row)
 	fe.mu.Lock()
 	defer fe.mu.Unlock()
-	// WHEN：满足才更新状态，否则复用上次结果（eKuiper 条件状态语义）。
+	// WHEN：满足才更新状态，否则复用上次结果。
 	if fe.whenCond != nil && !fe.whenCond.Evaluate(row) {
 		if last, ok := fe.lastResults[partKey]; ok {
 			return last
@@ -143,8 +143,35 @@ func (fe *analyticFieldEngine) evaluate(s *Stream, row map[string]any) (result a
 		}
 	}
 	result = state.Apply(args)
+	// 表达式包分析函数（如 ts - lag(ts)）：把分析结果代入外层表达式再求值。
+	if fe.af.WrapperExpr != "" {
+		result = fe.applyWrapper(s, row, result)
+	}
 	fe.lastResults[partKey] = result
 	return result
+}
+
+// applyWrapper 把分析函数结果代入外层表达式（WrapperExpr）求值。
+// 行副本写入占位键 AnalyticSelfToken=result，再用 expr bridge 求 WrapperExpr。
+// 分析值为 nil（首行/新分区/无前值）时按 null 传播直接返 nil（合法情况，不报错）；
+// 非 nil 但求值失败才记日志并回退 nil（单字段异常不中断流水线）。
+func (fe *analyticFieldEngine) applyWrapper(s *Stream, row map[string]any, analyticVal any) any {
+	if analyticVal == nil {
+		return nil
+	}
+	rowCopy := make(map[string]any, len(row)+1)
+	for k, v := range row {
+		rowCopy[k] = v
+	}
+	rowCopy[types.AnalyticSelfToken] = analyticVal
+	v, err := functions.GetExprBridge().EvaluateExpression(fe.af.WrapperExpr, rowCopy)
+	if err != nil {
+		if s != nil && s.log != nil {
+			s.log.Error("analytic wrapper %q evaluate failed: %v", fe.af.WrapperExpr, err)
+		}
+		return nil
+	}
+	return v
 }
 
 // evaluateMultiColumn 处理 changed_cols 等多列函数：按 prefix+列名 扇出变化列。

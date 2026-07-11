@@ -105,15 +105,24 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 				return nil, "", err
 			}
 			analyticFields = append(analyticFields, buildAnalyticField(f))
-		} else {
-			// 标量函数（如 UPPER/ABS）的参数里不得嵌分析函数：分析函数需跨行状态，走无状态
-			// 标量路径会静默求错。算术表达式（如 ts - lag(ts) OVER(...)）可含带 OVER 的合法
-			// 分析函数，不在此拦；聚合套分析由 detectNestedAggregation 拦截。
-			if topIsScalarFunction(f.Expression) && containsAnalyticCall(f.Expression) {
-				return nil, "", fmt.Errorf("analytic function in %q must be used as a standalone field or with OVER, not inside a scalar function", f.Expression)
-			}
-			otherFields = append(otherFields, f)
+			continue
 		}
+		// 标量函数（如 UPPER/ABS）的参数里不得嵌分析函数：分析函数需跨行状态，走无状态
+		// 标量路径会静默求错。聚合套分析由 detectNestedAggregation 拦截。
+		if topIsScalarFunction(f.Expression) && containsAnalyticCall(f.Expression) {
+			return nil, "", fmt.Errorf("analytic function in %q must be used as a standalone field or with OVER, not inside a scalar function", f.Expression)
+		}
+		// 算术/表达式包分析函数（如 ts - lag(ts) OVER(...)）：顶层非函数，extractFunctionName 返 ""，
+		// isAnalyticField 为假；若不拦会落入普通表达式路径，lag 不在 expr bridge → 静默 null。
+		// 这里检测含分析调用即路由进分析路径，外层表达式作 WrapperExpr 回代。
+		if containsAnalyticCall(f.Expression) {
+			if err := detectNestedAggregation(f.Expression); err != nil {
+				return nil, "", err
+			}
+			analyticFields = append(analyticFields, buildAnalyticField(f))
+			continue
+		}
+		otherFields = append(otherFields, f)
 	}
 
 	// Check if there are aggregation functions
@@ -227,8 +236,8 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		timeCharacteristic = types.EventTime
 	}
 
-	// GROUP BY 窗口上的 OVER(...) 不支持：主流引擎（Flink/Spark/eKuiper）都用
-	// 窗口 + HAVING 做阈值/持续检测，窗口 OVER 的输入门控语义会隐藏 dip、破坏检测。
+	// GROUP BY 窗口不支持 OVER(...)：窗口 OVER 的输入门控语义会隐藏 dip、破坏检测，
+	// 阈值/持续检测用 HAVING（如 HAVING min(concurrency) > 200）。
 	if s.Window.Over != nil {
 		return nil, "", fmt.Errorf("OVER(...) on a GROUP BY window is not supported; for threshold/sustained detection use HAVING (e.g. HAVING min(concurrency) > 200)")
 	}
@@ -304,23 +313,30 @@ func containsAnalyticCall(expr string) bool {
 	return false
 }
 
-// stripStringLiterals 去掉单引号字符串字面量内容，仅保留字面量外的表达式文本。
-// 处理 SQL 转义的两个连续单引号（''）。
+// stripStringLiterals 去掉字符串字面量内容，仅保留字面量外的表达式文本。
+// 本方言单引号 '...' 与双引号 "..." 都是字符串字面量（如 changed_cols("t",...)），
+// 二者都要剥离，否则 "lag(x)" 这类双引号字面量里的分析函数名会被误判为调用。
+// 处理 SQL 转义的两个连续引号（'' 或 ""）。
 func stripStringLiterals(expr string) string {
 	var b strings.Builder
 	b.Grow(len(expr))
-	inStr := false
+	var quote byte // 0=不在字面量内；'\''|'"'=当前字面量定界符
 	for i := 0; i < len(expr); i++ {
 		c := expr[i]
-		if c == '\'' {
-			if inStr && i+1 < len(expr) && expr[i+1] == '\'' {
+		if c == '\'' || c == '"' {
+			if quote == c && i+1 < len(expr) && expr[i+1] == c {
 				i++ // 转义引号，跳过，仍处于字面量内
 				continue
 			}
-			inStr = !inStr
+			if quote == 0 {
+				quote = c // 进入字面量
+			} else if quote == c {
+				quote = 0 // 字面量结束
+			}
+			// 异类引号（如 " 内的 '）当作字面量内容跳过，不改状态
 			continue
 		}
-		if !inStr {
+		if quote == 0 {
 			b.WriteByte(c)
 		}
 	}
@@ -342,18 +358,21 @@ func topIsScalarFunction(expr string) bool {
 }
 
 // buildAnalyticField 将分析函数 Field 转为 AnalyticField，保留 OVER 子句。
+// 支持"表达式包分析函数"（如 ts - lag(ts)）：拆出裸分析调用供状态机计算，外层表达式
+// 存为 WrapperExpr（分析调用替换为 types.AnalyticSelfToken）供求值期回代。
 func buildAnalyticField(f Field) types.AnalyticField {
-	funcName := extractFunctionName(f.Expression)
+	funcName, bareCall, wrapper := splitAnalyticExpr(f.Expression)
 	alias := f.Alias
 	if alias == "" {
 		alias = f.Expression
 	}
 	af := types.AnalyticField{
-		FuncName:   strings.ToLower(funcName),
-		Expression: f.Expression,
-		Alias:      alias,
-		Over:       f.OverSpec,
-		Args:       splitCallArgs(f.Expression),
+		FuncName:    strings.ToLower(funcName),
+		Expression:  bareCall,
+		Alias:       alias,
+		Over:        f.OverSpec,
+		Args:        splitCallArgs(bareCall),
+		WrapperExpr: wrapper,
 	}
 	// changed_cols 输出多列（动态列名 prefix+colname），仅 SELECT。
 	if strings.ToLower(funcName) == "changed_cols" {
@@ -362,9 +381,51 @@ func buildAnalyticField(f Field) types.AnalyticField {
 	return af
 }
 
+// splitAnalyticExpr 从表达式里拆出首个分析函数调用。
+// 返回 funcName（如 "lag"）、bareCall（如 "lag(ts)"）、wrapper（外层表达式模板，纯分析字段时为 ""）。
+// 表达式不含分析调用时回退到 extractFunctionName 语义（bareCall=原式、wrapper="")。
+func splitAnalyticExpr(expr string) (funcName, bareCall, wrapper string) {
+	name, start, closeParen, ok := findAnalyticCallLoc(expr)
+	if !ok {
+		return extractFunctionName(expr), expr, ""
+	}
+	bareCall = expr[start : closeParen+1]
+	// 调用是否覆盖整式（纯分析字段）：比较去掉首尾空白后的边界。
+	leading := len(expr) - len(strings.TrimLeft(expr, " \t"))
+	trailing := len(strings.TrimRight(expr, " \t"))
+	if start == leading && closeParen == trailing-1 && strings.TrimSpace(expr) == strings.TrimSpace(bareCall) {
+		return name, bareCall, ""
+	}
+	wrapper = strings.Replace(expr, bareCall, types.AnalyticSelfToken, 1)
+	return name, bareCall, wrapper
+}
+
+// findAnalyticCallLoc 定位表达式中首个分析函数调用（去除字符串字面量后扫描）。
+// 返回函数名、调用起点（函数名首位）、匹配右括号位置（均在原 expr 上的索引）。
+// 注：字面量剥离后索引与原式可能不一致，仅当原式含字面量时；"表达式包分析"实际不含字面量。
+func findAnalyticCallLoc(expr string) (name string, start, closeParen int, ok bool) {
+	pattern := regexp.MustCompile(`(?i)\b([a-z_]+)\s*\(`)
+	for _, m := range pattern.FindAllStringSubmatchIndex(expr, -1) {
+		nm := strings.ToLower(expr[m[2]:m[3]])
+		fn, exists := functions.Get(nm)
+		if !exists || fn.GetType() != functions.TypeAnalytical {
+			continue
+		}
+		openParen := m[1] - 1
+		cp := findMatchingParenInternal(expr, openParen)
+		if cp < 0 {
+			continue
+		}
+		return nm, m[0], cp, true
+	}
+	return "", 0, 0, false
+}
+
 // extractInlineAggregates 把分析函数参数里的内联聚合提取为隐藏计算字段。
 // 如 changed_cols("t", true, avg(temperature)) → 注册 aggs[__winagg_0__]=avg(temperature)，
 // 参数重写为 __winagg_0__，InlineAggDisplay 记录 {__winagg_0__:"avg"}。
+// 复合表达式参数（如 avg(temp) + 1）只替换其中的聚合调用 span，外层运算符保留，
+// 参数变为 __winagg_0__ + 1，运行期由表达式求值器计算。
 // 隐藏键前缀 __winagg_ 在窗口产出后被剥离，不进最终输出；显示名用于 changed_cols 输出列名。
 func extractInlineAggregates(analyticFields []types.AnalyticField, aggs map[string]aggregator.AggregateType, fieldMap map[string]string) {
 	pattern := regexp.MustCompile(`(?i)\b([a-z_]+)\s*\(`)
@@ -373,15 +434,24 @@ func extractInlineAggregates(analyticFields []types.AnalyticField, aggs map[stri
 		af := &analyticFields[i]
 		for j, arg := range af.Args {
 			trimmed := strings.TrimSpace(arg)
-			m := pattern.FindStringSubmatch(trimmed)
-			if m == nil {
+			idx := pattern.FindStringSubmatchIndex(trimmed)
+			if idx == nil {
 				continue
 			}
-			fn, ok := functions.Get(strings.ToLower(m[1]))
+			funcName := strings.ToLower(trimmed[idx[2]:idx[3]])
+			fn, ok := functions.Get(funcName)
 			if !ok || fn.GetType() != functions.TypeAggregation {
 				continue
 			}
-			aggType, name, _, _, perr := ParseAggregateTypeWithExpression(trimmed)
+			// 聚合调用 span：从函数名起点到匹配的右括号（idx[1]-1 是 '(' 的位置）。
+			openParen := idx[1] - 1
+			closeParen := findMatchingParenInternal(trimmed, openParen)
+			if closeParen < 0 {
+				continue
+			}
+			aggCall := trimmed[idx[0] : closeParen+1]
+			// 只解析聚合调用本身（不含外层运算符），避免整参被误判为 "expression" 型聚合。
+			aggType, name, _, _, perr := ParseAggregateTypeWithExpression(aggCall)
 			if perr != nil || aggType == "" {
 				continue
 			}
@@ -398,9 +468,10 @@ func extractInlineAggregates(analyticFields []types.AnalyticField, aggs map[stri
 			if af.InlineAggDisplay == nil {
 				af.InlineAggDisplay = make(map[string]string)
 			}
-			af.InlineAggDisplay[hidden] = strings.ToLower(m[1])
-			af.Args[j] = hidden
-			af.Expression = strings.Replace(af.Expression, trimmed, hidden, 1)
+			af.InlineAggDisplay[hidden] = funcName
+			// 仅替换聚合调用子串，保留外层运算符（复合表达式）。
+			af.Args[j] = trimmed[:idx[0]] + hidden + trimmed[closeParen+1:]
+			af.Expression = strings.Replace(af.Expression, aggCall, hidden, 1)
 		}
 	}
 }

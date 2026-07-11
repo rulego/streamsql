@@ -782,8 +782,9 @@ func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]any) ([]any,
 				return nil, fmt.Errorf("failed to execute nested function '%s': %v", arg, err)
 			}
 			args[i] = result
-		} else if value, exists := data[arg]; exists {
-			// If it's a data field
+		} else if value, exists := lookupRowField(data, arg); exists {
+			// If it's a data field (qualified table.col falls back to bare col,
+			// since window/join output rows are keyed by the bare column name).
 			args[i] = value
 		} else if val, err := strconv.ParseFloat(arg, 64); err == nil {
 			// Numeric literal
@@ -814,6 +815,22 @@ func (s *Stream) parseFunctionArgs(funcExpr string, data map[string]any) ([]any,
 // fields are resolved before this is consulted.
 func containsExpressionOperator(s string) bool {
 	return strings.ContainsAny(s, "+-*/%<>!=&|")
+}
+
+// lookupRowField resolves a field reference against the row, with a qualified-
+// name fallback: table.col → col. Window/join output rows are keyed by the bare
+// column, so a fully-qualified arg that passed validation (which compares the
+// post-dot suffix) still resolves to its value instead of the literal string.
+func lookupRowField(data map[string]any, key string) (any, bool) {
+	if v, ok := data[key]; ok {
+		return v, true
+	}
+	if dot := strings.LastIndex(key, "."); dot >= 0 && dot < len(key)-1 {
+		if v, ok := data[key[dot+1:]]; ok {
+			return v, true
+		}
+	}
+	return nil, false
 }
 
 // smartSplitArgs intelligently splits arguments, considering bracket nesting and quotes

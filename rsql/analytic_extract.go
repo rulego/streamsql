@@ -78,7 +78,15 @@ func extractWhereAnalyticCalls(condition string) (string, []types.WhereAnalyticC
 		out.WriteByte(ch)
 		i++
 	}
-	return out.String(), calls, nil
+	result := out.String()
+	// 裸分析函数作整个 WHERE 条件（如 WHERE changed_col(true, temp)）：值型分析函数返回的是
+	// 列值本身（可能是 0/""/false 这类合法变化值），expr AsBool 会失败 → 整条件恒 false 全过滤。
+	// 改写为 "占位 != nil"：变化/有值=非 nil→true，未变化=nil→false（不受新值是否 0/空串影响）。
+	// had_changed 返回 bool，AsBool 可直接处理，不改写（否则 had_changed=false 会被误判 true）。
+	if len(calls) == 1 && calls[0].FuncName != "had_changed" && strings.TrimSpace(result) == calls[0].Placeholder {
+		result = calls[0].Placeholder + " != nil"
+	}
+	return result, calls, nil
 }
 
 // parseOverFromString 从 pos 起尝试解析 "over (...)"，返回 OverSpec 和消耗后的位置。
