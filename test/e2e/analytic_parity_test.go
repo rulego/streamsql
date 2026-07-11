@@ -269,6 +269,67 @@ func TestAnalytic_Window_AccSumOverAgg(t *testing.T) {
 	}
 }
 
+// acc_sum 直连 vs 窗口：同样数据，结果不同（累积频率/对象/行数均不同）。
+// 直连逐事件累积原始 v；窗口里 acc_sum 必须包裹聚合，对窗口结果跨窗口累积。
+func TestAnalytic_AccSum_WindowVsDirect(t *testing.T) {
+	v := []map[string]any{{"v": 1}, {"v": 2}, {"v": 3}, {"v": 4}}
+
+	direct := runDirect(t, `SELECT acc_sum(v) AS s FROM stream`, v)
+	var directVals []float64
+	for _, r := range direct {
+		directVals = append(directVals, toFloatVal(r["s"]))
+	}
+
+	win := runWindow(t, `SELECT acc_sum(sum(v)) AS s FROM stream GROUP BY CountingWindow(2)`, v)
+	winVals := sortedFloatField(win, "s")
+
+	wantDirect := []float64{1, 3, 6, 10}
+	wantWin := []float64{3, 10}
+	if !reflect.DeepEqual(directVals, wantDirect) {
+		t.Errorf("直连 acc_sum(v)=%v want %v", directVals, wantDirect)
+	}
+	if !reflect.DeepEqual(winVals, wantWin) {
+		t.Errorf("窗口 acc_sum(sum(v))=%v want %v", winVals, wantWin)
+	}
+}
+
+// acc_sum 累积状态按实例隔离：两实例交叉 Emit，各自独立累积、互不影响。
+func TestAnalytic_AccSum_InstanceIsolation(t *testing.T) {
+	a := streamsql.New()
+	defer a.Stop()
+	if err := a.Execute("SELECT acc_sum(v) AS s FROM stream"); err != nil {
+		t.Fatalf("Execute A: %v", err)
+	}
+	b := streamsql.New()
+	defer b.Stop()
+	if err := b.Execute("SELECT acc_sum(v) AS s FROM stream"); err != nil {
+		t.Fatalf("Execute B: %v", err)
+	}
+
+	emit := func(s *streamsql.Streamsql, v float64) map[string]any {
+		r, err := s.EmitSync(map[string]any{"v": v})
+		if err != nil {
+			t.Fatalf("EmitSync v=%v: %v", v, err)
+		}
+		if r == nil {
+			t.Fatalf("EmitSync v=%v 返回 nil", v)
+		}
+		return r
+	}
+	check := func(r map[string]any, want float64) {
+		if got := toFloatVal(r["s"]); got != want {
+			t.Errorf("s=%v want %v", got, want)
+		}
+	}
+
+	// 交叉 Emit：若累积状态全局共享会互相污染
+	check(emit(a, 1), 1)
+	check(emit(b, 10), 10)
+	check(emit(a, 2), 3)
+	check(emit(b, 20), 30)
+	check(emit(a, 3), 6)
+}
+
 // === 解析放行但曾运行期静默错值/空的回归（B1-B4 修复）===
 
 // B1: 算术表达式包分析函数——分析结果回代入外层表达式再求值。
