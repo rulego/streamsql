@@ -68,12 +68,9 @@ func TestWindowOverRejected(t *testing.T) {
 	}
 }
 
-// TestPerRowWindowFunctionsRejectedAtExecute guards the eKuiper alignment:
-// row_number() and lead() are not eKuiper analytic functions and have been
-// removed from the registry, so referencing them must fail at Execute (parse
-// rejects them as unknown functions) rather than silently returning nil or
-// crashing the data path. Regression for the old "registered-but-unwired
-// window function" half-feature.
+// TestPerRowWindowFunctionsRejectedAtExecute：row_number()/lead() 已从注册表移除，
+// 引用须在 Execute 期（解析报未知函数）失败，而非静默返回 nil 或崩数据路径。
+// 回归"注册但未接线"的半成品。
 func TestPerRowWindowFunctionsRejectedAtExecute(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -91,7 +88,7 @@ func TestPerRowWindowFunctionsRejectedAtExecute(t *testing.T) {
 			ssql := streamsql.New()
 			defer ssql.Stop()
 			err := ssql.Execute(c.sql)
-			require.Error(t, err, "%s() must be rejected (function removed; not an eKuiper analytic)", c.fn)
+			require.Error(t, err, "%s() must be rejected (function removed)", c.fn)
 			assert.Contains(t, err.Error(), c.fn, "error should name the unknown function")
 		})
 	}

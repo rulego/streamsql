@@ -9,7 +9,6 @@ import (
 )
 
 // CDC 场景2：各设备的电流变化后超过阈值（lag 在 WHERE + OVER PARTITION BY）。
-// 参考: https://ekuiper.org/docs/zh/latest/example/change_data_capture.html
 // 预期输出 ts5(d1,current=500) 与 ts8(d2,current=600)。
 func TestAnalytic_CDC_LagInWhere_PartitionBy(t *testing.T) {
 	ssql := streamsql.New()
@@ -175,7 +174,7 @@ func TestAnalytic_ChangedCol(t *testing.T) {
 	assert.Equal(t, 25, r3["chg"])
 }
 
-// lag OVER WHEN：满足条件才更新状态，否则复用上次结果（eKuiper 条件状态语义）。
+// lag OVER WHEN：满足条件才更新状态，否则复用上次结果。
 func TestAnalytic_LagWithWhen(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT lag(value) OVER (WHEN value > 20) AS prev FROM stream"))
