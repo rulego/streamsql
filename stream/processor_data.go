@@ -74,18 +74,9 @@ func (dp *DataProcessor) Process() {
 				// Window mode: enrich (if JOIN) -> filter -> window. Mirrors
 				// processDirectData so WHERE and GROUP BY can reference joined
 				// columns. INNER no-match and WHERE misses drop before the window.
-				dataMap := data
-				keep := true
-				if dp.stream.hasJoin() {
-					wm, k, jerr := dp.stream.enrichJoin(data)
-					if jerr != nil {
-						dp.stream.log.Error("join enrichment error: %v", jerr)
-						keep = false
-					} else if !k {
-						keep = false // INNER JOIN no match: drop the row
-					} else {
-						dataMap = wm
-					}
+				dataMap, keep, jerr := dp.stream.enrichData(data)
+				if jerr != nil {
+					dp.stream.log.Error("join enrichment error: %v", jerr)
 				}
 				if keep && (dp.stream.filter == nil || dp.stream.filter.Evaluate(dataMap)) {
 					dp.stream.injectGroupKeyExprs(dataMap)
@@ -588,76 +579,28 @@ func (dp *DataProcessor) applyHavingWithCondition(results []map[string]any) []ma
 // Parameters:
 //   - data: data to be processed, must be map[string]any type
 func (dp *DataProcessor) processDirectData(data map[string]any) {
-	// Resolve stream-table JOINs before filtering so WHERE can reference joined
-	// columns. No-JOIN queries skip this (zero overhead).
-	dataMap := data
-	if dp.stream.hasJoin() {
-		wm, keep, jerr := dp.stream.enrichJoin(data)
-		if jerr != nil {
-			dp.stream.log.Error("join enrichment error: %v", jerr)
-			return
-		}
-		if !keep {
-			return // INNER JOIN no match: drop the row
-		}
-		dataMap = wm
-	}
-	// 分析函数与 WHERE 的求值顺序：WHERE 引用分析（CDC）时分析先求值注入占位符；
-	// 否则先 WHERE 过滤再更新分析状态（标准 SQL，分析只见通过行）。
-	whereUsesAnalytic := len(dp.stream.config.WhereAnalyticCalls) > 0
-	var analyticResults map[string]any
-	if whereUsesAnalytic {
-		analyticResults = dp.stream.evalAnalytic(dataMap)
-	}
-	// Apply WHERE on the (possibly enriched) data so metadata columns are visible.
-	if dp.stream.filter != nil && !dp.stream.filter.Evaluate(dataMap) {
+	dataMap, keep, err := dp.stream.enrichData(data)
+	if err != nil {
+		dp.stream.log.Error("join enrichment error: %v", err)
 		return
 	}
-	if !whereUsesAnalytic {
-		analyticResults = dp.stream.evalAnalytic(dataMap)
-	}
-
-	// Create result map, pre-allocate appropriate capacity
-	estimatedSize := len(dp.stream.config.FieldExpressions) + len(dp.stream.config.SimpleFields)
-	if estimatedSize < 8 {
-		estimatedSize = 8 // Minimum capacity
-	}
-	result := make(map[string]any, estimatedSize)
-
-	// Process expression fields (using pre-compiled information)
-	for fieldName := range dp.stream.config.FieldExpressions {
-		dp.stream.processExpressionField(fieldName, dataMap, result)
-	}
-
-	// Use pre-compiled field information to process SimpleFields
-	if len(dp.stream.config.SimpleFields) > 0 {
-		for _, fieldSpec := range dp.stream.config.SimpleFields {
-			dp.stream.processSimpleField(fieldSpec, dataMap, dataMap, result)
-		}
-	} else if len(dp.stream.config.FieldExpressions) == 0 && len(dp.stream.config.AnalyticFields) == 0 {
-		// If no fields specified and no expression fields, keep all fields
-		for k, v := range dataMap {
-			result[k] = v
-		}
-	}
-
-	// 分析函数字段输出
-	dp.stream.projectAnalytic(result, analyticResults)
-
-	// omitEmpty：仅 changed_cols 且无变化（结果为空）→ 跳过输出。
-	if len(result) == 0 && dp.stream.hasOmitEmptyAnalytic() {
+	if !keep {
 		return
 	}
-
+	analyticResults, pass := dp.stream.applyWhereAndAnalytic(dataMap)
+	if !pass {
+		return
+	}
+	result, emit := dp.stream.projectDirectRow(dataMap, analyticResults)
+	if !emit {
+		return
+	}
 	// Check if any field contains unnest function result and expand to multiple rows
 	results := dp.expandUnnestResults(result, dataMap)
-
 	// Apply ORDER BY to the (possibly unnest-expanded) batch.
 	dp.stream.applyOrderBy(results)
-
 	// Non-blocking send result to resultChan
 	dp.stream.sendResultNonBlocking(results)
-
 	// Asynchronously call all sinks, avoid blocking
 	dp.stream.callSinksAsync(results)
 }

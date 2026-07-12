@@ -535,6 +535,66 @@ func (s *Stream) ProcessSync(data map[string]any) (map[string]any, error) {
 	return s.processDirectDataSync(data)
 }
 
+// enrichData 解析流-表 JOIN 富化。返回富化后的 dataMap、是否保留、JOIN 错误。
+// 无 JOIN 时零开销直返。同步直连/异步直连/窗口前置三路径共用。
+func (s *Stream) enrichData(data map[string]any) (dataMap map[string]any, keep bool, err error) {
+	dataMap = data
+	if !s.hasJoin() {
+		return dataMap, true, nil
+	}
+	wm, k, jerr := s.enrichJoin(data)
+	if jerr != nil {
+		return dataMap, false, jerr
+	}
+	if !k {
+		return dataMap, false, nil // INNER JOIN 无匹配：丢弃
+	}
+	return wm, true, nil
+}
+
+// applyWhereAndAnalytic 按 WHERE 是否引用分析函数决定求值序，并应用 WHERE 过滤。
+// 返回分析结果（供投影）与是否通过过滤。同步/异步直连路径共用。
+func (s *Stream) applyWhereAndAnalytic(dataMap map[string]any) (analyticResults map[string]any, keep bool) {
+	whereUsesAnalytic := len(s.config.WhereAnalyticCalls) > 0
+	if whereUsesAnalytic {
+		analyticResults = s.evalAnalytic(dataMap)
+	}
+	if s.filter != nil && !s.filter.Evaluate(dataMap) {
+		return nil, false
+	}
+	if !whereUsesAnalytic {
+		analyticResults = s.evalAnalytic(dataMap)
+	}
+	return analyticResults, true
+}
+
+// projectDirectRow 投影 SELECT 字段（表达式/简单字段/分析函数），含 omitEmpty 抑制。
+// emit=false 表示该行被 omitEmpty 抑制、不应输出。同步/异步直连路径共用。
+func (s *Stream) projectDirectRow(dataMap, analyticResults map[string]any) (result map[string]any, emit bool) {
+	estimatedSize := len(s.config.FieldExpressions) + len(s.config.SimpleFields)
+	if estimatedSize < 8 {
+		estimatedSize = 8
+	}
+	result = make(map[string]any, estimatedSize)
+	for fieldName := range s.config.FieldExpressions {
+		s.processExpressionField(fieldName, dataMap, result)
+	}
+	if len(s.config.SimpleFields) > 0 {
+		for _, fieldSpec := range s.config.SimpleFields {
+			s.processSimpleField(fieldSpec, dataMap, dataMap, result)
+		}
+	} else if len(s.config.FieldExpressions) == 0 && len(s.config.AnalyticFields) == 0 {
+		for k, v := range dataMap {
+			result[k] = v
+		}
+	}
+	s.projectAnalytic(result, analyticResults)
+	if len(result) == 0 && s.hasOmitEmptyAnalytic() {
+		return nil, false
+	}
+	return result, true
+}
+
 // processDirectDataSync synchronous version of direct data processing
 // Parameters:
 //   - data: data to be processed, must be map[string]any type
@@ -543,75 +603,22 @@ func (s *Stream) ProcessSync(data map[string]any) (map[string]any, error) {
 //   - map[string]any: processed result data
 //   - error: processing error
 func (s *Stream) processDirectDataSync(data map[string]any) (map[string]any, error) {
-	// Resolve stream-table JOINs before projection (no overhead when no JOIN).
-	dataMap := data
-	if s.hasJoin() {
-		wm, keep, jerr := s.enrichJoin(data)
-		if jerr != nil {
-			return nil, jerr
-		}
-		if !keep {
-			return nil, nil // INNER JOIN no match: filtered
-		}
-		dataMap = wm
+	dataMap, keep, err := s.enrichData(data)
+	if err != nil {
+		return nil, err
 	}
-	// 分析函数与 WHERE 的求值顺序：
-	//   - WHERE 引用分析（CDC，WhereAnalyticCalls 非空）：分析先求值、注入占位符供 WHERE 引用。
-	//   - WHERE 为普通列：先 WHERE 过滤再更新分析状态（标准 SQL——分析只见通过过滤的行）。
-	whereUsesAnalytic := len(s.config.WhereAnalyticCalls) > 0
-	var analyticResults map[string]any
-	if whereUsesAnalytic {
-		analyticResults = s.evalAnalytic(dataMap)
+	if !keep {
+		return nil, nil // INNER JOIN no match: filtered
 	}
-	// Apply WHERE on the (possibly enriched) data so metadata columns are visible.
-	if s.filter != nil && !s.filter.Evaluate(dataMap) {
+	analyticResults, pass := s.applyWhereAndAnalytic(dataMap)
+	if !pass {
 		return nil, nil
 	}
-	if !whereUsesAnalytic {
-		analyticResults = s.evalAnalytic(dataMap)
-	}
-
-	// Create result map, pre-allocate appropriate capacity
-	estimatedSize := len(s.config.FieldExpressions) + len(s.config.SimpleFields)
-	if estimatedSize < 8 {
-		estimatedSize = 8 // Minimum capacity
-	}
-	result := make(map[string]any, estimatedSize)
-
-	// Process expression fields
-	for fieldName := range s.config.FieldExpressions {
-		s.processExpressionField(fieldName, dataMap, result)
-	}
-
-	// Use pre-compiled field information to process SimpleFields
-	if len(s.config.SimpleFields) > 0 {
-		for _, fieldSpec := range s.config.SimpleFields {
-			s.processSimpleField(fieldSpec, dataMap, dataMap, result)
-		}
-	} else if len(s.config.FieldExpressions) == 0 && len(s.config.AnalyticFields) == 0 {
-		// If no fields specified and no expression fields, keep all fields
-		for k, v := range dataMap {
-			result[k] = v
-		}
-	}
-
-	// 分析函数字段输出（SELECT 中的分析函数，alias 为输出列名）
-	s.projectAnalytic(result, analyticResults)
-
-	// omitEmpty：若仅选了 changed_cols 这类多列函数且本次无变化（结果为空），抑制整行输出。
-	if len(result) == 0 && s.hasOmitEmptyAnalytic() {
+	result, emit := s.projectDirectRow(dataMap, analyticResults)
+	if !emit {
 		return nil, nil
 	}
-
-	// Increment output count
 	s.mOutput.Inc()
-
-	// Wrap result as array format, maintain consistency with async mode
-	results := []map[string]any{result}
-
-	// Trigger AddSink callback, maintain consistency between sync and async modes
-	// This way users can get both sync results and async callbacks
-	s.callSinksAsync(results)
-
+	s.callSinksAsync([]map[string]any{result})
 	return result, nil
 }
