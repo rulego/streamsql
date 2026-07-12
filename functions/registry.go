@@ -73,6 +73,9 @@ type FunctionRegistry struct {
 	mu         sync.RWMutex
 	functions  map[string]Function
 	categories map[FunctionType][]Function
+	// snapshot 缓存 ListAll 的结果；Register/Unregister 后置 nil 失效，按需重建。
+	// 函数集在 init 后基本稳定，避免每次 ListAll 都在全局锁下拷贝整张表。
+	snapshot map[string]Function
 }
 
 // Global function registry instance
@@ -118,6 +121,7 @@ func (r *FunctionRegistry) Register(fn Function) error {
 	}
 
 	r.categories[fn.GetType()] = append(r.categories[fn.GetType()], fn)
+	r.snapshot = nil // 失效 ListAll 快照
 	// Register aggregator adapter
 	if fn.GetType() == TypeAggregation {
 		_ = RegisterAggregatorAdapter(fn.GetName())
@@ -143,14 +147,26 @@ func (r *FunctionRegistry) GetByType(fnType FunctionType) []Function {
 }
 
 // ListAll lists all registered functions
+// 返回缓存的只读快照（调用方不得修改）；Register/Unregister 后失效、惰性重建。
 func (r *FunctionRegistry) ListAll() map[string]Function {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
+	if r.snapshot != nil {
+		s := r.snapshot
+		r.mu.RUnlock()
+		return s
+	}
+	r.mu.RUnlock()
 
-	result := make(map[string]Function)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.snapshot != nil {
+		return r.snapshot
+	}
+	result := make(map[string]Function, len(r.functions))
 	for name, fn := range r.functions {
 		result[name] = fn
 	}
+	r.snapshot = result
 	return result
 }
 
@@ -184,6 +200,7 @@ func (r *FunctionRegistry) Unregister(name string) bool {
 			}
 		}
 	}
+	r.snapshot = nil // 失效 ListAll 快照
 
 	return true
 }
