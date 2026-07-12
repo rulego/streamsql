@@ -268,6 +268,9 @@ func (s *Streamsql) EmitSync(data map[string]interface{}) (map[string]interface{
 	if s.stream.IsAggregationQuery() {
 		return nil, fmt.Errorf("synchronous mode only supports non-aggregation queries, use Emit() method for aggregation queries")
 	}
+	if s.stream.IsCEPQuery() {
+		return nil, fmt.Errorf("synchronous mode does not support MATCH_RECOGNIZE, use Emit() method")
+	}
 
 	if s.schemaValidator != nil {
 		if err := s.schemaValidator.Validate(data); err != nil {
@@ -289,6 +292,16 @@ func (s *Streamsql) IsAggregationQuery() bool {
 		return false
 	}
 	return s.stream.IsAggregationQuery()
+}
+
+// IsCEPQuery reports whether the current query runs the MATCH_RECOGNIZE (CEP)
+// path. Components use it to route CEP queries to a dedicated node (Emit+AddSink),
+// since CEP — like aggregation — does not support EmitSync.
+func (s *Streamsql) IsCEPQuery() bool {
+	if s.stream == nil {
+		return false
+	}
+	return s.stream.IsCEPQuery()
 }
 
 // Stream returns the underlying stream processor instance.

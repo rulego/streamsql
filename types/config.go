@@ -41,6 +41,11 @@ type Config struct {
 	NeedWindow bool `json:"needWindow"`
 	Distinct   bool `json:"distinct"`
 
+	// Mode 选择执行路径（直连/窗口/CEP）。NeedWindow 保留为兼容谓词（==ExecWindow）。
+	Mode ExecMode `json:"mode"`
+	// MatchRecognize 携带 MATCH_RECOGNIZE 子句；非空时 Mode=ExecCEP。
+	MatchRecognize *MatchRecognizeSpec `json:"matchRecognize,omitempty"`
+
 	// Result control
 	Limit       int            `json:"limit"`
 	Projections []Projection   `json:"projections"`

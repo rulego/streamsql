@@ -123,6 +123,9 @@ type Stream struct {
 	// 分析函数状态机引擎，lazy 初始化。直连路径在 WHERE 前求值。
 	analytic     *AnalyticEngine
 	analyticOnce sync.Once
+
+	// CEP（MATCH_RECOGNIZE）引擎适配器。构造期（StreamFactory）初始化，消除懒初始化并发读。
+	cep *cepRunner
 }
 
 // NewStream creates Stream using unified configuration
@@ -287,6 +290,13 @@ func (s *Stream) Stop() {
 	// (e.g. a rulego component Destroy).
 	s.waitLifecycle()
 
+	// 冲刷 CEP 流末未界匹配（如未闭合的 A+ 突发）。此时所有 goroutine 已 join、worker pool
+	// 已退出，故同步派发到 sink（不经 pool）——若在 close(done) 后仍走 pool，worker 已退出会
+	// 使 Flush 结果丢失。
+	if s.cep != nil {
+		s.emitCepFlushSync(s.projectCep(s.cep.engine.Flush()))
+	}
+
 	// Release table sources (custom sources may own background refresh goroutines).
 	if s.tables != nil {
 		s.tables.closeAll()
@@ -370,6 +380,86 @@ func (s *Stream) waitLifecycle() {
 // IsAggregationQuery checks if current stream is an aggregation query
 func (s *Stream) IsAggregationQuery() bool {
 	return s.config.NeedWindow
+}
+
+// IsCEPQuery reports whether this stream runs the MATCH_RECOGNIZE (CEP) path.
+func (s *Stream) IsCEPQuery() bool {
+	return s.config.Mode == types.ExecCEP
+}
+
+// projectCep 对 MATCH_RECOGNIZE 原始输出行做外层 SELECT 投影（复用直连路径投影），
+// 供 processCEP 与 Stop-Flush 共用，保证两条产出路径输出形态一致。
+func (s *Stream) projectCep(raw []map[string]any) []map[string]any {
+	out := make([]map[string]any, 0, len(raw))
+	for _, mrRow := range raw {
+		if r, emit := s.projectDirectRow(mrRow, nil); emit {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// emitCepResults 派发 CEP 匹配输出行到 result channel 与 sinks。
+// mOutput 由 sendResultNonBlocking 计一次（与窗口/直连异步路径一致）。
+func (s *Stream) emitCepResults(results []map[string]any) {
+	if len(results) == 0 {
+		return
+	}
+	s.sendResultNonBlocking(results)
+	s.callSinksAsync(results)
+}
+
+// emitCepFlushSync 在 Stop 末尾同步派发 CEP Flush 输出。此时 worker pool 已随 done 退出，
+// 故在 Stop goroutine 内直接调用 sink（同步、不经 pool），避免未闭合匹配的 Flush 结果丢失。
+func (s *Stream) emitCepFlushSync(results []map[string]any) {
+	if len(results) == 0 {
+		return
+	}
+	s.sendResultForFlush(results) // 尽量送达 resultChan（短阻塞），不静默丢
+	s.invokeSinksInline(results)
+}
+
+// invokeSinksInline 在当前 goroutine 同步调用全部 sinks 与 syncSinks（带 recover），
+// 供 Stop-Flush 等 worker pool 已退出场景复用。
+func (s *Stream) invokeSinksInline(results []map[string]any) {
+	s.sinksMux.RLock()
+	sinks := make([]func([]map[string]any), len(s.sinks))
+	copy(sinks, s.sinks)
+	syncSinks := make([]func([]map[string]any), len(s.syncSinks))
+	copy(syncSinks, s.syncSinks)
+	s.sinksMux.RUnlock()
+	invoke := func(sink func([]map[string]any)) {
+		defer func() {
+			if r := recover(); r != nil {
+				s.log.Error("sink panic recovered: %v", r)
+			}
+		}()
+		sink(results)
+	}
+	for _, sink := range sinks {
+		invoke(sink)
+	}
+	for _, sink := range syncSinks {
+		invoke(sink)
+	}
+}
+
+// sendResultForFlush 向 resultChan 尽量投递：先非阻塞试，满则短时阻塞等活跃消费者；
+// 超时计 drop（不静默）。供 Flush 路径使用——未闭合匹配是流末关键产物，优先保投递。
+func (s *Stream) sendResultForFlush(results []map[string]any) {
+	select {
+	case s.resultChan <- results:
+		s.mOutput.Inc()
+		return
+	default:
+	}
+	select {
+	case s.resultChan <- results:
+		s.mOutput.Inc()
+	case <-time.After(200 * time.Millisecond):
+		s.mOutputDropped.Inc()
+		s.logDroppedDataWithThrottling()
+	}
 }
 
 // ensureAnalytic 懒初始化分析函数状态机引擎（SELECT 分析函数 + WHERE 占位符调用统一管理）。
@@ -525,9 +615,13 @@ func (s *Stream) applyWindowAnalytic(row map[string]any) bool {
 //   - map[string]any: processed result data, returns nil if doesn't match filter condition
 //   - error: processing error, returns error for aggregation queries
 func (s *Stream) ProcessSync(data map[string]any) (map[string]any, error) {
-	// Check if it's an aggregation query
+	// 同步单事件返回仅适用于直连路径：窗口聚合与 CEP 模式匹配都跨多事件，无法单事件返回。
+	// 窗口判定沿用 NeedWindow（兼容直接构造 config 的用例），CEP 判定用 Mode。
 	if s.config.NeedWindow {
 		return nil, fmt.Errorf("Synchronous processing is not supported for aggregation queries.")
+	}
+	if s.config.Mode == types.ExecCEP {
+		return nil, fmt.Errorf("Synchronous processing is not supported for MATCH_RECOGNIZE queries.")
 	}
 
 	// Directly process data and return result. processDirectDataSync applies the

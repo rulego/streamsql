@@ -8,6 +8,7 @@ import (
 
 	"github.com/rulego/streamsql/expr"
 	"github.com/rulego/streamsql/functions"
+	"github.com/rulego/streamsql/types"
 	"github.com/rulego/streamsql/utils/fieldpath"
 )
 
@@ -106,6 +107,19 @@ func isInternalAggPlaceholder(name string) bool {
 func (s *Stream) compileOutputNames() error {
 	s.groupOutputNames = make([]string, len(s.config.GroupFields))
 	seen := make(map[string]bool)
+
+	if s.config.Mode == types.ExecCEP {
+		// CEP 路径：输出列由 MEASURES 别名决定（无 GROUP BY/投影）。
+		if s.config.MatchRecognize != nil {
+			for _, m := range s.config.MatchRecognize.Measures {
+				if seen[m.Alias] {
+					return errAmbiguousColumn(m.Alias, "multiple MEASURES aliases collide")
+				}
+				seen[m.Alias] = true
+			}
+		}
+		return nil
+	}
 
 	if s.config.NeedWindow {
 		// Window/aggregation path.

@@ -70,6 +70,11 @@ const (
 	TokenPARTITION
 	// 点号token
 	TokenDot
+	// MATCH_RECOGNIZE PATTERN 正则语法标点（仅 PATTERN 体内消费）
+	TokenQuestion // ?
+	TokenPipe     // |
+	TokenLBrace   // {
+	TokenRBrace   // }
 )
 
 type Token struct {
@@ -160,6 +165,18 @@ func (l *Lexer) NextToken() Token {
 	case '.':
 		l.readChar()
 		return Token{Type: TokenDot, Value: ".", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
+	case '?':
+		l.readChar()
+		return Token{Type: TokenQuestion, Value: "?", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
+	case '|':
+		l.readChar()
+		return Token{Type: TokenPipe, Value: "|", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
+	case '{':
+		l.readChar()
+		return Token{Type: TokenLBrace, Value: "{", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
+	case '}':
+		l.readChar()
+		return Token{Type: TokenRBrace, Value: "}", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
 	case '+':
 		l.readChar()
 		return Token{Type: TokenPlus, Value: "+", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}

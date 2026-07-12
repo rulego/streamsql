@@ -46,6 +46,10 @@ var tokenTypeNames = map[TokenType]string{
 	TokenHAVING:      "HAVING",
 	TokenWITH:        "WITH",
 	TokenEOF:         "EOF",
+	TokenQuestion:    "?",
+	TokenPipe:        "|",
+	TokenLBrace:      "{",
+	TokenRBrace:      "}",
 }
 
 type Parser struct {
@@ -182,6 +186,13 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 
 	// 解析JOIN子句（流-表 JOIN，v0.5）
 	if err := p.parseJoin(stmt); err != nil {
+		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
+			return nil, p.createDetailedError(err)
+		}
+	}
+
+	// 解析 MATCH_RECOGNIZE 子句（CEP，FROM 后、WHERE 前）
+	if err := p.parseMatchRecognize(stmt); err != nil {
 		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
 			return nil, p.createDetailedError(err)
 		}
@@ -809,7 +820,8 @@ func (p *Parser) parseFrom(stmt *SelectStatement) error {
 func isClauseBoundaryIdent(value string) bool {
 	switch strings.ToUpper(value) {
 	case "JOIN", "INNER", "LEFT", "RIGHT", "FULL", "CROSS", "ON",
-		"WHERE", "GROUP", "HAVING", "ORDER", "LIMIT", "WITH":
+		"WHERE", "GROUP", "HAVING", "ORDER", "LIMIT", "WITH",
+		"MATCH_RECOGNIZE": // 子句起点（词法器把 MATCH_RECOGNIZE 读成单标识符），不得当源别名消费
 		return true
 	}
 	return false

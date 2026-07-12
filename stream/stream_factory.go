@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/rulego/streamsql/cep"
 	"github.com/rulego/streamsql/logger"
 	"github.com/rulego/streamsql/metrics"
 	"github.com/rulego/streamsql/types"
@@ -95,6 +96,23 @@ func (sf *StreamFactory) createStreamWithUnifiedConfig(config types.Config) (*St
 	// (e.g. SELECT a.name, b.name) before any data flows.
 	if err := stream.compileOutputNames(); err != nil {
 		return nil, err
+	}
+
+	// CEP 模式：构造期编译并实例化引擎。fail-fast（编译错误在 Execute 即暴露），
+	// 且引擎在 Start 派生 goroutine 前就绪，消除原懒初始化对 s.cep 的并发读。
+	if config.Mode == types.ExecCEP && config.MatchRecognize != nil {
+		if err := cep.Validate(config.MatchRecognize); err != nil {
+			return nil, fmt.Errorf("MATCH_RECOGNIZE invalid: %w", err)
+		}
+		log := config.Logger
+		if log == nil {
+			log = logger.GetDefault()
+		}
+		cr, err := newCepRunner(config.MatchRecognize, config.AnalyticMaxPartitions, log)
+		if err != nil {
+			return nil, fmt.Errorf("CEP engine init failed: %w", err)
+		}
+		stream.cep = cr
 	}
 
 	// Start worker routines

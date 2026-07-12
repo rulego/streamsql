@@ -42,7 +42,7 @@ func NewDataProcessor(stream *Stream) *DataProcessor {
 
 // Process main processing loop
 func (dp *DataProcessor) Process() {
-	// Initialize aggregator for window mode
+	// Initialize aggregator + window consumer goroutine for window/aggregation mode.
 	if dp.stream.config.NeedWindow {
 		dp.initializeAggregator()
 		dp.startWindowProcessing()
@@ -70,7 +70,10 @@ func (dp *DataProcessor) Process() {
 				// Channel is closed
 				return
 			}
-			if dp.stream.config.NeedWindow {
+			switch {
+			case dp.stream.config.Mode == types.ExecCEP:
+				dp.processCEP(data)
+			case dp.stream.config.NeedWindow:
 				// Window mode: enrich (if JOIN) -> filter -> window. Mirrors
 				// processDirectData so WHERE and GROUP BY can reference joined
 				// columns. INNER no-match and WHERE misses drop before the window.
@@ -82,8 +85,8 @@ func (dp *DataProcessor) Process() {
 					dp.stream.injectGroupKeyExprs(dataMap)
 					dp.stream.Window.Add(dataMap)
 				}
-			} else {
-				// Non-window mode: processDirectData does enrich(if JOIN) ->
+			default:
+				// Direct mode: processDirectData does enrich(if JOIN) ->
 				// filter -> project, so WHERE can reference joined columns.
 				dp.processDirectData(data)
 			}
@@ -94,6 +97,37 @@ func (dp *DataProcessor) Process() {
 			// Timer triggered, do nothing, just prevent CPU spinning
 		}
 	}
+}
+
+// processCEP 处理单事件：JOIN 富化 + WHERE 过滤后喂入 CEP 引擎；匹配输出直发 sink。
+func (dp *DataProcessor) processCEP(data map[string]any) {
+	defer func() {
+		// 单事件求值异常不应中断整条流水线（与分析函数一致的防御）。
+		if r := recover(); r != nil {
+			dp.stream.log.Error("CEP process panic recovered: %v", r)
+		}
+	}()
+	dataMap, keep, err := dp.stream.enrichData(data)
+	if err != nil {
+		dp.stream.log.Error("cep join enrichment error: %v", err)
+		return
+	}
+	if !keep {
+		return
+	}
+	if dp.stream.filter != nil && !dp.stream.filter.Evaluate(dataMap) {
+		return
+	}
+	if dp.stream.cep == nil {
+		return
+	}
+	key := dp.stream.cep.partitionKey(dataMap)
+	raw := dp.stream.cep.engine.Process(dataMap, key)
+	if len(raw) == 0 {
+		return
+	}
+	// 外层 SELECT 投影（与 Stop-Flush 共用 projectCep），使 SELECT 具体列/表达式/重命名生效。
+	dp.stream.emitCepResults(dp.stream.projectCep(raw))
 }
 
 // initializeAggregator initializes the aggregator

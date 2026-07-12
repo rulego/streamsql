@@ -29,6 +29,8 @@ type SelectStatement struct {
 	Having      string
 	OrderBy     []types.OrderByField
 	JoinConfigs []types.JoinConfig
+	// MatchRecognize 携带 MATCH_RECOGNIZE 子句（FROM 后、WHERE 前）。非空时走 CEP 路径。
+	MatchRecognize *types.MatchRecognizeSpec
 }
 
 type Field struct {
@@ -243,6 +245,34 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 	selectAlias := buildSelectAliasMap(s.Fields)
 	havingRewritten := extractHavingAggregates(s.Having, aggs, fields, selectAlias)
 
+	// 执行路径模式：MATCH_RECOGNIZE→CEP；窗口/聚合→Window；否则 Direct。
+	// P0 拦截 MATCH_RECOGNIZE 与 GROUP/聚合、JOIN 的组合（后续阶段支持）。
+	mode := types.ExecDirect
+	if needWindow {
+		mode = types.ExecWindow
+	}
+	if s.MatchRecognize != nil {
+		if needWindow {
+			return nil, "", fmt.Errorf("MATCH_RECOGNIZE cannot be combined with GROUP BY/aggregation yet")
+		}
+		if len(s.JoinConfigs) > 0 {
+			return nil, "", fmt.Errorf("MATCH_RECOGNIZE with JOIN is not supported yet")
+		}
+		if s.MatchRecognize.Pattern == nil {
+			return nil, "", fmt.Errorf("MATCH_RECOGNIZE requires a PATTERN clause")
+		}
+		if len(s.MatchRecognize.OrderBy) == 0 {
+			return nil, "", fmt.Errorf("MATCH_RECOGNIZE requires ORDER BY (provides event ordering)")
+		}
+		// ORDER BY 在 CEP 提供事件时序字段；DESC 流式下无意义（按到达序），拒绝以免静默忽略。
+		for _, ob := range s.MatchRecognize.OrderBy {
+			if ob.Direction == types.SortDesc {
+				return nil, "", fmt.Errorf("MATCH_RECOGNIZE ORDER BY 暂不支持 DESC（流式按到达序处理）")
+			}
+		}
+		mode = types.ExecCEP
+	}
+
 	// Build Stream configuration
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
@@ -268,6 +298,8 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		Distinct:           s.Distinct,
 		Limit:              s.Limit,
 		NeedWindow:         needWindow,
+		Mode:               mode,
+		MatchRecognize:     s.MatchRecognize,
 		AnalyticFields:     analyticFields,
 		SimpleFields:       simpleFields,
 		Having:             havingRewritten,
