@@ -21,16 +21,6 @@ import (
 	"time"
 )
 
-// ResultHandler handles result output and sink function calls
-type ResultHandler struct {
-	stream *Stream
-}
-
-// NewResultHandler creates a new result handler
-func NewResultHandler(stream *Stream) *ResultHandler {
-	return &ResultHandler{stream: stream}
-}
-
 // startSinkWorkerPool starts sink worker pool with configurable worker count
 func (s *Stream) startSinkWorkerPool(workerCount int) {
 	// Use configured worker count
@@ -62,19 +52,6 @@ func (s *Stream) startSinkWorkerPool(workerCount int) {
 				}
 			}
 		}(i)
-	}
-}
-
-// startResultConsumer starts automatic result consumer to prevent resultChan blocking
-func (s *Stream) startResultConsumer() {
-	for {
-		select {
-		case <-s.resultChan:
-			// Auto-consume results to prevent channel blocking
-			// This is a fallback mechanism to ensure system doesn't block even without external consumers
-		case <-s.done:
-			return
-		}
 	}
 }
 

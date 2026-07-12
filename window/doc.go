@@ -44,13 +44,14 @@ Four distinct window types for different stream processing scenarios:
 All window types implement a unified Window interface:
 
 	type Window interface {
-		Add(row types.Row) error              // Add data to window
-		Reset() error                         // Reset window state
-		Start() error                         // Start window processing
-		Stop()                                // Stop window operations and clean up resources
-		OutputChan() <-chan []types.Row       // Get output channel
-		SetCallback(func([]types.Row))        // Set callback function
-		Trigger() error                       // Manual trigger
+		Add(item any)                    // Add data to window
+		Reset()                          // Reset window state
+		Start()                          // Start window processing
+		Stop()                           // Stop window operations and clean up resources
+		OutputChan() <-chan []types.Row  // Get output channel
+		SetCallback(func([]types.Row))   // Set callback function
+		Trigger()                        // Manual trigger
+		GetStats() map[string]int64      // Get window statistics
 	}
 
 # Tumbling Windows

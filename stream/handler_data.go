@@ -21,16 +21,6 @@ import (
 	"time"
 )
 
-// DataHandler handles data processing for different strategies
-type DataHandler struct {
-	stream *Stream
-}
-
-// NewDataHandler creates a new data handler
-func NewDataHandler(stream *Stream) *DataHandler {
-	return &DataHandler{stream: stream}
-}
-
 // safeGetDataChan safely gets dataChan reference
 func (s *Stream) safeGetDataChan() chan map[string]any {
 	s.dataChanMux.RLock()

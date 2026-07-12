@@ -99,41 +99,13 @@ Unified configuration for all window types:
 
 # Performance Configuration
 
-Comprehensive performance tuning options:
+Comprehensive performance tuning options (nested; see config.go for exact fields):
 
 	type PerformanceConfig struct {
-		// Buffer management
-		BufferSize       int           // Input buffer size
-		BatchSize        int           // Processing batch size
-		FlushInterval    time.Duration // Automatic flush interval
-		HighWaterMark    float64       // Buffer high water mark (0.0-1.0)
-		LowWaterMark     float64       // Buffer low water mark (0.0-1.0)
-
-		// Worker pool configuration
-		WorkerPoolSize   int           // Number of worker goroutines
-		MaxWorkers       int           // Maximum worker limit
-		WorkerIdleTime   time.Duration // Worker idle timeout
-
-		// Overflow handling
-		OverflowStrategy string        // "drop", "block", "spill", "compress"
-		SpillDirectory   string        // Directory for spill files
-		CompressionLevel int           // Compression level (1-9)
-
-		// Memory management
-		MaxMemoryUsage   int64         // Maximum memory usage in bytes
-		GCInterval       time.Duration // Garbage collection interval
-		MemoryThreshold  float64       // Memory usage threshold
-
-		// Monitoring
-		MetricsEnabled   bool          // Enable metrics collection
-		MetricsInterval  time.Duration // Metrics collection interval
-		HealthCheckPort  int           // Health check HTTP port
-
-		// Persistence
-		PersistenceEnabled bool        // Enable data persistence
-		PersistenceType    string      // "memory", "file", "database"
-		PersistencePath    string      // Persistence storage path
-		RecoveryEnabled    bool        // Enable automatic recovery
+		BufferConfig     BufferConfig     // buffer sizes (data/result/window output)
+		OverflowConfig   OverflowConfig   // overflow strategy: "drop"/"block"/"expand"
+		WorkerConfig     WorkerConfig     // sink worker pool sizing
+		MonitoringConfig MonitoringConfig // monitoring & warning thresholds
 	}
 
 # Field Management
@@ -202,43 +174,10 @@ Time-based data structures for window processing:
 
 Pre-defined configuration templates for common use cases:
 
-	// High Performance Configuration
-	func NewHighPerformanceConfig() *PerformanceConfig {
-		return &PerformanceConfig{
-			BufferSize:       50000,
-			BatchSize:        1000,
-			WorkerPoolSize:   8,
-			FlushInterval:    100 * time.Millisecond,
-			OverflowStrategy: "spill",
-			MetricsEnabled:   true,
-		}
-	}
-
-	// Low Latency Configuration
-	func NewLowLatencyConfig() *PerformanceConfig {
-		return &PerformanceConfig{
-			BufferSize:       1000,
-			BatchSize:        10,
-			WorkerPoolSize:   2,
-			FlushInterval:    10 * time.Millisecond,
-			OverflowStrategy: "drop",
-			MetricsEnabled:   false,
-		}
-	}
-
-	// Zero Data Loss Configuration
-	func NewZeroDataLossConfig() *PerformanceConfig {
-		return &PerformanceConfig{
-			BufferSize:         10000,
-			BatchSize:          100,
-			WorkerPoolSize:     4,
-			FlushInterval:      time.Second,
-			OverflowStrategy:   "block",
-			PersistenceEnabled: true,
-			RecoveryEnabled:    true,
-			MetricsEnabled:     true,
-		}
-	}
+	// Presets provided in config.go:
+	//   DefaultPerformanceConfig()
+	//   HighPerformanceConfig()
+	//   LowLatencyConfig()
 
 # Usage Examples
 

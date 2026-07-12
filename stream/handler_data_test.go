@@ -26,24 +26,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDataHandler_NewDataHandler tests data handler creation
-func TestDataHandler_Constructor(t *testing.T) {
-	config := types.Config{
-		SimpleFields: []string{"name", "age"},
-	}
-	stream, err := NewStream(config)
-	require.NoError(t, err)
-	defer func() {
-		if stream != nil {
-			close(stream.done)
-		}
-	}()
-
-	handler := NewDataHandler(stream)
-	assert.NotNil(t, handler)
-	assert.Equal(t, stream, handler.stream)
-}
-
 // TestStream_SafeGetDataChan tests safe data channel retrieval
 func TestStream_SafeGetDataChan(t *testing.T) {
 	config := types.Config{

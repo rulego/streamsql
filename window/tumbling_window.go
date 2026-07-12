@@ -83,8 +83,6 @@ type TumblingWindow struct {
 	timerMu sync.Mutex
 	// watermark for event time processing (only used for EventTime)
 	watermark *Watermark
-	// pendingWindows stores windows waiting to be triggered (for EventTime)
-	pendingWindows map[string]*types.TimeSlot // key: window end time string
 	// triggeredWindows stores windows that have been triggered but are still open for late data (for EventTime with allowedLateness)
 	triggeredWindows map[string]*triggeredWindowInfo // key: window end time string
 	// Performance statistics
@@ -152,7 +150,6 @@ func NewTumblingWindow(config types.WindowConfig) (*TumblingWindow, error) {
 		initChan:         make(chan struct{}),
 		initialized:      false,
 		watermark:        watermark,
-		pendingWindows:   make(map[string]*types.TimeSlot),
 		triggeredWindows: make(map[string]*triggeredWindowInfo),
 	}, nil
 }
@@ -867,7 +864,6 @@ func (tw *TumblingWindow) Reset() {
 	tw.currentSlot = nil
 	tw.initialized = false
 	tw.initChan = make(chan struct{})
-	tw.pendingWindows = make(map[string]*types.TimeSlot)
 	tw.triggeredWindows = make(map[string]*triggeredWindowInfo)
 
 	// Recreate context for next startup

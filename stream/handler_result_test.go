@@ -27,24 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestResultHandler_NewResultHandler 测试结果处理器创建
-func TestResultHandler_NewResultHandler(t *testing.T) {
-	config := types.Config{
-		SimpleFields: []string{"name", "age"},
-	}
-	stream, err := NewStream(config)
-	require.NoError(t, err)
-	defer func() {
-		if stream != nil {
-			close(stream.done)
-		}
-	}()
-
-	handler := NewResultHandler(stream)
-	assert.NotNil(t, handler)
-	assert.Equal(t, stream, handler.stream)
-}
-
 // TestStream_StartSinkWorkerPool 测试启动Sink工作池
 func TestStream_StartSinkWorkerPool(t *testing.T) {
 	config := types.Config{
