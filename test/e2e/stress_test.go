@@ -191,3 +191,42 @@ func BenchmarkGateway_ParallelInstances(b *testing.B) {
 		}
 	})
 }
+
+// TestWindowEventTime_MultiTimestampAggregation 验证 event-time TumblingWindow 的 epoch 对齐：
+// 1s 窗口对齐到整秒边界（alignWindowStart），多时间戳事件须落在同一对齐窗口内才会一起聚合。
+// base 对齐到秒边界后，base / base+100 同属 [base, base+1000)，count 恒为 2。
+// （曾误判为「窗口竞态」——实为测试时间戳跨越 epoch 对齐边界所致，引擎无误。）
+func TestWindowEventTime_MultiTimestampAggregation(t *testing.T) {
+	const iters = 300
+	fails := 0
+	for i := 0; i < iters; i++ {
+		s := streamsql.New()
+		if err := s.Execute(`SELECT count(*) AS c FROM stream GROUP BY TumblingWindow('1s') WITH (TIMESTAMP='ts', TIMEUNIT='ms')`); err != nil {
+			t.Fatal(err)
+		}
+		ch := make(chan []map[string]any, 4)
+		s.AddSink(func(r []map[string]any) { ch <- r })
+		base := ((time.Now().UnixMilli() - 5000) / 1000) * 1000 // 对齐到秒边界：避免 base/base+100 跨越 epoch 对齐的 1s 窗口
+		s.Emit(map[string]any{"ts": base, "v": 10})
+		s.Emit(map[string]any{"ts": base + 100, "v": 60})
+		s.Emit(map[string]any{"ts": base + 2000, "v": 5})
+		select {
+		case rows := <-ch:
+			if c := asFloat64(rows[0]["c"]); c != 2 {
+				fails++
+				if fails <= 5 {
+					t.Logf("iter %d: count=%v (want 2)", i, c)
+				}
+			}
+		case <-time.After(2 * time.Second):
+			fails++
+			if fails <= 5 {
+				t.Logf("iter %d: timeout", i)
+			}
+		}
+		s.Stop()
+	}
+	if fails > 0 {
+		t.Fatalf("race reproduced: %d/%d iters failed", fails, iters)
+	}
+}
