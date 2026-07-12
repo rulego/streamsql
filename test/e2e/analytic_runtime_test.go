@@ -177,3 +177,170 @@ func BenchmarkAnalytic_Partition2Col(b *testing.B) {
 		`SELECT lag(v) OVER (PARTITION BY deviceId, region) AS p FROM stream`,
 		map[string]any{"deviceId": "d1", "region": "z1", "v": 1})
 }
+
+// --- 分区语义正确性（边界组合）---
+
+// PARTITION BY 在 SELECT 侧的状态隔离：交错输入 d1/d2，各分区 lag 只看本分区前值。
+// 预期 prev = [nil, nil, 10, 100, 20]（无隔离会把 d1 的值串进 d2）。
+func TestAnalytic_PartitionIsolation_Lag(t *testing.T) {
+	ssql := streamsql.New()
+	require.NoError(t, ssql.Execute("SELECT deviceId, lag(value) OVER (PARTITION BY deviceId) AS prev FROM stream"))
+	defer ssql.Stop()
+
+	inputs := []map[string]any{
+		{"deviceId": 1, "value": 10},
+		{"deviceId": 2, "value": 100},
+		{"deviceId": 1, "value": 20},
+		{"deviceId": 2, "value": 200},
+		{"deviceId": 1, "value": 30},
+	}
+	expected := []any{nil, nil, 10, 100, 20}
+	for i, in := range inputs {
+		r, err := ssql.EmitSync(in)
+		require.NoError(t, err)
+		require.NotNil(t, r)
+		assert.Equal(t, expected[i], r["prev"], "row %d", i)
+	}
+}
+
+// acc_sum 带 PARTITION BY：各分区独立累加。
+// 预期 total = [10, 100, 30, 300, 60]。
+func TestAnalytic_AccSum_Partition(t *testing.T) {
+	ssql := streamsql.New()
+	require.NoError(t, ssql.Execute("SELECT deviceId, acc_sum(value) OVER (PARTITION BY deviceId) AS total FROM stream"))
+	defer ssql.Stop()
+
+	inputs := []map[string]any{
+		{"deviceId": 1, "value": 10},
+		{"deviceId": 2, "value": 100},
+		{"deviceId": 1, "value": 20},
+		{"deviceId": 2, "value": 200},
+		{"deviceId": 1, "value": 30},
+	}
+	expected := []any{10.0, 100.0, 30.0, 300.0, 60.0}
+	for i, in := range inputs {
+		r, err := ssql.EmitSync(in)
+		require.NoError(t, err)
+		require.NotNil(t, r)
+		assert.Equal(t, expected[i], r["total"], "row %d", i)
+	}
+}
+
+// 同一查询多个分析函数 + PARTITION BY：lag 与 acc_max 各自维护独立状态。
+// 预期 prev = [nil, 10, 5]，mx = [10, 10, 20]。
+func TestAnalytic_MultipleAnalytic_Partition(t *testing.T) {
+	ssql := streamsql.New()
+	require.NoError(t, ssql.Execute("SELECT deviceId, lag(value) OVER (PARTITION BY deviceId) AS prev, acc_max(value) OVER (PARTITION BY deviceId) AS mx FROM stream"))
+	defer ssql.Stop()
+
+	inputs := []map[string]any{
+		{"deviceId": 1, "value": 10},
+		{"deviceId": 1, "value": 5},
+		{"deviceId": 1, "value": 20},
+	}
+	expectedPrev := []any{nil, 10, 5}
+	expectedMx := []any{10.0, 10.0, 20.0}
+	for i, in := range inputs {
+		r, err := ssql.EmitSync(in)
+		require.NoError(t, err)
+		require.NotNil(t, r)
+		assert.Equal(t, expectedPrev[i], r["prev"], "row %d prev", i)
+		assert.Equal(t, expectedMx[i], r["mx"], "row %d mx", i)
+	}
+}
+
+// OVER WHEN × PARTITION BY 组合：每分区独立维护 (历史 + 缓存输出)。
+// WHEN 满足才更新状态并重算 lag、刷新缓存；不满足时返回该分区缓存的上一输出（而非上一个满足值）。
+// 预期 prev = [nil, 20, 20, nil, 20, 30]。
+//   row2(5≤15,F) 复用 d1 缓存 20；row4(10≤15,F,d1) 即便前面插了 d2 行，仍取 d1 自己的缓存 20。
+func TestAnalytic_WhenAndPartition_Lag(t *testing.T) {
+	ssql := streamsql.New()
+	require.NoError(t, ssql.Execute("SELECT deviceId, lag(value) OVER (PARTITION BY deviceId WHEN value > 15) AS prev FROM stream"))
+	defer ssql.Stop()
+
+	inputs := []map[string]any{
+		{"deviceId": 1, "value": 20},
+		{"deviceId": 1, "value": 30},
+		{"deviceId": 1, "value": 5},
+		{"deviceId": 2, "value": 40},
+		{"deviceId": 1, "value": 10},
+		{"deviceId": 1, "value": 25},
+	}
+	expected := []any{nil, 20, 20, nil, 20, 30}
+	for i, in := range inputs {
+		r, err := ssql.EmitSync(in)
+		require.NoError(t, err)
+		require.NotNil(t, r)
+		assert.Equal(t, expected[i], r["prev"], "row %d", i)
+	}
+}
+
+// acc_avg 带 PARTITION BY：各分区独立累积均值（count 与 sum 都按分区隔离）。
+// 预期 avg = [10, 100, 15, 20, 150]。
+func TestAnalytic_AccAvg_Partition(t *testing.T) {
+	ssql := streamsql.New()
+	require.NoError(t, ssql.Execute("SELECT deviceId, acc_avg(value) OVER (PARTITION BY deviceId) AS avg FROM stream"))
+	defer ssql.Stop()
+
+	inputs := []map[string]any{
+		{"deviceId": 1, "value": 10},
+		{"deviceId": 2, "value": 100},
+		{"deviceId": 1, "value": 20},
+		{"deviceId": 1, "value": 30},
+		{"deviceId": 2, "value": 200},
+	}
+	expected := []any{10.0, 100.0, 15.0, 20.0, 150.0}
+	for i, in := range inputs {
+		r, err := ssql.EmitSync(in)
+		require.NoError(t, err)
+		require.NotNil(t, r)
+		assert.Equal(t, expected[i], r["avg"], "row %d", i)
+	}
+}
+
+// acc_count 带 PARTITION BY：各分区独立计数。
+// 预期 cnt = [1, 1, 2, 3, 2]（d1: 1→2→3；d2: 1→2）。
+func TestAnalytic_AccCount_Partition(t *testing.T) {
+	ssql := streamsql.New()
+	require.NoError(t, ssql.Execute("SELECT deviceId, acc_count(value) OVER (PARTITION BY deviceId) AS cnt FROM stream"))
+	defer ssql.Stop()
+
+	inputs := []map[string]any{
+		{"deviceId": 1, "value": 10},
+		{"deviceId": 2, "value": 100},
+		{"deviceId": 1, "value": 20},
+		{"deviceId": 1, "value": 30},
+		{"deviceId": 2, "value": 200},
+	}
+	expected := []any{int64(1), int64(1), int64(2), int64(3), int64(2)}
+	for i, in := range inputs {
+		r, err := ssql.EmitSync(in)
+		require.NoError(t, err)
+		require.NotNil(t, r)
+		assert.Equal(t, expected[i], r["cnt"], "row %d", i)
+	}
+}
+
+// lag 多偏移 + 默认值 + ignoreNull 组合：nil 不入历史，历史不足时返回默认值。
+// 序列 [10, 20, nil, 30, 40]，预期 lg = [-1.0, -1.0, 10, 10, 20]。
+// 关键判别：row3(nil) 与 row4 都返回 10——nil 被忽略未入历史，故 row4 仍取到 20 之前的 10。
+func TestAnalytic_LagOffsetDefaultIgnoreNull(t *testing.T) {
+	ssql := streamsql.New()
+	require.NoError(t, ssql.Execute("SELECT lag(value, 2, -1, true) AS lg FROM stream"))
+	defer ssql.Stop()
+
+	inputs := []map[string]any{
+		{"value": 10},
+		{"value": 20},
+		{"value": nil},
+		{"value": 30},
+		{"value": 40},
+	}
+	expected := []any{-1.0, -1.0, 10, 10, 20}
+	for i, in := range inputs {
+		r, err := ssql.EmitSync(in)
+		require.NoError(t, err)
+		require.NotNil(t, r)
+		assert.Equal(t, expected[i], r["lg"], "row %d", i)
+	}
+}
