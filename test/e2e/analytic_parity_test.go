@@ -32,7 +32,7 @@ func runWindow(t *testing.T, sql string, inputs []map[string]any) []map[string]a
 	if err := ssql.Execute(sql); err != nil {
 		t.Fatalf("Execute %q: %v", sql, err)
 	}
-	defer ssql.Stop()
+	defer ssql.Stop() // 失败路径兜底（t.Fatalf → Goexit 仍执行）；正常路径已显式 Stop，幂等。
 	var mu sync.Mutex
 	var out []map[string]any
 	ssql.AddSink(func(r []map[string]any) {
@@ -43,8 +43,12 @@ func runWindow(t *testing.T, sql string, inputs []map[string]any) []map[string]a
 	for _, in := range inputs {
 		ssql.Emit(copyRow(in))
 	}
-	time.Sleep(500 * time.Millisecond)
-	return out
+	time.Sleep(500 * time.Millisecond) // 让窗口触发 + sink 回调执行完毕
+	ssql.Stop()                        // 停止并 join sink worker：在跑回调跑完、不再有并发写 out
+	mu.Lock()
+	result := out
+	mu.Unlock()
+	return result
 }
 
 func runDirect(t *testing.T, sql string, inputs []map[string]any) []map[string]any {

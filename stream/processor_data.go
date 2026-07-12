@@ -88,6 +88,7 @@ func (dp *DataProcessor) Process() {
 					}
 				}
 				if keep && (dp.stream.filter == nil || dp.stream.filter.Evaluate(dataMap)) {
+					dp.stream.injectGroupKeyExprs(dataMap)
 					dp.stream.Window.Add(dataMap)
 				}
 			} else {
@@ -428,6 +429,14 @@ func (dp *DataProcessor) processAggregationResults(results []map[string]any) {
 	// Apply HAVING filter condition
 	if dp.stream.config.Having != "" {
 		finalResults = dp.applyHavingFilter(finalResults)
+		// HAVING 引用的隐藏聚合（__having_N__）仅为满足 HAVING 补算，不进输出/sink。
+		for _, r := range finalResults {
+			for k := range r {
+				if strings.HasPrefix(k, "__having_") {
+					delete(r, k)
+				}
+			}
+		}
 	}
 
 	// Apply ORDER BY before LIMIT so LIMIT selects the top-N of the sorted order.
@@ -593,11 +602,19 @@ func (dp *DataProcessor) processDirectData(data map[string]any) {
 		}
 		dataMap = wm
 	}
-	// 分析函数最先求值，注入 dataMap 供 WHERE 占位符引用。
-	analyticResults := dp.stream.evalAnalytic(dataMap)
+	// 分析函数与 WHERE 的求值顺序：WHERE 引用分析（CDC）时分析先求值注入占位符；
+	// 否则先 WHERE 过滤再更新分析状态（标准 SQL，分析只见通过行）。
+	whereUsesAnalytic := len(dp.stream.config.WhereAnalyticCalls) > 0
+	var analyticResults map[string]any
+	if whereUsesAnalytic {
+		analyticResults = dp.stream.evalAnalytic(dataMap)
+	}
 	// Apply WHERE on the (possibly enriched) data so metadata columns are visible.
 	if dp.stream.filter != nil && !dp.stream.filter.Evaluate(dataMap) {
 		return
+	}
+	if !whereUsesAnalytic {
+		analyticResults = dp.stream.evalAnalytic(dataMap)
 	}
 
 	// Create result map, pre-allocate appropriate capacity

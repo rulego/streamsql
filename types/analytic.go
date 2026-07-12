@@ -1,8 +1,27 @@
 package types
 
+import "strconv"
+
 // AnalyticSelfToken 是"表达式包分析函数"回代模板里的占位（如 ts - __analytic_self__）：
 // 求值期把分析函数结果写入行的该键，再求整个外层表达式。
 const AnalyticSelfToken = "__analytic_self__"
+
+// AnalyticSelfTokenN 返回表达式内第 i 个分析调用在回代模板里的占位标识符。
+// i==0 沿用 AnalyticSelfToken（单调用向后兼容），i>0 用 __analytic_self_<i>__。
+// 同一表达式含多个分析调用时（如 acc_max(v) - acc_min(v)），每个调用各分配一个占位。
+func AnalyticSelfTokenN(i int) string {
+	if i == 0 {
+		return AnalyticSelfToken
+	}
+	return "__analytic_self_" + strconv.Itoa(i) + "__"
+}
+
+// AnalyticCall 描述"表达式包分析函数"里的单个分析调用（一个字段可含多个，如 acc_max(v) - acc_min(v)）。
+type AnalyticCall struct {
+	FuncName string   // 函数名，如 "acc_max"
+	BareCall string   // 完整调用文本（不含 OVER），如 "acc_max(v)"
+	Args     []string // 原始参数表达式片段（未求值），如 ["v"]
+}
 
 // OverSpec 描述分析函数的 OVER 子句。
 // 仅支持 PARTITION BY 和 WHEN，不支持 ORDER BY / ROWS frame（那是 Flink 模型）。
@@ -26,6 +45,10 @@ type AnalyticField struct {
 	// 时，分析调用子串被替换为占位 __analytic_self__，得 "ts - __analytic_self__"。
 	// 求值期先算出分析函数值，代入占位再求整个表达式。空表示纯分析字段。
 	WrapperExpr string
+	// Calls 表达式内全部 Analytic 调用（按出现顺序）。纯单调用字段长度为 1；
+	// 多调用（acc_max(v) - acc_min(v)）长度 ≥ 2，每个调用在 WrapperExpr 里对应
+	// types.AnalyticSelfTokenN(i) 占位。FuncName/Args/Expression 仍保留首个调用值供旧路径。
+	Calls []AnalyticCall
 	// InlineAggDisplay 窗口查询里分析函数参数内联聚合的重写映射：隐藏键→显示名。
 	// 如 changed_cols("t",true,avg(temperature)) 在窗口查询里，avg(temperature) 被提取为
 	// 隐藏计算字段 __winagg_0__，这里记录 {"__winagg_0__":"avg"}，输出列名取显示名（→ tavg）。

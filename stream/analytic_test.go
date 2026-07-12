@@ -13,7 +13,7 @@ import (
 func TestAnalyticPartitionLRUEviction(t *testing.T) {
 	fe := &analyticFieldEngine{
 		af:          types.AnalyticField{Over: &types.OverSpec{PartitionBy: []string{"k"}}},
-		stateCtor:   func() functions.AnalyticState { return new(functions.LagFunction).NewState() },
+		stateCtors:  []func() functions.AnalyticState{func() functions.AnalyticState { return new(functions.LagFunction).NewState() }},
 		partitions:  make(map[string]*list.Element),
 		lru:         list.New(),
 		lastResults: make(map[string]any),

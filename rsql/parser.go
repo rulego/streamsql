@@ -987,6 +987,17 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 
 	var limitToken *Token // 保存LIMIT token以便后续处理
 
+	// 累积分组项：跟踪括号深度，把函数表达式（如 upper(device)）作为整体一项，
+	// 顶层逗号分隔。collapseSpacesOutsideQuotes 归一化（parser 读出的多 token 带空格）。
+	var currentItem strings.Builder
+	parenLevel := 0
+	flushItem := func() {
+		if hasGroupBy && currentItem.Len() > 0 {
+			stmt.GroupBy = append(stmt.GroupBy, collapseSpacesOutsideQuotes(currentItem.String()))
+		}
+		currentItem.Reset()
+	}
+
 	for {
 		iterations++
 		// 安全检查：防止无限循环
@@ -1001,46 +1012,58 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 			if tok.Type == TokenLIMIT {
 				limitToken = &tok
 			}
+			flushItem()
 			break
 		}
 		if tok.Type == TokenComma {
+			flushItem()
 			continue
 		}
-		if tok.Type == TokenGlobal {
-			if err := p.parseGlobalWindow(stmt); err != nil {
-				return err
+		// 顶层（括号外）的窗口/全局窗/OVER 子句：先收尾当前项再处理。
+		if parenLevel == 0 {
+			if tok.Type == TokenGlobal {
+				flushItem()
+				if err := p.parseGlobalWindow(stmt); err != nil {
+					return err
+				}
+				continue
 			}
-			continue
-		}
-		if tok.Type == TokenTumbling || tok.Type == TokenSliding || tok.Type == TokenCounting || tok.Type == TokenSession {
-			if err := p.parseWindowFunction(stmt, tok.Value); err != nil {
-				return err
+			if tok.Type == TokenTumbling || tok.Type == TokenSliding || tok.Type == TokenCounting || tok.Type == TokenSession {
+				flushItem()
+				if err := p.parseWindowFunction(stmt, tok.Value); err != nil {
+					return err
+				}
+				// After parsing window function, skip adding it to GroupBy and continue
+				continue
 			}
-			// After parsing window function, skip adding it to GroupBy and continue
-			continue
-		}
-		if tok.Type == TokenOVER {
-			// GROUP BY window 的 OVER(...) 子句（仅 WHEN 输入门控）。校验在 ToStreamConfig
-			// 做（parseGroupBy 的返回错误会被 errorRecovery 当作可恢复错误吞掉）。
-			over, err := p.parseOverClause()
-			if err != nil {
-				return err
+			if tok.Type == TokenOVER {
+				// GROUP BY window 的 OVER(...) 子句（仅 WHEN 输入门控）。校验在 ToStreamConfig
+				// 做（parseGroupBy 的返回错误会被 errorRecovery 当作可恢复错误吞掉）。
+				flushItem()
+				over, err := p.parseOverClause()
+				if err != nil {
+					return err
+				}
+				if over != nil && stmt.Window.Over == nil {
+					stmt.Window.Over = over
+				}
+				continue
 			}
-			if over != nil && stmt.Window.Over == nil {
-				stmt.Window.Over = over
+			// Skip top-level right parenthesis tokens (left by parseWindowFunction)
+			if tok.Type == TokenRParen {
+				continue
 			}
-			continue
 		}
-
-		// Skip right parenthesis tokens (they should be consumed by parseWindowFunction)
-		if tok.Type == TokenRParen {
-			continue
+		// 跟踪括号深度（函数调用参数），把 token 累积进当前分组项。
+		if tok.Type == TokenLParen {
+			parenLevel++
+		} else if tok.Type == TokenRParen {
+			parenLevel--
 		}
-
-		// 只有在有GROUP BY时才添加到GroupBy中
-		if hasGroupBy {
-			stmt.GroupBy = append(stmt.GroupBy, tok.Value)
+		if currentItem.Len() > 0 {
+			currentItem.WriteByte(' ')
 		}
+		currentItem.WriteString(tok.Value)
 	}
 
 	// 如果遇到了LIMIT token，直接在这里处理
@@ -1557,14 +1580,16 @@ func Parse(sql string) (*types.Config, string, error) {
 		return nil, "", err
 	}
 
-	// Reject malformed GROUP BY. An unknown/misspelled window function (e.g.
-	// TumbingWindow) is not recognized as a window keyword, so its name and the
-	// quoted duration argument leak into the group fields as separate entries
-	// (e.g. ["TumblingWindow", "'1s'"]). A legitimate group field is a plain
-	// identifier, so any quote/paren artifact means the query would silently run
-	// with no window and wrong grouping. Fail loudly instead.
-	for _, g := range config.GroupFields {
-		if strings.ContainsAny(g, "'\"()") {
+	// Reject malformed GROUP BY. 用原始 stmt.GroupBy（extractGroupFields 过滤前），
+	// 否则 isAggregationFunction 的"含括号保守判聚合"兜底会把拼错的窗口函数
+	// （如 InvalidWindow('5s')）当聚合丢掉，使 config.GroupFields 为空、校验落空。
+	// 合法分组项：裸列名，或顶层为已注册标量函数的表达式（如 upper(device)）。
+	// 引号 artifact 或未注册函数 → 视为拼错的窗口函数泄漏，拒绝。
+	for _, g := range stmt.GroupBy {
+		if strings.ContainsAny(g, "'\"") {
+			return nil, "", fmt.Errorf("invalid GROUP BY field %q: unknown window function or unsupported expression", g)
+		}
+		if strings.Contains(g, "(") && !groupKeyIsScalarFunctionExpr(g) {
 			return nil, "", fmt.Errorf("invalid GROUP BY field %q: unknown window function or unsupported expression", g)
 		}
 	}

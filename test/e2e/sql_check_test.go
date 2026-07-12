@@ -46,9 +46,9 @@ func errExec(sql string) error {
 	return ssql.Execute(sql)
 }
 
-// --- 1. 分析函数嵌进标量函数：解析期拒绝 ---
+// --- 1. 分析函数嵌进标量函数：放行（标量套分析走 wrapper 回代，支持 coalesce/CASE/UPPER 等）---
 
-func TestSQLCheck_AnalyticInScalarFunction_Reject(t *testing.T) {
+func TestSQLCheck_AnalyticInScalarFunction_Accept(t *testing.T) {
 	for _, sql := range []string{
 		`SELECT UPPER(changed_col(true, temperature)) AS c FROM stream`,                    // 标量套分析（小写）
 		`SELECT UPPER(CHANGED_COL(true, temperature)) AS c FROM stream`,                    // 标量套分析（大写）
@@ -57,9 +57,11 @@ func TestSQLCheck_AnalyticInScalarFunction_Reject(t *testing.T) {
 		`SELECT ROUND(UPPER(changed_col(true, temperature)), 2) AS c FROM stream`,          // 深层嵌套标量套分析
 		`SELECT CONCAT('prefix', changed_col(true, temperature)) AS s FROM stream`,         // 多参标量套分析
 		`SELECT LOWER(latest(temperature)) AS s FROM stream`,                               // 标量套 latest
+		`SELECT coalesce(lag(temp), -1) AS s FROM stream`,                                  // 标量套 lag + 默认值
+		`SELECT CASE WHEN lag(temp) > 20 THEN 'up' ELSE 'down' END AS s FROM stream`,       // CASE 套分析
 	} {
 		t.Run(sql, func(t *testing.T) {
-			assertRejectExec(t, sql, "standalone field or with OVER")
+			assertAcceptExec(t, sql)
 		})
 	}
 }

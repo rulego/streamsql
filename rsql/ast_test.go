@@ -182,8 +182,8 @@ func TestSelectStatement_ToStreamConfig(t *testing.T) {
 					t.Errorf("ToStreamConfig() error = %v", err)
 					return
 				}
-				if config.Having != "COUNT(*) > 10" {
-					t.Errorf("Expected Having to be 'COUNT(*) > 10', got %s", config.Having)
+				if config.Having != "count > 10" {
+					t.Errorf("Expected Having to be rewritten to 'count > 10' (aggregate referenced via its SELECT alias), got %s", config.Having)
 				}
 			},
 		},

@@ -9,8 +9,10 @@ import (
 	"sync"
 
 	"github.com/rulego/streamsql/condition"
+	"github.com/rulego/streamsql/expr"
 	"github.com/rulego/streamsql/functions"
 	"github.com/rulego/streamsql/types"
+	"github.com/rulego/streamsql/utils/fieldpath"
 )
 
 // defaultMaxPartitions bounds per-field PARTITION state so high-cardinality keys
@@ -30,22 +32,24 @@ type AnalyticEngine struct {
 func (e *AnalyticEngine) HasFields() bool { return e != nil && len(e.fields) > 0 }
 
 // analyticFieldEngine 单个分析函数字段的状态机（含 PARTITION 分桶 + WHEN 条件）。
+// 一个字段可含多个分析调用（如 acc_max(v) - acc_min(v)），每个调用独立状态机、共享分区。
 type analyticFieldEngine struct {
 	af            types.AnalyticField
-	stateCtor     func() functions.AnalyticState
-	whenCond      condition.Condition // WHEN，nil 表示无
+	stateCtors    []func() functions.AnalyticState // 每个分析调用一个状态构造器
+	whenCond      condition.Condition             // WHEN，nil 表示无
 	mu            sync.Mutex
-	noPart        functions.AnalyticState // 无 PARTITION 时的单一状态
-	partitions    map[string]*list.Element // PARTITION BY 时 per-key 状态（LRU 节点）
-	lru           *list.List               // LRU 顺序：front=最近使用，back=待淘汰
-	lastResults   map[string]any           // per-partition 上次结果（WHEN 不满足时复用）
-	maxPartitions int                      // 分区数上限（超出按 LRU 淘汰）
+	noPart        []functions.AnalyticState // 无 PARTITION 时的 per-call 状态
+	partitions    map[string]*list.Element  // PARTITION BY 时 per-key 状态（LRU 节点）
+	lru           *list.List                // LRU 顺序：front=最近使用，back=待淘汰
+	lastResults   map[string]any            // per-partition 上次结果（WHEN 不满足时复用）
+	maxPartitions int                       // 分区数上限（超出按 LRU 淘汰）
+	wrapperParsed *expr.Expression          // wrapper 的 expr 包解析缓存（仅 bridge 失败时用，如 CASE），每字段解析一次
 }
 
-// partitionEntry 是 LRU 链表节点携带的分区状态。
+// partitionEntry 是 LRU 链表节点携带的分区状态（每个分析调用一个）。
 type partitionEntry struct {
-	key   string
-	state functions.AnalyticState
+	key    string
+	states []functions.AnalyticState
 }
 
 // NewAnalyticEngine 根据配置构建分析函数状态机集合。无分析函数时返回 nil。
@@ -60,17 +64,13 @@ func NewAnalyticEngine(owner *Stream, fields []types.AnalyticField) (*AnalyticEn
 	}
 	engines := make([]*analyticFieldEngine, 0, len(fields))
 	for _, af := range fields {
-		fn, ok := functions.Get(af.FuncName)
-		if !ok {
-			return nil, fmt.Errorf("analytic function %q not found", af.FuncName)
-		}
-		sf, ok := fn.(functions.StatefulAnalytic)
-		if !ok {
-			return nil, fmt.Errorf("function %q is not a stateful analytic function", af.FuncName)
+		ctors, err := buildStateCtors(af)
+		if err != nil {
+			return nil, err
 		}
 		fe := &analyticFieldEngine{
 			af:            af,
-			stateCtor:     sf.NewState,
+			stateCtors:    ctors,
 			partitions:    make(map[string]*list.Element),
 			lru:           list.New(),
 			lastResults:   make(map[string]any),
@@ -86,6 +86,31 @@ func NewAnalyticEngine(owner *Stream, fields []types.AnalyticField) (*AnalyticEn
 		engines = append(engines, fe)
 	}
 	return &AnalyticEngine{owner: owner, fields: engines}, nil
+}
+
+// buildStateCtors 为字段每个分析调用构造状态构造器。Calls 为空时（如 WHERE 占位符调用，
+// 只设了 FuncName）退化为单调用。
+func buildStateCtors(af types.AnalyticField) ([]func() functions.AnalyticState, error) {
+	names := make([]string, 0, len(af.Calls)+1)
+	for _, c := range af.Calls {
+		names = append(names, c.FuncName)
+	}
+	if len(names) == 0 {
+		names = append(names, af.FuncName)
+	}
+	ctors := make([]func() functions.AnalyticState, 0, len(names))
+	for _, name := range names {
+		fn, ok := functions.Get(name)
+		if !ok {
+			return nil, fmt.Errorf("analytic function %q not found", name)
+		}
+		sf, ok := fn.(functions.StatefulAnalytic)
+		if !ok {
+			return nil, fmt.Errorf("function %q is not a stateful analytic function", name)
+		}
+		ctors = append(ctors, sf.NewState)
+	}
+	return ctors, nil
 }
 
 // Evaluate 对一行求值所有分析函数字段，返回 map[alias]value。
@@ -111,14 +136,6 @@ func (fe *analyticFieldEngine) evaluate(s *Stream, row map[string]any) (result a
 	if fe.af.MultiColumn {
 		return fe.evaluateMultiColumn(s, row)
 	}
-	args, err := s.parseFunctionArgs(fe.af.Expression, row)
-	if err != nil || args == nil {
-		args = []any{}
-	}
-	// '*' 展开：had_changed(true, *) → 对整行各列求值。
-	if hasStarArg(fe.af.Args) {
-		args = expandStarArgs(fe.af.Args, row, args)
-	}
 	partKey := fe.partitionKey(row)
 	fe.mu.Lock()
 	defer fe.mu.Unlock()
@@ -129,10 +146,15 @@ func (fe *analyticFieldEngine) evaluate(s *Stream, row map[string]any) (result a
 		}
 		return nil
 	}
-	state := fe.getStateLocked(partKey)
+	states := fe.getStateLocked(partKey)
+	calls := fe.af.Calls
+	if len(calls) == 0 {
+		// WHERE 占位符调用等只设了 FuncName/Expression/Args，退化为单调用。
+		calls = []types.AnalyticCall{{FuncName: fe.af.FuncName, BareCall: fe.af.Expression, Args: fe.af.Args}}
+	}
 	// had_changed(true, *) 按列名比较整行，避免行 schema 变化（列增删/乱序）的位置错位。
 	if fe.af.FuncName == "had_changed" && hasStarArg(fe.af.Args) {
-		if named, ok := state.(functions.NamedRowState); ok {
+		if named, ok := states[0].(functions.NamedRowState); ok {
 			ignoreNull := false
 			if len(fe.af.Args) > 0 {
 				ignoreNull = functions.AnalyticToBool(literalValue(fe.af.Args[0]))
@@ -142,36 +164,72 @@ func (fe *analyticFieldEngine) evaluate(s *Stream, row map[string]any) (result a
 			return result
 		}
 	}
-	result = state.Apply(args)
-	// 表达式包分析函数（如 ts - lag(ts)）：把分析结果代入外层表达式再求值。
-	if fe.af.WrapperExpr != "" {
-		result = fe.applyWrapper(s, row, result)
+	// 纯单调用字段（无外层表达式）：直接返回首个调用结果。
+	if fe.af.WrapperExpr == "" {
+		result = fe.applyCall(s, row, calls[0], states[0])
+		fe.lastResults[partKey] = result
+		return result
 	}
-	fe.lastResults[partKey] = result
-	return result
-}
-
-// applyWrapper 把分析函数结果代入外层表达式（WrapperExpr）求值。
-// 行副本写入占位键 AnalyticSelfToken=result，再用 expr bridge 求 WrapperExpr。
-// 分析值为 nil（首行/新分区/无前值）时按 null 传播直接返 nil（合法情况，不报错）；
-// 非 nil 但求值失败才记日志并回退 nil（单字段异常不中断流水线）。
-func (fe *analyticFieldEngine) applyWrapper(s *Stream, row map[string]any, analyticVal any) any {
-	if analyticVal == nil {
-		return nil
-	}
-	rowCopy := make(map[string]any, len(row)+1)
+	// 表达式包分析函数（单或多调用）：每调用 Apply 推进各自状态，各结果（含 nil）注入占位，
+	// 再求 wrapper。nil 占位交给 wrapper 自行处理：coalesce(__analytic_self__,-1)→-1、
+	// CASE WHEN __analytic_self__>... 走 ELSE；算术 __analytic_self__-x 在 nil 上失败→null 传播返回 nil。
+	rowCopy := make(map[string]any, len(row)+len(calls))
 	for k, v := range row {
 		rowCopy[k] = v
 	}
-	rowCopy[types.AnalyticSelfToken] = analyticVal
-	v, err := functions.GetExprBridge().EvaluateExpression(fe.af.WrapperExpr, rowCopy)
+	anyNil := false
+	for i, c := range calls {
+		v := fe.applyCall(s, row, c, states[i])
+		if v == nil {
+			anyNil = true
+		}
+		rowCopy[types.AnalyticSelfTokenN(i)] = v
+	}
+	v, isNull, err := fe.evalWrapper(rowCopy)
 	if err != nil {
-		if s != nil && s.log != nil {
+		// 任一分析为 nil 时，算术等不支持 nil 操作数的 wrapper 失败属正常 null 传播，静默返回 nil；
+		// 全非 nil 却失败才是真异常，记日志。
+		if !anyNil && s != nil && s.log != nil {
 			s.log.Error("analytic wrapper %q evaluate failed: %v", fe.af.WrapperExpr, err)
 		}
+		fe.lastResults[partKey] = nil
 		return nil
 	}
+	if isNull {
+		fe.lastResults[partKey] = nil
+		return nil
+	}
+	fe.lastResults[partKey] = v
 	return v
+}
+
+// evalWrapper 求值 wrapper 表达式：先走 expr bridge（函数/算术/字符串拼接），
+// 失败则回退 expr 包（支持 CASE 等语句型表达式）。wrapper 每字段不变，故 expr 包解析
+// 结果按字段缓存（懒解析，调用方持 fe.mu 无竞态），避免逐行重复解析。isNull 区分显式 NULL 与 nil。
+func (fe *analyticFieldEngine) evalWrapper(data map[string]any) (any, bool, error) {
+	if v, err := functions.GetExprBridge().EvaluateExpression(fe.af.WrapperExpr, data); err == nil {
+		return v, false, nil
+	}
+	if fe.wrapperParsed == nil {
+		e, parseErr := expr.NewExpression(fe.af.WrapperExpr)
+		if parseErr != nil {
+			return nil, false, parseErr
+		}
+		fe.wrapperParsed = e
+	}
+	return fe.wrapperParsed.EvaluateValueWithNull(data)
+}
+
+// applyCall 求单个分析调用：解析参数（含 '*' 整行展开），应用到状态机。
+func (fe *analyticFieldEngine) applyCall(s *Stream, row map[string]any, c types.AnalyticCall, state functions.AnalyticState) any {
+	args, err := s.parseFunctionArgs(c.BareCall, row)
+	if err != nil || args == nil {
+		args = []any{}
+	}
+	if hasStarArg(c.Args) {
+		args = expandStarArgs(c.Args, row, args)
+	}
+	return state.Apply(args)
 }
 
 // evaluateMultiColumn 处理 changed_cols 等多列函数：按 prefix+列名 扇出变化列。
@@ -220,7 +278,7 @@ func (fe *analyticFieldEngine) evaluateMultiColumn(s *Stream, row map[string]any
 		}
 		return map[string]any{}
 	}
-	state := fe.getStateLocked(partKey)
+	state := fe.getStateLocked(partKey)[0]
 	mcs, ok := state.(functions.MultiColumnState)
 	if !ok {
 		return map[string]any{}
@@ -305,18 +363,25 @@ func analyticColName(expr string) string {
 	return s
 }
 
-func (fe *analyticFieldEngine) getStateLocked(partKey string) functions.AnalyticState {
+func (fe *analyticFieldEngine) getStateLocked(partKey string) []functions.AnalyticState {
+	newStates := func() []functions.AnalyticState {
+		states := make([]functions.AnalyticState, len(fe.stateCtors))
+		for i, ctor := range fe.stateCtors {
+			states[i] = ctor()
+		}
+		return states
+	}
 	if fe.af.Over == nil || len(fe.af.Over.PartitionBy) == 0 {
 		if fe.noPart == nil {
-			fe.noPart = fe.stateCtor()
+			fe.noPart = newStates()
 		}
 		return fe.noPart
 	}
 	if el, ok := fe.partitions[partKey]; ok {
 		fe.lru.MoveToFront(el) // 命中：提升为最近使用
-		return el.Value.(*partitionEntry).state
+		return el.Value.(*partitionEntry).states
 	}
-	entry := &partitionEntry{key: partKey, state: fe.stateCtor()}
+	entry := &partitionEntry{key: partKey, states: newStates()}
 	fe.partitions[partKey] = fe.lru.PushFront(entry)
 	// 超上限：淘汰最久未使用的分区，同步清理其 lastResults，防止内存泄漏。
 	if fe.maxPartitions > 0 && fe.lru.Len() > fe.maxPartitions {
@@ -327,7 +392,7 @@ func (fe *analyticFieldEngine) getStateLocked(partKey string) functions.Analytic
 			delete(fe.lastResults, oe.key)
 		}
 	}
-	return entry.state
+	return entry.states
 }
 
 func (fe *analyticFieldEngine) partitionKey(row map[string]any) string {
@@ -337,7 +402,7 @@ func (fe *analyticFieldEngine) partitionKey(row map[string]any) string {
 	var sb strings.Builder
 	var lbuf [4]byte // 分区键片段长度（十进制，常见 < 1000）
 	for _, k := range fe.af.Over.PartitionBy {
-		tk := typeKey(row[k])
+		tk := typeKey(resolvePartitionField(row, k))
 		// 长度前缀 + 尾分隔，避免值里含 '|' 或类型名导致跨列键碰撞。
 		// 直接写 Builder，省去 fmt.Fprintf 的格式串解析。
 		lstr := strconv.AppendInt(lbuf[:0], int64(len(tk)), 10)
@@ -347,6 +412,23 @@ func (fe *analyticFieldEngine) partitionKey(row map[string]any) string {
 		sb.WriteByte('|')
 	}
 	return sb.String()
+}
+
+// resolvePartitionField 解析 PARTITION BY 键的实际值。裸列直查命中（deviceId/temp）；
+// JOIN 嵌套列（m.location，增强行里存为 row["m"]["location"]）走 fieldpath；
+// 窗口扁平限定列（stream.k，输出行按后缀 k 存）退 lookupRowField 后缀兜底。
+// 任一都不命中返回 nil（旧实现裸 row[k] 对限定列恒 nil → 全部落同一分区，静默错值）。
+func resolvePartitionField(row map[string]any, key string) any {
+	if v, ok := row[key]; ok {
+		return v
+	}
+	if v, ok := fieldpath.GetNestedField(row, key); ok {
+		return v
+	}
+	if v, ok := lookupRowField(row, key); ok {
+		return v
+	}
+	return nil
 }
 
 // typeKey 生成 "类型|值" 形式的分区键片段，nil 记为 "nil|"。

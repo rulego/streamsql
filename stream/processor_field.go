@@ -188,6 +188,22 @@ func (s *Stream) projectGroupColumns(results []map[string]any) {
 	}
 }
 
+// injectGroupKeyExprs 对函数表达式分组键（如 upper(device)）就地求值并写入行，使窗口与
+// aggregator 能按该合成键分组（它们只按 row[key] 取值，不求值）。裸列键无需处理。
+// 仅窗口路径在 Window.Add 前调用；dataMap 为 Emit 拷贝或 JOIN 增强副本，注入安全。
+func (s *Stream) injectGroupKeyExprs(data map[string]any) {
+	for _, gf := range s.config.GroupFields {
+		if !strings.Contains(gf, "(") {
+			continue
+		}
+		v, err := functions.GetExprBridge().EvaluateExpression(gf, data)
+		if err != nil {
+			continue
+		}
+		data[gf] = v
+	}
+}
+
 // qualifiedRefRe matches dotted identifiers like "m.location" (a maximal run of
 // identifier segments joined by "."). Used to rewrite qualified column refs in
 // HAVING/ORDER BY to their flat output names without touching substrings.

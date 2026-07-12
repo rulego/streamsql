@@ -555,12 +555,20 @@ func (s *Stream) processDirectDataSync(data map[string]any) (map[string]any, err
 		}
 		dataMap = wm
 	}
-	// 分析函数最先求值（不受 WHERE 影响），结果注入 dataMap 供 WHERE
-	// 占位符引用；返回值由 projectAnalytic 写入投影输出。
-	analyticResults := s.evalAnalytic(dataMap)
+	// 分析函数与 WHERE 的求值顺序：
+	//   - WHERE 引用分析（CDC，WhereAnalyticCalls 非空）：分析先求值、注入占位符供 WHERE 引用。
+	//   - WHERE 为普通列：先 WHERE 过滤再更新分析状态（标准 SQL——分析只见通过过滤的行）。
+	whereUsesAnalytic := len(s.config.WhereAnalyticCalls) > 0
+	var analyticResults map[string]any
+	if whereUsesAnalytic {
+		analyticResults = s.evalAnalytic(dataMap)
+	}
 	// Apply WHERE on the (possibly enriched) data so metadata columns are visible.
 	if s.filter != nil && !s.filter.Evaluate(dataMap) {
 		return nil, nil
+	}
+	if !whereUsesAnalytic {
+		analyticResults = s.evalAnalytic(dataMap)
 	}
 
 	// Create result map, pre-allocate appropriate capacity
