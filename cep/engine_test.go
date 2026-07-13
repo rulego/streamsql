@@ -469,3 +469,34 @@ func TestSubset_ValidateCycle(t *testing.T) {
 		t.Errorf("Validate should reject cyclic SUBSET definition")
 	}
 }
+
+// 贪婪 A*（DEFINE 重叠）选最长 [A,A,B]；懒惰 A*? 选最短 [B]×3。
+func TestQuantifier_GreedyVsReluctant(t *testing.T) {
+	star := func(greedy bool) *types.PatternNode {
+		return &types.PatternNode{Kind: types.PatternRepetition, Children: []*types.PatternNode{lit("A")}, Quant: &types.Quantifier{Min: 0, Max: -1, Greedy: greedy}}
+	}
+	mk := func(greedy bool) *types.MatchRecognizeSpec {
+		return &types.MatchRecognizeSpec{
+			Pattern:  seq(star(greedy), lit("B")),
+			Defines:  []types.MatchDefine{def("A", "v > 0"), def("B", "v > 0")},
+			OrderBy:  orderBy("ts"),
+			Measures: []types.Measure{measure("COUNT(*)", "n")},
+		}
+	}
+	rows := []map[string]any{{"ts": 1, "v": 1}, {"ts": 2, "v": 2}, {"ts": 3, "v": 3}}
+	// 贪婪：延伸到流末 Flush 选最长 → [A,A,B] 1 个匹配 n=3。
+	gOut := runEvents(t, mk(true), rows)
+	if len(gOut) != 1 || asFloat(gOut[0]["n"]) != 3 {
+		t.Fatalf("greedy A* want 1 match n=3, got %v", gOut)
+	}
+	// 懒惰：每位置立即选最短 → [B]×3。
+	lOut := runEvents(t, mk(false), rows)
+	if len(lOut) != 3 {
+		t.Fatalf("reluctant A*? want 3 matches, got %d: %v", len(lOut), lOut)
+	}
+	for i, r := range lOut {
+		if asFloat(r["n"]) != 1 {
+			t.Errorf("reluctant match %d n want 1, got %v", i, r["n"])
+		}
+	}
+}

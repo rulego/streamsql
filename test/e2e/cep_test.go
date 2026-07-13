@@ -989,3 +989,53 @@ func TestCEP_WithinSweeperKeepsRecent(t *testing.T) {
 	require.Len(t, flat, 1, "窗内连续匹配，sweeper 不应误删")
 	assert.Equal(t, 1.0, asFloat64(flat[0]["mn"]))
 }
+
+// 贪婪 A*（A/B DEFINE 重叠 v>0）选最长：3 事件 → 1 个匹配 [A,A,B]（n=3）。
+// 重叠下贪婪延伸到流末 Flush 才选最长，故用 Stop 后断言（非 collectCEP）。
+func TestCEP_GreedyStarLongest(t *testing.T) {
+	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
+		ORDER BY ts
+		MEASURES COUNT(*) AS n, MATCH_NUMBER() AS mn
+		ONE ROW PER MATCH
+		PATTERN (A* B)
+		WITHIN '1h'
+		DEFINE A AS v > 0, B AS v > 0
+	)`
+	s := streamsql.New()
+	require.NoError(t, s.Execute(sql))
+	var mu sync.Mutex
+	var got []map[string]any
+	s.AddSink(func(r []map[string]any) {
+		mu.Lock()
+		got = append(got, r...)
+		mu.Unlock()
+	})
+	for _, r := range []map[string]any{{"ts": 1, "v": 1}, {"ts": 2, "v": 2}, {"ts": 3, "v": 3}} {
+		s.Emit(r)
+	}
+	time.Sleep(100 * time.Millisecond)
+	s.Stop() // 贪婪重叠：匹配在 Flush 选最长后产出
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, got, 1, "贪婪 A* 选最长：1 个匹配 [A,A,B]")
+	assert.Equal(t, 3.0, asFloat64(got[0]["n"]), "贪婪匹配 3 行 A,A,B")
+}
+
+// 懒惰 A*?（A/B DEFINE 重叠）选最短：每位置 0 个 A + B → [B]×3（各 n=1）。
+func TestCEP_ReluctantStarShortest(t *testing.T) {
+	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
+		ORDER BY ts
+		MEASURES COUNT(*) AS n, MATCH_NUMBER() AS mn
+		ONE ROW PER MATCH
+		PATTERN (A*? B)
+		WITHIN '1h'
+		DEFINE A AS v > 0, B AS v > 0
+	)`
+	rows := []map[string]any{{"ts": 1, "v": 1}, {"ts": 2, "v": 2}, {"ts": 3, "v": 3}}
+	got := collectCEP(t, sql, rows, 3)
+	flat := flatten(got)
+	require.Len(t, flat, 3, "懒惰 A*? 每位置选最短 [B]：3 个匹配")
+	for i, r := range flat {
+		assert.Equal(t, 1.0, asFloat64(r["n"]), "懒惰匹配 %d 应为 1 行", i)
+	}
+}

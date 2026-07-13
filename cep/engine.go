@@ -28,6 +28,7 @@ type Engine struct {
 	spec     *types.MatchRecognizeSpec
 	symbols  map[string]bool
 	subsets  map[string][]string // SUBSET 名 → 成员符号（求值期按成员集合过滤）
+	lazy     bool                // pattern 含 reluctant 量词：立即 emit 选最短；否则贪婪延迟选最长
 	measures []types.Measure
 
 	// DEFINE/MEASURES 表达式预编译产物（NewEngine 期一次编译，热路径复用）。
@@ -60,8 +61,9 @@ type Engine struct {
 type partition struct {
 	key       string
 	runs      []*run
-	matchNo   int  // 本分区已输出匹配数（MATCH_NUMBER）
-	nextStart int64 // 下一个允许起匹配的 seq（SKIP 策略）
+	pending   map[int64][]*run // 贪婪：已完成 run 按 startSeq 暂存，等延伸终止选最长 emit
+	matchNo   int              // 本分区已输出匹配数（MATCH_NUMBER）
+	nextStart int64            // 下一个允许起匹配的 seq（SKIP 策略）
 }
 
 // frame 是匹配历史的不可变节点（cons-list）：advance 仅 O(1) 追加，前缀天然共享，
@@ -171,6 +173,7 @@ func NewEngine(spec *types.MatchRecognizeSpec) (*Engine, error) {
 		spec:        spec,
 		symbols:     symbols,
 		subsets:     subsets,
+		lazy:        hasReluctant(spec.Pattern),
 		measures:    spec.Measures,
 		definePrep:  definePrep,
 		measurePrep: measurePrep,
@@ -246,7 +249,19 @@ func (e *Engine) Flush() []map[string]any {
 				completions = append(completions, r)
 			}
 		}
-		if out := e.emitCompletions(p, completions, &[]*run{}); len(out) > 0 {
+		if e.lazy {
+			if out := e.emitLazy(p, completions, &[]*run{}); len(out) > 0 {
+				emitted = append(emitted, out...)
+			}
+			continue
+		}
+		// 贪婪：把 hasAccept 的 run 并入 pending，流末 survivors 空 → 全部 ready，选最长 emit。
+		for _, c := range completions {
+			if c.startSeq >= p.nextStart {
+				p.pending[c.startSeq] = append(p.pending[c.startSeq], c)
+			}
+		}
+		if out := e.emitGreedy(p, &[]*run{}); len(out) > 0 {
 			emitted = append(emitted, out...)
 		}
 	}
@@ -289,17 +304,32 @@ func (e *Engine) sweep() {
 	}
 	now := time.Now().UnixNano()
 	limit := e.within.Nanoseconds()
+	expired := func(r *run) bool { return r.startTs >= int64(1e9) && now-r.startTs > limit }
 	e.mu.Lock()
 	for el := e.lru.Front(); el != nil; el = el.Next() {
 		p := el.Value.(*partition)
 		kept := make([]*run, 0, len(p.runs))
 		for _, r := range p.runs {
-			if r.startTs >= int64(1e9) && now-r.startTs > limit {
+			if expired(r) {
 				continue // 超窗：丢弃
 			}
 			kept = append(kept, r)
 		}
 		p.runs = kept
+		// 同步清过期 pending（贪婪暂存的完成匹配）
+		for s, cands := range p.pending {
+			k := cands[:0]
+			for _, r := range cands {
+				if !expired(r) {
+					k = append(k, r)
+				}
+			}
+			if len(k) == 0 {
+				delete(p.pending, s)
+			} else {
+				p.pending[s] = k
+			}
+		}
 	}
 	e.mu.Unlock()
 }
@@ -341,7 +371,7 @@ func (e *Engine) getPartition(key string) *partition {
 		e.lru.MoveToFront(el)
 		return el.Value.(*partition)
 	}
-	p := &partition{key: key}
+	p := &partition{key: key, pending: make(map[int64][]*run)}
 	e.partMap[key] = e.lru.PushFront(p)
 	return p
 }
@@ -395,8 +425,18 @@ func (e *Engine) step(p *partition, row map[string]any, ts, seq int64) []map[str
 		}
 	}
 
-	// 3. 按 SKIP 策略输出完成匹配并裁剪 survivors（消除重叠）。
-	emitted := e.emitCompletions(p, completions, &survivors)
+	// 3. 处理完成匹配：懒惰立即 emit 选最短；贪婪暂存 pending，等延伸终止选最长。
+	var emitted []map[string]any
+	if e.lazy {
+		emitted = e.emitLazy(p, completions, &survivors)
+	} else {
+		for _, c := range completions {
+			if c.startSeq >= p.nextStart {
+				p.pending[c.startSeq] = append(p.pending[c.startSeq], c)
+			}
+		}
+		emitted = e.emitGreedy(p, &survivors)
+	}
 	// 4. 数量上限：活跃部分匹配过多时丢弃最旧的，防 A* 类模式状态爆炸。
 	if e.maxRuns > 0 && len(survivors) > e.maxRuns {
 		excess := len(survivors) - e.maxRuns
@@ -467,13 +507,16 @@ func (e *Engine) evalMeasure(p *preparedExpr, rows []map[string]any, labels []st
 	return v, isNull
 }
 
-// emitCompletions 按 startSeq 升序处理完成匹配，返回全部投影输出并裁剪 survivors。
-func (e *Engine) emitCompletions(p *partition, completions []*run, survivors *[]*run) []map[string]any {
+// emitLazy 处理懒惰模式的完成匹配：立即按 startSeq 升序、同 startSeq 选最短 emit。
+func (e *Engine) emitLazy(p *partition, completions []*run, survivors *[]*run) []map[string]any {
 	if len(completions) == 0 {
 		return nil
 	}
 	sort.SliceStable(completions, func(i, j int) bool {
-		return completions[i].startSeq < completions[j].startSeq
+		if completions[i].startSeq != completions[j].startSeq {
+			return completions[i].startSeq < completions[j].startSeq
+		}
+		return completions[i].nrows < completions[j].nrows // 懒惰：同 startSeq 选最短
 	})
 	var emitted []map[string]any
 	for _, c := range completions {
@@ -487,6 +530,53 @@ func (e *Engine) emitCompletions(p *partition, completions []*run, survivors *[]
 		e.pruneSurvivors(survivors, p.nextStart)
 	}
 	return emitted
+}
+
+// emitGreedy 处理贪婪模式的完成匹配：pending 已按 startSeq 暂存，emit 延伸终止的
+// startSeq（survivors 中无同 startSeq 的 run），同 startSeq 选最长。survivors 为空时
+// emit 全部 pending（供 Flush）。
+func (e *Engine) emitGreedy(p *partition, survivors *[]*run) []map[string]any {
+	active := make(map[int64]bool, len(*survivors))
+	for _, r := range *survivors {
+		active[r.startSeq] = true
+	}
+	var ready []int64
+	for s := range p.pending {
+		if !active[s] && s >= p.nextStart {
+			ready = append(ready, s)
+		}
+	}
+	sort.Slice(ready, func(i, j int) bool { return ready[i] < ready[j] })
+	var emitted []map[string]any
+	for _, s := range ready {
+		cands := p.pending[s]
+		if len(cands) == 0 {
+			continue // 可能被前一轮 SKIP 的 prunePending 删除
+		}
+		best := cands[0]
+		for _, c := range cands[1:] {
+			if c.nrows > best.nrows {
+				best = c
+			}
+		}
+		p.matchNo++
+		best.matchNo = p.matchNo
+		emitted = append(emitted, e.project(best)...)
+		p.nextStart = e.skipTo(best)
+		delete(p.pending, s)
+		e.prunePending(p, p.nextStart)
+		e.pruneSurvivors(survivors, p.nextStart)
+	}
+	return emitted
+}
+
+// prunePending 清除 startSeq < nextStart 的暂存完成匹配（已被 SKIP 跳过）。
+func (e *Engine) prunePending(p *partition, nextStart int64) {
+	for s := range p.pending {
+		if s < nextStart {
+			delete(p.pending, s)
+		}
+	}
 }
 
 // skipTo 返回该匹配完成后下一个允许起匹配的 seq（依 SKIP 策略）。
@@ -625,6 +715,22 @@ func walkSymbols(n *types.PatternNode, m map[string]bool) {
 	for _, c := range n.Children {
 		walkSymbols(c, m)
 	}
+}
+
+// hasReluctant 报告模式树是否含懒惰量词（Quantifier.Greedy=false）。
+func hasReluctant(n *types.PatternNode) bool {
+	if n == nil {
+		return false
+	}
+	if n.Kind == types.PatternRepetition && n.Quant != nil && !n.Quant.Greedy {
+		return true
+	}
+	for _, c := range n.Children {
+		if hasReluctant(c) {
+			return true
+		}
+	}
+	return false
 }
 
 // collectSubsets 收集 SUBSET 名 → 成员符号列表。
