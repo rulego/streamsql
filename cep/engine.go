@@ -2,6 +2,7 @@ package cep
 
 import (
 	"container/list"
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -37,6 +38,14 @@ type Engine struct {
 	within     time.Duration
 	maxRunRows int
 	maxRuns    int
+
+	// WITHIN 主动过期 sweeper（仅 within>0 时由 Start 启动；Stop join）。
+	startMu       sync.Mutex
+	started       bool
+	ctx           context.Context
+	cancel        context.CancelFunc
+	wg            sync.WaitGroup
+	sweepInterval time.Duration
 
 	maxPart int
 	mu      sync.Mutex
@@ -177,6 +186,10 @@ func NewEngine(spec *types.MatchRecognizeSpec) (*Engine, error) {
 	if e.within <= 0 {
 		e.within = types.DefaultMatchWithin
 	}
+	e.sweepInterval = e.within / 2
+	if e.sweepInterval <= 0 {
+		e.sweepInterval = 100 * time.Millisecond
+	}
 	return e, nil
 }
 
@@ -238,6 +251,71 @@ func (e *Engine) Flush() []map[string]any {
 		}
 	}
 	return emitted
+}
+
+// Start 启动 WITHIN 主动过期 sweeper（仅 within>0 时）。幂等。
+// sweeper 定期用 wall-clock 扫描，清掉超窗的部分匹配，避免空闲分区内存滞留。
+func (e *Engine) Start() {
+	e.startMu.Lock()
+	defer e.startMu.Unlock()
+	if e.started || e.within <= 0 || e.sweepInterval <= 0 {
+		return
+	}
+	e.ctx, e.cancel = context.WithCancel(context.Background())
+	e.started = true
+	e.wg.Add(1)
+	go e.sweepLoop()
+}
+
+func (e *Engine) sweepLoop() {
+	defer e.wg.Done()
+	t := time.NewTicker(e.sweepInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			e.sweep()
+		case <-e.ctx.Done():
+			return
+		}
+	}
+}
+
+// sweep 清除超窗的部分匹配。仅对 epoch 量级时间戳用 wall-clock 判过期：
+// 小值序号流（非真实时间戳）维持纯被动，避免 wall-clock 误删。
+func (e *Engine) sweep() {
+	if e.within <= 0 {
+		return
+	}
+	now := time.Now().UnixNano()
+	limit := e.within.Nanoseconds()
+	e.mu.Lock()
+	for el := e.lru.Front(); el != nil; el = el.Next() {
+		p := el.Value.(*partition)
+		kept := make([]*run, 0, len(p.runs))
+		for _, r := range p.runs {
+			if r.startTs >= int64(1e9) && now-r.startTs > limit {
+				continue // 超窗：丢弃
+			}
+			kept = append(kept, r)
+		}
+		p.runs = kept
+	}
+	e.mu.Unlock()
+}
+
+// Stop 停止 sweeper 并 join。幂等；未 Start 时直接返回。
+func (e *Engine) Stop() {
+	e.startMu.Lock()
+	if !e.started {
+		e.startMu.Unlock()
+		return
+	}
+	e.started = false
+	cancel := e.cancel
+	e.startMu.Unlock()
+	cancel()
+	e.wg.Wait()
 }
 
 // Process 投入一行事件到其分区，返回本事件完成的匹配经 MEASURES 投影后的输出行。

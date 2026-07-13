@@ -45,3 +45,9 @@ func (c *cepRunner) partitionKey(row map[string]any) string {
 	}
 	return sb.String()
 }
+
+// Start 启动 CEP 引擎的 WITHIN 主动过期 sweeper。
+func (c *cepRunner) Start() { c.engine.Start() }
+
+// Stop 停止 CEP 引擎并 join sweeper。
+func (c *cepRunner) Stop() { c.engine.Stop() }

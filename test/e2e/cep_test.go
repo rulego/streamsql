@@ -897,3 +897,95 @@ func TestCEP_SubsetInPattern(t *testing.T) {
 	assert.Equal(t, "C", got[0][1]["c"])
 	assert.Equal(t, 2.0, asFloat64(got[0][1]["ts"]))
 }
+
+// ALL ROWS PER MATCH 下 FINAL 聚合取整段匹配（恒定），RUNNING 截到当前行（累计）。
+func TestCEP_FinalVsRunning(t *testing.T) {
+	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
+		ORDER BY ts
+		MEASURES FINAL SUM(v) AS fs, RUNNING SUM(v) AS rs
+		ALL ROWS PER MATCH
+		PATTERN (A{3})
+		WITHIN '1h'
+		DEFINE A AS v > 0
+	)`
+	rows := []map[string]any{{"ts": 1, "v": 10}, {"ts": 2, "v": 20}, {"ts": 3, "v": 30}}
+	got := collectCEP(t, sql, rows, 1)
+	require.Len(t, got, 1, "一次匹配")
+	require.Len(t, got[0], 3, "ALL ROWS 输出 3 行")
+	// FINAL SUM 恒为 60（整段）；RUNNING SUM 累计 10/30/60。
+	for _, r := range got[0] {
+		assert.Equal(t, 60.0, asFloat64(r["fs"]), "FINAL SUM 恒 60")
+	}
+	assert.Equal(t, 10.0, asFloat64(got[0][0]["rs"]), "RUNNING 行0=10")
+	assert.Equal(t, 30.0, asFloat64(got[0][1]["rs"]), "RUNNING 行1=30")
+	assert.Equal(t, 60.0, asFloat64(got[0][2]["rs"]), "RUNNING 行2=60")
+}
+
+// ONE ROW PER MATCH 下 FINAL 与默认（RUNNING）结果一致：cur 已是末行，二者相等。
+func TestCEP_FinalOneRowNoChange(t *testing.T) {
+	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
+		ORDER BY ts
+		MEASURES FINAL SUM(v) AS fs, SUM(v) AS rs
+		ONE ROW PER MATCH
+		PATTERN (A{3})
+		WITHIN '1h'
+		DEFINE A AS v > 0
+	)`
+	rows := []map[string]any{{"ts": 1, "v": 10}, {"ts": 2, "v": 20}, {"ts": 3, "v": 30}}
+	got := collectCEP(t, sql, rows, 1)
+	flat := flatten(got)
+	require.Len(t, flat, 1)
+	assert.Equal(t, 60.0, asFloat64(flat[0]["fs"]))
+	assert.Equal(t, 60.0, asFloat64(flat[0]["rs"]), "ONE ROW 下 FINAL 与默认一致")
+}
+
+// WITHIN 主动过期：sweeper 定期清除超窗的部分匹配。空闲超过 WITHIN 后 A 被主动清除，
+// 后续 B 无法续上 → 无匹配。需用近期 epoch 时间戳（sweeper 按 wall-clock 判过期）。
+func TestCEP_WithinSweeperExpires(t *testing.T) {
+	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
+		ORDER BY ts
+		MEASURES MATCH_NUMBER() AS mn
+		ONE ROW PER MATCH
+		PATTERN (A B)
+		WITHIN '200ms'
+		DEFINE A AS k == 1, B AS k == 2
+	)`
+	s := streamsql.New()
+	require.NoError(t, s.Execute(sql))
+	var mu sync.Mutex
+	var got [][]map[string]any
+	s.AddSyncSink(func(r []map[string]any) {
+		mu.Lock()
+		got = append(got, r)
+		mu.Unlock()
+	})
+	s.Emit(map[string]any{"ts": time.Now().UnixMilli(), "k": 1}) // A
+	time.Sleep(500 * time.Millisecond)                           // >WITHIN 且 >sweepInterval(100ms)：sweeper 清除 A
+	s.Emit(map[string]any{"ts": time.Now().UnixMilli(), "k": 2}) // B 来时无 A → 无匹配
+	time.Sleep(200 * time.Millisecond)
+	s.Stop()
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Empty(t, got, "sweeper 主动过期部分匹配，B 来时无 A → 无匹配")
+}
+
+// 对照：sweeper 启用时不误删窗内匹配（AB 在 WITHIN 内连续到达 → 有匹配）。
+func TestCEP_WithinSweeperKeepsRecent(t *testing.T) {
+	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
+		ORDER BY ts
+		MEASURES MATCH_NUMBER() AS mn
+		ONE ROW PER MATCH
+		PATTERN (A B)
+		WITHIN '500ms'
+		DEFINE A AS k == 1, B AS k == 2
+	)`
+	now := time.Now()
+	rows := []map[string]any{
+		{"ts": now.UnixMilli(), "k": 1},
+		{"ts": now.Add(50 * time.Millisecond).UnixMilli(), "k": 2},
+	}
+	got := collectCEP(t, sql, rows, 1)
+	flat := flatten(got)
+	require.Len(t, flat, 1, "窗内连续匹配，sweeper 不应误删")
+	assert.Equal(t, 1.0, asFloat64(flat[0]["mn"]))
+}

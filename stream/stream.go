@@ -238,6 +238,9 @@ func (s *Stream) Start() {
 		s.lifecycle.Add(1)
 	}
 	s.startMu.Unlock()
+	if s.cep != nil {
+		s.cep.Start() // 启动 WITHIN 主动过期 sweeper
+	}
 	go func() {
 		defer s.lifecycle.Done()
 		processor.Process()
@@ -289,6 +292,11 @@ func (s *Stream) Stop() {
 	// kill), so it is abandoned after the grace rather than hanging the caller
 	// (e.g. a rulego component Destroy).
 	s.waitLifecycle()
+
+	// 停止 CEP sweeper：数据处理 goroutine 已 join，不再有并发 Process；紧接的 Flush 看到静止引擎。
+	if s.cep != nil {
+		s.cep.Stop()
+	}
 
 	// 冲刷 CEP 流末未界匹配（如未闭合的 A+ 突发）。此时所有 goroutine 已 join、worker pool
 	// 已退出，故同步派发到 sink（不经 pool）——若在 close(done) 后仍走 pool，worker 已退出会
