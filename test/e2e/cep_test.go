@@ -844,3 +844,56 @@ func TestCEP_RejectsOrderByDesc(t *testing.T) {
 	assert.Error(t, err, "ORDER BY DESC 应被拒绝")
 	s.Stop()
 }
+
+// SUBSET 在 MEASURES 引用：SUM(S.v) 对 S={A,B} 全部成分行求和；S.v 取成分末行。
+// 语法入口：ONE ROW PER MATCH + 外层 SELECT 具体别名（验证不漏未选列）。
+func TestCEP_SubsetAggregate(t *testing.T) {
+	sql := `SELECT sv, last, mn FROM stream MATCH_RECOGNIZE (
+		ORDER BY ts
+		MEASURES SUM(S.v) AS sv, SUM(A.v) AS av, S.v AS last, MATCH_NUMBER() AS mn
+		ONE ROW PER MATCH
+		PATTERN (A B+)
+		SUBSET S = (A, B)
+		WITHIN '1h'
+		DEFINE A AS k == 1, B AS k == 2
+	)`
+	rows := []map[string]any{
+		{"ts": 1, "k": 1, "v": 1},
+		{"ts": 2, "k": 2, "v": 10},
+		{"ts": 3, "k": 2, "v": 100},
+		{"ts": 4, "k": 3, "v": 0}, // 非 A/B：收尾 B+
+	}
+	got := collectCEP(t, sql, rows, 1)
+	flat := flatten(got)
+	require.Len(t, flat, 1)
+	assert.Equal(t, 111.0, asFloat64(flat[0]["sv"]), "SUM(S.v)=1+10+100")
+	assert.Equal(t, 100.0, asFloat64(flat[0]["last"]), "S.v=末个 B=100")
+	assert.Equal(t, 1.0, asFloat64(flat[0]["mn"]))
+	_, hasAV := flat[0]["av"]
+	assert.False(t, hasAV, "SELECT 未选 av 不应漏入")
+}
+
+// SUBSET 在 PATTERN 里作原子：PATTERN(S C)（S={A,B}）→ (A|B) C，CLASSIFIER 返回真实成分。
+// 语法入口：ALL ROWS PER MATCH + 外层 SELECT 输入字段 ts 与 MEASURES 列 c。
+func TestCEP_SubsetInPattern(t *testing.T) {
+	sql := `SELECT ts, c FROM stream MATCH_RECOGNIZE (
+		ORDER BY ts
+		MEASURES CLASSIFIER() AS c
+		ALL ROWS PER MATCH
+		PATTERN (S C)
+		SUBSET S = (A, B)
+		WITHIN '1h'
+		DEFINE A AS k == 1, B AS k == 2, C AS k == 3
+	)`
+	rows := []map[string]any{
+		{"ts": 1, "k": 1}, // A（经 S 展开匹配）
+		{"ts": 2, "k": 3}, // C
+	}
+	got := collectCEP(t, sql, rows, 1)
+	require.Len(t, got, 1, "一次匹配")
+	require.Len(t, got[0], 2, "ALL ROWS 输出 2 行")
+	assert.Equal(t, "A", got[0][0]["c"], "首行经 S 展开匹配 A")
+	assert.Equal(t, 1.0, asFloat64(got[0][0]["ts"]))
+	assert.Equal(t, "C", got[0][1]["c"])
+	assert.Equal(t, 2.0, asFloat64(got[0][1]["ts"]))
+}

@@ -359,3 +359,113 @@ func TestNullInDefine(t *testing.T) {
 		t.Fatalf("want 0 (PREV nil → false), got %d: %v", len(out), out)
 	}
 }
+
+// --- SUBSET ---
+
+// SUBSET 在 MEASURES 引用：SUM(S.v) 对 S={A,B} 全部成分行求和；S.v 取成分末行。
+func TestSubset_Measures(t *testing.T) {
+	spec := &types.MatchRecognizeSpec{
+		Pattern: seq(lit("A"), rep(lit("B"), 1, -1)),
+		Subsets: []types.MatchSubset{{Name: "S", Symbols: []string{"A", "B"}}},
+		Defines: []types.MatchDefine{def("A", "k == 1"), def("B", "k == 2")},
+		OrderBy: orderBy("ts"),
+		Measures: []types.Measure{
+			measure("SUM(S.v)", "sv"), measure("SUM(A.v)", "av"), measure("S.v", "last"),
+		},
+	}
+	rows := []map[string]any{
+		{"ts": 1, "k": 1, "v": 1},  // A
+		{"ts": 2, "k": 2, "v": 10}, // B
+		{"ts": 3, "k": 2, "v": 100}, // B
+		{"ts": 4, "k": 3, "v": 0},  // 非 A/B：收尾 B+
+	}
+	out := runEvents(t, spec, rows)
+	if len(out) != 1 {
+		t.Fatalf("want 1 match, got %d: %v", len(out), out)
+	}
+	if asFloat(out[0]["sv"]) != 111 { // S={A,B} 全部：1+10+100
+		t.Errorf("SUM(S.v)=%v want 111", out[0]["sv"])
+	}
+	if asFloat(out[0]["av"]) != 1 { // 只 A
+		t.Errorf("SUM(A.v)=%v want 1", out[0]["av"])
+	}
+	if asFloat(out[0]["last"]) != 100 { // S 成分末行 = 最后 B
+		t.Errorf("S.v=%v want 100", out[0]["last"])
+	}
+}
+
+// SUBSET 在 PATTERN 里作原子：PATTERN(S C)（S={A,B}）→ (A|B) C，match-state 携带真实成分。
+func TestSubset_InPattern(t *testing.T) {
+	spec := &types.MatchRecognizeSpec{
+		Pattern:     seq(lit("S"), lit("C")),
+		Subsets:     []types.MatchSubset{{Name: "S", Symbols: []string{"A", "B"}}},
+		Defines:     []types.MatchDefine{def("A", "k == 1"), def("B", "k == 2"), def("C", "k == 3")},
+		OrderBy:     orderBy("ts"),
+		RowsPerMatch: types.RowsPerMatchAll,
+		Measures:    []types.Measure{measure("CLASSIFIER()", "c")},
+	}
+	rows := []map[string]any{
+		{"ts": 1, "k": 1}, // A（经 S 展开匹配）
+		{"ts": 2, "k": 3}, // C
+	}
+	out := runEvents(t, spec, rows)
+	if len(out) != 2 {
+		t.Fatalf("want 2 rows (A,C), got %d: %v", len(out), out)
+	}
+	if out[0]["c"] != "A" {
+		t.Errorf("row0 classifier=%v want A (S 成分)", out[0]["c"])
+	}
+	if out[1]["c"] != "C" {
+		t.Errorf("row1 classifier=%v want C", out[1]["c"])
+	}
+}
+
+// 嵌套 SUBSET：S2=(S1, C)、S1=(A, B)。SUM(S2.v) 覆盖 A/B/C 全部。
+func TestSubset_Nested(t *testing.T) {
+	spec := &types.MatchRecognizeSpec{
+		Pattern: seq(lit("A"), lit("B"), lit("C")),
+		Subsets: []types.MatchSubset{
+			{Name: "S1", Symbols: []string{"A", "B"}},
+			{Name: "S2", Symbols: []string{"S1", "C"}},
+		},
+		Defines:  []types.MatchDefine{def("A", "k == 1"), def("B", "k == 2"), def("C", "k == 3")},
+		OrderBy:  orderBy("ts"),
+		Measures: []types.Measure{measure("SUM(S2.v)", "s2"), measure("SUM(S1.v)", "s1")},
+	}
+	rows := []map[string]any{
+		{"ts": 1, "k": 1, "v": 1},
+		{"ts": 2, "k": 2, "v": 2},
+		{"ts": 3, "k": 3, "v": 3},
+	}
+	out := runEvents(t, spec, rows)
+	if len(out) != 1 || asFloat(out[0]["s2"]) != 6 || asFloat(out[0]["s1"]) != 3 {
+		t.Fatalf("want SUM(S2.v)=6, SUM(S1.v)=3, got %v", out)
+	}
+}
+
+// Validate 拒绝引用未知符号的 SUBSET。
+func TestSubset_ValidateUnknownMember(t *testing.T) {
+	spec := &types.MatchRecognizeSpec{
+		Pattern: lit("A"),
+		Subsets: []types.MatchSubset{{Name: "S", Symbols: []string{"A", "X"}}}, // X 未知
+		OrderBy: orderBy("ts"),
+	}
+	if err := Validate(spec); err == nil {
+		t.Errorf("Validate should reject SUBSET with unknown member X")
+	}
+}
+
+// Validate 拒绝循环 SUBSET 定义。
+func TestSubset_ValidateCycle(t *testing.T) {
+	spec := &types.MatchRecognizeSpec{
+		Pattern: seq(lit("A"), lit("B")),
+		Subsets: []types.MatchSubset{
+			{Name: "S1", Symbols: []string{"A", "S2"}},
+			{Name: "S2", Symbols: []string{"B", "S1"}}, // S1↔S2 环
+		},
+		OrderBy: orderBy("ts"),
+	}
+	if err := Validate(spec); err == nil {
+		t.Errorf("Validate should reject cyclic SUBSET definition")
+	}
+}

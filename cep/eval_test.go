@@ -242,3 +242,52 @@ func TestTokenize_UnterminatedQuote(t *testing.T) {
 		t.Errorf("expected error for unterminated quote")
 	}
 }
+
+// --- SUBSET（符号按成员集合过滤）---
+
+// SUM(S.v) 对 SUBSET 全部成分行求和；COUNT(S.v) 计成分非 NULL 行。
+func TestAggregate_SubsetScoped(t *testing.T) {
+	ctx := &matchCtx{
+		rows:    []map[string]any{{"v": 1.0}, {"v": 2.0}, {"v": 3.0}},
+		labels:  []string{"A", "B", "A"},
+		cur:     2,
+		subsets: map[string][]string{"S": {"A", "B"}},
+	}
+	if v := aggregate("SUM", []string{"S.v"}, ctx); asFloat(v) != 6.0 {
+		t.Errorf("SUM(S.v) want 6 (A+B+A=1+2+3), got %v", v)
+	}
+	if v := aggregate("COUNT", []string{"S.v"}, ctx); asFloat(v) != 3.0 {
+		t.Errorf("COUNT(S.v) want 3, got %v", v)
+	}
+	if v := aggregate("MAX", []string{"S.v"}, ctx); asFloat(v) != 3.0 {
+		t.Errorf("MAX(S.v) want 3, got %v", v)
+	}
+	// SUM(A.v) 仍只计 A 行（普通符号路径不受影响）。
+	if v := aggregate("SUM", []string{"A.v"}, ctx); asFloat(v) != 4.0 {
+		t.Errorf("SUM(A.v) want 4 (1+3), got %v", v)
+	}
+}
+
+// resolveSymbolField：SUBSET 取成分最末出现行；DEFINE 候选标签属成分时取候选行。
+func TestResolveSymbolField_Subset(t *testing.T) {
+	ctx := &matchCtx{
+		rows:    []map[string]any{{"v": 1.0}, {"v": 2.0}, {"v": 3.0}},
+		labels:  []string{"A", "B", "A"},
+		subsets: map[string][]string{"S": {"A", "B"}},
+	}
+	// 倒序首个属 S 的行：idx2=A → v=3。
+	if v := resolveSymbolField(ctx, "S", "v"); asFloat(v) != 3.0 {
+		t.Errorf("S.v want 3 (last S member), got %v", v)
+	}
+	// 候选为 B（属 S）→ 取候选行。
+	cand := &matchCtx{
+		rows:      []map[string]any{{"v": 1.0}},
+		labels:    []string{"A"},
+		candidate: map[string]any{"v": 9.0},
+		candLabel: "B",
+		subsets:   map[string][]string{"S": {"A", "B"}},
+	}
+	if v := resolveSymbolField(cand, "S", "v"); asFloat(v) != 9.0 {
+		t.Errorf("candidate S.v want 9, got %v", v)
+	}
+}

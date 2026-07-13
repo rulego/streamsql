@@ -26,6 +26,7 @@ type Engine struct {
 	nfa      *NFA
 	spec     *types.MatchRecognizeSpec
 	symbols  map[string]bool
+	subsets  map[string][]string // SUBSET 名 → 成员符号（求值期按成员集合过滤）
 	measures []types.Measure
 
 	// DEFINE/MEASURES 表达式预编译产物（NewEngine 期一次编译，热路径复用）。
@@ -93,12 +94,15 @@ func Validate(spec *types.MatchRecognizeSpec) error {
 	if len(spec.OrderBy) == 0 {
 		return errOrderByRequired
 	}
-	if _, err := Compile(spec.Pattern); err != nil {
+	symbols, _, pattern, err := resolveSymbols(spec)
+	if err != nil {
+		return err
+	}
+	if _, err := Compile(pattern); err != nil {
 		return err
 	}
 	// 表达式预编译校验：语法错的 DEFINE/MEASURES 在 Execute 即暴露，
 	// 而非运行期静默按不匹配/空值处理（仅一次节流日志，难定位）。
-	symbols := collectSymbols(spec)
 	for _, d := range spec.Defines {
 		if strings.TrimSpace(d.Cond) == "" {
 			continue
@@ -126,11 +130,14 @@ func NewEngine(spec *types.MatchRecognizeSpec) (*Engine, error) {
 	if len(spec.OrderBy) == 0 {
 		return nil, errOrderByRequired
 	}
-	nfa, err := Compile(spec.Pattern)
+	symbols, subsets, pattern, err := resolveSymbols(spec)
 	if err != nil {
 		return nil, err
 	}
-	symbols := collectSymbols(spec)
+	nfa, err := Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
 	definePrep := make(map[string]*preparedExpr)
 	for _, d := range spec.Defines {
 		if strings.TrimSpace(d.Cond) == "" {
@@ -154,6 +161,7 @@ func NewEngine(spec *types.MatchRecognizeSpec) (*Engine, error) {
 		nfa:         nfa,
 		spec:        spec,
 		symbols:     symbols,
+		subsets:     subsets,
 		measures:    spec.Measures,
 		definePrep:  definePrep,
 		measurePrep: measurePrep,
@@ -358,7 +366,7 @@ func (e *Engine) evalDefine(p *preparedExpr, buffer []map[string]any, labels []s
 	if p == nil || p.compiled == nil {
 		return true
 	}
-	ctx := &matchCtx{rows: buffer, labels: labels, cur: len(buffer), candidate: candidate, candLabel: candLabel, symbols: e.symbols}
+	ctx := &matchCtx{rows: buffer, labels: labels, cur: len(buffer), candidate: candidate, candLabel: candLabel, symbols: e.symbols, subsets: e.subsets}
 	v, isNull, err := evalPrepared(p, ctx)
 	if err != nil {
 		e.logEvalErr("DEFINE", p.src, err)
@@ -372,7 +380,7 @@ func (e *Engine) evalDefine(p *preparedExpr, buffer []map[string]any, labels []s
 
 // evalMeasure 求值预编译 MEASURES 表达式（值）。
 func (e *Engine) evalMeasure(p *preparedExpr, rows []map[string]any, labels []string, cur, matchNumber int) (any, bool) {
-	ctx := &matchCtx{rows: rows, labels: labels, cur: cur, symbols: e.symbols, matchNumber: matchNumber}
+	ctx := &matchCtx{rows: rows, labels: labels, cur: cur, symbols: e.symbols, subsets: e.subsets, matchNumber: matchNumber}
 	v, isNull, err := evalPrepared(p, ctx)
 	if err != nil {
 		e.logEvalErr("MEASURES", p.src, err)
@@ -410,22 +418,33 @@ func (e *Engine) skipTo(c *run) int64 {
 	case types.SkipToNextRow:
 		return c.startSeq + 1
 	case types.SkipToFirst, types.SkipToLast, types.SkipToVariable:
-		if s := seqOfLabel(c, e.spec.SkipSymbol, e.spec.Skip == types.SkipToFirst); s >= 0 {
+		if s := seqOfLabel(c, e.spec.SkipSymbol, e.spec.Skip == types.SkipToFirst, e.subsets); s >= 0 {
 			return s + 1
 		}
 	}
 	return endSeq + 1
 }
 
-// seqOfLabel 返回匹配中某标签首/末出现行的全局 seq（沿 cons-list 遍历）。
-func seqOfLabel(c *run, label string, first bool) int64 {
+// seqOfLabel 返回匹配中某标签（或 SUBSET 的任一成分）首/末出现行的全局 seq。
+func seqOfLabel(c *run, label string, first bool, subsets map[string][]string) int64 {
 	if label == "" {
 		return -1
+	}
+	match := func(lbl string) bool {
+		if lbl == label {
+			return true
+		}
+		for _, m := range subsets[label] {
+			if lbl == m {
+				return true
+			}
+		}
+		return false
 	}
 	idx := -1
 	i := c.nrows - 1
 	for f := c.head; f != nil; f, i = f.prev, i-1 {
-		if f.label == label {
+		if match(f.label) {
 			if !first {
 				return c.startSeq + int64(i) // LAST：最近（最先从 head 遇到）
 			}
@@ -528,6 +547,132 @@ func walkSymbols(n *types.PatternNode, m map[string]bool) {
 	for _, c := range n.Children {
 		walkSymbols(c, m)
 	}
+}
+
+// collectSubsets 收集 SUBSET 名 → 成员符号列表。
+func collectSubsets(spec *types.MatchRecognizeSpec) map[string][]string {
+	m := make(map[string][]string, len(spec.Subsets))
+	for _, s := range spec.Subsets {
+		m[s.Name] = s.Symbols
+	}
+	return m
+}
+
+// maxSubsetMembers 限制单个 SUBSET 的成员数，防止展开成交替后 NFA 状态膨胀。
+const maxSubsetMembers = 8
+
+// expandSubsets 把模式树中的 SUBSET 名（PatternLiteral）展开为其成员的交替：
+// PATTERN(S)（S={A,B}）→ PATTERN(A|B)。展开后 match-state 携带真实成分符号，
+// CLASSIFIER() 返回成分而非 SUBSET 名（SQL 标准）。成员若也是 SUBSET 名则递归
+// 展开（visited 防环）。
+func expandSubsets(n *types.PatternNode, subsets map[string][]string) *types.PatternNode {
+	return expandSubsetsRec(n, subsets, nil)
+}
+
+func expandSubsetsRec(n *types.PatternNode, subsets map[string][]string, visited map[string]bool) *types.PatternNode {
+	if n == nil {
+		return nil
+	}
+	if n.Kind == types.PatternLiteral {
+		members, ok := subsets[n.Symbol]
+		if !ok || visited[n.Symbol] {
+			return n // 普通符号或成环节点：原样
+		}
+		next := make(map[string]bool, len(visited)+1)
+		for k := range visited {
+			next[k] = true
+		}
+		next[n.Symbol] = true
+		if len(members) > maxSubsetMembers {
+			members = members[:maxSubsetMembers]
+		}
+		children := make([]*types.PatternNode, 0, len(members))
+		for _, m := range members {
+			child := expandSubsetsRec(&types.PatternNode{Kind: types.PatternLiteral, Symbol: m}, subsets, next)
+			children = append(children, child)
+		}
+		if len(children) == 1 {
+			return children[0]
+		}
+		return &types.PatternNode{Kind: types.PatternAlternation, Children: children}
+	}
+	out := *n // 浅拷贝，不改原树
+	if len(n.Children) > 0 {
+		out.Children = make([]*types.PatternNode, len(n.Children))
+		for i, c := range n.Children {
+			out.Children[i] = expandSubsetsRec(c, subsets, visited)
+		}
+	}
+	return &out
+}
+
+// resolveSymbols 展开 SUBSET、合并符号集，供 NewEngine/Validate 共用。
+// 返回：prepare 用的符号集（PATTERN literal ∪ DEFINE 声明 ∪ SUBSET 名）、SUBSET 成员表
+// （已扁平化为真实模式变量，求值期等值比较即可）、展开后的 pattern。
+func resolveSymbols(spec *types.MatchRecognizeSpec) (map[string]bool, map[string][]string, *types.PatternNode, error) {
+	subsets := collectSubsets(spec)
+	// 已知符号 = PATTERN literal ∪ DEFINE 声明 ∪ SUBSET 名。
+	known := collectSymbols(spec)
+	for _, d := range spec.Defines {
+		known[d.Symbol] = true
+	}
+	for name := range subsets {
+		known[name] = true
+	}
+	// 成员校验：SUBSET 成员必须是已知符号（模式变量或另一 SUBSET 名）。
+	for name, members := range subsets {
+		for _, m := range members {
+			if !known[m] {
+				return nil, nil, nil, fmt.Errorf("SUBSET %q references unknown symbol %q", name, m)
+			}
+		}
+	}
+	// 环检测：SUBSET 依赖图不得有环。
+	for name := range subsets {
+		if subsetHasCycle(name, subsets, map[string]bool{}) {
+			return nil, nil, nil, fmt.Errorf("SUBSET %q has a cyclic definition", name)
+		}
+	}
+	// 扁平化：把成员里的 SUBSET 名递归展开为真实模式变量，求值期无需再递归。
+	flat := make(map[string][]string, len(subsets))
+	for name, members := range subsets {
+		flat[name] = flattenMembers(members, subsets)
+	}
+	return known, flat, expandSubsets(spec.Pattern, flat), nil
+}
+
+// subsetHasCycle 沿 SUBSET 依赖图 DFS 检测环（path 回溯）。
+func subsetHasCycle(name string, subsets map[string][]string, path map[string]bool) bool {
+	if path[name] {
+		return true
+	}
+	path[name] = true
+	for _, m := range subsets[name] {
+		if _, ok := subsets[m]; ok && subsetHasCycle(m, subsets, path) {
+			return true
+		}
+	}
+	delete(path, name)
+	return false
+}
+
+// flattenMembers 把成员里的 SUBSET 名递归展开为真实模式变量（去重；已通过环检测）。
+func flattenMembers(members []string, subsets map[string][]string) []string {
+	var out []string
+	seen := make(map[string]bool, len(members))
+	var rec func(ms []string)
+	rec = func(ms []string) {
+		for _, m := range ms {
+			if sub, ok := subsets[m]; ok {
+				rec(sub)
+			} else if !seen[m] {
+				seen[m] = true
+				out = append(out, m)
+			}
+		}
+	}
+	rec(members)
+	return out
 }
 
 // normalizeTs 把事件时间戳归一化为纳秒（自动判单位：ns/μs/ms/s epoch）。

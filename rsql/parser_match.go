@@ -274,7 +274,7 @@ func (p *Parser) readMRSubsets() ([]types.MatchSubset, error) {
 		if t := p.lexer.NextToken(); t.Type != TokenRParen {
 			return nil, fmt.Errorf("expected ')' to close SUBSET, got %q", t.Value)
 		}
-		ss = append(ss, types.MatchSubset{Name: nameTok.Value, Symbols: syms})
+		ss = append(ss, types.MatchSubset{Name: stripBackticks(nameTok.Value), Symbols: syms})
 		snap := p.lexer.save()
 		sep := p.lexer.NextToken()
 		if sep.Type != TokenComma {

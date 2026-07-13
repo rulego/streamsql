@@ -30,6 +30,7 @@ type matchCtx struct {
 	candidate   map[string]any
 	candLabel   string
 	symbols     map[string]bool
+	subsets     map[string][]string // SUBSET 名 → 成员符号（按成员集合过滤；nil=普通符号）
 	matchNumber int
 }
 
@@ -478,12 +479,24 @@ func aggregate(name string, args []string, ctx *matchCtx) any {
 		f, symbol = fieldAndSymbol(args[0])
 	}
 	star := f == "" || f == "*"
+	// matchLabel 报告某行标签是否属于目标符号（普通符号等值；SUBSET 名匹配任一成员）。
+	matchLabel := func(lbl string) bool {
+		if symbol == "" || lbl == symbol {
+			return true
+		}
+		for _, m := range ctx.subsets[symbol] {
+			if lbl == m {
+				return true
+			}
+		}
+		return false
+	}
 	var vals []float64
 	cntNonNull := 0
 	cntRows := 0
 	for i, r := range rows {
-		if symbol != "" && labels[i] != symbol {
-			continue // 符号限定：只计该符号标签行
+		if !matchLabel(labels[i]) {
+			continue // 符号/SUBSET 限定：只计成分标签行
 		}
 		cntRows++
 		if star {
@@ -545,14 +558,25 @@ func aggregate(name string, args []string, ctx *matchCtx) any {
 	return nil
 }
 
-// resolveSymbolField 取符号 SYMBOL 在匹配中最末出现行的字段值。
-// DEFINE 时若 SYMBOL==候选标签，取候选行该字段。
+// resolveSymbolField 取符号 SYMBOL（或 SUBSET 的任一成分）在匹配中最末出现行的字段值。
+// DEFINE 时若候选标签属于该符号/成分，取候选行该字段。
 func resolveSymbolField(ctx *matchCtx, symbol, field string) any {
-	if ctx.candidate != nil && symbol == ctx.candLabel {
+	matchLabel := func(lbl string) bool {
+		if lbl == symbol {
+			return true
+		}
+		for _, m := range ctx.subsets[symbol] {
+			if lbl == m {
+				return true
+			}
+		}
+		return false
+	}
+	if ctx.candidate != nil && matchLabel(ctx.candLabel) {
 		return ctx.candidate[field]
 	}
 	for i := len(ctx.labels) - 1; i >= 0; i-- {
-		if ctx.labels[i] == symbol {
+		if matchLabel(ctx.labels[i]) {
 			return ctx.rows[i][field]
 		}
 	}
