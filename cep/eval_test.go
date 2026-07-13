@@ -253,17 +253,17 @@ func TestAggregate_SubsetScoped(t *testing.T) {
 		cur:     2,
 		subsets: map[string][]string{"S": {"A", "B"}},
 	}
-	if v := aggregate("SUM", []string{"S.v"}, ctx); asFloat(v) != 6.0 {
+	if v := aggregate("SUM", []string{"S.v"}, ctx, false); asFloat(v) != 6.0 {
 		t.Errorf("SUM(S.v) want 6 (A+B+A=1+2+3), got %v", v)
 	}
-	if v := aggregate("COUNT", []string{"S.v"}, ctx); asFloat(v) != 3.0 {
+	if v := aggregate("COUNT", []string{"S.v"}, ctx, false); asFloat(v) != 3.0 {
 		t.Errorf("COUNT(S.v) want 3, got %v", v)
 	}
-	if v := aggregate("MAX", []string{"S.v"}, ctx); asFloat(v) != 3.0 {
+	if v := aggregate("MAX", []string{"S.v"}, ctx, false); asFloat(v) != 3.0 {
 		t.Errorf("MAX(S.v) want 3, got %v", v)
 	}
 	// SUM(A.v) 仍只计 A 行（普通符号路径不受影响）。
-	if v := aggregate("SUM", []string{"A.v"}, ctx); asFloat(v) != 4.0 {
+	if v := aggregate("SUM", []string{"A.v"}, ctx, false); asFloat(v) != 4.0 {
 		t.Errorf("SUM(A.v) want 4 (1+3), got %v", v)
 	}
 }
@@ -289,5 +289,41 @@ func TestResolveSymbolField_Subset(t *testing.T) {
 	}
 	if v := resolveSymbolField(cand, "S", "v"); asFloat(v) != 9.0 {
 		t.Errorf("candidate S.v want 9, got %v", v)
+	}
+}
+
+// --- FINAL 语义（ALL ROWS 下 FINAL 取整段匹配，RUNNING 截到当前行）---
+
+// FINAL SUM/LAST 取整段匹配的行集（不受 cur 截断）；RUNNING 截到当前行。
+func TestEvalMeasure_AggregateFinal(t *testing.T) {
+	rows := []map[string]any{{"v": 10.0}, {"v": 20.0}, {"v": 30.0}}
+	labels := []string{"A", "A", "A"}
+	sym := syms("A")
+	// FINAL SUM(v) 在 cur=1 时仍取全部 3 行 = 60；RUNNING SUM(v) 取前 2 行 = 30。
+	if v, _ := EvalMeasure("FINAL SUM(v)", rows, labels, 1, 1, sym); asFloat(v) != 60.0 {
+		t.Errorf("FINAL SUM at cur=1 want 60, got %v", v)
+	}
+	if v, _ := EvalMeasure("RUNNING SUM(v)", rows, labels, 1, 1, sym); asFloat(v) != 30.0 {
+		t.Errorf("RUNNING SUM at cur=1 want 30, got %v", v)
+	}
+	// FINAL LAST(v) = 末行 30（与 cur 无关）；RUNNING LAST(v) at cur=1 = 20。
+	if v, _ := EvalMeasure("FINAL LAST(v)", rows, labels, 1, 1, sym); asFloat(v) != 30.0 {
+		t.Errorf("FINAL LAST want 30, got %v", v)
+	}
+	if v, _ := EvalMeasure("RUNNING LAST(v)", rows, labels, 1, 1, sym); asFloat(v) != 20.0 {
+		t.Errorf("RUNNING LAST at cur=1 want 20, got %v", v)
+	}
+}
+
+// 无前缀默认 RUNNING（向后兼容）；FINAL FIRST 恒为首行（与 RUNNING 一致）。
+func TestEvalMeasure_FinalDefault(t *testing.T) {
+	rows := []map[string]any{{"v": 10.0}, {"v": 20.0}, {"v": 30.0}}
+	labels := []string{"A", "A", "A"}
+	sym := syms("A")
+	if v, _ := EvalMeasure("SUM(v)", rows, labels, 1, 1, sym); asFloat(v) != 30.0 {
+		t.Errorf("default SUM at cur=1 want 30 (RUNNING), got %v", v)
+	}
+	if v, _ := EvalMeasure("FINAL FIRST(v)", rows, labels, 1, 1, sym); asFloat(v) != 10.0 {
+		t.Errorf("FINAL FIRST want 10, got %v", v)
 	}
 }

@@ -148,6 +148,7 @@ type phDesc struct {
 	name  string   // phNav: 函数名；phSym: 符号名
 	args  []string // phNav: 参数片段
 	field string   // phSym: 字段名（已去引号/反引号）
+	final bool     // phNav: true=FINAL（整段匹配），false=RUNNING（到当前行，默认）
 }
 
 // preparedExpr 是预编译的 DEFINE/MEASURES 表达式：改写后的字符串经 expr.NewExpression
@@ -183,15 +184,25 @@ func prepare(src string, symbols map[string]bool) (*preparedExpr, error) {
 	i := 0
 	for i < len(toks) {
 		t := toks[i]
+		final := false
 		if t.kind == ekIdent {
 			up := strings.ToUpper(t.val)
+			// FINAL/RUNNING 前缀修饰紧随其后的导航/聚合（仅影响聚合与 FIRST/LAST）。
+			if (up == "FINAL" || up == "RUNNING") && i+2 < len(toks) &&
+				toks[i+1].kind == ekIdent && navFuncs[strings.ToUpper(toks[i+1].val)] &&
+				toks[i+2].kind == ekLParen {
+				final = (up == "FINAL")
+				i++ // 消耗前缀，下移到函数名 token
+				t = toks[i]
+				up = strings.ToUpper(t.val)
+			}
 			// 函数调用：PREV(...) / SUM(...) 等。
 			if navFuncs[up] && i+1 < len(toks) && toks[i+1].kind == ekLParen {
 				args, consumed, err := readCallArgs(toks, i+1)
 				if err != nil {
 					return nil, err
 				}
-				pieces = append(pieces, push(phDesc{kind: phNav, name: up, args: args}))
+				pieces = append(pieces, push(phDesc{kind: phNav, name: up, args: args, final: final}))
 				p.needsHist = true
 				i += 1 + consumed
 				continue
@@ -251,7 +262,7 @@ func evalPrepared(p *preparedExpr, ctx *matchCtx) (any, bool, error) {
 func evalDesc(d phDesc, ctx *matchCtx) any {
 	switch d.kind {
 	case phNav:
-		v, _ := evalNav(d.name, d.args, ctx)
+		v, _ := evalNav(d.name, d.args, ctx, d.final)
 		return v
 	case phSym:
 		return resolveSymbolField(ctx, d.name, d.field)
@@ -332,8 +343,9 @@ func isAlphaNumLike(s string) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
-// evalNav 求值一个导航/聚合调用。args 为括号内顶层参数片段（已去括号、去外层逗号）。
-func evalNav(name string, args []string, ctx *matchCtx) (any, error) {
+// evalNav 求值一个导航/聚合调用。final 仅影响聚合与 FIRST/LAST（FINAL=整段匹配）。
+// args 为括号内顶层参数片段（已去括号、去外层逗号）。
+func evalNav(name string, args []string, ctx *matchCtx, final bool) (any, error) {
 	switch name {
 	case "CLASSIFIER":
 		if ctx.candidate != nil {
@@ -350,11 +362,11 @@ func evalNav(name string, args []string, ctx *matchCtx) (any, error) {
 	case "NEXT":
 		return positionalField(ctx, args, +1), nil
 	case "FIRST":
-		return fromEndField(ctx, args, true), nil
+		return fromEndField(ctx, args, true, final), nil
 	case "LAST":
-		return fromEndField(ctx, args, false), nil
+		return fromEndField(ctx, args, false, final), nil
 	case "SUM", "AVG", "COUNT", "MIN", "MAX":
-		return aggregate(name, args, ctx), nil
+		return aggregate(name, args, ctx, final), nil
 	}
 	return nil, fmt.Errorf("unsupported CEP function %s", name)
 }
@@ -407,9 +419,18 @@ func optInt(args []string, idx, def int) int {
 	return def
 }
 
-// matchRowsLabels 返回求值行集（与标签对齐）：DEFINE 含候选；MEASURES 截到当前行（RUNNING）。
+// matchRowsLabels 返回求值行集（RUNNING：MEASURES 截到当前行；DEFINE 含候选）。
 // aggregate 与 fromEndField 共用，保证 RUNNING 语义一致。
 func matchRowsLabels(ctx *matchCtx) ([]map[string]any, []string) {
+	return rowsLabels(ctx, false)
+}
+
+// finalRowsLabels 返回整段匹配的行集（FINAL：不截断到当前行）。DEFINE 路径与 RUNNING 一致。
+func finalRowsLabels(ctx *matchCtx) ([]map[string]any, []string) {
+	return rowsLabels(ctx, true)
+}
+
+func rowsLabels(ctx *matchCtx, final bool) ([]map[string]any, []string) {
 	rows := ctx.rows
 	labels := ctx.labels
 	if ctx.candidate != nil {
@@ -421,7 +442,7 @@ func matchRowsLabels(ctx *matchCtx) ([]map[string]any, []string) {
 		cl = append(cl, ctx.candLabel)
 		return cr, cl
 	}
-	if ctx.cur >= 0 && ctx.cur < len(rows) {
+	if !final && ctx.cur >= 0 && ctx.cur < len(rows) {
 		return rows[:ctx.cur+1], labels[:ctx.cur+1]
 	}
 	return rows, labels
@@ -442,7 +463,8 @@ func positionalField(ctx *matchCtx, args []string, sign int) any {
 }
 
 // fromEndField 求 FIRST/LAST：从头/尾取第 n 个（n 从 1 起）。n<1 钳为 1，避免越界。
-func fromEndField(ctx *matchCtx, args []string, fromHead bool) any {
+// final=true 时对整段匹配取（FINAL），否则截到当前行（RUNNING）。
+func fromEndField(ctx *matchCtx, args []string, fromHead bool, final bool) any {
 	if len(args) == 0 {
 		return nil
 	}
@@ -451,7 +473,12 @@ func fromEndField(ctx *matchCtx, args []string, fromHead bool) any {
 	if n < 1 {
 		n = 1
 	}
-	rows, _ := matchRowsLabels(ctx)
+	var rows []map[string]any
+	if final {
+		rows, _ = finalRowsLabels(ctx)
+	} else {
+		rows, _ = matchRowsLabels(ctx)
+	}
 	if len(rows) == 0 {
 		return nil
 	}
@@ -472,8 +499,15 @@ func fromEndField(ctx *matchCtx, args []string, fromHead bool) any {
 // aggregate 求匹配范围内的聚合（RUNNING 语义）。
 // 符号限定（SUM(A.x)）仅对该符号标签行聚合；COUNT(expr) 计非 NULL 值，COUNT(*) 计行数。
 // 数值转换用 cast.ToFloat64E（支持 uint/字符串数字等），非数值按 NULL 跳过。
-func aggregate(name string, args []string, ctx *matchCtx) any {
-	rows, labels := matchRowsLabels(ctx)
+// aggregate 求匹配范围内的聚合。final=true 取整段匹配（FINAL），否则截到当前行（RUNNING）。
+func aggregate(name string, args []string, ctx *matchCtx, final bool) any {
+	var rows []map[string]any
+	var labels []string
+	if final {
+		rows, labels = finalRowsLabels(ctx)
+	} else {
+		rows, labels = matchRowsLabels(ctx)
+	}
 	f, symbol := "", ""
 	if len(args) > 0 {
 		f, symbol = fieldAndSymbol(args[0])
