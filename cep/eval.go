@@ -513,23 +513,11 @@ func aggregate(name string, args []string, ctx *matchCtx, final bool) any {
 		f, symbol = fieldAndSymbol(args[0])
 	}
 	star := f == "" || f == "*"
-	// matchLabel 报告某行标签是否属于目标符号（普通符号等值；SUBSET 名匹配任一成员）。
-	matchLabel := func(lbl string) bool {
-		if symbol == "" || lbl == symbol {
-			return true
-		}
-		for _, m := range ctx.subsets[symbol] {
-			if lbl == m {
-				return true
-			}
-		}
-		return false
-	}
 	var vals []float64
 	cntNonNull := 0
 	cntRows := 0
 	for i, r := range rows {
-		if !matchLabel(labels[i]) {
+		if !labelMatches(labels[i], symbol, ctx.subsets) {
 			continue // 符号/SUBSET 限定：只计成分标签行
 		}
 		cntRows++
@@ -592,25 +580,28 @@ func aggregate(name string, args []string, ctx *matchCtx, final bool) any {
 	return nil
 }
 
+// labelMatches 报告 lbl 是否匹配 symbol（普通符号等值；symbol 是 SUBSET 名时属于其成分）。
+// 供 aggregate/resolveSymbolField/seqOfLabel 共用，保证 SUBSET 标签语义一致。
+func labelMatches(lbl, symbol string, subsets map[string][]string) bool {
+	if symbol == "" || lbl == symbol {
+		return true
+	}
+	for _, m := range subsets[symbol] {
+		if lbl == m {
+			return true
+		}
+	}
+	return false
+}
+
 // resolveSymbolField 取符号 SYMBOL（或 SUBSET 的任一成分）在匹配中最末出现行的字段值。
 // DEFINE 时若候选标签属于该符号/成分，取候选行该字段。
 func resolveSymbolField(ctx *matchCtx, symbol, field string) any {
-	matchLabel := func(lbl string) bool {
-		if lbl == symbol {
-			return true
-		}
-		for _, m := range ctx.subsets[symbol] {
-			if lbl == m {
-				return true
-			}
-		}
-		return false
-	}
-	if ctx.candidate != nil && matchLabel(ctx.candLabel) {
+	if ctx.candidate != nil && labelMatches(ctx.candLabel, symbol, ctx.subsets) {
 		return ctx.candidate[field]
 	}
 	for i := len(ctx.labels) - 1; i >= 0; i-- {
-		if matchLabel(ctx.labels[i]) {
+		if labelMatches(ctx.labels[i], symbol, ctx.subsets) {
 			return ctx.rows[i][field]
 		}
 	}
@@ -636,7 +627,13 @@ func truthy(v any) bool {
 
 // EvalDefine 即时编译并求值符号的 DEFINE 条件（布尔）。仅供测试/外部使用；
 // 引擎热路径用 Engine.evalDefine（预编译产物）。buffer=已匹配行，candidate=待分类行。
+// 不携带 SUBSET 成员表——含 SUBSET 限定的引用（如 S.v）需用 EvalDefineWithSubsets。
 func EvalDefine(cond string, buffer []map[string]any, labels []string, candidate map[string]any, candLabel string, symbols map[string]bool) bool {
+	return EvalDefineWithSubsets(cond, buffer, labels, candidate, candLabel, symbols, nil)
+}
+
+// EvalDefineWithSubsets 同 EvalDefine，但携带 SUBSET 成员表，支持 SUBSET 限定的引用。
+func EvalDefineWithSubsets(cond string, buffer []map[string]any, labels []string, candidate map[string]any, candLabel string, symbols map[string]bool, subsets map[string][]string) bool {
 	cond = strings.TrimSpace(cond)
 	if cond == "" {
 		return true // 未定义的符号恒为真（SQL 标准）
@@ -645,7 +642,7 @@ func EvalDefine(cond string, buffer []map[string]any, labels []string, candidate
 	if err != nil {
 		return false
 	}
-	ctx := &matchCtx{rows: buffer, labels: labels, cur: len(buffer), candidate: candidate, candLabel: candLabel, symbols: symbols}
+	ctx := &matchCtx{rows: buffer, labels: labels, cur: len(buffer), candidate: candidate, candLabel: candLabel, symbols: symbols, subsets: subsets}
 	v, isNull, err := evalPrepared(p, ctx)
 	if err != nil || isNull || v == nil {
 		return false
@@ -654,12 +651,18 @@ func EvalDefine(cond string, buffer []map[string]any, labels []string, candidate
 }
 
 // EvalMeasure 即时编译并求值 MEASURES 表达式（值）。仅供测试/外部使用。
+// 不携带 SUBSET 成员表——含 SUBSET 限定的引用需用 EvalMeasureWithSubsets。
 func EvalMeasure(expression string, rows []map[string]any, labels []string, cur, matchNumber int, symbols map[string]bool) (any, bool) {
+	return EvalMeasureWithSubsets(expression, rows, labels, cur, matchNumber, symbols, nil)
+}
+
+// EvalMeasureWithSubsets 同 EvalMeasure，但携带 SUBSET 成员表，支持 SUBSET 限定的引用。
+func EvalMeasureWithSubsets(expression string, rows []map[string]any, labels []string, cur, matchNumber int, symbols map[string]bool, subsets map[string][]string) (any, bool) {
 	p, err := prepare(expression, symbols)
 	if err != nil {
 		return nil, true
 	}
-	ctx := &matchCtx{rows: rows, labels: labels, cur: cur, symbols: symbols, matchNumber: matchNumber}
+	ctx := &matchCtx{rows: rows, labels: labels, cur: cur, symbols: symbols, subsets: subsets, matchNumber: matchNumber}
 	v, isNull, err := evalPrepared(p, ctx)
 	if err != nil {
 		return nil, true

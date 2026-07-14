@@ -1039,3 +1039,36 @@ func TestCEP_ReluctantStarShortest(t *testing.T) {
 		assert.Equal(t, 1.0, asFloat64(r["n"]), "懒惰匹配 %d 应为 1 行", i)
 	}
 }
+
+// 贪婪 pending 不被 WITHIN sweeper 删除：sweep 用 wall-clock、withinOk 用事件时间，
+// 已完成的合法匹配（pending）只由 emitGreedy/Flush 产出。修复前 sweep 会误删 pending 致丢失。
+func TestCEP_GreedyPendingNotSwept(t *testing.T) {
+	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
+		ORDER BY ts
+		MEASURES COUNT(*) AS n
+		ONE ROW PER MATCH
+		PATTERN (A* B)
+		WITHIN '200ms'
+		DEFINE A AS v > 0, B AS v > 0
+	)`
+	now := time.Now()
+	s := streamsql.New()
+	require.NoError(t, s.Execute(sql))
+	var mu sync.Mutex
+	var got []map[string]any
+	s.AddSink(func(r []map[string]any) {
+		mu.Lock()
+		got = append(got, r...)
+		mu.Unlock()
+	})
+	for i := 1; i <= 3; i++ {
+		s.Emit(map[string]any{"ts": now.Add(time.Duration(i) * 10 * time.Millisecond).UnixMilli(), "v": i})
+		time.Sleep(10 * time.Millisecond)
+	}
+	time.Sleep(400 * time.Millisecond) // >sweepInterval(100ms)：sweep 多次跑，但 pending 须保留
+	s.Stop()
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, got, 1, "贪婪 pending 不被 sweep 删除，Flush 产出最长匹配")
+	assert.Equal(t, 3.0, asFloat64(got[0]["n"]), "[A,A,B]")
+}

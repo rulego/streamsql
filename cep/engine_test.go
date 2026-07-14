@@ -500,3 +500,15 @@ func TestQuantifier_GreedyVsReluctant(t *testing.T) {
 		}
 	}
 }
+
+// SUBSET 成员数超 maxSubsetMembers（8）在编译期报错（而非静默截断）。
+func TestSubset_ValidateTooManyMembers(t *testing.T) {
+	spec := &types.MatchRecognizeSpec{
+		Pattern: lit("A"),
+		Subsets: []types.MatchSubset{{Name: "S", Symbols: []string{"A", "B", "C", "D", "E", "F", "G", "H", "I"}}}, // 9 > 8
+		OrderBy: orderBy("ts"),
+	}
+	if err := Validate(spec); err == nil {
+		t.Errorf("Validate should reject SUBSET with >%d members", maxSubsetMembers)
+	}
+}

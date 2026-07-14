@@ -327,3 +327,18 @@ func TestEvalMeasure_FinalDefault(t *testing.T) {
 		t.Errorf("FINAL FIRST want 10, got %v", v)
 	}
 }
+
+// EvalMeasureWithSubsets 正确求 SUBSET 限定聚合；旧 EvalMeasure（nil subsets）返回 0。
+func TestEvalMeasure_SubsetViaWithSubsets(t *testing.T) {
+	rows := []map[string]any{{"v": 1.0}, {"v": 2.0}, {"v": 3.0}}
+	labels := []string{"A", "B", "A"}
+	sub := map[string][]string{"S": {"A", "B"}}
+	v, _ := EvalMeasureWithSubsets("SUM(S.v)", rows, labels, 2, 1, syms("A", "B", "S"), sub)
+	if asFloat(v) != 6.0 {
+		t.Errorf("WithSubsets SUM(S.v) want 6, got %v", v)
+	}
+	v0, _ := EvalMeasure("SUM(S.v)", rows, labels, 2, 1, syms("A", "B", "S"))
+	if asFloat(v0) != 0 {
+		t.Errorf("EvalMeasure(no subsets) SUM(S.v) want 0 (不支持), got %v", v0)
+	}
+}

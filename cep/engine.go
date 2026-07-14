@@ -190,8 +190,8 @@ func NewEngine(spec *types.MatchRecognizeSpec) (*Engine, error) {
 		e.within = types.DefaultMatchWithin
 	}
 	e.sweepInterval = e.within / 2
-	if e.sweepInterval <= 0 {
-		e.sweepInterval = 100 * time.Millisecond
+	if e.sweepInterval < 50*time.Millisecond {
+		e.sweepInterval = 50 * time.Millisecond // 下限：防极小 WITHIN 产生过密 ticker 占 CPU
 	}
 	return e, nil
 }
@@ -255,12 +255,8 @@ func (e *Engine) Flush() []map[string]any {
 			}
 			continue
 		}
-		// 贪婪：把 hasAccept 的 run 并入 pending，流末 survivors 空 → 全部 ready，选最长 emit。
-		for _, c := range completions {
-			if c.startSeq >= p.nextStart {
-				p.pending[c.startSeq] = append(p.pending[c.startSeq], c)
-			}
-		}
+		// 贪婪：并入 pending（只留最长），流末 survivors 空 → 全部 ready emit。
+		e.ingestPending(p, completions)
 		if out := e.emitGreedy(p, &[]*run{}); len(out) > 0 {
 			emitted = append(emitted, out...)
 		}
@@ -304,32 +300,19 @@ func (e *Engine) sweep() {
 	}
 	now := time.Now().UnixNano()
 	limit := e.within.Nanoseconds()
-	expired := func(r *run) bool { return r.startTs >= int64(1e9) && now-r.startTs > limit }
 	e.mu.Lock()
 	for el := e.lru.Front(); el != nil; el = el.Next() {
 		p := el.Value.(*partition)
 		kept := make([]*run, 0, len(p.runs))
 		for _, r := range p.runs {
-			if expired(r) {
-				continue // 超窗：丢弃
+			if r.startTs >= int64(1e9) && now-r.startTs > limit {
+				continue // 超窗的延伸中 run：丢弃
 			}
 			kept = append(kept, r)
 		}
 		p.runs = kept
-		// 同步清过期 pending（贪婪暂存的完成匹配）
-		for s, cands := range p.pending {
-			k := cands[:0]
-			for _, r := range cands {
-				if !expired(r) {
-					k = append(k, r)
-				}
-			}
-			if len(k) == 0 {
-				delete(p.pending, s)
-			} else {
-				p.pending[s] = k
-			}
-		}
+		// pending（已完成的合法匹配）不由 sweep 清理：sweep 用 wall-clock、withinOk 用事件时间，
+		// 清 pending 会误杀事件时间窗内的合法匹配。pending 仅由 emitGreedy/Flush 产出、capPending 限界。
 	}
 	e.mu.Unlock()
 }
@@ -430,11 +413,7 @@ func (e *Engine) step(p *partition, row map[string]any, ts, seq int64) []map[str
 	if e.lazy {
 		emitted = e.emitLazy(p, completions, &survivors)
 	} else {
-		for _, c := range completions {
-			if c.startSeq >= p.nextStart {
-				p.pending[c.startSeq] = append(p.pending[c.startSeq], c)
-			}
-		}
+		e.ingestPending(p, completions)
 		emitted = e.emitGreedy(p, &survivors)
 	}
 	// 4. 数量上限：活跃部分匹配过多时丢弃最旧的，防 A* 类模式状态爆炸。
@@ -442,6 +421,7 @@ func (e *Engine) step(p *partition, row map[string]any, ts, seq int64) []map[str
 		excess := len(survivors) - e.maxRuns
 		survivors = survivors[excess:]
 	}
+	e.capPending(p) // pending key 数上限：防贪婪延迟期无界累积
 	p.runs = survivors
 	return emitted
 }
@@ -536,6 +516,9 @@ func (e *Engine) emitLazy(p *partition, completions []*run, survivors *[]*run) [
 // startSeq（survivors 中无同 startSeq 的 run），同 startSeq 选最长。survivors 为空时
 // emit 全部 pending（供 Flush）。
 func (e *Engine) emitGreedy(p *partition, survivors *[]*run) []map[string]any {
+	if len(p.pending) == 0 {
+		return nil // 默认贪婪模式每事件调用：无在途匹配时短路，避免无用 map 分配
+	}
 	active := make(map[int64]bool, len(*survivors))
 	for _, r := range *survivors {
 		active[r.startSeq] = true
@@ -553,12 +536,7 @@ func (e *Engine) emitGreedy(p *partition, survivors *[]*run) []map[string]any {
 		if len(cands) == 0 {
 			continue // 可能被前一轮 SKIP 的 prunePending 删除
 		}
-		best := cands[0]
-		for _, c := range cands[1:] {
-			if c.nrows > best.nrows {
-				best = c
-			}
-		}
+		best := cands[0] // ingestPending 入队时已只保留最长
 		p.matchNo++
 		best.matchNo = p.matchNo
 		emitted = append(emitted, e.project(best)...)
@@ -576,6 +554,37 @@ func (e *Engine) prunePending(p *partition, nextStart int64) {
 		if s < nextStart {
 			delete(p.pending, s)
 		}
+	}
+}
+
+// ingestPending 把 completion 入队 pending（贪婪）：每 startSeq 只保留最长 completion
+// （emitGreedy 最终选最长，短的无需保留），供 step 与 Flush 共用。
+func (e *Engine) ingestPending(p *partition, completions []*run) {
+	for _, c := range completions {
+		if c.startSeq < p.nextStart {
+			continue
+		}
+		cur := p.pending[c.startSeq]
+		if len(cur) == 0 || c.nrows > cur[0].nrows {
+			p.pending[c.startSeq] = []*run{c}
+		}
+	}
+}
+
+// capPending 限制 pending key 数（未 emit 的 startSeq 数），超限时丢弃最旧 startSeq。
+// 贪婪延迟 emit 期 startSeq 可能累积，此为内存保护（牺牲最旧匹配换内存有界）。
+func (e *Engine) capPending(p *partition) {
+	if e.maxRuns <= 0 {
+		return
+	}
+	for len(p.pending) > e.maxRuns {
+		var oldest int64 = maxInt64
+		for s := range p.pending {
+			if s < oldest {
+				oldest = s
+			}
+		}
+		delete(p.pending, oldest)
 	}
 }
 
@@ -598,21 +607,10 @@ func seqOfLabel(c *run, label string, first bool, subsets map[string][]string) i
 	if label == "" {
 		return -1
 	}
-	match := func(lbl string) bool {
-		if lbl == label {
-			return true
-		}
-		for _, m := range subsets[label] {
-			if lbl == m {
-				return true
-			}
-		}
-		return false
-	}
 	idx := -1
 	i := c.nrows - 1
 	for f := c.head; f != nil; f, i = f.prev, i-1 {
-		if match(f.label) {
+		if labelMatches(f.label, label, subsets) {
 			if !first {
 				return c.startSeq + int64(i) // LAST：最近（最先从 head 遇到）
 			}
@@ -718,6 +716,8 @@ func walkSymbols(n *types.PatternNode, m map[string]bool) {
 }
 
 // hasReluctant 报告模式树是否含懒惰量词（Quantifier.Greedy=false）。
+// 整体近似：只要含任意 reluctant 量词，整引擎走 emitLazy（同 startSeq 选最短）；
+// 混合贪婪/懒惰量词的模式不保证逐量词优先级（纯贪婪/纯懒惰正确）。
 func hasReluctant(n *types.PatternNode) bool {
 	if n == nil {
 		return false
@@ -747,33 +747,25 @@ const maxSubsetMembers = 8
 
 // expandSubsets 把模式树中的 SUBSET 名（PatternLiteral）展开为其成员的交替：
 // PATTERN(S)（S={A,B}）→ PATTERN(A|B)。展开后 match-state 携带真实成分符号，
-// CLASSIFIER() 返回成分而非 SUBSET 名（SQL 标准）。成员若也是 SUBSET 名则递归
-// 展开（visited 防环）。
+// CLASSIFIER() 返回成分而非 SUBSET 名（SQL 标准）。
+// 传入的 subsets 已扁平化（flattenMembers）、通过环检测（subsetHasCycle）与成员数校验
+// （resolveSymbols），成员均为真实模式变量，无需递归或防环。
 func expandSubsets(n *types.PatternNode, subsets map[string][]string) *types.PatternNode {
-	return expandSubsetsRec(n, subsets, nil)
+	return expandSubsetsRec(n, subsets)
 }
 
-func expandSubsetsRec(n *types.PatternNode, subsets map[string][]string, visited map[string]bool) *types.PatternNode {
+func expandSubsetsRec(n *types.PatternNode, subsets map[string][]string) *types.PatternNode {
 	if n == nil {
 		return nil
 	}
 	if n.Kind == types.PatternLiteral {
 		members, ok := subsets[n.Symbol]
-		if !ok || visited[n.Symbol] {
-			return n // 普通符号或成环节点：原样
-		}
-		next := make(map[string]bool, len(visited)+1)
-		for k := range visited {
-			next[k] = true
-		}
-		next[n.Symbol] = true
-		if len(members) > maxSubsetMembers {
-			members = members[:maxSubsetMembers]
+		if !ok {
+			return n // 普通符号：原样
 		}
 		children := make([]*types.PatternNode, 0, len(members))
 		for _, m := range members {
-			child := expandSubsetsRec(&types.PatternNode{Kind: types.PatternLiteral, Symbol: m}, subsets, next)
-			children = append(children, child)
+			children = append(children, &types.PatternNode{Kind: types.PatternLiteral, Symbol: m})
 		}
 		if len(children) == 1 {
 			return children[0]
@@ -784,7 +776,7 @@ func expandSubsetsRec(n *types.PatternNode, subsets map[string][]string, visited
 	if len(n.Children) > 0 {
 		out.Children = make([]*types.PatternNode, len(n.Children))
 		for i, c := range n.Children {
-			out.Children[i] = expandSubsetsRec(c, subsets, visited)
+			out.Children[i] = expandSubsetsRec(c, subsets)
 		}
 	}
 	return &out
@@ -803,8 +795,11 @@ func resolveSymbols(spec *types.MatchRecognizeSpec) (map[string]bool, map[string
 	for name := range subsets {
 		known[name] = true
 	}
-	// 成员校验：SUBSET 成员必须是已知符号（模式变量或另一 SUBSET 名）。
+	// 成员校验：必须是已知符号，且成员数受 maxSubsetMembers 限制（防 NFA 交替膨胀）。
 	for name, members := range subsets {
+		if len(members) > maxSubsetMembers {
+			return nil, nil, nil, fmt.Errorf("SUBSET %q has too many members (%d > %d)", name, len(members), maxSubsetMembers)
+		}
 		for _, m := range members {
 			if !known[m] {
 				return nil, nil, nil, fmt.Errorf("SUBSET %q references unknown symbol %q", name, m)
