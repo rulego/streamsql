@@ -7,7 +7,7 @@ import (
 )
 
 // Compile 把模式树编译为 NFA（Thompson 构造）。组合式节点：序列/选择/分组/PERMUTE/量词。
-// PatternExclusion（{- -}，absence）暂不支持，返回明确错误（P2）。
+// PatternExclusion（{- -}，absence）暂不支持，返回明确错误。
 func Compile(node *types.PatternNode) (*NFA, error) {
 	if node == nil {
 		return nil, fmt.Errorf("MATCH_RECOGNIZE requires a PATTERN")

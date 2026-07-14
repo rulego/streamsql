@@ -41,7 +41,7 @@ func TestAnalytic_PartitionKeyTypeSafe(t *testing.T) {
 	assert.Equal(t, 100, r3["prev"])
 }
 
-// P1-3：changed_cols(prefix, ignoreNull, expr...) 多列动态输出（S4 事件压缩）。
+// changed_cols(prefix, ignoreNull, expr...) 多列动态输出。
 // 仅输出变化列，列名 = prefix + 原列名。
 func TestAnalytic_ChangedColsMultiColumn(t *testing.T) {
 	ssql := streamsql.New()
@@ -62,7 +62,7 @@ func TestAnalytic_ChangedColsMultiColumn(t *testing.T) {
 	assert.Equal(t, 55, r2["c_humidity"])
 }
 
-// P2-3：changed_cols omitEmpty——无变化时抑制整行（changed_cols 为唯一输出）。
+// changed_cols omitEmpty——无变化时抑制整行（changed_cols 为唯一输出）。
 func TestAnalytic_ChangedColsOmitEmpty(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute(`SELECT changed_cols("c_", true, temperature) FROM stream`))

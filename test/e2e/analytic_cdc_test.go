@@ -191,7 +191,7 @@ func TestAnalytic_LagWithWhen(t *testing.T) {
 	assert.Equal(t, 25, r3["prev"])
 }
 
-// lag 多偏移（P2）：lag(value, 2) 返回前 2 个值。
+// lag 多偏移：lag(value, 2) 返回前 2 个值。
 func TestAnalytic_LagOffset(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT lag(value, 2) AS prev2 FROM stream"))

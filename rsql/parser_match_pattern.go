@@ -95,7 +95,7 @@ func (p *Parser) parseMRAtom() (*types.PatternNode, error) {
 		}
 		return &types.PatternNode{Kind: types.PatternGroup, Children: []*types.PatternNode{inner}}, nil
 	case TokenLBrace:
-		// {- ... -} 排除（absence，P2：解析为 Exclusion 节点，编译期拒绝）
+		// {- ... -} 排除（absence）：解析为 Exclusion 节点，编译期拒绝
 		p.lexer.NextToken() // consume '{'
 		if d := p.lexer.NextToken(); d.Type != TokenMinus {
 			return nil, fmt.Errorf("expected '-' after '{' in exclusion pattern, got %q", d.Value)

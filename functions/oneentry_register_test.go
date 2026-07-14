@@ -122,7 +122,7 @@ func newAliasedTestFunc(name string, aliases ...string) *aliasedTestFunc {
 	return &aliasedTestFunc{BaseFunction: NewBaseFunctionWithAliases(name, TypeCustom, "test", "alias test", 0, 0, aliases)}
 }
 
-// 验证 P1：Register 别名原子化 —— 别名冲突时主名不残留、已注册函数不受影响。
+// Register 别名原子化：别名冲突时主名不残留、已注册函数不受影响。
 func TestRegisterAliasAtomicNoDirtyState(t *testing.T) {
 	a := newAliasedTestFunc("zz_alias_a", "zz_alias_shared")
 	assert.NoError(t, Register(a))
@@ -145,7 +145,7 @@ func TestRegisterAliasAtomicNoDirtyState(t *testing.T) {
 	assert.Equal(t, "zz_alias_a", got.GetName())
 }
 
-// 验证 P1：RegisterCustomFunction 拒绝聚合/分析类型，避免 closure 静默废函数。
+// RegisterCustomFunction 拒绝聚合/分析类型，避免 closure 静默废函数。
 func TestRegisterCustomFunctionRejectsAggregation(t *testing.T) {
 	err := RegisterCustomFunction("zz_reject_agg", TypeAggregation, "test", "should reject", 1, 1,
 		func(ctx *FunctionContext, args []any) (any, error) { return args[0], nil })

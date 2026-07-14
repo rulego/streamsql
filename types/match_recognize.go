@@ -45,11 +45,10 @@ const (
 type Quantifier struct {
 	Min    int
 	Max    int
-	Greedy bool // true=贪婪（默认），false=懒惰（量词后跟 ?，P1）
+	Greedy bool // true=贪婪（默认），false=懒惰（量词后跟 ?）
 }
 
-// PatternKind 标识组合式模式节点的类型（为完整标准 A 设计，P0 构造 Literal/Sequence/
-// Repetition，P1 加 Alternation/Group/Permute，P2 加 Exclusion）。
+// PatternKind 标识组合式模式节点的类型。
 type PatternKind int
 
 const (
@@ -84,14 +83,13 @@ type MatchDefine struct {
 	Cond   string
 }
 
-// MatchSubset 描述 SUBSET 子句（P2）：<name> = (<sym> [, ...])。
+// MatchSubset 描述 SUBSET 子句：<name> = (<sym> [, ...])。
 type MatchSubset struct {
 	Name    string
 	Symbols []string
 }
 
-// MatchRecognizeSpec 持有 MATCH_RECOGNIZE 子句的全部子结构（为完整标准 A 设计）。
-// parser 识别全部语法；未实现子句给明确错误，而非解析失败。编译/校验推迟到 CEP 引擎消费时。
+// MatchRecognizeSpec 持有 MATCH_RECOGNIZE 子句的全部子结构。
 type MatchRecognizeSpec struct {
 	PartitionBy  []string
 	OrderBy      []OrderByField
@@ -100,7 +98,7 @@ type MatchRecognizeSpec struct {
 	Skip         AfterMatchSkip
 	SkipSymbol   string        // SKIP TO FIRST/LAST/<symbol> 的目标符号
 	Pattern      *PatternNode
-	Subsets      []MatchSubset // P2
+	Subsets      []MatchSubset
 	Within       time.Duration // 0 表示用默认上限（CEP 强制有界）
 	Defines      []MatchDefine
 }

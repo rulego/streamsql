@@ -395,8 +395,8 @@ func TestScenario_AnalyticInside_Case(t *testing.T) {
 	}
 }
 
-// P1 对照组：JOIN + 分析函数，但 PARTITION BY 的是**流自有列** deviceId（行内存在）。
-// 与 P1（分区键为连接字段）对照：这里应正确按 deviceId 分区。
+// 对照组：JOIN + 分析函数，但 PARTITION BY 的是**流自有列** deviceId（行内存在）。
+// 与对照（分区键为连接字段）对比：这里应正确按 deviceId 分区。
 func TestScenario_JoinAnalytic_PartitionByStreamColumn(t *testing.T) {
 	const sql = `SELECT deviceId, lag(temp) OVER (PARTITION BY deviceId) AS prev
 FROM stream JOIN meta m ON deviceId = m.deviceId`

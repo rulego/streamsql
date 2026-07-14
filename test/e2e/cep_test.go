@@ -180,7 +180,7 @@ func TestCEP_CrossEventSequence(t *testing.T) {
 	assert.Equal(t, 4.0, asFloat64(flat[0]["steps"]))
 }
 
-// P1：PARTITION BY 按设备各自匹配。
+// PARTITION BY 按设备各自匹配。
 func TestCEP_PartitionBy(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -202,7 +202,7 @@ func TestCEP_PartitionBy(t *testing.T) {
 	assert.Len(t, got, 2, "每设备各一次匹配")
 }
 
-// P1：交替 A | B + CLASSIFIER。
+// 交替 A | B + CLASSIFIER。
 func TestCEP_Alternation(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -224,7 +224,7 @@ func TestCEP_Alternation(t *testing.T) {
 	assert.Equal(t, "B", flat[1]["c"])
 }
 
-// P1：ALL ROWS PER MATCH 逐行输出 + RUNNING 聚合。
+// ALL ROWS PER MATCH 逐行输出 + RUNNING 聚合。
 func TestCEP_AllRowsPerMatch(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -252,7 +252,7 @@ func TestCEP_AllRowsPerMatch(t *testing.T) {
 	}
 }
 
-// P1：AFTER MATCH SKIP TO NEXT ROW 允许重叠。
+// AFTER MATCH SKIP TO NEXT ROW 允许重叠。
 func TestCEP_SkipToNextRow(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (

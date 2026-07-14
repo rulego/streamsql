@@ -253,7 +253,7 @@ func (p *Parser) readMRDefines() ([]types.MatchDefine, error) {
 	}
 }
 
-// readMRSubsets 读取 SUBSET <name> = (sym, ...), ... 到非逗号终止符止（P2：解析存储）。
+// readMRSubsets 读取 SUBSET <name> = (sym, ...), ... 到非逗号终止符止。
 func (p *Parser) readMRSubsets() ([]types.MatchSubset, error) {
 	var ss []types.MatchSubset
 	for {
