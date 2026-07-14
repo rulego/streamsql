@@ -240,7 +240,7 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		return nil, "", fmt.Errorf("OVER(...) on a GROUP BY window is not supported; for threshold/sustained detection use HAVING (e.g. HAVING min(concurrency) > 200)")
 	}
 
-	// P3: HAVING 可引用未选出的聚合（标准 SQL/eKuiper）。把 HAVING 文本里的聚合调用
+	// P3: HAVING 可引用未选出的聚合（标准 SQL）。把 HAVING 文本里的聚合调用
 	// 映射到已选 alias，或注册为隐藏聚合 __having_N__ 让 aggregator 补算；aggs/fields 原地扩充。
 	selectAlias := buildSelectAliasMap(s.Fields)
 	havingRewritten := extractHavingAggregates(s.Having, aggs, fields, selectAlias)

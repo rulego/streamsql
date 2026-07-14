@@ -24,6 +24,10 @@ English| [简体中文](README_ZH.md)
     - Built-in aggregate functions: MAX, MIN, AVG, SUM, STDDEV, MEDIAN, PERCENTILE, etc.
     - Support for group-by aggregation
     - Support for filtering conditions
+- Complex Event Processing (CEP) — **unique among lightweight edge engines**
+    - `MATCH_RECOGNIZE` (SQL:2016) for recognizing event-sequence patterns: consecutive threshold crossings, rise-then-drop, start→run→stop workflows, out-of-order events, time-windowed sequences
+    - Pattern variables with quantifiers (`? * + {n}`), alternation `|`, `PERMUTE`, navigation (`PREV`/`NEXT`/`FIRST`/`LAST`), aggregates, `SUBSET`, `FINAL`/`RUNNING`, `WITHIN` active expiry
+    - Bounded memory (four guards) for edge deployment
 - High extensibility
     - Flexible function extension provided
     - Integration with the **RuleGo** ecosystem to expand input and output sources using **RuleGo** components
