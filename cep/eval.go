@@ -419,17 +419,8 @@ func optInt(args []string, idx, def int) int {
 	return def
 }
 
-// matchRowsLabels 返回求值行集（RUNNING：MEASURES 截到当前行；DEFINE 含候选）。
-// aggregate 与 fromEndField 共用，保证 RUNNING 语义一致。
-func matchRowsLabels(ctx *matchCtx) ([]map[string]any, []string) {
-	return rowsLabels(ctx, false)
-}
-
-// finalRowsLabels 返回整段匹配的行集（FINAL：不截断到当前行）。DEFINE 路径与 RUNNING 一致。
-func finalRowsLabels(ctx *matchCtx) ([]map[string]any, []string) {
-	return rowsLabels(ctx, true)
-}
-
+// rowsLabels 返回求值行集：DEFINE 含候选；MEASURES 下 final=false 截到当前行（RUNNING），
+// final=true 取整段（FINAL）。aggregate 与 fromEndField 共用。
 func rowsLabels(ctx *matchCtx, final bool) ([]map[string]any, []string) {
 	rows := ctx.rows
 	labels := ctx.labels
@@ -473,12 +464,7 @@ func fromEndField(ctx *matchCtx, args []string, fromHead bool, final bool) any {
 	if n < 1 {
 		n = 1
 	}
-	var rows []map[string]any
-	if final {
-		rows, _ = finalRowsLabels(ctx)
-	} else {
-		rows, _ = matchRowsLabels(ctx)
-	}
+	rows, _ := rowsLabels(ctx, final)
 	if len(rows) == 0 {
 		return nil
 	}
@@ -503,11 +489,7 @@ func fromEndField(ctx *matchCtx, args []string, fromHead bool, final bool) any {
 func aggregate(name string, args []string, ctx *matchCtx, final bool) any {
 	var rows []map[string]any
 	var labels []string
-	if final {
-		rows, labels = finalRowsLabels(ctx)
-	} else {
-		rows, labels = matchRowsLabels(ctx)
-	}
+	rows, labels = rowsLabels(ctx, final)
 	f, symbol := "", ""
 	if len(args) > 0 {
 		f, symbol = fieldAndSymbol(args[0])

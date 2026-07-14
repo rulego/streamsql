@@ -303,7 +303,7 @@ func (e *Engine) sweep() {
 	e.mu.Lock()
 	for el := e.lru.Front(); el != nil; el = el.Next() {
 		p := el.Value.(*partition)
-		kept := make([]*run, 0, len(p.runs))
+		kept := p.runs[:0] // 原地过滤：写 index ≤ 读 index，无删除时不分配
 		for _, r := range p.runs {
 			if r.startTs >= int64(1e9) && now-r.startTs > limit {
 				continue // 超窗的延伸中 run：丢弃
@@ -487,6 +487,17 @@ func (e *Engine) evalMeasure(p *preparedExpr, rows []map[string]any, labels []st
 	return v, isNull
 }
 
+// emitOne 产出一次匹配：分配 MATCH_NUMBER、投影、按 SKIP 设 nextStart、裁剪 survivors。
+// emitLazy/emitGreedy 共用，保证两条路径输出主干一致。
+func (e *Engine) emitOne(p *partition, c *run, survivors *[]*run) []map[string]any {
+	p.matchNo++
+	c.matchNo = p.matchNo
+	out := e.project(c)
+	p.nextStart = e.skipTo(c)
+	e.pruneSurvivors(survivors, p.nextStart)
+	return out
+}
+
 // emitLazy 处理懒惰模式的完成匹配：立即按 startSeq 升序、同 startSeq 选最短 emit。
 func (e *Engine) emitLazy(p *partition, completions []*run, survivors *[]*run) []map[string]any {
 	if len(completions) == 0 {
@@ -503,18 +514,13 @@ func (e *Engine) emitLazy(p *partition, completions []*run, survivors *[]*run) [
 		if c.startSeq < p.nextStart {
 			continue
 		}
-		p.matchNo++
-		c.matchNo = p.matchNo
-		emitted = append(emitted, e.project(c)...)
-		p.nextStart = e.skipTo(c)
-		e.pruneSurvivors(survivors, p.nextStart)
+		emitted = append(emitted, e.emitOne(p, c, survivors)...)
 	}
 	return emitted
 }
 
-// emitGreedy 处理贪婪模式的完成匹配：pending 已按 startSeq 暂存，emit 延伸终止的
-// startSeq（survivors 中无同 startSeq 的 run），同 startSeq 选最长。survivors 为空时
-// emit 全部 pending（供 Flush）。
+// emitGreedy 处理贪婪模式的完成匹配：pending 已按 startSeq 暂存（只留最长），emit 延伸
+// 终止的 startSeq（survivors 中无同 startSeq 的 run）。survivors 为空时 emit 全部（供 Flush）。
 func (e *Engine) emitGreedy(p *partition, survivors *[]*run) []map[string]any {
 	if len(p.pending) == 0 {
 		return nil // 默认贪婪模式每事件调用：无在途匹配时短路，避免无用 map 分配
@@ -532,19 +538,14 @@ func (e *Engine) emitGreedy(p *partition, survivors *[]*run) []map[string]any {
 	sort.Slice(ready, func(i, j int) bool { return ready[i] < ready[j] })
 	var emitted []map[string]any
 	for _, s := range ready {
-		cands := p.pending[s]
-		if len(cands) == 0 {
-			continue // 可能被前一轮 SKIP 的 prunePending 删除
+		if s < p.nextStart {
+			continue // 被前一轮 SKIP 推进跳过（直接守卫，与 emitLazy 一致）
 		}
-		best := cands[0] // ingestPending 入队时已只保留最长
-		p.matchNo++
-		best.matchNo = p.matchNo
-		emitted = append(emitted, e.project(best)...)
-		p.nextStart = e.skipTo(best)
+		best := p.pending[s][0]
+		emitted = append(emitted, e.emitOne(p, best, survivors)...)
 		delete(p.pending, s)
-		e.prunePending(p, p.nextStart)
-		e.pruneSurvivors(survivors, p.nextStart)
 	}
+	e.prunePending(p, p.nextStart)
 	return emitted
 }
 
@@ -791,6 +792,10 @@ func resolveSymbols(spec *types.MatchRecognizeSpec) (map[string]bool, map[string
 	known := collectSymbols(spec)
 	for _, d := range spec.Defines {
 		known[d.Symbol] = true
+	}
+	// 无 SUBSET：跳过扁平化/展开/校验与全树深拷贝，pattern 原样返回。
+	if len(subsets) == 0 {
+		return known, nil, spec.Pattern, nil
 	}
 	for name := range subsets {
 		known[name] = true
