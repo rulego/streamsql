@@ -25,26 +25,33 @@ const cepStressSQL = `SELECT * FROM stream
 		WITHIN '1h'
 	)`
 
-// drainCepMatches 灌 rows（async Emit），用 sync sink 计数等全部匹配产出（drain 同步点）。
-// PATTERN(A) 每事件产 1 匹配 → wantMatches=len(rows)；计数到齐即所有事件已处理完。
+// drainCepMatches 分批灌 rows（async Emit），每批等 sync sink 计数追上再灌下一批（背压）。
+// 裸连灌会撑满 dataChan 触发 Emit 丢弃（非阻塞满则丢，WARN "Data channel is full"），
+// 导致 wantMatches 永远到不了 → 超时。背压让 Emit 速率跟随 processor，channel 不满不丢；
+// PATTERN(A) 每事件 1 匹配，sink 计数即已处理事件数。
 func drainCepMatches(t testing.TB, s *streamsql.Streamsql, rows []map[string]any) time.Duration {
 	t.Helper()
 	var got int64
-	done := make(chan struct{})
-	s.AddSyncSink(func([]map[string]any) {
-		// AddInt64==len(rows) 单调到达仅一次，close 安全。
-		if atomic.AddInt64(&got, 1) == int64(len(rows)) {
-			close(done)
-		}
-	})
+	s.AddSyncSink(func([]map[string]any) { atomic.AddInt64(&got, 1) })
+	const batch = 256
 	start := time.Now()
-	for _, r := range rows {
-		s.Emit(r)
-	}
-	select {
-	case <-done:
-	case <-time.After(120 * time.Second):
-		t.Fatalf("drain 超时：got=%d want=%d", atomic.LoadInt64(&got), len(rows))
+	for i := 0; i < len(rows); i += batch {
+		end := i + batch
+		if end > len(rows) {
+			end = len(rows)
+		}
+		for j := i; j < end; j++ {
+			s.Emit(rows[j])
+		}
+		// 等本批匹配产出（processor 处理完入队的）再灌下一批。
+		target := int64(end)
+		dl := time.Now().Add(120 * time.Second)
+		for atomic.LoadInt64(&got) < target {
+			if time.Now().After(dl) {
+				t.Fatalf("drain 背压超时：got=%d want=%d", atomic.LoadInt64(&got), target)
+			}
+			runtime.Gosched()
+		}
 	}
 	return time.Since(start)
 }
@@ -60,7 +67,7 @@ func TestStressCEP_NoGoroutineLeak_CreateStop(t *testing.T) {
 
 	const cycles = 30
 	for i := 0; i < cycles; i++ {
-		s := streamsql.New()
+		s := streamsql.New(streamsql.WithBufferSizes(4096, 1024, 256))
 		require.NoError(t, s.Execute(cepStressSQL))
 		rows := make([]map[string]any, 200)
 		for j := range rows {
@@ -94,7 +101,7 @@ func TestStressCEP_NoGoroutineLeak_CreateStop(t *testing.T) {
 // 单实例持续 10 万事件（50 分区）：堆增量受控、全程无 panic。堆增量若随事件数线性增长，
 // 疑为 partition/输出 map 等状态留存型泄漏。
 func TestStressCEP_SustainedLoad_HeapStable(t *testing.T) {
-	s := streamsql.New()
+	s := streamsql.New(streamsql.WithBufferSizes(4096, 1024, 256))
 	require.NoError(t, s.Execute(cepStressSQL))
 	defer s.Stop()
 
@@ -129,7 +136,7 @@ func TestStressCEP_SustainedLoad_HeapStable(t *testing.T) {
 // 5 万个不同分区（远超默认上限 maxPartitions=10000），每分区一条。LRU 驱逐在持续负载下不应
 // 泄漏、不应 panic。驻留若随总分区数线性增长即为驱逐失效。
 func TestStressCEP_PartitionEviction_NoLeak(t *testing.T) {
-	s := streamsql.New()
+	s := streamsql.New(streamsql.WithBufferSizes(4096, 1024, 256))
 	require.NoError(t, s.Execute(cepStressSQL))
 	defer s.Stop()
 
