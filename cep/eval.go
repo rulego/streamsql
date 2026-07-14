@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/rulego/streamsql/expr"
@@ -238,11 +239,20 @@ func prepare(src string, symbols map[string]bool) (*preparedExpr, error) {
 }
 
 // evalPrepared 用 ctx 求值预编译表达式：重算占位符值 + 灌入裸字段，复用编译产物。
+// baseMapPool 复用 evalPrepared 的 base map：DEFINE/MEASURES 每次求值建一次 base（热路径主分配源）。
+// EvaluateValueWithNull 同步求值、返回标量/字段引用不持 base，Put 回 Pool 前清空即可复用。
+var baseMapPool = sync.Pool{
+	New: func() any { return make(map[string]any, 8) },
+}
+
 func evalPrepared(p *preparedExpr, ctx *matchCtx) (any, bool, error) {
 	if p == nil || p.compiled == nil {
 		return nil, true, nil // 空表达式 → NULL（调用方按未定义符号恒真处理）
 	}
-	base := make(map[string]any, len(p.phs)+len(p.bareFields))
+	base := baseMapPool.Get().(map[string]any)
+	for k := range base {
+		delete(base, k)
+	}
 	for i, d := range p.phs {
 		base[placeholderKey(i)] = evalDesc(d, ctx)
 	}
@@ -255,7 +265,9 @@ func evalPrepared(p *preparedExpr, ctx *matchCtx) (any, bool, error) {
 			}
 		}
 	}
-	return p.compiled.EvaluateValueWithNull(base)
+	v, isNull, err := p.compiled.EvaluateValueWithNull(base)
+	baseMapPool.Put(base)
+	return v, isNull, err
 }
 
 // evalDesc 求值一个占位符描述。
