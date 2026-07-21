@@ -81,9 +81,27 @@ func TestFunctionScenarios_DateTime(t *testing.T) {
 		t.Parallel()
 		row, err := emitRow(t, "SELECT now() AS ts FROM stream", map[string]any{"x": 1})
 		require.NoError(t, err)
-		// now() 返回 Unix 秒（int64），只校验为 2024 年之后的合理时间（不锁死精确值）。
-		assert.Greater(t, toFloatVal(row["ts"]), float64(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
-			"now()=%v should be a unix timestamp after 2024-01-01", row["ts"])
+		// now() 返回 time.Time。
+		ts, ok := row["ts"].(time.Time)
+		require.True(t, ok, "now() should return time.Time, got %T", row["ts"])
+		assert.True(t, ts.After(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)), "now()=%v should be after 2024-01-01", ts)
+	})
+
+	// 回归：to_seconds(now()) 与 unix_timestamp() 取当前 Unix 秒，与 created_at（微秒）求差。
+	t.Run("to_seconds_now_filter_le", func(t *testing.T) {
+		t.Parallel()
+		sql := "SELECT 'hit' AS result, abs(created_at/1000000 - to_seconds(now())) AS ts FROM stream WHERE abs(created_at/1000000 - to_seconds(now())) <= 100.0"
+		row, err := emitRow(t, sql, map[string]any{"created_at": time.Now().UnixMicro()})
+		require.NoError(t, err)
+		assert.Equal(t, "hit", row["result"], "差值≈0，<=100 应通过: %v", row)
+	})
+
+	t.Run("unix_timestamp_filter_ge", func(t *testing.T) {
+		t.Parallel()
+		sql := "SELECT 'hit' AS result FROM stream WHERE abs(created_at/1000000 - unix_timestamp()) >= 100.0"
+		row, err := emitRow(t, sql, map[string]any{"created_at": time.Now().UnixMicro()})
+		require.NoError(t, err)
+		assert.Nil(t, row["result"], "差值≈0，>=100 应被过滤: %v", row)
 	})
 
 	t.Run("current_date_shape", func(t *testing.T) {

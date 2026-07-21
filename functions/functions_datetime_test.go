@@ -2,6 +2,7 @@ package functions
 
 import (
 	"testing"
+	"time"
 )
 
 func TestDateTimeFunctions(t *testing.T) {
@@ -352,6 +353,20 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: nil,
 			wantErr:  true,
 		},
+		{
+			name:     "unix_timestamp with time.Time",
+			function: NewUnixTimestampFunction(),
+			args:     []any{time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)},
+			expected: int64(1672531200),
+			wantErr:  false,
+		},
+		{
+			name:     "unix_timestamp with numeric",
+			function: NewUnixTimestampFunction(),
+			args:     []any{int64(1672531200)},
+			expected: int64(1672531200),
+			wantErr:  false,
+		},
 		// FromUnixtimeFunction 测试
 		{
 			name:     "from_unixtime",
@@ -514,6 +529,26 @@ func TestDateTimeFunctions(t *testing.T) {
 				t.Errorf("Execute() = %v, want %v", result, tt.expected)
 			}
 		})
+	}
+}
+
+// TestUnixTimestampNoArgs 校验 unix_timestamp() 无参返回当前 Unix 秒
+func TestUnixTimestampNoArgs(t *testing.T) {
+	f := NewUnixTimestampFunction()
+	if err := f.Validate([]any{}); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+	result, err := f.Execute(nil, []any{})
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	sec, ok := result.(int64)
+	if !ok {
+		t.Fatalf("unix_timestamp() should return int64, got %T", result)
+	}
+	base := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
+	if sec < base {
+		t.Fatalf("unix_timestamp() = %d, should be after 2024-01-01", sec)
 	}
 }
 

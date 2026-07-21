@@ -330,8 +330,15 @@ func (f *ToSecondsFunction) Execute(ctx *FunctionContext, args []any) (any, erro
 		if err != nil {
 			return nil, fmt.Errorf("invalid time format: %s", v)
 		}
+	case int, int32, int64, float32, float64:
+		// 数值按 Unix 秒处理
+		sec, err := cast.ToInt64E(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid timestamp: %v", err)
+		}
+		return sec, nil
 	default:
-		return nil, fmt.Errorf("time value must be time.Time or string")
+		return nil, fmt.Errorf("time value must be time.Time, string, or numeric")
 	}
 
 	return t.Unix(), nil

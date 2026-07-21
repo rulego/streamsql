@@ -62,6 +62,13 @@ func TestNewConversionFunctions(t *testing.T) {
 			wantErr:  true,
 		},
 
+		{
+			name:     "to_seconds with numeric",
+			funcName: "to_seconds",
+			args:     []any{int64(1672531200)},
+			want:     int64(1672531200),
+			wantErr:  false,
+		},
 		// chr 函数测试
 		{
 			name:     "chr valid ASCII code",

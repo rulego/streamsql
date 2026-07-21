@@ -93,7 +93,7 @@ func main() {
 	fmt.Printf("   dec2hex(255) = %s\n", callFunction("dec2hex", 255))
 
 	// 时间函数
-	fmt.Printf("   now() = %d\n", callFunction("now"))
+	fmt.Printf("   now() = %v\n", callFunction("now"))
 
 	// 9. 显示已注册的函数
 	fmt.Println("\n📋 已注册的函数:")

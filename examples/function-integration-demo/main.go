@@ -61,7 +61,7 @@ func testStreamSQLFunctions(bridge *functions.ExprBridge, data map[string]any) {
 		{"字符串长度", "length(device)", "10"},
 		{"字符串连接", "concat(device, \"_processed\")", "sensor_001_processed"},
 		{"转大写", "upper(device)", "SENSOR_001"},
-		{"当前时间戳", "now()", "时间戳"},
+		{"当前日期时间", "now()", "日期时间"},
 		{"编码", "encode(\"hello\", \"base64\")", "aGVsbG8="},
 		{"解码", "decode(\"aGVsbG8=\", \"base64\")", "hello"},
 		{"十六进制转换", "hex2dec(\"ff\")", "255"},

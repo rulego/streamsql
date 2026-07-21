@@ -267,9 +267,9 @@ func TestFunctionExecution(t *testing.T) {
 						}
 					case int64:
 						if tt.functionName == "now" {
-							// 对于 now 函数，我们只检查结果是否为 int64 类型，因为具体值会随时间变化
-							_, ok := result.(int64)
-							assert.True(t, ok, "now function should return int64")
+							// now 返回 time.Time，只校验类型
+							_, ok := result.(time.Time)
+							assert.True(t, ok, "now function should return time.Time")
 						} else {
 							assert.Equal(t, expected, result, "result should match for %s", tt.name)
 						}

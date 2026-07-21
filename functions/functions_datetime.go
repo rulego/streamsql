@@ -38,7 +38,7 @@ func (f *NowFunction) Validate(args []any) error {
 }
 
 func (f *NowFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	return time.Now().Unix(), nil
+	return time.Now(), nil
 }
 
 // CurrentTimeFunction returns current time
@@ -452,7 +452,7 @@ type UnixTimestampFunction struct {
 
 func NewUnixTimestampFunction() *UnixTimestampFunction {
 	return &UnixTimestampFunction{
-		BaseFunction: NewBaseFunction("unix_timestamp", TypeDateTime, "时间日期函数", "转换为Unix时间戳", 1, 1),
+		BaseFunction: NewBaseFunction("unix_timestamp", TypeDateTime, "时间日期函数", "转换为Unix时间戳", 0, 1),
 	}
 }
 
@@ -461,19 +461,31 @@ func (f *UnixTimestampFunction) Validate(args []any) error {
 }
 
 func (f *UnixTimestampFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	dateStr, err := cast.ToStringE(args[0])
-	if err != nil {
-		return nil, fmt.Errorf("invalid date: %v", err)
+	// 无参返回当前 Unix 秒
+	if len(args) == 0 {
+		return time.Now().Unix(), nil
 	}
 
-	t, err := time.Parse("2006-01-02 15:04:05", dateStr)
-	if err != nil {
-		if t, err = time.Parse("2006-01-02", dateStr); err != nil {
-			return nil, fmt.Errorf("invalid date format: %v", err)
+	switch v := args[0].(type) {
+	case time.Time:
+		return v.Unix(), nil
+	case int, int32, int64, float32, float64:
+		sec, err := cast.ToInt64E(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid timestamp: %v", err)
 		}
+		return sec, nil
+	case string:
+		t, err := time.Parse("2006-01-02 15:04:05", v)
+		if err != nil {
+			if t, err = time.Parse("2006-01-02", v); err != nil {
+				return nil, fmt.Errorf("invalid date format: %v", err)
+			}
+		}
+		return t.Unix(), nil
+	default:
+		return nil, fmt.Errorf("invalid date type: %T", args[0])
 	}
-
-	return t.Unix(), nil
 }
 
 // FromUnixtimeFunction 从Unix时间戳转换函数
