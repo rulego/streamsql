@@ -2,6 +2,7 @@ package stream
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -109,7 +110,45 @@ func encodeOne(v any) string {
 	if v == nil {
 		return "<nil>"
 	}
+	// 数值按 SQL 语义归一：1(int)/1.0(float64)/1(uint) 视作相等。否则 JSON 流解码
+	// 出的 float64 键与类型化维度表的 int 键永不匹配，INNER JOIN 静默丢行。
+	if f, ok := numericKeyFloat(v); ok {
+		if f == 0 {
+			f = 0 // 归一 -0.0 → 0
+		}
+		return "n:" + strconv.FormatFloat(f, 'f', -1, 64)
+	}
+	switch x := v.(type) {
+	case string:
+		return "s:" + x
+	case bool:
+		return "b:" + strconv.FormatBool(x)
+	}
+	// 复合/未知类型仍按类型标签隔离，避免误匹配。
 	return fmt.Sprintf("%T:%v", v, v)
+}
+
+// numericKeyFloat 返回数值类型的 float64 表示；非数值返回 ok=false。
+func numericKeyFloat(v any) (float64, bool) {
+	switch x := v.(type) {
+	case float64:
+		return x, true
+	case float32:
+		return float64(x), true
+	case int:
+		return float64(x), true
+	case int64:
+		return float64(x), true
+	case int32:
+		return float64(x), true
+	case uint:
+		return float64(x), true
+	case uint64:
+		return float64(x), true
+	case uint32:
+		return float64(x), true
+	}
+	return 0, false
 }
 
 // tableStore holds registered table sources keyed by name. It is concurrency-safe.

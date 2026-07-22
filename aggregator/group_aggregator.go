@@ -17,6 +17,10 @@ import (
 // realistic field values.
 const nullGroupKeyMarker = "\x00NULL"
 
+// groupKeySep 分隔分组键各字段。\x1f（单元分隔符）在真实数据中极少出现，避免字段值含
+// 分隔符导致的键碰撞（曾用 "|"：含 "|" 的值会被还原阶段截断、多字段还会错位）。
+const groupKeySep = "\x1f"
+
 // Aggregator aggregator interface
 type Aggregator interface {
 	Add(data any) error
@@ -39,6 +43,7 @@ type GroupAggregator struct {
 	groupFields       []string
 	aggregators       map[string]AggregatorFunction
 	groups            map[string]map[string]AggregatorFunction
+	groupKeyVals      map[string][]any // 每个 group key 对应的原始类型分组字段值，供 GetResults 还原（避免序列化丢类型）
 	mu                sync.RWMutex
 	context           map[string]any
 	// Expression evaluators
@@ -71,6 +76,7 @@ func NewGroupAggregator(groupFields []string, aggregationFields []AggregationFie
 		groupFields:       groupFields,
 		aggregators:       aggregators,
 		groups:            make(map[string]map[string]AggregatorFunction),
+		groupKeyVals:      make(map[string][]any),
 		expressions:       make(map[string]*ExpressionEvaluator),
 	}
 }
@@ -179,6 +185,7 @@ func (ga *GroupAggregator) Add(data any) error {
 	}
 
 	key := ""
+	keyVals := make([]any, 0, len(ga.groupFields))
 	for _, field := range ga.groupFields {
 		var fieldVal any
 		var found bool
@@ -206,19 +213,22 @@ func (ga *GroupAggregator) Add(data any) error {
 		// collapses into a single NULL group keyed by the sentinel; GetResults
 		// maps it back to nil. Avoids dropping the whole row on a nullable key.
 		if !found || fieldVal == nil {
-			key += nullGroupKeyMarker + "|"
+			key += nullGroupKeyMarker + groupKeySep
+			keyVals = append(keyVals, nil)
 			continue
 		}
 
 		if str, ok := fieldVal.(string); ok {
-			key += fmt.Sprintf("%s|", str)
+			key += str + groupKeySep
 		} else {
-			key += fmt.Sprintf("%v|", fieldVal)
+			key += fmt.Sprintf("%v", fieldVal) + groupKeySep
 		}
+		keyVals = append(keyVals, fieldVal)
 	}
 
 	if _, exists := ga.groups[key]; !exists {
 		ga.groups[key] = make(map[string]AggregatorFunction)
+		ga.groupKeyVals[key] = keyVals
 	}
 
 	// Create aggregator instances for each field
@@ -346,15 +356,10 @@ func (ga *GroupAggregator) GetResults() ([]map[string]any, error) {
 	result := make([]map[string]any, 0, len(ga.groups))
 	for key, aggregators := range ga.groups {
 		group := make(map[string]any)
-		fields := strings.Split(key, "|")
+		keyVals := ga.groupKeyVals[key]
 		for i, field := range ga.groupFields {
-			if i >= len(fields) {
-				continue
-			}
-			if fields[i] == nullGroupKeyMarker {
-				group[field] = nil
-			} else {
-				group[field] = fields[i]
+			if i < len(keyVals) {
+				group[field] = keyVals[i] // NULL 组此处即 nil
 			}
 		}
 		for field, agg := range aggregators {
@@ -374,4 +379,5 @@ func (ga *GroupAggregator) Reset() {
 	ga.mu.Lock()
 	defer ga.mu.Unlock()
 	ga.groups = make(map[string]map[string]AggregatorFunction)
+	ga.groupKeyVals = make(map[string][]any)
 }

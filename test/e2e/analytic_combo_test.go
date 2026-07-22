@@ -342,7 +342,7 @@ func TestScenario_GroupBy_FunctionExpression(t *testing.T) {
 
 // GROUP BY 时间函数表达式 hour(timestamp)。hour() 取 "YYYY-MM-DD HH:MM:SS" 串的小时。
 // CountingWindow(2) 按 key（小时值）计数：hour10 有 2 条→触发 c2，hour11 有 2 条→触发 c2。
-// 期望 {10:2, 11:2}。注：聚合器复合分组键为字符串，故输出 h 列是 "10"/"11"（字符串）。
+// 期望 {10:2, 11:2}。分组键保留原始类型，hour() 返回 int，故 h 列为数值 10/11。
 func TestScenario_GroupBy_HourExpression(t *testing.T) {
 	in := []map[string]any{
 		{"timestamp": "2026-07-12 10:00:00"},
@@ -352,12 +352,11 @@ func TestScenario_GroupBy_HourExpression(t *testing.T) {
 	}
 	got := runWindow(t,
 		`SELECT hour(timestamp) AS h, count(*) AS c FROM stream GROUP BY hour(timestamp), CountingWindow(2)`, in)
-	byH := map[string]float64{}
+	byH := map[int]float64{}
 	for _, r := range got {
-		h, _ := r["h"].(string)
-		byH[h] = toFloatVal(r["c"])
+		byH[int(toFloatVal(r["h"]))] = toFloatVal(r["c"])
 	}
-	if len(byH) != 2 || byH["10"] != 2 || byH["11"] != 2 {
+	if len(byH) != 2 || byH[10] != 2 || byH[11] != 2 {
 		t.Errorf("GROUP BY hour(timestamp): got %v, want {10:2 11:2}", byH)
 	}
 }

@@ -356,6 +356,61 @@ func TestGroupAggregator_ErrorHandling(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// 数值 GROUP BY 键必须保留原始类型输出（曾恒为 string）；int(1) 与 float64(1) 应同组。
+func TestGroupAggregator_GroupKeyPreservesType(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		val  any
+	}{
+		{"int", int(1)},
+		{"float64", float64(1)},
+		{"int64", int64(1)},
+	} {
+		agg := NewGroupAggregator([]string{"region_id"}, []AggregationField{
+			{InputField: "*", AggregateType: Count, OutputAlias: "cnt"},
+		})
+		require.NoError(t, agg.Add(map[string]any{"region_id": tc.val}))
+		res, err := agg.GetResults()
+		require.NoError(t, err)
+		require.Len(t, res, 1, tc.name)
+		got := res[0]["region_id"]
+		assert.Equal(t, tc.val, got, "%s: region_id value", tc.name)
+		assert.IsType(t, tc.val, got, "%s: region_id must keep original type, not become string", tc.name)
+	}
+
+	// int(1) 与 float64(1) 同值应分到同一组（SQL 数值相等），不得拆成两组。
+	agg := NewGroupAggregator([]string{"region_id"}, []AggregationField{
+		{InputField: "*", AggregateType: Count, OutputAlias: "cnt"},
+	})
+	require.NoError(t, agg.Add(map[string]any{"region_id": int(1)}))
+	require.NoError(t, agg.Add(map[string]any{"region_id": float64(1)}))
+	res, err := agg.GetResults()
+	require.NoError(t, err)
+	require.Len(t, res, 1, "int(1) and float64(1) must group together")
+	assert.Equal(t, float64(2), res[0]["cnt"])
+}
+
+// 字段值含分隔符必须完整保留（曾用 "|" 还原时被 Split 截断为 "a"）。
+func TestGroupAggregator_GroupKeyWithSeparator(t *testing.T) {
+	agg := NewGroupAggregator([]string{"tag"}, []AggregationField{
+		{InputField: "*", AggregateType: Count, OutputAlias: "cnt"},
+	})
+	require.NoError(t, agg.Add(map[string]any{"tag": "a|b"}))
+	require.NoError(t, agg.Add(map[string]any{"tag": "a|b"}))
+	require.NoError(t, agg.Add(map[string]any{"tag": "x"}))
+	res, err := agg.GetResults()
+	require.NoError(t, err)
+	require.Len(t, res, 2)
+	seen := map[string]int{}
+	for _, r := range res {
+		tag, ok := r["tag"].(string)
+		require.True(t, ok, "tag should be string, got %T", r["tag"])
+		seen[tag] = int(r["cnt"].(float64))
+	}
+	assert.Equal(t, 2, seen["a|b"], "value containing separator must be preserved, not truncated")
+	assert.Equal(t, 1, seen["x"])
+}
+
 // TestGroupAggregator_DifferentAggregateTypes 测试不同聚合类型
 func TestGroupAggregator_DifferentAggregateTypes(t *testing.T) {
 	agg := NewGroupAggregator(

@@ -1,9 +1,49 @@
 package functions
 
 import (
+	"reflect"
 	"testing"
 	"time"
 )
+
+// now() 返回 time.Time；日期函数必须能直接吃 time.Time，否则 SELECT 字段静默变 nil、
+// WHERE 静默丢全部行。以 Go time 方法作为期望值 oracle。
+func TestDateTimeFunctions_TimeTimeInput(t *testing.T) {
+	tm := time.Date(2025, 8, 25, 15, 30, 45, 0, time.UTC)
+	_, isoWeek := tm.ISOWeek()
+
+	cases := []struct {
+		name string
+		fn   Function
+		args []any
+		want any
+	}{
+		{"year", NewYearFunction(), []any{tm}, tm.Year()},
+		{"month", NewMonthFunction(), []any{tm}, int(tm.Month())},
+		{"day", NewDayFunction(), []any{tm}, tm.Day()},
+		{"hour", NewHourFunction(), []any{tm}, tm.Hour()},
+		{"minute", NewMinuteFunction(), []any{tm}, tm.Minute()},
+		{"second", NewSecondFunction(), []any{tm}, tm.Second()},
+		{"dayofweek", NewDayOfWeekFunction(), []any{tm}, int(tm.Weekday())},
+		{"dayofyear", NewDayOfYearFunction(), []any{tm}, tm.YearDay()},
+		{"weekofyear", NewWeekOfYearFunction(), []any{tm}, isoWeek},
+		{"date_add days", NewDateAddFunction(), []any{tm, 1, "day"}, "2025-08-26 15:30:45"},
+		{"date_sub days", NewDateSubFunction(), []any{tm, 1, "day"}, "2025-08-24 15:30:45"},
+		{"date_format", NewDateFormatFunction(), []any{tm, "YYYY-MM-DD"}, "2025-08-25"},
+		{"extract year", NewExtractFunction(), []any{"year", tm}, tm.Year()},
+		{"date_diff days", NewDateDiffFunction(), []any{tm, tm.AddDate(0, 0, -1), "day"}, int64(1)},
+	}
+	for _, c := range cases {
+		got, err := c.fn.Execute(nil, c.args)
+		if err != nil {
+			t.Errorf("%s: unexpected error: %v", c.name, err)
+			continue
+		}
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: got %v (%T), want %v (%T)", c.name, got, got, c.want, c.want)
+		}
+	}
+}
 
 func TestDateTimeFunctions(t *testing.T) {
 	tests := []struct {

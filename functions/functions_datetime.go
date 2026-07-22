@@ -22,6 +22,16 @@ func durationFromInterval(interval int64, unit time.Duration) (time.Duration, er
 	return time.Duration(interval) * unit, nil
 }
 
+// dateArgString 把日期参数转为可被 time.Parse 的字符串。time.Time 入参（如 now()）
+// 按 "2006-01-02 15:04:05" 格式化，避免 time.Time.String() 的时区/纳秒文本导致解析失败；
+// 其余类型走 cast.ToStringE。供 year/month/date_add 等日期函数统一使用。
+func dateArgString(v any) (string, error) {
+	if t, ok := v.(time.Time); ok {
+		return t.Format("2006-01-02 15:04:05"), nil
+	}
+	return cast.ToStringE(v)
+}
+
 // NowFunction returns current timestamp
 type NowFunction struct {
 	*BaseFunction
@@ -97,7 +107,7 @@ func (f *DateAddFunction) Validate(args []any) error {
 }
 
 func (f *DateAddFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	dateStr, err := cast.ToStringE(args[0])
+	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
 	}
@@ -168,7 +178,7 @@ func (f *DateSubFunction) Validate(args []any) error {
 }
 
 func (f *DateSubFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	dateStr, err := cast.ToStringE(args[0])
+	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
 	}
@@ -238,12 +248,12 @@ func (f *DateDiffFunction) Validate(args []any) error {
 }
 
 func (f *DateDiffFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	date1Str, err := cast.ToStringE(args[0])
+	date1Str, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date1: %v", err)
 	}
 
-	date2Str, err := cast.ToStringE(args[1])
+	date2Str, err := dateArgString(args[1])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date2: %v", err)
 	}
@@ -303,7 +313,7 @@ func (f *DateFormatFunction) Validate(args []any) error {
 }
 
 func (f *DateFormatFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	dateStr, err := cast.ToStringE(args[0])
+	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
 	}
@@ -371,7 +381,7 @@ func (f *DateParseFunction) Validate(args []any) error {
 }
 
 func (f *DateParseFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	dateStr, err := cast.ToStringE(args[0])
+	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date string: %v", err)
 	}
@@ -411,7 +421,7 @@ func (f *ExtractFunction) Execute(ctx *FunctionContext, args []any) (any, error)
 		return nil, fmt.Errorf("invalid unit: %v", err)
 	}
 
-	dateStr, err := cast.ToStringE(args[1])
+	dateStr, err := dateArgString(args[1])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
 	}
@@ -530,7 +540,7 @@ func (f *YearFunction) Validate(args []any) error {
 
 func (f *YearFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 尝试转换为字符串并解析
-	dateStr, err := cast.ToStringE(args[0])
+	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
 	}
@@ -562,7 +572,7 @@ func (f *MonthFunction) Validate(args []any) error {
 
 func (f *MonthFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	// 转换为字符串并解析
-	dateStr, err := cast.ToStringE(args[0])
+	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
 	}
@@ -593,7 +603,7 @@ func (f *DayFunction) Validate(args []any) error {
 }
 
 func (f *DayFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	dateStr, err := cast.ToStringE(args[0])
+	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
 	}
@@ -624,7 +634,7 @@ func (f *HourFunction) Validate(args []any) error {
 }
 
 func (f *HourFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	dateStr, err := cast.ToStringE(args[0])
+	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
 	}
@@ -655,7 +665,7 @@ func (f *MinuteFunction) Validate(args []any) error {
 }
 
 func (f *MinuteFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	dateStr, err := cast.ToStringE(args[0])
+	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
 	}
@@ -686,7 +696,7 @@ func (f *SecondFunction) Validate(args []any) error {
 }
 
 func (f *SecondFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	dateStr, err := cast.ToStringE(args[0])
+	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
 	}
@@ -717,7 +727,7 @@ func (f *DayOfWeekFunction) Validate(args []any) error {
 }
 
 func (f *DayOfWeekFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	dateStr, err := cast.ToStringE(args[0])
+	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
 	}
@@ -748,7 +758,7 @@ func (f *DayOfYearFunction) Validate(args []any) error {
 }
 
 func (f *DayOfYearFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	dateStr, err := cast.ToStringE(args[0])
+	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
 	}
@@ -779,7 +789,7 @@ func (f *WeekOfYearFunction) Validate(args []any) error {
 }
 
 func (f *WeekOfYearFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	dateStr, err := cast.ToStringE(args[0])
+	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
 	}
