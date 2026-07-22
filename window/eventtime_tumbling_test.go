@@ -133,6 +133,76 @@ func TestEventTimeTumblingLateData(t *testing.T) {
 	assert.Equal(t, 1, openWindows)
 }
 
+// 两次 late update 不得重复累计：第 2 次迟到更新只应新增本次迟到行，不能把第 1 次
+// 迟到行再算一遍。曾因 snapshotData 滚动合并 + tw.data 未驱逐迟到行，每次迟到更新都
+// 把前序迟到行从 tw.data 再读一遍 → COUNT 翻倍（3→4→6，应为 5）。
+func TestEventTimeTumblingLateDataNoDoubleCount(t *testing.T) {
+	tw := newEventTimeTumbling(t, 2*time.Second, 500*time.Millisecond, 5*time.Second)
+	tw.Start()
+	defer tw.Stop()
+
+	size := 2 * time.Second
+	base := alignWindowStart(time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC), size)
+
+	tw.Add(etRow(base, 1))
+	tw.Add(etRow(base.Add(500*time.Millisecond), 2))
+	tw.Add(etRow(base.Add(3*time.Second), 3)) // 推进 watermark，触发 [base, base+2s)
+
+	recv := func() []types.Row {
+		t.Helper()
+		select {
+		case res := <-tw.OutputChan():
+			return res
+		case <-time.After(2 * time.Second):
+			t.Fatal("timeout waiting for window output")
+			return nil
+		}
+	}
+
+	require.Len(t, recv(), 2) // 初始触发：原始 2 行
+
+	tw.Add(etRow(base.Add(250*time.Millisecond), 99)) // 第 1 次迟到
+	require.Len(t, recv(), 3)                          // 原始 2 + 迟到 1 = 3
+
+	tw.Add(etRow(base.Add(750*time.Millisecond), 88)) // 第 2 次迟到
+	require.Len(t, recv(), 4)                          // 原始 2 + e1 + e2 = 4（修复前=5，e1 被重复算）
+}
+
+// W2: 释放锁做回调之前，currentSlot 必须已推进到下一窗口（且窗口已登记进 triggeredWindows）。
+// 否则释放锁期间并发 Add 会把迟到行孤立到已触发窗口。用回调里观察 currentSlot 确定性验证，
+// 无需复现竞态。
+func TestEventTimeTumblingCurrentSlotAdvancedBeforeCallback(t *testing.T) {
+	tw := newEventTimeTumbling(t, 2*time.Second, 500*time.Millisecond, 5*time.Second)
+	size := 2 * time.Second
+	base := alignWindowStart(time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC), size)
+	triggeredEnd := base.Add(size)
+
+	var advanced int32
+	tw.callback = func(rows []types.Row) {
+		tw.mu.RLock()
+		cs := tw.currentSlot
+		open := len(tw.triggeredWindows)
+		tw.mu.RUnlock()
+		// 回调执行时：currentSlot 应已越过触发窗口，且窗口已登记为可接收迟到补发。
+		if cs != nil && !cs.Start.Before(triggeredEnd) && open > 0 {
+			atomic.StoreInt32(&advanced, 1)
+		}
+	}
+	tw.Start()
+	defer tw.Stop()
+
+	tw.Add(etRow(base, 1))
+	tw.Add(etRow(base.Add(3 * time.Second), 2)) // 触发 [base, base+2s)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && atomic.LoadInt32(&advanced) == 0 {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if atomic.LoadInt32(&advanced) == 0 {
+		t.Fatal("callback observed currentSlot/triggeredWindows before they were updated (W2 not fixed)")
+	}
+}
+
 func TestEventTimeTumblingCloseExpiredWindows(t *testing.T) {
 	tw := newEventTimeTumbling(t, 2*time.Second, 500*time.Millisecond, 1*time.Second)
 	tw.Start()

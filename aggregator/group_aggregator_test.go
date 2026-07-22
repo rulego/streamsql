@@ -411,6 +411,28 @@ func TestGroupAggregator_GroupKeyWithSeparator(t *testing.T) {
 	assert.Equal(t, 1, seen["x"])
 }
 
+// 数值聚合字段 cast 失败应只跳过该字段该行，不得 return 中断整行 Add（曾导致同行
+// 其后字段漏算）。切片顺序 [b,c] 下 b 先于 c：行 {b:"x",c:2} 的 c 必须仍被 SUM(c) 计入。
+func TestGroupAggregator_NumericCastFailureSkipsFieldOnly(t *testing.T) {
+	agg := NewGroupAggregator(nil, []AggregationField{
+		{InputField: "b", AggregateType: Sum, OutputAlias: "sum_b"},
+		{InputField: "c", AggregateType: Sum, OutputAlias: "sum_c"},
+	})
+	rows := []map[string]any{
+		{"b": 10, "c": 1},
+		{"b": "x", "c": 2}, // b 非数值：只跳过 sum_b，sum_c 仍计 2
+		{"b": 20, "c": 3},
+	}
+	for _, r := range rows {
+		require.NoError(t, agg.Add(r)) // 修复前 Add(row2) 返回 cast error
+	}
+	res, err := agg.GetResults()
+	require.NoError(t, err)
+	require.Len(t, res, 1)
+	assert.Equal(t, float64(30), res[0]["sum_b"]) // 10+20，"x" 跳过
+	assert.Equal(t, float64(6), res[0]["sum_c"])  // 1+2+3，修复前=4（return 中断漏算 c）
+}
+
 // TestGroupAggregator_DifferentAggregateTypes 测试不同聚合类型
 func TestGroupAggregator_DifferentAggregateTypes(t *testing.T) {
 	agg := NewGroupAggregator(
@@ -1536,7 +1558,8 @@ func (m *mockContextAggregator) GetContextKey() string {
 	return m.contextKey
 }
 
-// TestGroupAggregatorNumericConversionError 测试数值转换错误
+// TestGroupAggregatorNumericConversionError 非数值字段应被数值聚合跳过（不中断整行
+// Add、不报错），其余有效值照常聚合（A5：曾 return 错误中断整行 Add，致同行其后字段漏算）。
 func TestGroupAggregatorNumericConversionError(t *testing.T) {
 	ga := NewGroupAggregator(
 		[]string{"group"},
@@ -1549,15 +1572,16 @@ func TestGroupAggregatorNumericConversionError(t *testing.T) {
 		},
 	)
 
-	// 添加无法转换为数值的数据
-	err := ga.Add(map[string]any{
-		"group": "test_group",
-		"value": "not_a_number", // 无法转换为数值
-	})
+	// 非数值行：跳过 value，不应报错
+	require.NoError(t, ga.Add(map[string]any{"group": "g1", "value": "not_a_number"}))
+	// 有效行：照常聚合
+	require.NoError(t, ga.Add(map[string]any{"group": "g1", "value": 10}))
+	require.NoError(t, ga.Add(map[string]any{"group": "g1", "value": 20}))
 
-	// 应该返回转换错误
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot convert field value")
+	res, err := ga.GetResults()
+	require.NoError(t, err)
+	require.Len(t, res, 1)
+	assert.Equal(t, float64(30), res[0]["sum_value"]) // 仅 10+20，"not_a_number" 被跳过
 }
 
 // TestGroupAggregatorWithExpressionEvaluator 测试表达式求值器

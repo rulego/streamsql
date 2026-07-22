@@ -70,32 +70,42 @@ func (dp *DataProcessor) Process() {
 				// Channel is closed
 				return
 			}
-			switch {
-			case dp.stream.config.Mode == types.ExecCEP:
-				dp.processCEP(data)
-			case dp.stream.config.NeedWindow:
-				// Window mode: enrich (if JOIN) -> filter -> window. Mirrors
-				// processDirectData so WHERE and GROUP BY can reference joined
-				// columns. INNER no-match and WHERE misses drop before the window.
-				dataMap, keep, jerr := dp.stream.enrichData(data)
-				if jerr != nil {
-					dp.stream.log.Error("join enrichment error: %v", jerr)
-				}
-				if keep && (dp.stream.filter == nil || dp.stream.filter.Evaluate(dataMap)) {
-					dp.stream.injectGroupKeyExprs(dataMap)
-					dp.stream.Window.Add(dataMap)
-				}
-			default:
-				// Direct mode: processDirectData does enrich(if JOIN) ->
-				// filter -> project, so WHERE can reference joined columns.
-				dp.processDirectData(data)
-			}
+			dp.processItem(data)
 		case <-dp.stream.done:
 			// Received close signal
 			return
 		case <-ticker.C:
 			// Timer triggered, do nothing, just prevent CPU spinning
 		}
+	}
+}
+
+// processItem 处理单条事件，recover 防止单行 panic 中断处理循环。
+func (dp *DataProcessor) processItem(data map[string]any) {
+	defer func() {
+		if r := recover(); r != nil {
+			dp.stream.log.Error("process panic recovered: %v", r)
+		}
+	}()
+	switch {
+	case dp.stream.config.Mode == types.ExecCEP:
+		dp.processCEP(data)
+	case dp.stream.config.NeedWindow:
+		// Window mode: enrich (if JOIN) -> filter -> window. Mirrors
+		// processDirectData so WHERE and GROUP BY can reference joined
+		// columns. INNER no-match and WHERE misses drop before the window.
+		dataMap, keep, jerr := dp.stream.enrichData(data)
+		if jerr != nil {
+			dp.stream.log.Error("join enrichment error: %v", jerr)
+		}
+		if keep && (dp.stream.filter == nil || dp.stream.filter.Evaluate(dataMap)) {
+			dp.stream.injectGroupKeyExprs(dataMap)
+			dp.stream.Window.Add(dataMap)
+		}
+	default:
+		// Direct mode: processDirectData does enrich(if JOIN) ->
+		// filter -> project, so WHERE can reference joined columns.
+		dp.processDirectData(data)
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -882,14 +883,29 @@ func (sw *SlidingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
 		}
 	}
 
-	// Then, add late data from sw.data (newly arrived late data)
+	// Add late rows from sw.data, skipping any already in the snapshot (matched by
+	// Data pointer) so each row is counted once across late updates.
+	seen := make(map[uintptr]struct{})
+	if windowInfo != nil {
+		for _, item := range windowInfo.snapshotData {
+			if item.Data != nil {
+				seen[reflect.ValueOf(item.Data).Pointer()] = struct{}{}
+			}
+		}
+	}
 	lateDataCount := 0
 	for _, item := range sw.data {
-		if slot.Contains(item.Timestamp) {
-			item.Slot = slot
-			resultData = append(resultData, item)
-			lateDataCount++
+		if !slot.Contains(item.Timestamp) {
+			continue
 		}
+		if item.Data != nil {
+			if _, dup := seen[reflect.ValueOf(item.Data).Pointer()]; dup {
+				continue
+			}
+		}
+		item.Slot = slot
+		resultData = append(resultData, item)
+		lateDataCount++
 	}
 
 	if len(resultData) == 0 {

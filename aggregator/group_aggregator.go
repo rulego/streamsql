@@ -327,7 +327,8 @@ func (ga *GroupAggregator) Add(data any) error {
 					groupAgg.Add(numVal)
 				}
 			} else {
-				return fmt.Errorf("cannot convert field %s value %v to numeric type for aggregator %s", inputField, fieldVal, aggType)
+				// 非数值跳过该字段，不中断整行 Add。
+				continue
 			}
 		} else {
 			// For non-numeric aggregation functions, pass original value directly

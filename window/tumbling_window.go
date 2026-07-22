@@ -504,6 +504,28 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 				windowStart.UnixMilli(), windowEnd.UnixMilli(), dataInWindow)
 
 			resultData := tw.extractWindowDataLocked()
+
+			// Register the triggered window and advance currentSlot before releasing
+			// the lock for the callback, so concurrent Add doesn't see a stale slot.
+			if allowedLateness > 0 {
+				windowKey := tw.getWindowKey(currentSlotEnd)
+				closeTime := currentSlotEnd.Add(allowedLateness)
+				tw.triggeredWindows[windowKey] = &triggeredWindowInfo{
+					slot:         currentSlot,
+					closeTime:    closeTime,
+					snapshotData: snapshotData, // Save snapshot for late updates
+				}
+				debugLog("checkAndTriggerWindows: window [%v, %v) kept open for late data until %v",
+					windowStart.UnixMilli(), windowEnd.UnixMilli(), closeTime.UnixMilli())
+			}
+			tw.currentSlot = tw.NextSlot()
+			if tw.currentSlot != nil {
+				debugLog("checkAndTriggerWindows: moved to next window [%v, %v)",
+					tw.currentSlot.Start.UnixMilli(), tw.currentSlot.End.UnixMilli())
+			} else {
+				debugLog("checkAndTriggerWindows: NextSlot returned nil, stopping")
+			}
+
 			if len(resultData) > 0 {
 				callback := tw.callback
 				tw.mu.Unlock()
@@ -516,37 +538,17 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 
 			triggeredCount++
 			debugLog("checkAndTriggerWindows: window triggered successfully, triggeredCount=%d", triggeredCount)
-			// triggerWindowLocked releases and re-acquires lock, so we need to re-check state
-
-			// If allowedLateness > 0, keep window open for late data
-			// Note: currentSlot may have changed after triggerWindowLocked, so use saved reference
-			if allowedLateness > 0 {
-				windowKey := tw.getWindowKey(currentSlotEnd)
-				closeTime := currentSlotEnd.Add(allowedLateness)
-				tw.triggeredWindows[windowKey] = &triggeredWindowInfo{
-					slot:         currentSlot,
-					closeTime:    closeTime,
-					snapshotData: snapshotData, // Save snapshot for late updates
-				}
-				debugLog("checkAndTriggerWindows: window [%v, %v) kept open for late data until %v",
-					windowStart.UnixMilli(), windowEnd.UnixMilli(), closeTime.UnixMilli())
-			}
 		} else {
 			debugLog("checkAndTriggerWindows: window [%v, %v) has no data, skipping trigger",
 				windowStart.UnixMilli(), windowEnd.UnixMilli())
+			tw.currentSlot = tw.NextSlot()
+			if tw.currentSlot == nil {
+				debugLog("checkAndTriggerWindows: NextSlot returned nil, stopping")
+				break
+			}
 		}
 
-		// Move to next window (even if current window was empty)
-		// Re-check currentSlot in case it was modified
-		if tw.currentSlot != nil {
-			tw.currentSlot = tw.NextSlot()
-			if tw.currentSlot != nil {
-				debugLog("checkAndTriggerWindows: moved to next window [%v, %v)",
-					tw.currentSlot.Start.UnixMilli(), tw.currentSlot.End.UnixMilli())
-			} else {
-				debugLog("checkAndTriggerWindows: NextSlot returned nil, stopping")
-			}
-		} else {
+		if tw.currentSlot == nil {
 			debugLog("checkAndTriggerWindows: currentSlot is nil, breaking")
 			break
 		}
@@ -637,13 +639,17 @@ func (tw *TumblingWindow) extractLateUpdateDataLocked(slot *types.TimeSlot) []ty
 		}
 	}
 
-	// Then, add late data from tw.data (newly arrived late data)
+	// Add late rows from tw.data and evict them: they're merged into snapshot below.
+	kept := make([]types.Row, 0, len(tw.data))
 	for _, item := range tw.data {
 		if slot.Contains(item.Timestamp) {
 			item.Slot = slot
 			resultData = append(resultData, item)
+		} else {
+			kept = append(kept, item)
 		}
 	}
+	tw.data = kept
 
 	if len(resultData) == 0 {
 		return nil
