@@ -9,7 +9,7 @@ import (
 	"github.com/rulego/streamsql/window"
 )
 
-// TestParseSmartParameters 测试智能参数解析函数
+// TestParseSmartParameters tests the intelligent parameter parsing function
 func TestParseSmartParameters(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -64,7 +64,7 @@ func TestParseSmartParameters(t *testing.T) {
 	}
 }
 
-// TestExpectTokenSuccess 测试expectToken函数成功情况
+// TestExpectTokenSuccess Tests the success status of the expectToken function
 func TestExpectTokenSuccess(t *testing.T) {
 	lexer := NewLexer("SELECT")
 	parser := &Parser{lexer: lexer, errorRecovery: NewErrorRecovery(&Parser{})}
@@ -78,7 +78,7 @@ func TestExpectTokenSuccess(t *testing.T) {
 	}
 }
 
-// TestExpectTokenFailure 测试expectToken函数失败情况
+// TestExpectTokenFailure tests the expectToken function failure
 func TestExpectTokenFailure(t *testing.T) {
 	lexer := NewLexer("FROM")
 	parser := &Parser{lexer: lexer}
@@ -93,22 +93,22 @@ func TestExpectTokenFailure(t *testing.T) {
 	}
 }
 
-// TestExpectTokenWithRecovery 测试expectToken函数错误恢复情况
+// TestExpectTokenWithRecovery tests the error recovery status of the expectToken function
 func TestExpectTokenWithRecovery(t *testing.T) {
 	lexer := NewLexer("FROM SELECT")
 	parser := &Parser{lexer: lexer}
 	parser.errorRecovery = NewErrorRecovery(parser)
 
-	// 第一次调用应该失败
+	// The first call should fail
 	_, err := parser.expectToken(TokenSELECT, "test context")
 	if err == nil {
 		t.Error("Expected error on first call")
 	}
 }
 
-// TestParseWithMultipleErrors 测试Parse函数处理多个错误的情况
+// TestParseWithMultipleErrors tests when the Parse function handles multiple errors
 func TestParseWithMultipleErrors(t *testing.T) {
-	// 创建一个有多个语法错误的查询
+	// Create a query with multiple syntax errors
 	parser := NewParser("SELECT FROM WHERE GROUP")
 	stmt, err := parser.Parse()
 	if err == nil {
@@ -119,7 +119,7 @@ func TestParseWithMultipleErrors(t *testing.T) {
 	}
 }
 
-// TestIsIdentifier 测试标识符验证函数
+// TestIsIdentifier is a test identifier verification function
 func TestIsIdentifier(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -150,7 +150,7 @@ func TestIsIdentifier(t *testing.T) {
 	}
 }
 
-// TestExtractSimpleField 测试简单字段提取函数
+// TestExtractSimpleField tests the simple field extraction function
 func TestExtractSimpleField(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -177,7 +177,7 @@ func TestExtractSimpleField(t *testing.T) {
 	}
 }
 
-// TestParseWindowParams 测试窗口参数解析函数
+// TestParseWindowParams is a parameter parsing function for the test window
 func TestParseWindowParams(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -219,7 +219,7 @@ func TestParseWindowParams(t *testing.T) {
 			name:        "非字符串参数",
 			params:      []any{123},
 			windowType:  "TUMBLINGWINDOW",
-			expectError: false, // 整数参数会被视为秒数，这是有效的
+			expectError: false, // The integer parameter is considered a second, which is valid
 		},
 		{
 			name:        "空参数",
@@ -265,7 +265,7 @@ func TestParseWindowParams(t *testing.T) {
 	}
 }
 
-// TestParseAggregateExpression 测试聚合表达式解析函数
+// TestParseAggregateExpression tests the parsing function of aggregate expressions
 func TestParseAggregateExpression(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -293,9 +293,9 @@ func TestParseAggregateExpression(t *testing.T) {
 	}
 }
 
-// TestExpectToken 测试期望token函数
+// TestExpectToken tests the ExpectToken function
 func TestExpectToken(t *testing.T) {
-	// 测试正常情况
+	// Test for normal conditions
 	parser := NewParser("SELECT field FROM table")
 	tok, err := parser.expectToken(TokenSELECT, "SELECT clause")
 	if err != nil {
@@ -305,20 +305,20 @@ func TestExpectToken(t *testing.T) {
 		t.Errorf("Expected SELECT token, got %v", tok.Type)
 	}
 
-	// 直接测试getTokenTypeName函数
+	// Directly test the getTokenTypeName function
 	result := parser.getTokenTypeName(TokenSELECT)
 	if result != "SELECT" {
 		t.Errorf("Expected 'SELECT', got %v", result)
 	}
 
-	// 测试getTokenTypeName的其他分支
+	// Test other branches of getTokenTypeName
 	result2 := parser.getTokenTypeName(TokenType(999))
 	if result2 != "unknown" {
 		t.Errorf("Expected 'unknown', got %v", result2)
 	}
 }
 
-// TestGetTokenTypeName 测试获取token类型名称函数
+// TestGetTokenTypeName Tests the function to get the token typename
 func TestGetTokenTypeName(t *testing.T) {
 	parser := NewParser("")
 	tests := []struct {
@@ -337,7 +337,7 @@ func TestGetTokenTypeName(t *testing.T) {
 		{TokenQuotedIdent, "quoted identifier"},
 		{TokenNumber, "number"},
 		{TokenString, "string"},
-		{TokenType(999), "unknown"}, // 未知类型
+		{TokenType(999), "unknown"}, // Unknown type
 	}
 
 	for _, tt := range tests {
@@ -350,20 +350,20 @@ func TestGetTokenTypeName(t *testing.T) {
 	}
 }
 
-// TestSkipToNextDelimiter 测试跳转到下一个分隔符函数
+// TestSkipToNextDelimiter tests and jumps to the next delimiter function
 func TestSkipToNextDelimiter(t *testing.T) {
-	// 测试正常跳转
+	// Test the normal jump
 	parser := NewParser("field1, field2 FROM table")
 	er := NewErrorRecovery(parser)
 	er.parser = parser
 
-	// 跳过到逗号
+	// Skip to the comma
 	success := er.skipToNextDelimiter()
 	if !success {
 		t.Error("Expected successful skip to delimiter")
 	}
 
-	// 测试到达EOF
+	// The test reached EOF
 	parser2 := NewParser("field1 field2")
 	er2 := NewErrorRecovery(parser2)
 	er2.parser = parser2
@@ -374,7 +374,7 @@ func TestSkipToNextDelimiter(t *testing.T) {
 	}
 }
 
-// TestCreateSemanticError 测试创建语义错误函数
+// TestCreateSemanticError tests the semantic error function
 func TestCreateSemanticError(t *testing.T) {
 	err := CreateSemanticError("Invalid field reference", 10)
 	if err == nil {
@@ -391,7 +391,7 @@ func TestCreateSemanticError(t *testing.T) {
 	}
 }
 
-// TestFormatErrorContext 测试格式化错误上下文函数
+// TestFormatErrorContext Tests the formatting error context function
 func TestFormatErrorContext(t *testing.T) {
 	input := "SELECT field FROM table WHERE condition"
 	position := 10
@@ -402,7 +402,7 @@ func TestFormatErrorContext(t *testing.T) {
 		t.Error("Expected non-empty error context")
 	}
 
-	// 测试边界情况
+	// Test boundary conditions
 	result2 := FormatErrorContext("", 0, 0)
 	if result2 != "" {
 		t.Error("Expected empty result for empty input")
@@ -414,7 +414,7 @@ func TestFormatErrorContext(t *testing.T) {
 	}
 }
 
-// TestConvertValue 测试值转换函数
+// TestConvertValue Converts the test value conversion function
 func TestConvertValue(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -440,9 +440,9 @@ func TestConvertValue(t *testing.T) {
 	}
 }
 
-// TestHandleLimitToken 测试处理LIMIT token函数
+// TestHandleLimitToken tests the processing LIMIT token function
 func TestHandleLimitToken(t *testing.T) {
-	// 测试正常情况
+	// Test for normal conditions
 	parser := NewParser("10")
 	stmt := &SelectStatement{}
 	limitToken := Token{Type: TokenLIMIT, Value: "LIMIT"}
@@ -455,7 +455,7 @@ func TestHandleLimitToken(t *testing.T) {
 		t.Errorf("Expected limit 10, got %v", stmt.Limit)
 	}
 
-	// 测试无效LIMIT值
+	// Test invalid LIMIT value
 	parser2 := NewParser("invalid")
 	stmt2 := &SelectStatement{}
 	err = parser2.handleLimitToken(stmt2, limitToken)
@@ -463,7 +463,7 @@ func TestHandleLimitToken(t *testing.T) {
 		t.Error("Expected error for invalid limit value")
 	}
 
-	// 测试负数LIMIT值
+	// Test the negative LIMIT value
 	parser3 := NewParser("-5")
 	stmt3 := &SelectStatement{}
 	err = parser3.handleLimitToken(stmt3, limitToken)
@@ -471,7 +471,7 @@ func TestHandleLimitToken(t *testing.T) {
 		t.Error("Expected error for negative limit value")
 	}
 
-	// 测试减号后跟非数字
+	// Test minus signs followed by non-numbers
 	parser4 := NewParser("- abc")
 	stmt4 := &SelectStatement{}
 	err = parser4.handleLimitToken(stmt4, limitToken)
@@ -479,7 +479,7 @@ func TestHandleLimitToken(t *testing.T) {
 		t.Error("Expected error for minus followed by non-number")
 	}
 
-	// 测试减号后跟数字（负数情况）
+	// Test the minus sign followed by the number (negative number case)
 	parser5 := NewParser("- 10")
 	stmt5 := &SelectStatement{}
 	err = parser5.handleLimitToken(stmt5, limitToken)
@@ -488,18 +488,18 @@ func TestHandleLimitToken(t *testing.T) {
 	}
 }
 
-// TestReadString 测试读取字符串函数
+// TestReadString tests the string function to be read
 func TestReadString(t *testing.T) {
-	// 测试正常字符串
+	// Test the normal string
 	lexer := NewLexer("'hello world'")
-	lexer.readChar() // 跳过开始的引号
+	lexer.readChar() // Skip the quotation marks at the beginning
 
 	result := lexer.readString()
 	if result != "hello world'" {
 		t.Errorf("Expected 'hello world', got %v", result)
 	}
 
-	// 测试未闭合的字符串
+	// Test the unclosed string
 	lexer2 := NewLexer("'unclosed string")
 	lexer2.readChar()
 
@@ -529,9 +529,9 @@ func TestParseLimitNotSubstring(t *testing.T) {
 	}
 }
 
-// TestParseLimit 测试解析LIMIT子句函数
+// TestParseLimit tests and parses the LIMIT clause function
 func TestParseLimit(t *testing.T) {
-	// 测试正常LIMIT
+	// Test normal LIMIT
 	parser := NewParser("SELECT * FROM table LIMIT 10")
 	stmt := &SelectStatement{}
 	err := parser.parseLimit(stmt)
@@ -542,7 +542,7 @@ func TestParseLimit(t *testing.T) {
 		t.Errorf("Expected limit 10, got %v", stmt.Limit)
 	}
 
-	// 测试没有LIMIT子句
+	// The test lacks a LIMIT clause
 	parser2 := NewParser("SELECT * FROM table")
 	stmt2 := &SelectStatement{}
 	err = parser2.parseLimit(stmt2)
@@ -553,7 +553,7 @@ func TestParseLimit(t *testing.T) {
 		t.Errorf("Expected limit 0, got %v", stmt2.Limit)
 	}
 
-	// 测试LIMIT后没有数字
+	// After testing LIMIT, there are no numbers
 	parser3 := NewParser("SELECT * FROM table LIMIT")
 	stmt3 := &SelectStatement{}
 	err = parser3.parseLimit(stmt3)
@@ -561,7 +561,7 @@ func TestParseLimit(t *testing.T) {
 		t.Error("Expected error for LIMIT without number")
 	}
 
-	// 测试LIMIT后跟无效值
+	// Test the invalid value after the LIMIT
 	parser4 := NewParser("SELECT * FROM table LIMIT abc")
 	stmt4 := &SelectStatement{}
 	err = parser4.parseLimit(stmt4)
@@ -569,7 +569,7 @@ func TestParseLimit(t *testing.T) {
 		t.Error("Expected error for invalid LIMIT value")
 	}
 
-	// 测试LIMIT负数
+	// Test LIMIT for negative numbers
 	parser5 := NewParser("SELECT * FROM table LIMIT -5")
 	stmt5 := &SelectStatement{}
 	err = parser5.parseLimit(stmt5)
@@ -577,7 +577,7 @@ func TestParseLimit(t *testing.T) {
 		t.Error("Expected error for negative LIMIT")
 	}
 
-	// 测试已设置LIMIT的情况
+	// Test when a LIMIT has been set
 	parser6 := NewParser("SELECT * FROM table LIMIT 20")
 	stmt6 := &SelectStatement{Limit: 15}
 	err = parser6.parseLimit(stmt6)
@@ -589,9 +589,9 @@ func TestParseLimit(t *testing.T) {
 	}
 }
 
-// TestParseHaving 测试解析HAVING子句函数
+// TestParseHaving tests and parses the HAVING HAVING clause function
 func TestParseHaving(t *testing.T) {
-	// 测试正常HAVING子句
+	// Test the normal HAVING clause
 	parser := NewParser("SELECT COUNT(*) FROM table GROUP BY id HAVING COUNT(*) > 5")
 	stmt := &SelectStatement{}
 	err := parser.parseHaving(stmt)
@@ -599,7 +599,7 @@ func TestParseHaving(t *testing.T) {
 		t.Errorf("Expected no error, got %v", err)
 	}
 
-	// 测试没有HAVING子句
+	// The test lacks a HAVING clause
 	parser2 := NewParser("SELECT * FROM table")
 	stmt2 := &SelectStatement{}
 	err = parser2.parseHaving(stmt2)
@@ -607,7 +607,7 @@ func TestParseHaving(t *testing.T) {
 		t.Errorf("Expected no error for missing HAVING, got %v", err)
 	}
 
-	// 测试HAVING子句中的各种条件
+	// Test various conditions in the HAVING clause
 	parser3 := NewParser("HAVING field = 'value' AND count > 10 OR status LIKE 'active%'")
 	stmt3 := &SelectStatement{}
 	err = parser3.parseHaving(stmt3)
@@ -615,7 +615,7 @@ func TestParseHaving(t *testing.T) {
 		t.Errorf("Expected no error for complex HAVING, got %v", err)
 	}
 
-	// 测试HAVING后遇到LIMIT
+	// After testing HAVING, I encountered LIMIT
 	parser4 := NewParser("HAVING count > 5 LIMIT 10")
 	stmt4 := &SelectStatement{}
 	err = parser4.parseHaving(stmt4)
@@ -623,7 +623,7 @@ func TestParseHaving(t *testing.T) {
 		t.Errorf("Expected no error when HAVING followed by LIMIT, got %v", err)
 	}
 
-	// 测试HAVING后遇到WITH
+	// After testing HAVING, I encountered WITH
 	parser5 := NewParser("HAVING count > 5 WITH TUMBLING")
 	stmt5 := &SelectStatement{}
 	err = parser5.parseHaving(stmt5)
@@ -632,9 +632,9 @@ func TestParseHaving(t *testing.T) {
 	}
 }
 
-// TestParseWithErrorRecovery 测试Parse函数的错误恢复
+// TestParseWithErrorRecovery: Error recovery for the parse function
 func TestParseWithErrorRecovery(t *testing.T) {
-	// 测试基本的错误情况
+	// Testing basic error scenarios
 	parser := NewParser("SELECT * FROM table WHERE id = 1")
 	stmt, err := parser.Parse()
 	if err != nil {
@@ -644,10 +644,10 @@ func TestParseWithErrorRecovery(t *testing.T) {
 		t.Error("Expected statement for valid syntax")
 	}
 
-	// 测试错误恢复后的继续解析
+	// Continue parsing after error recovery during testing
 	parser2 := NewParser("SELECT * FROM table GROUP BY field")
 	stmt2, err := parser2.Parse()
-	// 这应该是有效的语法
+	// This should be effective grammar
 	if err != nil {
 		t.Errorf("Unexpected error for valid GROUP BY: %v", err)
 	}
@@ -655,7 +655,7 @@ func TestParseWithErrorRecovery(t *testing.T) {
 		t.Error("Expected statement for valid syntax")
 	}
 
-	// 测试完全无效的语法
+	// Testing completely ineffective grammar
 	parser3 := NewParser("COMPLETELY INVALID SYNTAX")
 	_, err = parser3.Parse()
 	if err == nil {
@@ -663,7 +663,7 @@ func TestParseWithErrorRecovery(t *testing.T) {
 	}
 }
 
-// TestGenerateFunctionSuggestions 测试生成函数建议函数
+// TestGenerateFunctionSuggestions Test-generated function Suggestions function
 func TestGenerateFunctionSuggestions(t *testing.T) {
 	tests := []struct {
 		functionName string
@@ -691,7 +691,7 @@ func TestGenerateFunctionSuggestions(t *testing.T) {
 	}
 }
 
-// TestBuildSelectFieldsWithExpressions 测试带表达式的选择字段构建函数
+// TestBuildSelectFieldsWithExpressions tests the selection field constructor with expressions
 func TestBuildSelectFieldsWithExpressions(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -754,7 +754,7 @@ func TestBuildSelectFieldsWithExpressions(t *testing.T) {
 	}
 }
 
-// TestParserLexerErrorHandling 测试词法分析器错误处理
+// TestParserLexerErrorHandling Error handling in the test lexer analyzer
 func TestParserLexerErrorHandling(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -777,7 +777,7 @@ func TestParserLexerErrorHandling(t *testing.T) {
 		{
 			name:        "无效数字格式",
 			input:       "SELECT 123abc FROM table",
-			expectError: false, // 解析为数字123和标识符abc
+			expectError: false, // Interpreted as the number 123 and the identifier ABC
 		},
 		{
 			name:        "反引号不匹配",
@@ -811,7 +811,7 @@ func TestParserLexerErrorHandling(t *testing.T) {
 			er := NewErrorRecovery(nil)
 			lexer.SetErrorRecovery(er)
 
-			// 读取所有token
+			// Read all tokens
 			for {
 				token := lexer.NextToken()
 				if token.Type == TokenEOF {
@@ -830,8 +830,8 @@ func TestParserLexerErrorHandling(t *testing.T) {
 	}
 }
 
-// TestParserErrorRecoveryCases 测试解析器错误恢复
-// 注意：当前解析器的错误恢复机制可能与预期不同
+// TestParserErrorRecoveryCases test parser error recovery
+// Note: The current parser error recovery mechanism may differ from what is expected
 func TestParserErrorRecoveryCases(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -841,7 +841,7 @@ func TestParserErrorRecoveryCases(t *testing.T) {
 	}{
 		{
 			name:        "语法错误恢复",
-			query:       "SELECT FROM table WHERE", // 缺少列名
+			query:       "SELECT FROM table WHERE", // Missing a list
 			expectError: true,
 			shouldParse: false,
 		},
@@ -854,13 +854,13 @@ func TestParserErrorRecoveryCases(t *testing.T) {
 		{
 			name:        "WHERE条件不完整",
 			query:       "SELECT * FROM table WHERE field >",
-			expectError: false, // 解析器可能将其作为表达式处理
+			expectError: false, // The parser may treat it as an expression
 			shouldParse: true,
 		},
 		{
 			name:        "括号不匹配表达式",
 			query:       "SELECT func(field FROM table",
-			expectError: true, // 解析器检测到语法错误
+			expectError: true, // The parser detects syntax errors
 			shouldParse: false,
 		},
 		{
@@ -879,12 +879,12 @@ func TestParserErrorRecoveryCases(t *testing.T) {
 			name:        "长标识符",
 			query:       "SELECT " + strings.Repeat("a", 100) + " FROM table",
 			expectError: false,
-			shouldParse: true, // 解析器支持长标识符
+			shouldParse: true, // The parser supports long identifiers
 		},
 		{
 			name:        "子查询语法",
 			query:       "SELECT column FROM (SELECT * FROM table) AS sub",
-			expectError: true, // 当前解析器不支持子查询
+			expectError: true, // The current parser does not support subqueries
 			shouldParse: false,
 		},
 	}
@@ -898,7 +898,7 @@ func TestParserErrorRecoveryCases(t *testing.T) {
 				t.Errorf("expected error: %v, got: %v", tt.expectError, err)
 			}
 
-			// 验证是否能继续解析
+			// Verify whether further analysis is possible
 			if !tt.shouldParse && err == nil {
 				t.Errorf("expected parsing to fail, but it succeeded")
 			}
@@ -906,8 +906,8 @@ func TestParserErrorRecoveryCases(t *testing.T) {
 	}
 }
 
-// TestParserCaseExpressionErrors 测试CASE表达式错误处理
-// 注意：当前解析器将CASE表达式作为普通表达式处理，不进行特殊语法验证
+// TestParserCaseExpressionErrors Tests CASE expression error handling
+// Note: The current parser treats CASE expressions as regular expressions and does not perform special syntax verification
 func TestParserCaseExpressionErrors(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -917,7 +917,7 @@ func TestParserCaseExpressionErrors(t *testing.T) {
 		{
 			name:        "CASE作为表达式",
 			query:       "SELECT CASE WHEN condition THEN value END FROM table",
-			expectError: false, // 当前解析器将其作为表达式处理
+			expectError: false, // The current parser treats it as an expression
 		},
 		{
 			name:        "简单CASE表达式",
@@ -937,7 +937,7 @@ func TestParserCaseExpressionErrors(t *testing.T) {
 		{
 			name:        "CASE表达式语法错误",
 			query:       "SELECT CASE WHEN value > 10 AND < 20 THEN 'A' END FROM table",
-			expectError: false, // 解析器不验证表达式内部语法
+			expectError: false, // The parser does not verify the internal syntax of the expression
 		},
 	}
 
@@ -953,8 +953,8 @@ func TestParserCaseExpressionErrors(t *testing.T) {
 	}
 }
 
-// TestParserComplexFieldAccess 测试复杂字段访问错误处理
-// 注意：当前解析器将复杂字段访问作为表达式处理
+// TestParserComplexFieldAccess tests complex field access error handling
+// Note: The current parser treats complex field access as an expression
 func TestParserComplexFieldAccess(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -964,7 +964,7 @@ func TestParserComplexFieldAccess(t *testing.T) {
 		{
 			name:        "数组索引语法错误",
 			query:       "SELECT field[ FROM table",
-			expectError: false, // 解析器将其作为表达式处理
+			expectError: false, // The parser treats it as an expression
 		},
 		{
 			name:        "嵌套数组访问",
@@ -989,7 +989,7 @@ func TestParserComplexFieldAccess(t *testing.T) {
 		{
 			name:        "混合访问表达式",
 			query:       "SELECT field.nested[0].deep FROM table",
-			expectError: false, // lexer现已支持点号在表达式中
+			expectError: false, // Lexer now supports dot marks in expressions
 		},
 		{
 			name:        "标识符数组索引",
@@ -999,12 +999,12 @@ func TestParserComplexFieldAccess(t *testing.T) {
 		{
 			name:        "未闭合括号",
 			query:       "SELECT field[0 FROM table",
-			expectError: false, // 解析器将其作为表达式处理
+			expectError: false, // The parser treats it as an expression
 		},
 		{
 			name:        "空数组索引",
 			query:       "SELECT field[] FROM table",
-			expectError: false, // 解析器将其作为表达式处理
+			expectError: false, // The parser treats it as an expression
 		},
 	}
 
@@ -1020,7 +1020,7 @@ func TestParserComplexFieldAccess(t *testing.T) {
 	}
 }
 
-// TestParserBoundaryConditions 测试解析器边界条件
+// TestParserBoundaryConditions tests the parser boundary conditions
 func TestParserBoundaryConditions(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -1035,7 +1035,7 @@ func TestParserBoundaryConditions(t *testing.T) {
 		{
 			name:        "大量字段",
 			query:       "SELECT " + strings.Repeat("col,", 50) + "last FROM table",
-			expectError: false, // 解析器实际上没有字段数量限制
+			expectError: false, // The parser actually has no field limit
 		},
 		{
 			name:        "复杂WHERE条件",

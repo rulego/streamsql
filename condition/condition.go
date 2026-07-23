@@ -57,7 +57,7 @@ func NewExprCondition(expression string) (Condition, error) {
 		expr.AllowUndefinedVariables(),
 		expr.AsBool(),
 	}
-	// 注入 StreamSQL 内置函数，使 WHERE/HAVING/OVER-WHEN 等条件可调用 to_seconds/now/abs 等
+	// Injecting built-in StreamSQL functions to enable conditions like WHERE/HAVING/OVER-WHEN to call to_seconds/now/abs, etc
 	options = append(options, functions.GetExprBridge().RegisterStreamSQLFunctionsToExpr()...)
 
 	program, err := expr.Compile(expression, options...)

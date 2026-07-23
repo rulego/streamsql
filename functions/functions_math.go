@@ -110,7 +110,7 @@ func (f *AsinFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Asin(val), nil
 }
 
-// AtanFunction 反正切函数
+// AtanFunction arctangent function
 type AtanFunction struct {
 	*BaseFunction
 }
@@ -133,7 +133,7 @@ func (f *AtanFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Atan(val), nil
 }
 
-// Atan2Function 两个参数的反正切函数
+// Atan2Function The arctangent function of two parameters
 type Atan2Function struct {
 	*BaseFunction
 }
@@ -160,7 +160,7 @@ func (f *Atan2Function) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Atan2(y, x), nil
 }
 
-// BitAndFunction 按位与函数
+// BitAndFunction is a bit by bit and function
 type BitAndFunction struct {
 	*BaseFunction
 }
@@ -187,7 +187,7 @@ func (f *BitAndFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 	return a & b, nil
 }
 
-// BitOrFunction 按位或函数
+// BitOrFunction by bit or function
 type BitOrFunction struct {
 	*BaseFunction
 }
@@ -214,7 +214,7 @@ func (f *BitOrFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return a | b, nil
 }
 
-// BitXorFunction 按位异或函数
+// BitXorFunction XOR function
 type BitXorFunction struct {
 	*BaseFunction
 }
@@ -241,7 +241,7 @@ func (f *BitXorFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 	return a ^ b, nil
 }
 
-// BitNotFunction 按位非函数
+// BitNotFunction is not a bit function
 type BitNotFunction struct {
 	*BaseFunction
 }
@@ -264,7 +264,7 @@ func (f *BitNotFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 	return ^a, nil
 }
 
-// CeilingFunction 向上取整函数
+// CeilingFunction is an upward rounding function
 type CeilingFunction struct {
 	*BaseFunction
 }
@@ -287,7 +287,7 @@ func (f *CeilingFunction) Execute(ctx *FunctionContext, args []any) (any, error)
 	return math.Ceil(val), nil
 }
 
-// CosFunction 余弦函数
+// CosFunction Cosine function
 type CosFunction struct {
 	*BaseFunction
 }
@@ -310,7 +310,7 @@ func (f *CosFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Cos(val), nil
 }
 
-// CoshFunction 双曲余弦函数
+// CoshFunction Hyperbolic Cosine Function
 type CoshFunction struct {
 	*BaseFunction
 }
@@ -333,7 +333,7 @@ func (f *CoshFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Cosh(val), nil
 }
 
-// ExpFunction 指数函数
+// ExpFunction Exponential Function
 type ExpFunction struct {
 	*BaseFunction
 }
@@ -360,7 +360,7 @@ func (f *ExpFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return result, nil
 }
 
-// FloorFunction 向下取整函数
+// FloorFunction takes the whole function downward
 type FloorFunction struct {
 	*BaseFunction
 }
@@ -383,7 +383,7 @@ func (f *FloorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Floor(val), nil
 }
 
-// LnFunction 自然对数函数
+// LnFunction is a natural logarithmic function
 type LnFunction struct {
 	*BaseFunction
 }
@@ -409,7 +409,7 @@ func (f *LnFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Log(val), nil
 }
 
-// LogFunction 以10为底的对数函数 (log的别名)
+// LogFunction LogFunction with base 10 (another name for log)
 type LogFunction struct {
 	*BaseFunction
 }
@@ -435,7 +435,7 @@ func (f *LogFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Log10(val), nil
 }
 
-// Log10Function 以10为底的对数函数
+// Log10Function is a logarithmic function with base 10
 type Log10Function struct {
 	*BaseFunction
 }
@@ -461,7 +461,7 @@ func (f *Log10Function) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Log10(val), nil
 }
 
-// Log2Function 以2为底的对数函数
+// Log2Function is a logarithmic function with base 2
 type Log2Function struct {
 	*BaseFunction
 }
@@ -487,7 +487,7 @@ func (f *Log2Function) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Log2(val), nil
 }
 
-// ModFunction 取模函数
+// ModFunction
 type ModFunction struct {
 	*BaseFunction
 }
@@ -517,7 +517,7 @@ func (f *ModFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Mod(x, y), nil
 }
 
-// RandFunction 随机数函数
+// RandFunction Random number function
 type RandFunction struct {
 	*BaseFunction
 }
@@ -533,12 +533,12 @@ func (f *RandFunction) Validate(args []any) error {
 }
 
 func (f *RandFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 使用当前时间作为种子
+	// Use the current time as the seed
 	rand.Seed(time.Now().UnixNano())
 	return rand.Float64(), nil
 }
 
-// RoundFunction 四舍五入函数
+// RoundFunction Rounding function
 type RoundFunction struct {
 	*BaseFunction
 }
@@ -554,7 +554,7 @@ func (f *RoundFunction) Validate(args []any) error {
 }
 
 func (f *RoundFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 检查第一个参数是否为nil
+	// Check if the first parameter is nil
 	if args[0] == nil {
 		return nil, nil
 	}
@@ -568,7 +568,7 @@ func (f *RoundFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 		return math.Round(val), nil
 	}
 
-	// 检查第二个参数是否为nil（如果存在）
+	// Check if the second parameter is nil (if present)
 	if args[1] == nil {
 		return nil, nil
 	}
@@ -582,7 +582,7 @@ func (f *RoundFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Round(val*shift) / shift, nil
 }
 
-// SignFunction 符号函数
+// SignFunction symbolic function
 type SignFunction struct {
 	*BaseFunction
 }
@@ -611,7 +611,7 @@ func (f *SignFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return 0, nil
 }
 
-// SinFunction 正弦函数
+// SinFunction
 type SinFunction struct {
 	*BaseFunction
 }
@@ -634,7 +634,7 @@ func (f *SinFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Sin(val), nil
 }
 
-// SinhFunction 双曲正弦函数
+// SinhFunction Hyperbolic Sine Function
 type SinhFunction struct {
 	*BaseFunction
 }
@@ -657,7 +657,7 @@ func (f *SinhFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Sinh(val), nil
 }
 
-// TanFunction 正切函数
+// TanFunction tangent function
 type TanFunction struct {
 	*BaseFunction
 }
@@ -680,7 +680,7 @@ func (f *TanFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Tan(val), nil
 }
 
-// TanhFunction 双曲正切函数
+// TanhFunction hyperbolic tangent function
 type TanhFunction struct {
 	*BaseFunction
 }
@@ -703,7 +703,7 @@ func (f *TanhFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return math.Tanh(val), nil
 }
 
-// PowerFunction 幂函数
+// PowerFunction power function
 type PowerFunction struct {
 	*BaseFunction
 }

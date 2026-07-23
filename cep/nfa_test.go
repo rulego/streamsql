@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// 构造一个最小 NFA 片段用于低层测试：start --epsilon--> m(A) --out--> accept
+// Construct a minimal NFA fragment for low-level testing: start --epsilon--> m(A) --out--> accept
 func buildLinearA() (start, accept *state, matchA *state) {
 	matchA = &state{kind: stMatch, symbol: "A"}
 	accept = &state{kind: stAccept}
@@ -13,8 +13,8 @@ func buildLinearA() (start, accept *state, matchA *state) {
 	return
 }
 
-// closure 经 epsilon 转移应含起点与可达的 match 终态，但**不穿越 match 态**（accept
-// 在 match 态之后，需消费一行后才可达，故不在 start 的 epsilon 闭包里）。
+// closure Transition via epsilon should include the start and the reachable match final state, but **does not cross the match state** (accept
+// After the match state, one line must be consumed before reaching it, so it is not included in the start epsilon closure).
 func TestClosure_Epsilon(t *testing.T) {
 	start, accept, matchA := buildLinearA()
 	got := closure(start)
@@ -29,20 +29,20 @@ func TestClosure_Epsilon(t *testing.T) {
 	}
 }
 
-// closure 遇 stMatch 终止沿该分支前进（match 不消费，故不跟出其 out）。
+// closure When stMatch terminates, it proceeds along that branch (match does not consume, so it does not follow its out).
 func TestClosure_StopsAtMatch(t *testing.T) {
 	_, _, matchA := buildLinearA()
-	// 从 matchA 出发：match 态本身在闭包里，但其 out（accept）不应被 epsilon 闭包带入。
+	// Starting from matchA: The match state itself is in the closure, but its out (accept) should not be brought in by the epsilon closure.
 	got := closure(matchA)
 	if containsState(got, &state{kind: stAccept}) {
-		// 上面的 &state{} 是新建实例，不会在 got 里；仅用于触发 containsState 语义。
+		// The above '%state{} is a new instance and won't be inside 'got'; Only used to trigger the containsState semantics.
 	}
 	if len(got) != 1 {
 		t.Errorf("closure of a lone match-state want size 1, got %d", len(got))
 	}
 }
 
-// 选择分支：epsilon 分裂到两条 match，closure 应含两者。
+// Select branch: Split epsilon into two matches, closure should include both.
 func TestClosure_AltSplit(t *testing.T) {
 	a := &state{kind: stMatch, symbol: "A"}
 	b := &state{kind: stMatch, symbol: "B"}
@@ -53,7 +53,7 @@ func TestClosure_AltSplit(t *testing.T) {
 	}
 }
 
-// isComplete：含 accept 且无 match-state → true；含 accept 且有 match-state → false。
+// isComplete: contains accept and no match-state → true; Contains accept and has match-state → false.
 func TestIsComplete(t *testing.T) {
 	accept := &state{kind: stAccept}
 	if !isComplete([]*state{accept}) {
@@ -68,7 +68,7 @@ func TestIsComplete(t *testing.T) {
 	}
 }
 
-// hasAccept / matchStates。
+// hasAccept / matchStates.
 func TestHasAcceptAndMatchStates(t *testing.T) {
 	accept := &state{kind: stAccept}
 	matchA := &state{kind: stMatch, symbol: "A"}
@@ -84,7 +84,7 @@ func TestHasAcceptAndMatchStates(t *testing.T) {
 	}
 }
 
-// patch 把片段的待接续出边指向目标。
+// Patch points the pending edge of the clip to the target.
 func TestPatch(t *testing.T) {
 	s := &state{kind: stMatch, symbol: "A"}
 	f := &frag{start: s, dots: []**state{&s.out1}}

@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestStreamBasicOperations 测试Stream基本操作（合并了构造函数、添加数据、获取结果等测试）
+// TestStreamBasicOperations (integrates constructors, add data, get results, and other tests)
 func TestStreamBasicOperations(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -83,16 +83,16 @@ func TestStreamBasicOperations(t *testing.T) {
 				}
 			}()
 
-			// 根据测试类型执行不同的测试逻辑
+			// Different test logic is executed depending on the type of test
 			switch tt.testFunc {
 			case "constructor":
-				// 验证stream创建成功
+				// Verify that the stream was successfully created
 				assert.NotNil(t, stream)
 				assert.NotNil(t, stream.dataChan)
 				assert.NotNil(t, stream.resultChan)
 
 			case "addData":
-				// 测试添加数据
+				// Test adding data
 				testData := map[string]any{
 					"name": "test",
 					"age":  25,
@@ -101,17 +101,17 @@ func TestStreamBasicOperations(t *testing.T) {
 				assert.True(t, sent)
 
 			case "getResults":
-				// 测试获取结果通道
+				// Test the results channel
 				resultsChan := stream.GetResultsChan()
 				assert.NotNil(t, resultsChan)
 
 			case "withWindow":
-				// 验证窗口配置
+				// Verification window configuration
 				assert.NotNil(t, stream.Window)
 				assert.True(t, stream.config.NeedWindow)
 
 			case "threadSafety":
-				// 测试并发安全性
+				// Testing concurrency security
 				var wg sync.WaitGroup
 				for i := 0; i < 10; i++ {
 					wg.Add(1)
@@ -130,7 +130,7 @@ func TestStreamBasicOperations(t *testing.T) {
 	}
 }
 
-// TestStreamBasicFunctionality 测试Stream基本功能
+// TestStreamBasicFunctionality Tests the basic functionality of Stream
 func TestStreamBasicFunctionality(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -204,27 +204,27 @@ func TestStreamBasicFunctionality(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			// 添加 Sink 函数来捕获结果
+			// Add the Sink function to capture the results
 			resultChan := make(chan any, 1)
 			strm.AddSink(func(result []map[string]any) {
 				select {
 				case resultChan <- result:
 				default:
-					// 防止阻塞
+					// Prevents blockages
 				}
 			})
 
 			strm.Start()
 
-			// 发送测试数据
+			// Send test data
 			for _, data := range tt.testData {
 				strm.Emit(data)
 			}
 
-			// 等待窗口关闭并触发结果
+			// Wait for the window to close and trigger the result
 			time.Sleep(700 * time.Millisecond)
 
-			// 等待结果
+			// Wait for the results
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 
@@ -236,7 +236,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 				t.Fatal("No results received within 3 seconds")
 			}
 
-			// 验证结果
+			// Verify the results
 			require.NotNil(t, actual)
 			assert.IsType(t, []map[string]any{}, actual)
 			resultMap := actual.([]map[string]any)
@@ -250,7 +250,7 @@ func TestStreamBasicFunctionality(t *testing.T) {
 	}
 }
 
-// TestStreamWithoutFilter 测试无过滤器的流处理
+// TestStreamWithoutFilter: Tests stream processing without filters
 func TestStreamWithoutFilter(t *testing.T) {
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
@@ -281,13 +281,13 @@ func TestStreamWithoutFilter(t *testing.T) {
 		strm.Emit(data)
 	}
 
-	// 捕获结果
+	// Capture the results
 	resultChan := make(chan any)
 	strm.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
-	// 等待窗口触发
+	// Wait for the window to trigger
 	time.Sleep(3 * time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -324,7 +324,7 @@ func TestStreamWithoutFilter(t *testing.T) {
 	}
 }
 
-// TestStreamRefactoring 测试重构后的Stream功能
+// TestStreamRefactoring tests the restructured Stream functionality
 func TestStreamRefactoring(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -345,21 +345,21 @@ func TestStreamRefactoring(t *testing.T) {
 		"category": "A",
 	}
 
-	// 启动Stream
+	// Start Stream
 	stream.Start()
 
-	// 发送测试数据
+	// Send test data
 	stream.Emit(testData)
 
-	// 等待处理完成
+	// Wait for processing to complete
 	time.Sleep(100 * time.Millisecond)
 
-	// 获取统计信息
+	// Get statistics
 	stats := stream.GetStats()
 	assert.Equal(t, int64(1), stats[InputCount])
 }
 
-// TestStreamFactory 测试StreamFactory功能
+// TestStreamFactory tests the StreamFactory functionality
 func TestStreamFactory(t *testing.T) {
 	factory := NewStreamFactory()
 	require.NotNil(t, factory)
@@ -369,7 +369,7 @@ func TestStreamFactory(t *testing.T) {
 		NeedWindow:   false,
 	}
 
-	// 测试不同的创建方法
+	// Test different creation methods
 	tests := []struct {
 		name   string
 		create func() (*Stream, error)
@@ -389,9 +389,9 @@ func TestStreamFactory(t *testing.T) {
 	}
 }
 
-// TestMigratedFunctions 测试迁移后的函数
+// TestMigratedFunctions tests the migrated functions
 func TestMigratedFunctions(t *testing.T) {
-	// 测试性能评估函数
+	// Test performance evaluation function
 	tests := []struct {
 		name      string
 		dataUsage float64
@@ -413,13 +413,13 @@ func TestMigratedFunctions(t *testing.T) {
 	}
 }
 
-// TestStreamConstructors 测试各种Stream构造函数
+// TestStreamConstructors tests various Stream constructors
 func TestStreamConstructors(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
 	}
 
-	// 测试高性能Stream
+	// Testing high-performance streams
 	highPerfStream, err := NewStreamWithHighPerformance(config)
 	require.NoError(t, err)
 	require.NotNil(t, highPerfStream)
@@ -429,7 +429,7 @@ func TestStreamConstructors(t *testing.T) {
 		}
 	}()
 
-	// 测试低延迟Stream
+	// Testing low-latency streams
 	lowLatencyStream, err := NewStreamWithLowLatency(config)
 	require.NoError(t, err)
 	require.NotNil(t, lowLatencyStream)
@@ -439,7 +439,7 @@ func TestStreamConstructors(t *testing.T) {
 		}
 	}()
 
-	// 测试自定义性能配置Stream
+	// Test custom performance configuration Stream
 	perfConfig := types.PerformanceConfig{
 		WorkerConfig: types.WorkerConfig{
 			SinkWorkerCount: 10,
@@ -458,7 +458,7 @@ func TestStreamConstructors(t *testing.T) {
 	}()
 }
 
-// TestStreamFilterRegistration 测试过滤器注册功能
+// TestStreamFilterRegistration Test filter registration function
 func TestStreamFilterRegistration(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -471,36 +471,36 @@ func TestStreamFilterRegistration(t *testing.T) {
 		}
 	}()
 
-	// 测试空过滤器
+	// Test the empty filter
 	err = stream.RegisterFilter("")
 	require.NoError(t, err)
 
-	// 测试简单条件过滤器
+	// Test the simple condition filter
 	err = stream.RegisterFilter("age > 18")
 	require.NoError(t, err)
 
-	// 测试带反引号的过滤器
+	// Test filters with backquotes
 	err = stream.RegisterFilter("`user_name` == 'test'")
 	require.NoError(t, err)
 
-	// 测试LIKE语法
+	// Test LIKE syntax
 	err = stream.RegisterFilter("name LIKE '%test%'")
 	require.NoError(t, err)
 
-	// 测试IS NULL语法
+	// Test IS NULL syntax
 	err = stream.RegisterFilter("age IS NULL")
 	require.NoError(t, err)
 
-	// 测试IS NOT NULL语法
+	// Test the IS NOT NULL syntax
 	err = stream.RegisterFilter("name IS NOT NULL")
 	require.NoError(t, err)
 
-	// 测试复杂条件
+	// Testing complex conditions
 	err = stream.RegisterFilter("age > 18 && name LIKE '%test%' || `user_id` IS NOT NULL")
 	require.NoError(t, err)
 }
 
-// TestStreamAggregationQuery 测试聚合查询功能
+// TestStreamAggregationQuery tests aggregation query functionality
 func TestStreamAggregationQuery(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -522,11 +522,11 @@ func TestStreamAggregationQuery(t *testing.T) {
 		}
 	}()
 
-	// 测试是否为聚合查询
+	// Test whether the query is aggregated
 	isAggregation := stream.IsAggregationQuery()
 	require.True(t, isAggregation)
 
-	// 测试非聚合查询
+	// Test non-aggregated queries
 	simpleConfig := types.Config{
 		SimpleFields: []string{"name", "age"},
 	}
@@ -542,7 +542,7 @@ func TestStreamAggregationQuery(t *testing.T) {
 	require.False(t, isSimpleAggregation)
 }
 
-// TestStreamSyncProcessing 测试同步处理功能
+// TestStreamSyncProcessing Testing synchronization processing function
 func TestStreamSyncProcessing(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -555,7 +555,7 @@ func TestStreamSyncProcessing(t *testing.T) {
 		}
 	}()
 
-	// 测试同步处理数据
+	// Synchronized data processing for testing
 	testData := map[string]any{
 		"name": "test",
 		"age":  25,
@@ -568,14 +568,14 @@ func TestStreamSyncProcessing(t *testing.T) {
 	require.Equal(t, 25, result["age"])
 }
 
-// TestStreamErrorHandling 测试错误处理
+// TestStreamErrorHandling Test error handling
 func TestStreamErrorHandling(t *testing.T) {
-	// 测试无效配置
+	// Invalid testing configuration
 	invalidConfig := types.Config{
-		// 故意留空以测试错误处理
+		// Deliberately leave blanks to test for error handling
 	}
 	stream, err := NewStream(invalidConfig)
-	// 这个可能会成功，因为配置验证可能比较宽松
+	// This might succeed because configuration verification can be relatively lenient
 	// require.Error(t, err)
 
 	if stream != nil {
@@ -583,16 +583,16 @@ func TestStreamErrorHandling(t *testing.T) {
 			close(stream.done)
 		}()
 
-		// 测试无效过滤器
+		// Test for ineffective filters
 		err = stream.RegisterFilter("invalid syntax !!!")
-		// 这个应该会失败
+		// This one is likely to fail
 		if err != nil {
 			require.Contains(t, err.Error(), "compile filter error")
 		}
 	}
 }
 
-// TestStreamConcurrency 测试并发安全性
+// TestStreamConcurrency tests concurrency security
 func TestStreamConcurrency(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -605,7 +605,7 @@ func TestStreamConcurrency(t *testing.T) {
 		}
 	}()
 
-	// 启动多个goroutine并发发送数据
+	// Starts multiple goroutines to send data concurrently
 	const numGoroutines = 10
 	const numMessages = 100
 
@@ -628,7 +628,7 @@ func TestStreamConcurrency(t *testing.T) {
 	wg.Wait()
 }
 
-// TestStreamPerformance 测试性能相关功能
+// TestStreamPerformance tests performance-related features
 func TestStreamPerformance(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -637,7 +637,7 @@ func TestStreamPerformance(t *testing.T) {
 				SinkWorkerCount: 5,
 			},
 			BufferConfig: types.BufferConfig{
-				DataChannelSize: 1000, // 增加缓冲区大小以容纳所有消息
+				DataChannelSize: 1000, // Increase the buffer size to accommodate all messages
 			},
 		},
 	}
@@ -645,10 +645,10 @@ func TestStreamPerformance(t *testing.T) {
 	require.NoError(t, err)
 	defer stream.Stop()
 
-	// 启动流处理
+	// Start stream processing
 	stream.Start()
 
-	// 测试大量数据处理
+	// Testing large amounts of data processing
 	const numMessages = 1000
 	for i := 0; i < numMessages; i++ {
 		data := map[string]any{
@@ -658,11 +658,11 @@ func TestStreamPerformance(t *testing.T) {
 		stream.Emit(data)
 	}
 
-	// 等待处理完成
+	// Wait for processing to complete
 	time.Sleep(100 * time.Millisecond)
 }
 
-// TestStreamLifecycle 测试Stream生命周期
+// TestStreamLifecycle TestStream Lifecycle
 func TestStreamLifecycle(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -670,10 +670,10 @@ func TestStreamLifecycle(t *testing.T) {
 	stream, err := NewStream(config)
 	require.NoError(t, err)
 
-	// 测试启动
+	// Test launched
 	stream.Start()
 
-	// 发送一些数据
+	// Send some data
 	for i := 0; i < 10; i++ {
 		data := map[string]any{
 			"name": fmt.Sprintf("user_%d", i),
@@ -682,14 +682,14 @@ func TestStreamLifecycle(t *testing.T) {
 		stream.Emit(data)
 	}
 
-	// 测试停止
+	// The test stopped
 	stream.Stop()
 
-	// 验证停止后不能发送数据（这取决于具体实现）
-	// 这里只是测试Stop方法不会panic
+	// After authentication stops, data cannot be sent (depending on the specific implementation)
+	// This is just testing that the Stop method does not panic
 }
 
-// TestConvertToAggregationFields 测试聚合字段转换
+// TestConvertToAggregationFields tests aggregation field conversions
 func TestConvertToAggregationFields(t *testing.T) {
 	selectFields := map[string]aggregator.AggregateType{
 		"avg_age": aggregator.Avg,
@@ -706,7 +706,7 @@ func TestConvertToAggregationFields(t *testing.T) {
 	fields := convertToAggregationFields(selectFields, fieldAlias)
 	require.Len(t, fields, 3)
 
-	// 验证字段转换结果
+	// Verify the field conversion results
 	for _, field := range fields {
 		switch field.OutputAlias {
 		case "avg_age":
@@ -722,7 +722,7 @@ func TestConvertToAggregationFields(t *testing.T) {
 	}
 }
 
-// TestStreamWithWindowAndAggregation 测试带窗口和聚合的Stream
+// TestStreamWithWindowAndAggregation: Tests streams with windows and aggregation
 func TestStreamWithWindowAndAggregation(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -748,14 +748,14 @@ func TestStreamWithWindowAndAggregation(t *testing.T) {
 		}
 	}()
 
-	// 注册过滤器
+	// Register the filter
 	err = stream.RegisterFilter("age > 0")
 	require.NoError(t, err)
 
-	// 启动Stream
+	// Start Stream
 	stream.Start()
 
-	// 发送数据
+	// Send data
 	for i := 0; i < 50; i++ {
 		data := map[string]any{
 			"name": fmt.Sprintf("user_%d", i),
@@ -764,18 +764,18 @@ func TestStreamWithWindowAndAggregation(t *testing.T) {
 		stream.Emit(data)
 	}
 
-	// 等待处理完成
+	// Wait for processing to complete
 	time.Sleep(200 * time.Millisecond)
 	stream.Stop()
 }
 
-// TestDataChannelExpansion 测试数据通道动态扩容功能
+// TestDataChannelExpansion: Dynamic capacity expansion of the test data channel
 func TestDataChannelExpansion(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "value"},
 		PerformanceConfig: types.PerformanceConfig{
 			BufferConfig: types.BufferConfig{
-				DataChannelSize:   10, // 小容量便于测试扩容
+				DataChannelSize:   10, // Small capacity makes testing and expansion easier
 				ResultChannelSize: 100,
 			},
 			WorkerConfig: types.WorkerConfig{
@@ -789,10 +789,10 @@ func TestDataChannelExpansion(t *testing.T) {
 	require.NoError(t, err)
 	defer stream.Stop()
 
-	// 启动流
+	// Startup flow
 	stream.Start()
 
-	// 发送数据测试通道功能
+	// Send data to test channel function
 	for i := 0; i < 8; i++ {
 		data := map[string]any{
 			"name":  "test",
@@ -801,10 +801,10 @@ func TestDataChannelExpansion(t *testing.T) {
 		stream.Emit(data)
 	}
 
-	// 等待处理
+	// Waiting for processing
 	time.Sleep(100 * time.Millisecond)
 
-	// 验证数据处理
+	// Validation data processing
 	stats := stream.GetStats()
 	assert.NotNil(t, stats)
 	assert.True(t, stats[InputCount] > 0)
@@ -823,14 +823,14 @@ func TestResultHandlerGetResultsChan(t *testing.T) {
 		}
 	}()
 
-	// 测试获取结果通道
+	// Test the results channel
 	resultsChan := stream.GetResultsChan()
 	assert.NotNil(t, resultsChan)
 }
 
-// TestConcurrentDataChannelExpansion 测试并发数据通道扩容
+// TestConcurrentDataChannelExpansion: Tests concurrent data channel expansion
 func TestConcurrentDataChannelExpansion(t *testing.T) {
-	// 创建流
+	// Create streams
 	config := types.Config{
 		SimpleFields: []string{"id", "message"},
 		PerformanceConfig: types.PerformanceConfig{
@@ -848,10 +848,10 @@ func TestConcurrentDataChannelExpansion(t *testing.T) {
 	require.NoError(t, err)
 	defer stream.Stop()
 
-	// 启动流
+	// Startup flow
 	stream.Start()
 
-	// 并发添加大量数据
+	// Concurrent addition of large amounts of data
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
@@ -868,14 +868,14 @@ func TestConcurrentDataChannelExpansion(t *testing.T) {
 	wg.Wait()
 	time.Sleep(100 * time.Millisecond)
 
-	// 验证流仍在正常运行
+	// The validation flow is still running normally
 	assert.NotNil(t, stream)
 }
 
-// TestExpandDataChannelDirectly 直接测试expandDataChannel函数
-// 提高expandDataChannel函数的覆盖率
+// TestExpandDataChannelDirectly tests the expandDataChannel function
+// Increase the coverage of the expandDataChannel function
 func TestExpandDataChannelDirectly(t *testing.T) {
-	// 创建一个Stream实例用于测试
+	// Create a Stream instance for testing
 	config := types.Config{
 		SimpleFields: []string{"test"},
 		PerformanceConfig: types.PerformanceConfig{
@@ -890,7 +890,7 @@ func TestExpandDataChannelDirectly(t *testing.T) {
 	require.NoError(t, err)
 	defer stream.Stop()
 
-	// 填充通道到80%以上以触发扩容条件
+	// Fill the channel above 80% to trigger scaling conditions
 	for i := 0; i < 9; i++ {
 		select {
 		case stream.dataChan <- map[string]any{"test": i}:
@@ -899,20 +899,20 @@ func TestExpandDataChannelDirectly(t *testing.T) {
 		}
 	}
 
-	// 记录原始容量
+	// Record the original capacity
 	originalCap := cap(stream.dataChan)
 
-	// 直接调用扩容函数
+	// Directly call the expansion function
 	stream.expandDataChannel()
 
-	// 验证容量是否增加
+	// Verify whether capacity has increased
 	newCap := cap(stream.dataChan)
 	assert.Greater(t, newCap, originalCap, "Channel capacity should increase after expansion")
 
-	// 验证数据是否正确迁移
+	// Verify that data migration is correct
 	assert.Equal(t, 9, len(stream.dataChan), "All data should be migrated to new channel")
 
-	// 测试并发扩容保护
+	// Testing concurrent expansion protection
 	var wg sync.WaitGroup
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
@@ -924,7 +924,7 @@ func TestExpandDataChannelDirectly(t *testing.T) {
 	wg.Wait()
 }
 
-// TestExpandDataChannelBelowThreshold 测试通道使用率低于阈值时不扩容
+// TestExpandDataChannelBelowThreshold Does not expand when the test channel's usage falls below the threshold
 func TestExpandDataChannelBelowThreshold(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"test"},
@@ -940,22 +940,22 @@ func TestExpandDataChannelBelowThreshold(t *testing.T) {
 	require.NoError(t, err)
 	defer stream.Stop()
 
-	// 只填充少量数据（低于80%阈值）
+	// Fill only a small amount of data (below the 80% threshold)
 	for i := 0; i < 3; i++ {
 		stream.dataChan <- map[string]any{"test": i}
 	}
 
 	originalCap := cap(stream.dataChan)
 
-	// 调用扩容函数
+	// Call the expansion function
 	stream.expandDataChannel()
 
-	// 验证容量没有变化
+	// The verification capacity remains unchanged
 	newCap := cap(stream.dataChan)
 	assert.Equal(t, originalCap, newCap, "Channel capacity should not change when below threshold")
 }
 
-// TestStreamConfigErrorHandlingEnhanced 测试流配置错误处理增强版
+// TestStreamConfigErrorHandlingEnhanced Teststream Configuration Error Handling Enhanced Edition
 func TestStreamConfigErrorHandlingEnhanced(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -1036,7 +1036,7 @@ func TestStreamConfigErrorHandlingEnhanced(t *testing.T) {
 	}
 }
 
-// TestStreamDataValidationEnhanced 测试流数据验证增强版
+// TestStreamDataValidationEnhanced TestStreamDataValidationEnhanced Version
 func TestStreamDataValidationEnhanced(t *testing.T) {
 	config := types.NewConfig()
 	config.PerformanceConfig = types.DefaultPerformanceConfig()
@@ -1067,7 +1067,7 @@ func TestStreamDataValidationEnhanced(t *testing.T) {
 				"timestamp": "invalid",
 				"value":     1,
 			},
-			expectError: false, // 由处理器处理，不直接报错
+			expectError: false, // Handled by the processor without directly reporting errors
 		},
 		{
 			name: "负数值",
@@ -1080,9 +1080,9 @@ func TestStreamDataValidationEnhanced(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 这里简化测试，只验证数据结构
+			// Here, testing is simplified and only data structures are verified
 			if tt.data != nil && len(tt.data) == 0 {
-				// 空数据测试
+				// Empty data testing
 			}
 		})
 	}
@@ -1090,7 +1090,7 @@ func TestStreamDataValidationEnhanced(t *testing.T) {
 	_ = stream
 }
 
-// TestStreamMemoryPressureEnhanced 测试内存压力场景增强版
+// TestStreamMemoryPressureEnhanced Memory Pressure Enhanced Scenario Version
 func TestStreamMemoryPressureEnhanced(t *testing.T) {
 	config := types.NewConfig()
 	config.PerformanceConfig = types.PerformanceConfig{
@@ -1110,7 +1110,7 @@ func TestStreamMemoryPressureEnhanced(t *testing.T) {
 		t.Fatalf("failed to create stream: %v", err)
 	}
 
-	// 模拟大量数据
+	// Simulating large amounts of data
 	largeData := make([]map[string]any, 1000)
 	for i := 0; i < 1000; i++ {
 		largeData[i] = map[string]any{
@@ -1123,7 +1123,7 @@ func TestStreamMemoryPressureEnhanced(t *testing.T) {
 	_ = largeData
 }
 
-// TestStreamConcurrentAccessEnhanced 测试并发访问边界条件增强版
+// TestStreamConcurrentAccessEnhanced tests concurrent access boundary conditions
 func TestStreamConcurrentAccessEnhanced(t *testing.T) {
 	config := types.NewConfig()
 	config.PerformanceConfig = types.DefaultPerformanceConfig()
@@ -1133,22 +1133,22 @@ func TestStreamConcurrentAccessEnhanced(t *testing.T) {
 		t.Fatalf("failed to create stream: %v", err)
 	}
 
-	// 测试并发关闭
+	// Test concurrency shutdown
 	go func() {
 		stream.Stop()
 	}()
 
-	// 测试并发启动
+	// Test concurrent startup
 	go func() {
 		stream.Start()
 		time.Sleep(100 * time.Millisecond)
 	}()
 
-	// 给并发操作一些时间
+	// Give concurrent operations some time
 	time.Sleep(10 * time.Millisecond)
 }
 
-// TestStreamWindowEdgeCasesEnhanced 测试窗口边界情况增强版
+// TestStreamWindowEdgeCasesEnhanced version of the test window boundary situation
 func TestStreamWindowEdgeCasesEnhanced(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -1161,7 +1161,7 @@ func TestStreamWindowEdgeCasesEnhanced(t *testing.T) {
 				c := types.NewConfig()
 				c.WindowConfig = types.WindowConfig{
 					Type:     "tumbling",
-					Params:   []any{1 * time.Nanosecond}, // 极小时间窗口
+					Params:   []any{1 * time.Nanosecond}, // Minimal time window
 					TimeUnit: 1 * time.Nanosecond,
 				}
 				c.NeedWindow = true
@@ -1175,7 +1175,7 @@ func TestStreamWindowEdgeCasesEnhanced(t *testing.T) {
 			config: types.Config{
 				WindowConfig: types.WindowConfig{
 					Type:     "tumbling",
-					Params:   []any{8760 * time.Hour}, // 1年
+					Params:   []any{8760 * time.Hour}, // 1 year
 					TimeUnit: 8760 * time.Hour,
 				},
 				NeedWindow:        true,
@@ -1188,7 +1188,7 @@ func TestStreamWindowEdgeCasesEnhanced(t *testing.T) {
 			config: types.Config{
 				WindowConfig: types.WindowConfig{
 					Type:     "sliding",
-					Params:   []any{1 * time.Second, 1 * time.Millisecond}, // 很小的滑动间隔
+					Params:   []any{1 * time.Second, 1 * time.Millisecond}, // Very small sliding intervals
 					TimeUnit: 1 * time.Second,
 				},
 				NeedWindow:        true,
@@ -1208,7 +1208,7 @@ func TestStreamWindowEdgeCasesEnhanced(t *testing.T) {
 	}
 }
 
-// TestStreamUnifiedConfigIntegration 测试Stream和Window统一配置的集成
+// TestStreamUnifiedConfigIntegration: Integration of unified configuration between Stream and Window
 func TestStreamUnifiedConfigIntegration(t *testing.T) {
 	testCases := []struct {
 		name                     string
@@ -1250,19 +1250,19 @@ func TestStreamUnifiedConfigIntegration(t *testing.T) {
 			require.NoError(t, err)
 			defer s.Stop()
 
-			// 验证stream的缓冲区配置
+			// Verify the buffer configuration of the stream
 			assert.Equal(t, tc.performanceConfig.BufferConfig.DataChannelSize, cap(s.dataChan),
 				"数据通道大小不匹配")
 			assert.Equal(t, tc.performanceConfig.BufferConfig.ResultChannelSize, cap(s.resultChan),
 				"结果通道大小不匹配")
 
-			// 验证窗口创建成功
+			// Verification window created successfully
 			assert.NotNil(t, s.Window, "窗口应该被创建")
 		})
 	}
 }
 
-// TestStreamUnifiedConfigPerformanceImpact 测试统一配置对Stream性能的影响
+// TestStreamUnifiedConfigPerformanceImpact tests the impact of unified configuration on Stream performance
 func TestStreamUnifiedConfigPerformanceImpact(t *testing.T) {
 	configs := map[string]types.PerformanceConfig{
 		"默认配置":  types.DefaultPerformanceConfig(),
@@ -1290,7 +1290,7 @@ func TestStreamUnifiedConfigPerformanceImpact(t *testing.T) {
 
 			go s.Start()
 
-			// 发送测试数据并测量性能
+			// Send test data and measure performance
 			dataCount := 1000
 			startTime := time.Now()
 
@@ -1302,21 +1302,21 @@ func TestStreamUnifiedConfigPerformanceImpact(t *testing.T) {
 
 				select {
 				case s.dataChan <- data:
-					// 成功发送
+					// Successfully sent
 				case <-time.After(100 * time.Millisecond):
-					// 发送超时
-					t.Logf("第%d条数据发送超时", i)
+					// Send timeout
+					t.Logf("%d Data transmission timeout", i)
 					break
 				}
 			}
 
 			processingTime := time.Since(startTime)
-			t.Logf("%s 处理%d条数据耗时: %v", name, dataCount, processingTime)
+			t.Logf("%s Time to process %d data entries: %v", name, dataCount, processingTime)
 
-			// 等待一些结果
+			// Waiting for some results
 			time.Sleep(1500 * time.Millisecond)
 
-			// 检查结果
+			// Inspection results
 			resultCount := 0
 			for {
 				select {
@@ -1327,12 +1327,12 @@ func TestStreamUnifiedConfigPerformanceImpact(t *testing.T) {
 				}
 			}
 		done:
-			// 性能测试主要关注处理时间，结果数量可能因窗口触发时机而变化
+			// Performance testing mainly focuses on processing time, and the number of results may vary depending on the window trigger timing
 		})
 	}
 }
 
-// TestStreamUnifiedConfigErrorHandling 测试统一配置的错误处理
+// TestStreamUnifiedConfigErrorHandling tests the error handling of the unified configuration
 func TestStreamUnifiedConfigErrorHandling(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -1407,9 +1407,9 @@ func TestStreamUnifiedConfigErrorHandling(t *testing.T) {
 	}
 }
 
-// TestStreamUnifiedConfigCompatibility 测试统一配置的兼容性
+// TestStreamUnifiedConfigCompatibility: Test the compatibility of the unified configuration
 func TestStreamUnifiedConfigCompatibility(t *testing.T) {
-	// 测试新的统一配置
+	// Test the new unified configuration
 	newConfig := types.Config{
 		NeedWindow: false,
 		SelectFields: map[string]aggregator.AggregateType{
@@ -1422,11 +1422,11 @@ func TestStreamUnifiedConfigCompatibility(t *testing.T) {
 	require.NoError(t, err)
 	defer s1.Stop()
 
-	// 验证新配置生效
+	// Verify that the new configuration is effective
 	expectedDataSize := types.HighPerformanceConfig().BufferConfig.DataChannelSize
 	assert.Equal(t, expectedDataSize, cap(s1.dataChan), "高性能配置的数据通道大小不匹配")
 
-	// 测试默认配置
+	// Test the default configuration
 	defaultConfig := types.Config{
 		NeedWindow: false,
 		SelectFields: map[string]aggregator.AggregateType{
@@ -1439,7 +1439,7 @@ func TestStreamUnifiedConfigCompatibility(t *testing.T) {
 	require.NoError(t, err)
 	defer s2.Stop()
 
-	// 验证默认配置
+	// Verify the default configuration
 	expectedDefaultSize := types.DefaultPerformanceConfig().BufferConfig.DataChannelSize
 	assert.Equal(t, expectedDefaultSize, cap(s2.dataChan), "默认配置的数据通道大小不匹配")
 
@@ -1480,7 +1480,7 @@ func TestDataHandlerEnhanced(t *testing.T) {
 
 			stream.Start()
 
-			// 快速发送大量数据
+			// Rapidly transmit large amounts of data
 			for i := 0; i < tt.dataCount; i++ {
 				stream.Emit(map[string]any{"value": i})
 			}
@@ -1491,17 +1491,17 @@ func TestDataHandlerEnhanced(t *testing.T) {
 			droppedCount := stats[DroppedCount]
 
 			if tt.expectedDrops {
-				// 在高负载下可能会有丢弃
-				t.Logf("%s: 输入 %d, 丢弃 %d", tt.name, stats[InputCount], droppedCount)
+				// There may be discard under heavy loads
+				t.Logf("%s: Enter %d and discard %d", tt.name, stats[InputCount], droppedCount)
 			} else {
-				// 高性能配置应该能处理所有数据
+				// High-performance configurations should be able to handle all the data
 				assert.Equal(t, int64(0), droppedCount, "高性能配置不应该丢弃数据")
 			}
 		})
 	}
 }
 
-// TestResultHandlerEnhanced 测试结果处理器增强版
+// TestResultHandlerEnhanced Enhanced test result processor
 func TestResultHandlerEnhanced(t *testing.T) {
 	config := types.Config{
 		NeedWindow:   false,
@@ -1512,7 +1512,7 @@ func TestResultHandlerEnhanced(t *testing.T) {
 	require.NoError(t, err)
 	defer stream.Stop()
 
-	// 测试Sink功能
+	// Test the Sink function
 	var mu sync.Mutex
 	var receivedResults []any
 
@@ -1524,7 +1524,7 @@ func TestResultHandlerEnhanced(t *testing.T) {
 
 	stream.Start()
 
-	// 发送测试数据
+	// Send test data
 	testData := []map[string]any{
 		{"value": 1},
 		{"value": 2},
@@ -1537,13 +1537,13 @@ func TestResultHandlerEnhanced(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	// 验证结果
+	// Verify the results
 	mu.Lock()
 	defer mu.Unlock()
 
 	assert.GreaterOrEqual(t, len(receivedResults), len(testData), "应该接收到所有结果")
 
-	// 验证结果格式
+	// Verification result format
 	for _, result := range receivedResults {
 		assert.IsType(t, []map[string]any{}, result, "结果应该是map切片类型")
 		resultSlice := result.([]map[string]any)
@@ -1551,7 +1551,7 @@ func TestResultHandlerEnhanced(t *testing.T) {
 	}
 }
 
-// TestPerformanceConfigurationsEnhanced 测试不同性能配置的效果增强版
+// TestPerformanceConfigurationsEnhancedEnhanced version of the effect for testing different performance configurations
 func TestPerformanceConfigurationsEnhanced(t *testing.T) {
 	configs := map[string]types.PerformanceConfig{
 		"Default":         types.DefaultPerformanceConfig(),
@@ -1571,14 +1571,14 @@ func TestPerformanceConfigurationsEnhanced(t *testing.T) {
 			require.NoError(t, err)
 			defer stream.Stop()
 
-			// 验证缓冲区大小
+			// Verify the buffer size
 			assert.Equal(t, perfConfig.BufferConfig.DataChannelSize, cap(stream.dataChan))
 			assert.Equal(t, perfConfig.BufferConfig.ResultChannelSize, cap(stream.resultChan))
 
-			// 验证工作池配置
+			// Verify the work pool configuration
 			assert.Equal(t, perfConfig.WorkerConfig.SinkPoolSize, cap(stream.sinkWorkerPool))
 
-			//t.Logf("%s配置: 数据通道=%d, 结果通道=%d, Sink池=%d",
+			//t.Logf("%s configuration: Data channel = %d, result channel = %d, Sink pool = %d",
 			//	name,
 			//	cap(stream.dataChan),
 			//	cap(stream.resultChan),
@@ -1587,13 +1587,13 @@ func TestPerformanceConfigurationsEnhanced(t *testing.T) {
 	}
 }
 
-// TestNewStreamFactory 测试流工厂创建
+// TestNewStreamFactory Creates the StreamFactory
 func TestNewStreamFactory(t *testing.T) {
 	factory := NewStreamFactory()
 	assert.NotNil(t, factory)
 }
 
-// TestStreamFactory_CreateStream 测试创建默认配置的流
+// TestStreamFactory_CreateStream Test the creation of a default configured stream
 func TestStreamFactory_CreateStream(t *testing.T) {
 	factory := NewStreamFactory()
 	config := types.Config{
@@ -1609,11 +1609,11 @@ func TestStreamFactory_CreateStream(t *testing.T) {
 		}
 	}()
 
-	// 验证默认性能配置已应用
+	// Verify that the default performance configuration has been applied
 	assert.NotEqual(t, types.PerformanceConfig{}, stream.config.PerformanceConfig)
 }
 
-// TestStreamFactory_CreateHighPerformanceStream 测试创建高性能流
+// TestStreamFactory_CreateHighPerformanceStream Test to create high-performance streams
 func TestStreamFactory_CreateHighPerformanceStream(t *testing.T) {
 	factory := NewStreamFactory()
 	config := types.Config{
@@ -1629,12 +1629,12 @@ func TestStreamFactory_CreateHighPerformanceStream(t *testing.T) {
 		}
 	}()
 
-	// 验证高性能配置
+	// Verify high-performance configurations
 	expectedConfig := types.HighPerformanceConfig()
 	assert.Equal(t, expectedConfig, stream.config.PerformanceConfig)
 }
 
-// TestStreamFactory_CreateLowLatencyStream 测试创建低延迟流
+// TestStreamFactory_CreateLowLatencyStream Test the creation of low-latency streams
 func TestStreamFactory_CreateLowLatencyStream(t *testing.T) {
 	factory := NewStreamFactory()
 	config := types.Config{
@@ -1650,12 +1650,12 @@ func TestStreamFactory_CreateLowLatencyStream(t *testing.T) {
 		}
 	}()
 
-	// 验证低延迟配置
+	// Verify low-latency configurations
 	expectedConfig := types.LowLatencyConfig()
 	assert.Equal(t, expectedConfig, stream.config.PerformanceConfig)
 }
 
-// TestStreamFactory_CreateCustomPerformanceStream 测试创建自定义性能配置流
+// TestStreamFactory_CreateCustomPerformanceStream Test to create custom performance configuration streams
 func TestStreamFactory_CreateCustomPerformanceStream(t *testing.T) {
 	factory := NewStreamFactory()
 	config := types.Config{
@@ -1688,11 +1688,11 @@ func TestStreamFactory_CreateCustomPerformanceStream(t *testing.T) {
 		}
 	}()
 
-	// 验证自定义配置
+	// Verify custom configurations
 	assert.Equal(t, customPerfConfig, stream.config.PerformanceConfig)
 }
 
-// TestStreamFactory_CreateStreamWithWindow 测试创建带窗口的流
+// TestStreamFactory_CreateStreamWithWindow Test the creation of a stream with a window
 func TestStreamFactory_CreateStreamWithWindow(t *testing.T) {
 	factory := NewStreamFactory()
 	config := types.Config{
@@ -1715,7 +1715,7 @@ func TestStreamFactory_CreateStreamWithWindow(t *testing.T) {
 	}()
 }
 
-// TestStreamFactory_CreateStreamWithInvalidStrategy 测试创建无效策略的流
+// TestStreamFactory_CreateStreamWithInvalidStrategy Test the flow that creates invalid policies
 func TestStreamFactory_CreateStreamWithInvalidStrategy(t *testing.T) {
 	factory := NewStreamFactory()
 	config := types.Config{
@@ -1728,12 +1728,12 @@ func TestStreamFactory_CreateStreamWithInvalidStrategy(t *testing.T) {
 	}
 
 	_, err := factory.CreateStream(config)
-	// 应该报错，因为策略无效
+	// An error should be reported because the strategy is ineffective
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid overflow strategy")
 }
 
-// TestStreamFactory_CreateWindow 测试窗口创建
+// TestStreamFactory_CreateWindow Create test window
 func TestStreamFactory_CreateWindow(t *testing.T) {
 	factory := NewStreamFactory()
 	config := types.Config{
@@ -1749,7 +1749,7 @@ func TestStreamFactory_CreateWindow(t *testing.T) {
 	assert.NotNil(t, win)
 }
 
-// TestStreamFactory_CreateStreamInstance 测试流实例创建
+// TestStreamFactory_CreateStreamInstance Create test stream instances
 func TestStreamFactory_CreateStreamInstance(t *testing.T) {
 	factory := NewStreamFactory()
 	config := types.Config{
@@ -1766,14 +1766,14 @@ func TestStreamFactory_CreateStreamInstance(t *testing.T) {
 	assert.Equal(t, config, stream.config)
 }
 
-// TestStreamFactory_Performance 测试工厂性能
+// TestStreamFactory_Performance Testing plant performance
 func TestStreamFactory_Performance(t *testing.T) {
 	factory := NewStreamFactory()
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
 	}
 
-	// 创建多个流实例，验证工厂性能
+	// Create multiple stream instances to verify plant performance
 	streams := make([]*Stream, 10)
 	for i := 0; i < 10; i++ {
 		stream, err := factory.CreateStream(config)
@@ -1781,13 +1781,13 @@ func TestStreamFactory_Performance(t *testing.T) {
 		streams[i] = stream
 	}
 
-	// 清理
+	// Cleanup
 	for _, stream := range streams {
 		stream.Stop()
 	}
 }
 
-// TestStreamFactory_ConcurrentCreation 测试并发创建流
+// TestStreamFactory_ConcurrentCreation Test concurrency to create streams
 func TestStreamFactory_ConcurrentCreation(t *testing.T) {
 	factory := NewStreamFactory()
 	config := types.Config{
@@ -1799,7 +1799,7 @@ func TestStreamFactory_ConcurrentCreation(t *testing.T) {
 	errors := make([]error, numGoroutines)
 	done := make(chan struct{})
 
-	// 并发创建流
+	// Simultaneously launching and creating streams
 	for i := 0; i < numGoroutines; i++ {
 		go func(index int) {
 			stream, err := factory.CreateStream(config)
@@ -1809,12 +1809,12 @@ func TestStreamFactory_ConcurrentCreation(t *testing.T) {
 		}(i)
 	}
 
-	// 等待所有goroutine完成
+	// Wait for all goroutines to complete
 	for i := 0; i < numGoroutines; i++ {
 		<-done
 	}
 
-	// 验证结果
+	// Verify the results
 	for i := 0; i < numGoroutines; i++ {
 		assert.NoError(t, errors[i])
 		assert.NotNil(t, streams[i])

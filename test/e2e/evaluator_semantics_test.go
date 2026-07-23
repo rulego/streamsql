@@ -8,22 +8,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 求值器语义探针：从 SQL 标准语义推导期望值，验证 NULL 传播 / 字符串参与算术 / 路由边界。
-// 目的：探明三套求值器接缝（NULL 三值、float64 陷阱、substring 路由）是潜在风险还是现行 bug。
+// Evaluator semantic probe: Deduces expected values from SQL standard semantics to verify NULL propagation
+// Objective: To determine whether the three sets of evaluator seams (NULL three-value, float64 trap, substring routing) are potential risks or existing bugs.
 
-// NULL 在算术里应传播（SQL：NULL + n = NULL），不应被当作 0。
+// NULL should be propagated in arithmetic (SQL:NULL + n = NULL) and should not be treated as 0.
 func TestEvalSem_NullInArithmetic(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT temperature + 10 AS x FROM stream"))
 	defer ssql.Stop()
 
-	// 正常值：5 + 10 = 15
+	// Normal value: 5 + 10 = 15
 	r1, err := ssql.EmitSync(map[string]any{"temperature": 5.0})
 	require.NoError(t, err)
 	require.NotNil(t, r1)
 	assert.Equal(t, 15.0, asFloat64(r1["x"]))
 
-	// nil 应传播为 nil，而非 0+10=10
+	// NIL should propagate as nil, not 0+10=10
 	r2, err := ssql.EmitSync(map[string]any{"temperature": nil})
 	require.NoError(t, err)
 	if r2 != nil {
@@ -31,25 +31,25 @@ func TestEvalSem_NullInArithmetic(t *testing.T) {
 	}
 }
 
-// WHERE 中 NULL 与数值比较：SQL 三值逻辑下 NULL > 20 为 UNKNOWN，行应被过滤掉。
+// Comparison of NULL and Numeric Values in WHERE Values: In SQL three-value logic, NULL > 20 is UNKNOWN, so rows should be filtered out.
 func TestEvalSem_NullInWhereComparison(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT temperature FROM stream WHERE temperature > 20"))
 	defer ssql.Stop()
 
-	// 正常值通过
+	// Normal values pass
 	r1, err := ssql.EmitSync(map[string]any{"temperature": 25.0})
 	require.NoError(t, err)
 	require.NotNil(t, r1, "25 > 20 应通过 WHERE")
 
-	// nil 比较应为 UNKNOWN → 行被过滤（r2=nil）
+	// nil comparison should be UNKNOWN → rows filtered (r2=nil)
 	r2, err := ssql.EmitSync(map[string]any{"temperature": nil})
 	require.NoError(t, err)
 	assert.Nil(t, r2, "NULL > 20 应为 UNKNOWN，行应被过滤")
 }
 
-// 字符串参与算术：SQL 下字符串与数值运算应为类型错误/NULL，不应把字符串长度当数值。
-// 探测 expr 包 evaluateNode 的 float64 陷阱（非数字字符串 → float64(len)）。
+// String Participation in Arithmetic: In SQL, string and numeric operations should be type error/NULL, and string length should not be treated as a value.
+// Detect float64 traps (non-numeric strings → float64(len)) of the expr packet evaluateNode.
 func TestEvalSem_StringInArithmetic(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT name * 2 AS x FROM stream"))
@@ -57,13 +57,13 @@ func TestEvalSem_StringInArithmetic(t *testing.T) {
 
 	r, err := ssql.EmitSync(map[string]any{"name": "abc"})
 	require.NoError(t, err)
-	// "abc" 长度为 3；若命中 float64 陷阱会得到 6.0。SQL 正确结果应是 NULL/错误，绝不是 6.0。
+	// "abc" is 3 lengths; hitting the float64 trap grants 6.0. The correct SQL result should be NULL/error, definitely not 6.0.
 	if r != nil {
 		assert.NotEqual(t, 6.0, asFloat64(r["x"]), "字符串不应被当作长度 3 参与算术得 6.0（float64 陷阱）")
 	}
 }
 
-// CASE 中 NULL 分支：未命中且无 ELSE → NULL（SQL 标准）。
+// NULL branch in CASE: Missed and without ELSE → NULL (SQL standard).
 func TestEvalSem_CaseNoMatchNull(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT CASE WHEN temperature > 100 THEN 'hot' END AS label FROM stream"))

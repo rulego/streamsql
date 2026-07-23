@@ -87,8 +87,8 @@ func (bf *BaseFunction) ValidateArgCount(args []any) error {
 	return nil
 }
 
-// Validate 提供默认校验（仅检查参数个数）。嵌入 BaseFunction 的函数若无需额外校验，
-// 可省略 Validate；需要类型/取值校验时直接覆盖此方法。
+// Validate provides default validation (only checks the number of parameters). If a function embedded in BaseFunction does not require additional validation,
+// Validate can be omitted; When type/value validation is required, this method is overridden directly.
 func (bf *BaseFunction) Validate(args []any) error {
 	return bf.ValidateArgCount(args)
 }

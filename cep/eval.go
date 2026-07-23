@@ -1,13 +1,13 @@
-// Package cep 实现 MATCH_RECOGNIZE 模式识别（SQL:2016）。
+// Package cep implements MATCH_RECOGNIZE pattern recognition (SQL:2016).
 //
-// 架构：
-//   - pattern.go  组合式模式树 → NFA（Thompson 构造），支持序列/量词/选择/分组/PERMUTE。
-//   - nfa.go      NFA 状态机 + epsilon 闭包。
-//   - eval.go     DEFINE/MEASURES 求值：表达式在 NewEngine 期预编译（prepare），
-//     导航/聚合/符号限定字段改写为占位符，复用手写 expr 引擎求值。
-//   - engine.go   分区 NFA 模拟 + LRU + WITHIN/行数上限（有界）+ MEASURES 投影 + 匹配输出。
+// Structure:
+//   - pattern.go Composable schema tree → NFA (Thompson construct), supporting sequences/quantifiers/selection/grouping/PERMUTE.
+//   - nfa.go NFA State Machine + epsilon closure.
+//   - eval.go DEFINE/MEASURES Evaluation: The expression is precompiled during the NewEngine phase,
+//     Navigation/aggregation/symbol constraint fields are rewritten as placeholders, and the handwritten expr engine is used for evaluation.
+//   - engine.go Partition NFA Analog + LRU + WITHIN/ Row Limit (Bounded) + MEASURES Projection + Match Output.
 //
-// CEP 是独立子系统，不依赖也不污染现有直连/窗口/分析路径与三套求值器。
+// CEP is an independent subsystem that neither depends on nor contaminates existing direct/window/analysis paths and three sets of evaluators.
 package cep
 
 import (
@@ -21,9 +21,9 @@ import (
 	"github.com/rulego/streamsql/utils/cast"
 )
 
-// matchCtx 是 DEFINE/MEASURES 求值的上下文：一次匹配尝试的全部行 + 分类标签。
-// DEFINE 求值时 candidate=待分类行、cur=len(rows)（candidate 概念上在 cur 位置）；
-// MEASURES 求值时 candidate=nil、cur=求值行下标（ONE ROW=末行）。
+// matchCtx is the context for DEFINE/MEASURES evaluation: all rows + classification labels for a single match attempt.
+// When evaluating DEFINE, candidate = row to be classified, cur = len(rows) (candidate is conceptually at the cur position);
+// When evaluating MEASURES, candidate=nil, cur=inscript of the evaluated line (ONE ROW = last line).
 type matchCtx struct {
 	rows        []map[string]any
 	labels      []string
@@ -31,14 +31,14 @@ type matchCtx struct {
 	candidate   map[string]any
 	candLabel   string
 	symbols     map[string]bool
-	subsets     map[string][]string // SUBSET 名 → 成员符号（按成员集合过滤；nil=普通符号）
+	subsets     map[string][]string // SUBSET Name → Member Symbol (filter by member set; nil = common symbol)
 	matchNumber int
 }
 
-// placeholder 前缀：导航/聚合/符号限定字段求值后注入 base 的合成键。
+// placeholder prefix: Evaluates the navigation/aggregation/symbol limit field and injects the base composite key.
 const placeholderPrefix = "__cep_"
 
-// ekind 标识表达式 token 的类别（仅 rewriter 内部用）。
+// ekind identifies the expression token category (used only internally in rewriter).
 type ekind int
 
 const (
@@ -57,8 +57,8 @@ type etoken struct {
 	val  string
 }
 
-// tokenize 表达式为 token 流。仅服务于结构识别（函数调用、符号限定、括号配平）；
-// 算术/比较/逻辑的语义交给 expr 引擎，故运算符一律按原样保留。
+// The tokenize expression is token stream. It only serves structure recognition (function calls, symbol qualification, bracket balancing);
+// The semantics of arithmetic/comparison/logic are handed over to the expr engine, so operators are always kept as is.
 func tokenize(s string) ([]etoken, error) {
 	var toks []etoken
 	runes := []rune(s)
@@ -105,7 +105,7 @@ func tokenize(s string) ([]etoken, error) {
 			toks = append(toks, etoken{ekNumber, string(runes[i:j])})
 			i = j
 		default:
-			// 运算符（含多字符 >=, <=, !=, ==, &&, ||）一律收集为 op，原样保留。
+			// Operators (with multicharacter >=, <=,!=, ==, &&, ||) All are collected as OP and kept as is.
 			j := i
 			for j < len(runes) && isOpRune(runes[j]) {
 				j++
@@ -128,47 +128,47 @@ func isOpRune(c rune) bool {
 	return false
 }
 
-// navFuncs 是 CEP 导航/聚合函数名（rewriter 拦截它们，其余函数调用原样透传给 expr 引擎）。
+// navFuncs is the CEP navigation/aggregation function name (rewriter intercepts them, and other function calls are passed as-is to the expr engine).
 var navFuncs = map[string]bool{
 	"PREV": true, "NEXT": true, "FIRST": true, "LAST": true,
 	"CLASSIFIER": true, "MATCH_NUMBER": true,
 	"SUM": true, "AVG": true, "COUNT": true, "MIN": true, "MAX": true,
 }
 
-// phKind 标识占位符的求值方式（预编译产物）。
+// phKind identification placeholder evaluation method (precompiled product).
 type phKind int
 
 const (
-	phNav phKind = iota // 导航/聚合：name+args
-	phSym               // 符号限定字段：name(symbol)+field
+	phNav phKind = iota // Navigation/aggregation: name+args
+	phSym               // Symbol-limited field: name(symbol)+field
 )
 
-// phDesc 描述一个占位符如何从 matchCtx 求值。占位符键 = placeholderPrefix+i+"__"。
+// phDesc describes how a placeholder evaluates from matchCtx. Placeholder key = placeholderPrefix+i+ "__".
 type phDesc struct {
 	kind  phKind
-	name  string   // phNav: 函数名；phSym: 符号名
-	args  []string // phNav: 参数片段
-	field string   // phSym: 字段名（已去引号/反引号）
-	final bool     // phNav: true=FINAL（整段匹配），false=RUNNING（到当前行，默认）
+	name  string   // phNav: Function name; phSym: symbol name
+	args  []string // phNav: Parameter fragment
+	field string   // phSym: Field name (unquoted/incorrect)
+	final bool     // phNav: true=FINAL (full segment match), false=RUNNING (to current line, default)
 }
 
-// preparedExpr 是预编译的 DEFINE/MEASURES 表达式：改写后的字符串经 expr.NewExpression
-// 编译一次缓存；求值时只重算各占位符值与裸字段，复用编译产物（避免热路径重复解析）。
+// preparedExpr is a precompiled DEFINE/MEASURES expression: the rewritten string is processed by expr.NewExpression
+// Compiling a single cache; When evaluating, only placeholder values and bare fields are recalculated, and the compiled product is reused (to avoid repeated parsing of hot paths).
 type preparedExpr struct {
 	src        string
 	compiled   *expr.Expression
-	phs        []phDesc  // 占位符描述（phs[i] → key placeholderPrefix+i+"__"）
-	bareFields []string  // 透传裸字段名（求值时灌入当前行字段）
-	needsHist  bool      // 含导航/聚合/符号限定 → 求值需历史行
+	phs        []phDesc // Placeholder Description (phs[i] → key placeholderPrefix+i+"__")
+	bareFields []string // Pass-through bare field name (inserted into the current row field during evaluation)
+	needsHist  bool     // Includes navigation/aggregation/symbol constraints → Evaluation requires historical rows
 }
 
-// placeholderKey 返回第 i 个占位符的 base 键。
+// placeholderKey returns the base key of the i-th placeholder.
 func placeholderKey(i int) string {
 	return placeholderPrefix + strconv.Itoa(i) + "__"
 }
 
-// prepare 把表达式编译为 preparedExpr（tokenize → 改写计划 → NewExpression）。
-// 纯结构性，不求值；失败（词法/改写/编译）返回 error，供 Validate fail-fast。
+// prepare compiles the expression into preparedExpr(tokenize → rewrite plan → NewExpression).
+// Purely structural, not valuable; Failure (lexical/paraphrase/compile) returns error for validate fail-fast.
 func prepare(src string, symbols map[string]bool) (*preparedExpr, error) {
 	src = strings.TrimSpace(src)
 	toks, err := tokenize(src)
@@ -188,16 +188,16 @@ func prepare(src string, symbols map[string]bool) (*preparedExpr, error) {
 		final := false
 		if t.kind == ekIdent {
 			up := strings.ToUpper(t.val)
-			// FINAL/RUNNING 前缀修饰紧随其后的导航/聚合（仅影响聚合与 FIRST/LAST）。
+			// The FINAL/RUNNING prefix modifies immediately after navigation/aggregation (only affecting aggregation and FIRST/LAST).
 			if (up == "FINAL" || up == "RUNNING") && i+2 < len(toks) &&
 				toks[i+1].kind == ekIdent && navFuncs[strings.ToUpper(toks[i+1].val)] &&
 				toks[i+2].kind == ekLParen {
 				final = (up == "FINAL")
-				i++ // 消耗前缀，下移到函数名 token
+				i++ // Consume prefixes and move them down to the function token name
 				t = toks[i]
 				up = strings.ToUpper(t.val)
 			}
-			// 函数调用：PREV(...) / SUM(...) 等。
+			// Function calls: PREV(...) / SUM(...), etc.
 			if navFuncs[up] && i+1 < len(toks) && toks[i+1].kind == ekLParen {
 				args, consumed, err := readCallArgs(toks, i+1)
 				if err != nil {
@@ -208,8 +208,8 @@ func prepare(src string, symbols map[string]bool) (*preparedExpr, error) {
 				i += 1 + consumed
 				continue
 			}
-			// SYMBOL.field（符号限定）：SYMBOL 是已声明模式变量且后跟 .field。
-			// field 可为标识符或反引号/引号包裹的保留字列名。
+			// SYMBOL.field: SYMBOL is a declared mode variable followed by a.field.
+			// field can be an identifier or a reserved column name wrapped in backquotes/quotes.
 			if symbols[t.val] && i+2 < len(toks) && toks[i+1].kind == ekDot &&
 				(toks[i+2].kind == ekIdent || toks[i+2].kind == ekString) {
 				fld := fieldName(toks[i+2].val)
@@ -219,7 +219,7 @@ func prepare(src string, symbols map[string]bool) (*preparedExpr, error) {
 				continue
 			}
 		}
-		// 其余原样透传（裸字段、运算符、标量函数、字面量）。
+		// The rest is passed as is (bare fields, operators, scalar functions, literals).
 		pieces = append(pieces, t.val)
 		if t.kind == ekIdent {
 			p.bareFields = append(p.bareFields, t.val)
@@ -228,7 +228,7 @@ func prepare(src string, symbols map[string]bool) (*preparedExpr, error) {
 	}
 	joined := joinTokens(pieces)
 	if joined == "" {
-		return &preparedExpr{src: src, compiled: nil}, nil // 空表达式（未定义符号）
+		return &preparedExpr{src: src, compiled: nil}, nil // Null expression (undefined symbol)
 	}
 	compiled, err := expr.NewExpression(joined)
 	if err != nil {
@@ -238,16 +238,16 @@ func prepare(src string, symbols map[string]bool) (*preparedExpr, error) {
 	return p, nil
 }
 
-// evalPrepared 用 ctx 求值预编译表达式：重算占位符值 + 灌入裸字段，复用编译产物。
-// baseMapPool 复用 evalPrepared 的 base map：DEFINE/MEASURES 每次求值建一次 base（热路径主分配源）。
-// EvaluateValueWithNull 同步求值、返回标量/字段引用不持 base，Put 回 Pool 前清空即可复用。
+// evalPrepared evaluates the precompiled expression using ctx: recalculates placeholder values + injects bare fields, and reuses the compiled product.
+// baseMapPool reuses evalPrepared's base map: DEFINE/MEASURES, and builds a base (main allocation source for hot paths) after each evaluation.
+// EvaluateValueWithNull synchronously evaluates and returns scalar/field references without holding base; Put can be reused by clearing before returning to the pool.
 var baseMapPool = sync.Pool{
 	New: func() any { return make(map[string]any, 8) },
 }
 
 func evalPrepared(p *preparedExpr, ctx *matchCtx) (any, bool, error) {
 	if p == nil || p.compiled == nil {
-		return nil, true, nil // 空表达式 → NULL（调用方按未定义符号恒真处理）
+		return nil, true, nil // Null expressions: → NULL (caller is treated as inherent to undefined symbols)
 	}
 	base := baseMapPool.Get().(map[string]any)
 	for k := range base {
@@ -270,7 +270,7 @@ func evalPrepared(p *preparedExpr, ctx *matchCtx) (any, bool, error) {
 	return v, isNull, err
 }
 
-// evalDesc 求值一个占位符描述。
+// evalDesc evaluates a placeholder description.
 func evalDesc(d phDesc, ctx *matchCtx) any {
 	switch d.kind {
 	case phNav:
@@ -292,8 +292,8 @@ func currentRow(ctx *matchCtx) map[string]any {
 	return nil
 }
 
-// readCallArgs 从 toks[at]（应为 ekLParen）读取到配平的 ekRParen，返回括号内按顶层逗号
-// 切分的参数片段（每段是一组 token，原样拼接为字符串）与消耗的 token 数（含括号）。
+// readCallArgs reads the trimmed ekRParen from toks[at] (which should be ekLParen), returns the parentheses with a top comma
+// The parameter fragments to be split (each segment is a set of tokens, concatenated as a string) and the number of tokens consumed (including parentheses).
 func readCallArgs(toks []etoken, at int) ([]string, int, error) {
 	if at >= len(toks) || toks[at].kind != ekLParen {
 		return nil, 0, fmt.Errorf("expected '(' after CEP function")
@@ -333,7 +333,7 @@ func joinTokens(parts []string) string {
 	var sb strings.Builder
 	for i, p := range parts {
 		if i > 0 {
-			// 标识符/数字与标识符/数字之间需要空格，避免粘成新 token；运算符与点号不加。
+			// Spaces are needed between identifiers/numbers to avoid sticking them into new tokens; Operators and dots are not added.
 			if needSpace(parts[i-1], p) {
 				sb.WriteByte(' ')
 			}
@@ -355,8 +355,8 @@ func isAlphaNumLike(s string) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
-// evalNav 求值一个导航/聚合调用。final 仅影响聚合与 FIRST/LAST（FINAL=整段匹配）。
-// args 为括号内顶层参数片段（已去括号、去外层逗号）。
+// evalNav evaluates a navigation/aggregation call. final only affects aggregation and FIRST/LAST (FINAL = whole segment match).
+// args are the top-level parameter fragments inside parentheses (parentheses removed, outer commas removed).
 func evalNav(name string, args []string, ctx *matchCtx, final bool) (any, error) {
 	switch name {
 	case "CLASSIFIER":
@@ -383,7 +383,7 @@ func evalNav(name string, args []string, ctx *matchCtx, final bool) (any, error)
 	return nil, fmt.Errorf("unsupported CEP function %s", name)
 }
 
-// posIndex 返回当前行下标：DEFINE=len(rows)（候选位置），MEASURES=cur。
+// posIndex returns the current row index: DEFINE=len(rows)(candidate position), MEASURES=cur.
 func posIndex(ctx *matchCtx) int {
 	if ctx.candidate != nil {
 		return len(ctx.rows)
@@ -391,7 +391,7 @@ func posIndex(ctx *matchCtx) int {
 	return ctx.cur
 }
 
-// stripQuotes 去除首尾的反引号/单引号/双引号。
+// stripQuotes: Remove backquotes, single quotes, and double quotes from the beginning and end.
 func stripQuotes(a string) string {
 	a = strings.TrimSpace(a)
 	a = strings.Trim(a, "`")
@@ -401,7 +401,7 @@ func stripQuotes(a string) string {
 	return a
 }
 
-// fieldName 从参数片段提取字段名（去 SYMBOL. 前缀、去引号/反引号）。COUNT(*) 的 '*' 原样返回。
+// fieldName Extracts field names from parameter fragments (remove SYMBOL. prefix, dequotation/backquotation). The '*' of COUNT(*) returns as is.
 func fieldName(arg string) string {
 	a := stripQuotes(arg)
 	if dot := strings.LastIndex(a, "."); dot >= 0 {
@@ -410,8 +410,8 @@ func fieldName(arg string) string {
 	return a
 }
 
-// fieldAndSymbol 拆分聚合参数为（字段, 符号）。
-// "A.v" → ("v","A")；"v" → ("v","")；"*" → ("*","")；反引号/引号包裹均去除。
+// fieldAndSymbol splits the aggregate parameter as (field, symbol).
+// "A.v" → ("v","A");  "v" → ("v","");  "*" → ("*","");  Remove backquotes/quotation packets.
 func fieldAndSymbol(arg string) (field, symbol string) {
 	a := strings.TrimSpace(arg)
 	if dot := strings.IndexByte(a, '.'); dot >= 0 {
@@ -431,8 +431,8 @@ func optInt(args []string, idx, def int) int {
 	return def
 }
 
-// rowsLabels 返回求值行集：DEFINE 含候选；MEASURES 下 final=false 截到当前行（RUNNING），
-// final=true 取整段（FINAL）。aggregate 与 fromEndField 共用。
+// rowsLabels returns the evaluated row set: DEFINE with candidates; MEASURES final = false is taken to the current line (RUNNING),
+// final = true takes the whole segment (FINAL). aggregate is shared with fromEndField.
 func rowsLabels(ctx *matchCtx, final bool) ([]map[string]any, []string) {
 	rows := ctx.rows
 	labels := ctx.labels
@@ -451,7 +451,7 @@ func rowsLabels(ctx *matchCtx, final bool) ([]map[string]any, []string) {
 	return rows, labels
 }
 
-// positionalField 求 PREV/NEXT：从当前位置偏移取行。越界返回 nil。
+// positionalField to get PREV/NEXT: Offset from the current position to fetch rows. Crossing boundaries to return to nil.
 func positionalField(ctx *matchCtx, args []string, sign int) any {
 	if len(args) == 0 {
 		return nil
@@ -465,8 +465,8 @@ func positionalField(ctx *matchCtx, args []string, sign int) any {
 	return rows[idx][f]
 }
 
-// fromEndField 求 FIRST/LAST：从头/尾取第 n 个（n 从 1 起）。n<1 钳为 1，避免越界。
-// final=true 时对整段匹配取（FINAL），否则截到当前行（RUNNING）。
+// fromEndField to find FIRST/LAST: take the nth from the end/end (n starts from 1). n<1 clamp is 1 to avoid crossing boundaries.
+// When final=true, the entire segment is matched to FINAL; otherwise, it is cut to the current line (RUNNING).
 func fromEndField(ctx *matchCtx, args []string, fromHead bool, final bool) any {
 	if len(args) == 0 {
 		return nil
@@ -494,10 +494,10 @@ func fromEndField(ctx *matchCtx, args []string, fromHead bool, final bool) any {
 	return rows[idx][f]
 }
 
-// aggregate 求匹配范围内的聚合（RUNNING 语义）。
-// 符号限定（SUM(A.x)）仅对该符号标签行聚合；COUNT(expr) 计非 NULL 值，COUNT(*) 计行数。
-// 数值转换用 cast.ToFloat64E（支持 uint/字符串数字等），非数值按 NULL 跳过。
-// aggregate 求匹配范围内的聚合。final=true 取整段匹配（FINAL），否则截到当前行（RUNNING）。
+// aggregate to find the RUNNING semantics within the matching range.
+// Symbol qualifiers (SUM(A.x)) aggregate only the row of the symbol label; COUNT(expr) counts non-NULL values, COUNT(*) counts the number of rows.
+// Numerical conversion uses cast.ToFloat64E (supports uint/string numbers, etc.), skips non-numeric values by NULL.
+// aggregate Calculate the aggregation within the matching range. final=true Matches the whole segment (FINAL); otherwise, it cuts to the current line (RUNNING).
 func aggregate(name string, args []string, ctx *matchCtx, final bool) any {
 	var rows []map[string]any
 	var labels []string
@@ -512,7 +512,7 @@ func aggregate(name string, args []string, ctx *matchCtx, final bool) any {
 	cntRows := 0
 	for i, r := range rows {
 		if !labelMatches(labels[i], symbol, ctx.subsets) {
-			continue // 符号/SUBSET 限定：只计成分标签行
+			continue // Symbol/SUBSET limit: Only the ingredient label line counts
 		}
 		cntRows++
 		if star {
@@ -520,7 +520,7 @@ func aggregate(name string, args []string, ctx *matchCtx, final bool) any {
 		}
 		rv, has := r[f]
 		if !has || rv == nil {
-			continue // NULL 不计
+			continue // NULL ignores it
 		}
 		cntNonNull++
 		if x, err := cast.ToFloat64E(rv); err == nil {
@@ -574,8 +574,8 @@ func aggregate(name string, args []string, ctx *matchCtx, final bool) any {
 	return nil
 }
 
-// labelMatches 报告 lbl 是否匹配 symbol（普通符号等值；symbol 是 SUBSET 名时属于其成分）。
-// 供 aggregate/resolveSymbolField/seqOfLabel 共用，保证 SUBSET 标签语义一致。
+// labelMatches reports whether lbl matches a symbol (a common symbol equivalent; symbol is a component of the SUBSET name).
+// Shared by aggregate/resolveSymbolField/seqOfLabel to ensure consistency between SUBSET tags.
 func labelMatches(lbl, symbol string, subsets map[string][]string) bool {
 	if symbol == "" || lbl == symbol {
 		return true
@@ -588,8 +588,8 @@ func labelMatches(lbl, symbol string, subsets map[string][]string) bool {
 	return false
 }
 
-// resolveSymbolField 取符号 SYMBOL（或 SUBSET 的任一成分）在匹配中最末出现行的字段值。
-// DEFINE 时若候选标签属于该符号/成分，取候选行该字段。
+// resolveSymbolField retrieves the last row of the SYMBOL (or any component of the SUBSET) in the match.
+// When DEFINED, if the candidate tag belongs to that symbol/component, select the candidate line for that field.
 func resolveSymbolField(ctx *matchCtx, symbol, field string) any {
 	if ctx.candidate != nil && labelMatches(ctx.candLabel, symbol, ctx.subsets) {
 		return ctx.candidate[field]
@@ -602,7 +602,7 @@ func resolveSymbolField(ctx *matchCtx, symbol, field string) any {
 	return nil
 }
 
-// truthy SQL 布尔语义：数值非零、布尔真、非空字符串为真。
+// truthy SQL Boolean semantics: Numeric values are nonzero, boolean true, and non-empty strings are true.
 func truthy(v any) bool {
 	switch x := v.(type) {
 	case bool:
@@ -619,18 +619,18 @@ func truthy(v any) bool {
 	return v != nil
 }
 
-// EvalDefine 即时编译并求值符号的 DEFINE 条件（布尔）。仅供测试/外部使用；
-// 引擎热路径用 Engine.evalDefine（预编译产物）。buffer=已匹配行，candidate=待分类行。
-// 不携带 SUBSET 成员表——含 SUBSET 限定的引用（如 S.v）需用 EvalDefineWithSubsets。
+// EvalDefine instantly compiles and evaluates the DEFINE condition (Boolean) of the symbol. For testing/external use only;
+// The engine thermal path uses Engine.evalDefine (precompiled product). buffer = matched row, candidate = row to be classified.
+// Does not carry SUBSET member tables—references with SUBSET-restricted elements (such as S.v) must be supported by EvalDefineWithSubsets.
 func EvalDefine(cond string, buffer []map[string]any, labels []string, candidate map[string]any, candLabel string, symbols map[string]bool) bool {
 	return EvalDefineWithSubsets(cond, buffer, labels, candidate, candLabel, symbols, nil)
 }
 
-// EvalDefineWithSubsets 同 EvalDefine，但携带 SUBSET 成员表，支持 SUBSET 限定的引用。
+// EvalDefineWithSubsets is the same as EvalDefine, but carries a SUBSET member table and supports SUBSET-specific references.
 func EvalDefineWithSubsets(cond string, buffer []map[string]any, labels []string, candidate map[string]any, candLabel string, symbols map[string]bool, subsets map[string][]string) bool {
 	cond = strings.TrimSpace(cond)
 	if cond == "" {
-		return true // 未定义的符号恒为真（SQL 标准）
+		return true // Undefined symbols are always true (SQL standard)
 	}
 	p, err := prepare(cond, symbols)
 	if err != nil {
@@ -644,13 +644,13 @@ func EvalDefineWithSubsets(cond string, buffer []map[string]any, labels []string
 	return truthy(v)
 }
 
-// EvalMeasure 即时编译并求值 MEASURES 表达式（值）。仅供测试/外部使用。
-// 不携带 SUBSET 成员表——含 SUBSET 限定的引用需用 EvalMeasureWithSubsets。
+// EvalMeasure instantly compiles and evaluates the MEASURES expression (value). For testing/external use only.
+// Does not carry SUBSET member tables—references with SUBSET-specific references require EvalMeasureWithSubsets.
 func EvalMeasure(expression string, rows []map[string]any, labels []string, cur, matchNumber int, symbols map[string]bool) (any, bool) {
 	return EvalMeasureWithSubsets(expression, rows, labels, cur, matchNumber, symbols, nil)
 }
 
-// EvalMeasureWithSubsets 同 EvalMeasure，但携带 SUBSET 成员表，支持 SUBSET 限定的引用。
+// EvalMeasureWithSubsets is the same as EvalMeasure, but carries a SUBSET member table and supports references specific to SUBSET.
 func EvalMeasureWithSubsets(expression string, rows []map[string]any, labels []string, cur, matchNumber int, symbols map[string]bool, subsets map[string][]string) (any, bool) {
 	p, err := prepare(expression, symbols)
 	if err != nil {

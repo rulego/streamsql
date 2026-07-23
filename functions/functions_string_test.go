@@ -82,7 +82,7 @@ func TestNewStringFunctions(t *testing.T) {
 			if !exists {
 				t.Fatalf("Function %s not found", tt.funcName)
 			}
-			// 验证参数
+			// Validate parameters
 			if err := fn.Validate(tt.args); err != nil {
 				t.Errorf("Validate() error = %v", err)
 				return
@@ -102,7 +102,7 @@ func TestNewStringFunctions(t *testing.T) {
 				return
 			}
 
-			// 特殊处理 split 函数的结果比较
+			// Special handling of split function results comparison
 			if tt.funcName == "split" {
 				expectedSlice, ok := tt.expected.([]string)
 				if !ok {
@@ -133,7 +133,7 @@ func TestNewStringFunctions(t *testing.T) {
 	}
 }
 
-// TestStringFunctionValidation 测试字符串函数的参数验证
+// TestStringFunctionValidation: Parameter validation of the test string function
 func TestStringFunctionValidation(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -183,7 +183,7 @@ func TestStringFunctionValidation(t *testing.T) {
 	}
 }
 
-// TestStringFunctionErrors 测试字符串函数的错误处理
+// TestStringFunctionErrors: Handles errors in string functions
 func TestStringFunctionErrors(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -257,7 +257,7 @@ func TestStringFunctionErrors(t *testing.T) {
 	}
 }
 
-// TestStringFunctionEdgeCases 测试字符串函数的边界情况
+// TestStringFunctionEdgeCases tests the boundary state of the string function
 func TestStringFunctionEdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -322,7 +322,7 @@ func TestStringFunctionEdgeCases(t *testing.T) {
 			expected: []string{"h", "e", "l", "l", "o"},
 			wantErr:  false,
 		},
-		// 新增测试用例
+		// Add test cases
 		{
 			name:     "length array",
 			function: NewLengthFunction(),
@@ -384,14 +384,14 @@ func TestStringFunctionEdgeCases(t *testing.T) {
 			}
 
 			if !tt.wantErr {
-				// 特殊处理 split 函数的结果比较
+				// Special handling of split function results comparison
 				if tt.name == "split empty delimiter" {
 					expectedSlice, ok := tt.expected.([]string)
 					if !ok {
 						t.Errorf("Expected result is not []string")
 						return
 					}
-					// split函数返回的是[]string类型
+					// The split function returns the []string type
 					actualSlice, ok := result.([]string)
 					if !ok {
 						t.Errorf("Actual result is not []string")

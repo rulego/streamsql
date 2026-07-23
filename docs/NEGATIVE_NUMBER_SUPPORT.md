@@ -1,37 +1,37 @@
-# StreamSQL 负数支持文档
+# StreamSQL Negative support document
 
-## 概述
+## Overview
 
-StreamSQL 现在全面支持负数在 CASE 表达式中的使用。本文档总结了负数支持的完善情况、支持范围和使用建议。
+StreamSQL Now fully supports the use of negative numbers in CASE expressions. This document summarizes the improvement status, scope of support, and usage recommendations for negative number support.
 
-## ✅ 已支持的负数用法
+## ✅ Supported Negative Number Usage
 
-### 1. 基本负数常量
+### 1. Basic negative constants
 
 ```sql
--- CASE 表达式中的负数常量
+-- CASE Negative constants in expressions
 CASE WHEN temperature > 0 THEN 1 ELSE -1 END
 
--- 负数小数
+-- Negative decimal
 CASE WHEN temperature > 0 THEN 1.5 ELSE -2.5 END
 
--- 负零
+-- Negative zero
 CASE WHEN temperature = -0 THEN 1 ELSE 0 END
 ```
 
-### 2. 比较运算符后的负数
+### 2. Compare the negative number after the operator
 
 ```sql
--- 比较运算符后直接跟负数
+-- After comparing the operator, just follow the negative number
 CASE WHEN temperature < -10 THEN 'FREEZING' ELSE 'NORMAL' END
 CASE WHEN temperature >= -5.5 THEN 'ABOVE' ELSE 'BELOW' END
 CASE WHEN temperature > -20 THEN 'WARM' ELSE 'COLD' END
 ```
 
-### 3. 简单 CASE 表达式中的负数
+### 3. A negative number in a simple CASE expression
 
 ```sql
--- 简单 CASE 中使用负数作为匹配值
+-- In simple CASE, negative numbers are used as matching values
 CASE temperature 
   WHEN -10 THEN 'FROZEN'
   WHEN -5 THEN 'COLD'
@@ -40,127 +40,127 @@ CASE temperature
 END
 ```
 
-### 4. 算术表达式中的负数
+### 4. Negative numbers in arithmetic expressions
 
 ```sql
--- 括号内的负数运算
+-- Negative number operations in parentheses
 CASE WHEN temperature + (-10) > 0 THEN 1 ELSE 0 END
 CASE WHEN (temperature * -1) > 10 THEN 1 ELSE 0 END
 ```
 
-## ⚠️ 部分支持或限制
+## ⚠️ Partial support or limitations
 
-### 1. 函数参数中的负数表达式
+### 1. Negative number expressions in function parameters
 
 ```sql
--- 当前不完全支持：函数参数中的负数变量
+-- Currently not fully supported: negative number variables in function parameters
 CASE WHEN ABS(-temperature) > 10 THEN 1 ELSE 0 END  -- ❌ 
 
--- 推荐替代方案：使用括号或先计算
+-- Recommended alternative: use parentheses or calculate first
 CASE WHEN ABS(temperature * -1) > 10 THEN 1 ELSE 0 END  -- ✅
 ```
 
-### 2. BETWEEN 语句中的负数范围
+### 2. BETWEEN The range of negative numbers in a statement
 
 ```sql
--- 当前不支持：BETWEEN 与负数组合
+-- Currently not supported: BETWEEN with negative number combinations
 CASE WHEN temperature BETWEEN -20 AND -10 THEN 1 ELSE 0 END  -- ❌
 
--- 推荐替代方案：使用比较运算符
+-- Recommended alternative: Use comparison operators
 CASE WHEN temperature >= -20 AND temperature <= -10 THEN 1 ELSE 0 END  -- ✅
 ```
 
-### 3. SQL 中的空格分隔负数
+### 3. Spaces in SQL separate negative numbers
 
 ```sql
--- 避免在 SQL 中使用空格分隔的负数
-SELECT CASE WHEN temperature < - 10 THEN 'COLD' END  -- ❌ 解析问题
+-- Avoid using space-separated negative numbers in SQL
+SELECT CASE WHEN temperature < - 10 THEN 'COLD' END  -- ❌ Analyze the problem
 
--- 推荐写法：紧密连接或使用括号
+-- Recommended method: tightly connect or use parentheses
 SELECT CASE WHEN temperature < -10 THEN 'COLD' END   -- ✅
 SELECT CASE WHEN temperature < (-10) THEN 'COLD' END -- ✅
 ```
 
-## 🔧 技术实现
+## 🔧 Technical Implementation
 
-### 词法分析器增强
+### Lexical analyzer enhancement
 
-1. **智能负数识别**：
-   - 识别比较运算符后的负数（`<`, `>`, `<=`, `>=`, `==`, `!=`）
-   - 支持逻辑运算符后的负数（`AND`, `OR`）
-   - 支持 CASE 关键字后的负数（`WHEN`, `THEN`, `ELSE`）
+1. **Intelligent Negative Number Recognition**:
+   - Identify negative numbers after comparison operators (`<`, `>`, `<=`, `>=`, `==`, `!=`)
+   - Supports negative numbers after logical operators (`AND`, `OR`)
+   - Supports negative numbers after CASE keywords (`WHEN`, `THEN`, `ELSE`)
 
-2. **连续运算符检查优化**：
-   - 允许比较运算符后跟负数的合法组合
-   - 智能区分负数与减号运算符
+2. **Continuous Operator Check Optimization**:
+   - Allows legitimate combinations of comparison operators followed by negative numbers
+   - Intelligently distinguishes between negative and minus operators
 
-3. **空格处理**：
-   - 正确处理空格分隔的负数标记
-   - 改进 token 化过程以支持各种负数格式
+3. **Spaces**:
+   - Properly handle negative number markers separated by spaces
+   - Improved token process to support various negative number formats
 
-### 表达式求值增强
+### Expression Evaluation Enhancement
 
-1. **负数常量解析**：完全支持负整数和负小数
-2. **类型转换**：正确处理负数的数值转换
-3. **NULL 值处理**：负数与 NULL 值的正确交互
+1. **Negative Number Constants Analysis**: Fully supports negative integers and negative decimals
+2. **Type Conversion**: Correctly handle numerical conversion of negative numbers
+3. **NULL Value Processing**: Correct interaction between negative and NULL values
 
-## 📊 测试覆盖
+## 📊 Test coverage
 
-### 表达式级别测试
+### Expression-level testing
 
-- ✅ 负数常量在 THEN/ELSE 中
-- ✅ 负数常量在 WHEN 条件中  
-- ✅ 负数小数支持
-- ✅ 负数在算术表达式中
-- ✅ 负数在简单 CASE 中
-- ✅ 负零处理
+- ✅ Negative constants in THEN/ELSE
+- ✅ Negative constants in WHEN condition  
+- ✅ Negative decimal support
+- ✅ Negative numbers in arithmetic expressions
+- ✅ Negative numbers in simple CASE
+- ✅ Negative zero processing
 
-### SQL 集成测试
+### SQL Integration Testing
 
-- ✅ 完整 SQL 语句中的负数支持
-- ✅ 非聚合查询中的负数表达式
-- ✅ 聚合查询中的负数处理
+- ✅ Negative number support in full SQL statements
+- ✅ Negative expressions in non-aggregated queries
+- ✅ Handling negative numbers in aggregated queries
 
-## 🎯 使用建议
+## 🎯 Usage Recommendations
 
-### 1. 推荐的负数写法
+### 1. Recommended ways to write negative numbers
 
 ```sql
--- ✅ 推荐：紧密连接的负数
+-- ✅ Recommendation: Tightly connected negative numbers
 CASE WHEN temperature < -10 THEN 'FREEZING' END
 
--- ✅ 推荐：括号包围的负数（最安全）
+-- ✅ Recommendation: Negative numbers enclosed in parentheses (safest)
 CASE WHEN temperature < (-10) THEN 'FREEZING' END
 
--- ✅ 推荐：负数小数
+-- ✅ Recommended: Negative decimals
 CASE WHEN temperature < -10.5 THEN 'FREEZING' END
 ```
 
-### 2. 避免的写法
+### 2. Avoid writing it
 
 ```sql
--- ❌ 避免：空格分隔的负数
+-- ❌ Avoid: negative numbers separated by spaces
 CASE WHEN temperature < - 10 THEN 'FREEZING' END
 
--- ❌ 避免：复杂的负数表达式在函数中
+-- ❌ Avoid: Complex negative number expressions in functions
 CASE WHEN ABS(-temperature) > 10 THEN 1 END
 ```
 
-### 3. 最佳实践
+### 3. Best practices
 
-1. **使用括号**：当不确定负数解析时，总是使用括号包围负数
-2. **避免空格**：在负号和数字之间不要添加空格
-3. **测试验证**：对包含负数的复杂表达式进行充分测试
-4. **版本兼容**：确保使用的 StreamSQL 版本支持所需的负数功能
+1. **Use parentheses**: When negative number analysis is uncertain, always use parentheses to enclose negative numbers
+2. **Avoid spaces**: Do not add spaces between the negative sign and the number
+3. **Test and Verify**: Thoroughly test complex expressions containing negative numbers
+4. **version compatible with**: Make sure the StreamSQL version you use supports the required negative number feature
 
-## 🚀 未来改进计划
+## 🚀 Future Improvement Plans
 
-1. **完全支持函数参数中的负数表达式**
-2. **支持 BETWEEN 语句中的负数范围**
-3. **改进 SQL 解析器对空格分隔负数的处理**
-4. **扩展负数支持到更多数学和字符串函数**
+1. **Fully supports negative number expressions** in function parameters
+2. **supports** of negative numbers in BETWEEN statements
+3. **Improvements SQL** parsers for spaces to separate negative numbers
+4. **Expand negative numbers to support more mathematical and string function**
 
-## 示例代码
+## Example code
 
 ```go
 package main
@@ -171,11 +171,11 @@ import (
 )
 
 func main() {
-    // 创建 StreamSQL 实例
+    // Create StreamSQL instances
     sql := streamsql.New()
     defer sql.Stop()
 
-    // 包含负数的 SQL 查询
+    // SQL queries containing negative numbers
     query := `
         SELECT deviceId,
                temperature,
@@ -192,19 +192,19 @@ func main() {
         FROM stream
     `
 
-    // 执行查询
+    // Execute the query
     err := sql.Execute(query)
     if err != nil {
         fmt.Printf("执行失败: %v\n", err)
         return
     }
 
-    // 添加数据处理器
+    // Add data processor
     sql.AddSink(func(result interface{}) {
         fmt.Printf("结果: %+v\n", result)
     })
 
-    // 添加测试数据
+    // Add test data
     testData := []map[string]interface{}{
         {"deviceId": "sensor1", "temperature": -15.0},
         {"deviceId": "sensor2", "temperature": -5.0},
@@ -220,6 +220,6 @@ func main() {
 
 ---
 
-**更新日期**: 2025-06-17  
-**版本**: StreamSQL v0.x  
-**作者**: StreamSQL 开发团队 
+**Last Updated**: 2025-06-17  
+**Version**: StreamSQL v0.x  
+**Author**: StreamSQL Development Team 

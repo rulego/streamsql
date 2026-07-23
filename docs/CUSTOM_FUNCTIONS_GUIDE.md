@@ -1,41 +1,41 @@
-# StreamSQL 自定义函数开发指南
+# StreamSQL Custom Function Development Guide
 
-## 🚀 概述
+## 🚀 Overview
 
-StreamSQL 提供了强大而灵活的自定义函数系统，支持用户根据业务需求扩展各种类型的函数，包括数学函数、字符串函数、聚合函数、分析函数等。
+StreamSQL provides a powerful and flexible custom function system, supporting users in extending various types of functions according to business needs, including mathematical functions, string functions, aggregation functions, analysis functions, and more.
 
-## 📋 函数类型分类
+## 📋 Classification of function types
 
-### 内置函数类型
+### Built-in function types
 
 ```go
 const (
-    TypeAggregation FunctionType = "aggregation"  // 聚合函数
-    TypeWindow      FunctionType = "window"       // 窗口函数  
-    TypeDateTime    FunctionType = "datetime"     // 时间日期函数
-    TypeConversion  FunctionType = "conversion"   // 转换函数
-    TypeMath        FunctionType = "math"         // 数学函数
-    TypeString      FunctionType = "string"       // 字符串函数
-    TypeAnalytical  FunctionType = "analytical"   // 分析函数
-    TypeCustom      FunctionType = "custom"       // 用户自定义函数
+    TypeAggregation FunctionType = "aggregation"  // Aggregate function
+    TypeWindow      FunctionType = "window"       // Window function  
+    TypeDateTime    FunctionType = "datetime"     // Date/time function
+    TypeConversion  FunctionType = "conversion"   // Conversion function
+    TypeMath        FunctionType = "math"         // Mathematical functions
+    TypeString      FunctionType = "string"       // String function
+    TypeAnalytical  FunctionType = "analytical"   // Analytical function
+    TypeCustom      FunctionType = "custom"       // User-defined functions
 )
 ```
 
-## 🛠️ 自定义函数实现方式
+## 🛠️ Custom Function Implementation
 
-### 方式一：快速注册（推荐简单函数）
+### Method 1: Quick Registration (Simple Recommended Function)
 
 ```go
 import "github.com/rulego/streamsql/functions"
 
-// 注册一个简单的数学函数
+// Register a simple mathematical function
 err := functions.RegisterCustomFunction(
-    "double",                    // 函数名
-    functions.TypeMath,          // 函数类型
-    "数学函数",                   // 分类描述
-    "将数值乘以2",                // 函数描述
-    1,                          // 最少参数个数
-    1,                          // 最多参数个数
+    "double",                    // Function name
+    functions.TypeMath,          // Function type
+    "数学函数",                   // Classification description
+    "将数值乘以2",                // Function description
+    1,                          // Minimum number of parameters
+    1,                          // Maximum number of parameters
     func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
         val, err := cast.ToFloat64E(args[0])
         if err != nil {
@@ -46,38 +46,38 @@ err := functions.RegisterCustomFunction(
 )
 ```
 
-### 方式二：完整结构体实现（推荐复杂函数）
+### Method 2: Complete Struct Implementation (Recommended Complex Functions)
 
 ```go
-// 1. 定义函数结构体
+// 1. Define the function structure
 type AdvancedMathFunction struct {
     *functions.BaseFunction
-    // 可以添加状态变量
+    // You can add status variables
     cache map[string]interface{}
 }
 
-// 2. 实现构造函数
+// 2. Implement constructors
 func NewAdvancedMathFunction() *AdvancedMathFunction {
     return &AdvancedMathFunction{
         BaseFunction: functions.NewBaseFunction(
-            "advanced_calc",           // 函数名
-            functions.TypeMath,        // 函数类型
-            "高级数学函数",             // 分类
-            "高级数学计算",             // 描述
-            2,                        // 最少参数
-            3,                        // 最多参数
+            "advanced_calc",           // Function name
+            functions.TypeMath,        // Function type
+            "高级数学函数",             // Classification
+            "高级数学计算",             // Description
+            2,                        // Minimum parameters
+            3,                        // The most parameters
         ),
         cache: make(map[string]interface{}),
     }
 }
 
-// 3. 实现验证方法（可选，如有特殊验证需求）
+// 3. Implement verification methods (optional, if special verification requirements exist)
 func (f *AdvancedMathFunction) Validate(args []interface{}) error {
     if err := f.ValidateArgCount(args); err != nil {
         return err
     }
     
-    // 自定义验证逻辑
+    // Custom verification logic
     if len(args) >= 2 {
         if _, err := cast.ToFloat64E(args[0]); err != nil {
             return fmt.Errorf("第一个参数必须是数值")
@@ -90,12 +90,12 @@ func (f *AdvancedMathFunction) Validate(args []interface{}) error {
     return nil
 }
 
-// 4. 实现执行方法
+// 4. Implement the execution method
 func (f *AdvancedMathFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
     a, _ := cast.ToFloat64E(args[0])
     b, _ := cast.ToFloat64E(args[1])
     
-    operation := "add" // 默认操作
+    operation := "add" // Default operation
     if len(args) > 2 {
         op, err := cast.ToStringE(args[2])
         if err == nil {
@@ -115,18 +115,18 @@ func (f *AdvancedMathFunction) Execute(ctx *functions.FunctionContext, args []in
     }
 }
 
-// 5. 注册函数
+// 5. Register functions
 func init() {
     functions.Register(NewAdvancedMathFunction())
 }
 ```
 
-## 🎯 各类型函数实现示例
+## 🎯 Examples of Function Type Implementations
 
-### 1. 数学函数示例
+### 1. Mathematical function example
 
 ```go
-// 距离计算函数
+// Distance calculation function
 func RegisterDistanceFunction() error {
     return functions.RegisterCustomFunction(
         "distance",
@@ -150,14 +150,14 @@ func RegisterDistanceFunction() error {
     )
 }
 
-// SQL使用示例:
+// SQL usage examples:
 // SELECT device, distance(lat1, lon1, lat2, lon2) as dist FROM stream
 ```
 
-### 2. 字符串函数示例
+### 2. Example of string function
 
 ```go
-// JSON提取函数
+// JSON extraction function
 func RegisterJsonExtractFunction() error {
     return functions.RegisterCustomFunction(
         "json_extract",
@@ -177,7 +177,7 @@ func RegisterJsonExtractFunction() error {
                 return nil, fmt.Errorf("invalid JSON: %v", err)
             }
             
-            // 简单路径提取（可扩展为复杂JSONPath）
+            // Simple Path Extraction (Can Be Expanded to Complex JSONPath)
             value, exists := data[path]
             if !exists {
                 return nil, nil
@@ -188,14 +188,14 @@ func RegisterJsonExtractFunction() error {
     )
 }
 
-// SQL使用示例:
+// SQL usage examples:
 // SELECT device, json_extract(metadata, 'version') as version FROM stream
 ```
 
-### 3. 时间日期函数示例
+### 3. Example of the time-date function
 
 ```go
-// 时间格式化函数
+// Time formatting function
 func RegisterDateFormatFunction() error {
     return functions.RegisterCustomFunction(
         "date_format",
@@ -212,7 +212,7 @@ func RegisterDateFormatFunction() error {
             
             t := time.Unix(timestamp, 0)
             
-            // 支持常见格式
+            // Supports common formats
             switch format {
             case "YYYY-MM-DD":
                 return t.Format("2006-01-02"), nil
@@ -227,14 +227,14 @@ func RegisterDateFormatFunction() error {
     )
 }
 
-// SQL使用示例:
+// SQL usage examples:
 // SELECT device, date_format(timestamp, 'YYYY-MM-DD') as date FROM stream
 ```
 
-### 4. 转换函数示例
+### 4. Example of a conversion function
 
 ```go
-// IP地址转换函数
+// IP address translation function
 func RegisterIpToIntFunction() error {
     return functions.RegisterCustomFunction(
         "ip_to_int",
@@ -251,7 +251,7 @@ func RegisterIpToIntFunction() error {
                 return nil, fmt.Errorf("invalid IP address: %s", ipStr)
             }
             
-            // 转换为IPv4
+            // Convert to IPv4
             ip = ip.To4()
             if ip == nil {
                 return nil, fmt.Errorf("not an IPv4 address: %s", ipStr)
@@ -262,13 +262,13 @@ func RegisterIpToIntFunction() error {
     )
 }
 
-// SQL使用示例:
+// SQL usage examples:
 // SELECT device, ip_to_int(client_ip) as ip_int FROM stream
 ```
 
-### 5. 自定义聚合函数示例
+### 5. Custom aggregator function example
 
-聚合函数实现 `AggregatorFunction` 接口（`New`/`Add`/`Result`/`Reset`/`Clone`），用 `functions.Register` 注册一处即可——适配器自动接通，无需 `aggregator.Register`。
+The aggregator function implements `AggregatorFunction` interfaces (`New` / `Add` / `Result` / `Reset` / `Clone`), registering one place with `functions. Register` — adapters automatically connect without `aggregator. Register`.
 
 ```go
 import (
@@ -278,7 +278,7 @@ import (
     "github.com/rulego/streamsql/utils/cast"
 )
 
-// MedianAgg 完整实现 AggregatorFunction
+// MedianAgg Fully implement AggregatorFunction
 type MedianAgg struct {
     *functions.BaseFunction
     values []float64
@@ -291,7 +291,7 @@ func NewMedianAgg() *MedianAgg {
 
 func (f *MedianAgg) Validate(args []any) error                            { return f.ValidateArgCount(args) }
 func (f *MedianAgg) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
-    return nil, nil // 聚合走 Add/Result，Execute 仅满足接口
+    return nil, nil // Aggregation follows Add/Result, Execute only meets interface requirements
 }
 func (f *MedianAgg) New() functions.AggregatorFunction { return &MedianAgg{BaseFunction: f.BaseFunction} }
 func (f *MedianAgg) Add(value any) {
@@ -321,74 +321,74 @@ func init() {
     functions.Register(NewMedianAgg())
 }
 
-// SQL使用示例:
+// SQL usage examples:
 // SELECT device, median_agg(temperature) as median_temp FROM stream GROUP BY device
 ```
 
-## 📊 函数管理功能
+## 📊 Function Management Features
 
-### 查看已注册函数
+### Check registered functions
 
 ```go
-// 列出所有函数
+// List all functions
 allFunctions := functions.ListAll()
 for name, fn := range allFunctions {
     fmt.Printf("函数名: %s, 类型: %s, 描述: %s\n", 
         name, fn.GetType(), fn.GetDescription())
 }
 
-// 按类型查看函数
+// View functions by type
 mathFunctions := functions.GetByType(functions.TypeMath)
 for _, fn := range mathFunctions {
     fmt.Printf("数学函数: %s - %s\n", fn.GetName(), fn.GetDescription())
 }
 
-// 检查函数是否存在
+// Check if the function exists
 if fn, exists := functions.Get("my_function"); exists {
     fmt.Printf("函数存在: %s\n", fn.GetDescription())
 }
 ```
 
-### 注销函数
+### Cancel Function
 
 ```go
-// 注销自定义函数
+// Delete custom functions
 success := functions.Unregister("my_custom_function")
 if success {
     fmt.Println("函数注销成功")
 }
 ```
 
-## 🎯 最佳实践
+## 🎯 Best Practices
 
-### 1. 错误处理
+### 1. Error handling
 
 ```go
 func (f *MyFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-    // 1. 参数验证
+    // 1. Parameter validation
     if len(args) == 0 {
         return nil, fmt.Errorf("至少需要一个参数")
     }
     
-    // 2. 类型转换
+    // 2. Type conversion
     val, err := cast.ToFloat64E(args[0])
     if err != nil {
         return nil, fmt.Errorf("参数类型错误: %v", err)
     }
     
-    // 3. 业务逻辑验证
+    // 3. Business logic validation
     if val < 0 {
         return nil, fmt.Errorf("参数值必须为正数")
     }
     
-    // 4. 计算逻辑
+    // 4. Computational logic
     result := math.Sqrt(val)
     
     return result, nil
 }
 ```
 
-### 2. 性能优化
+### 2. Performance optimization
 
 ```go
 type CachedFunction struct {
@@ -398,10 +398,10 @@ type CachedFunction struct {
 }
 
 func (f *CachedFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-    // 生成缓存key
+    // Generate cache key
     key := fmt.Sprintf("%v", args)
     
-    // 检查缓存
+    // Check the cache
     f.mutex.RLock()
     if cached, exists := f.cache[key]; exists {
         f.mutex.RUnlock()
@@ -409,10 +409,10 @@ func (f *CachedFunction) Execute(ctx *functions.FunctionContext, args []interfac
     }
     f.mutex.RUnlock()
     
-    // 计算结果
+    // Calculation results
     result := f.calculate(args)
     
-    // 存储到缓存
+    // Store to cache
     f.mutex.Lock()
     f.cache[key] = result
     f.mutex.Unlock()
@@ -421,7 +421,7 @@ func (f *CachedFunction) Execute(ctx *functions.FunctionContext, args []interfac
 }
 ```
 
-### 3. 状态管理
+### 3. Status management
 
 ```go
 type StatefulFunction struct {
@@ -439,29 +439,29 @@ func (f *StatefulFunction) Execute(ctx *functions.FunctionContext, args []interf
 }
 ```
 
-## 🚨 注意事项
+## 🚨 Notes
 
-1. **线程安全**: 函数可能在多线程环境下并发执行，确保线程安全
-2. **错误处理**: 总是返回有意义的错误信息
-3. **类型转换**: 使用框架提供的转换函数进行类型转换
-4. **性能考虑**: 避免在函数中执行耗时操作，考虑使用缓存
-5. **资源管理**: 注意资源的申请和释放
-6. **命名规范**: 使用清晰、描述性的函数名
+1. **Thread Safety**: Functions may execute concurrently in multithreaded environments to ensure thread safety
+2. **Error handling**: Always returns meaningful error messages
+3. **Type Conversion**: Use the conversion function provided by the framework to perform type conversion
+4. **Performance Considerations**: Avoid time-consuming operations in functions and consider using caches
+5. **Resource Management**: Pay attention to resource application and release
+6. **Naming conventions**: Use clear and descriptive function names
 
-## 📝 测试你的自定义函数
+## 📝 Test your custom function
 
 ```go
 func TestMyCustomFunction(t *testing.T) {
-    // 注册函数
+    // Register the function
     err := functions.RegisterCustomFunction("test_func", /* ... */)
     assert.NoError(t, err)
     defer functions.Unregister("test_func")
     
-    // 获取函数
+    // Get the function
     fn, exists := functions.Get("test_func")
     assert.True(t, exists)
     
-    // 测试执行
+    // Test execution
     ctx := &functions.FunctionContext{
         Data: make(map[string]interface{}),
     }
@@ -472,4 +472,4 @@ func TestMyCustomFunction(t *testing.T) {
 }
 ```
 
-通过这个指南，你可以轻松扩展StreamSQL的功能，实现各种自定义函数来满足特定的业务需求。 
+With this guide, you can easily extend StreamSQL's features and implement various custom functions to meet specific business needs. 

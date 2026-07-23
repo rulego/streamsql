@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestEvaluateCaseExpression 测试CASE表达式求值
+// TestEvaluateCaseExpression evaluates the CASE expression
 func TestEvaluateCaseExpression(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -76,7 +76,7 @@ func TestEvaluateCaseExpression(t *testing.T) {
 	}
 }
 
-// TestEvaluateCaseExpressionWithNull 测试支持NULL的CASE表达式求值
+// TestEvaluateCaseExpressionWithNull tests support evaluating NULL's CASE expressions
 func TestEvaluateCaseExpressionWithNull(t *testing.T) {
 	tests := []struct {
 		name         string

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIsNullOperatorInSQL 测试IS NULL和IS NOT NULL语法功能
+// TestIsNullOperatorInSQL tests the syntax functions of IS NULL and IS NOT NULL
 func TestIsNullOperatorInSQL(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
@@ -71,7 +71,7 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 			},
 			expected: []map[string]any{
 				{"deviceId": "sensor2", "device.location": nil},
-				{"deviceId": "sensor3", "device.location": nil}, // 字段不存在也被认为是null
+				{"deviceId": "sensor3", "device.location": nil}, // Fields that do not exist are also considered null
 			},
 		},
 		{
@@ -106,15 +106,15 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// 创建StreamSQL实例
+			// Create a StreamSQL instance
 			ssql := streamsql.New()
 			defer ssql.Stop()
 
-			// 执行SQL
+			// Execute SQL
 			err := ssql.Execute(tc.sql)
 			require.NoError(t, err)
 
-			// 收集结果
+			// Collect the results
 			var results []map[string]any
 			resultChan := make(chan any, 10)
 			resultsMutex := sync.Mutex{}
@@ -123,12 +123,12 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 				resultChan <- result
 			})
 
-			// 添加测试数据
+			// Add test data
 			for _, data := range tc.testData {
 				ssql.Stream().Emit(data)
 			}
 
-			// 使用更短的超时时间，避免在CI环境中长时间等待
+			// Use shorter timeouts to avoid long waits in CI environments
 			timeout := time.After(500 * time.Millisecond)
 
 		collecting:
@@ -145,10 +145,10 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 				}
 			}
 
-			// 验证结果数量
+			// Verification of the number of results
 			assert.Len(t, results, len(tc.expected), "结果数量应该匹配")
 
-			// 验证结果内容（不依赖顺序）
+			// Verification Result Content (Independent of Order)
 			expectedDeviceIds := make([]string, len(tc.expected))
 			for i, exp := range tc.expected {
 				expectedDeviceIds[i] = exp["deviceId"].(string)
@@ -161,16 +161,16 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 			}
 			resultsMutex.Unlock()
 
-			// 验证每个期望的设备ID都在结果中
+			// Verify the ID of each desired device in the results
 			for _, expectedId := range expectedDeviceIds {
 				assert.Contains(t, actualDeviceIds, expectedId, "结果应该包含设备ID %s", expectedId)
 			}
 
-			// 验证每个结果的字段值
+			// Verify the field values for each result
 			resultsMutex.Lock()
 			for _, result := range results {
 				deviceId := result["deviceId"].(string)
-				// 找到对应的期望结果
+				// Find the corresponding desired outcome
 				var expectedResult map[string]any
 				for _, exp := range tc.expected {
 					if exp["deviceId"].(string) == deviceId {
@@ -192,13 +192,13 @@ func TestIsNullOperatorInSQL(t *testing.T) {
 	}
 }
 
-// TestIsNullInAggregation 测试聚合查询中的IS NULL
+// TestIsNullInAggregation: Tests the IS NULL in aggregated queries
 func TestIsNullInAggregation(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 聚合查询：统计非空值的数量
+	// Aggregate query: Counts the number of non-null values
 	sql := `SELECT deviceType, 
 	               COUNT(*) as total_count,
 	               COUNT(value) as non_null_count
@@ -209,13 +209,13 @@ func TestIsNullInAggregation(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	// 收集结果
+	// Collect the results
 	resultChan := make(chan any, 10)
 	ssql.Stream().AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
 		{"deviceType": "temperature", "value": 25.5},
 		{"deviceType": "temperature", "value": nil},
@@ -228,16 +228,16 @@ func TestIsNullInAggregation(t *testing.T) {
 		ssql.Stream().Emit(data)
 	}
 
-	// 等待窗口触发
+	// Wait for the window to trigger
 	time.Sleep(3 * time.Second)
 
-	// 验证结果
+	// Verify the results
 	select {
 	case result := <-resultChan:
 		resultSlice, ok := result.([]map[string]any)
 		require.True(t, ok, "结果应该是[]map[string]any类型")
 
-		// 应该有temperature和humidity两种类型的结果
+		// There should be two types of results: temperature and humidity
 		assert.GreaterOrEqual(t, len(resultSlice), 1, "应该至少有一个聚合结果")
 
 		for _, item := range resultSlice {
@@ -246,27 +246,27 @@ func TestIsNullInAggregation(t *testing.T) {
 			nonNullCount, _ := item["non_null_count"].(float64)
 
 			if deviceType == "temperature" {
-				// temperature有2个非空值（25.5, 27.0）
+				// Temperature has 2 non-null values (25.5, 27.0)
 				assert.Equal(t, 2.0, totalCount, "temperature总数应该是2")
 				assert.Equal(t, 2.0, nonNullCount, "temperature非空数应该是2")
 			} else if deviceType == "humidity" {
-				// humidity有1个非空值（60.0）
+				// Humidity has 1 non-null value (60.0)
 				assert.Equal(t, 1.0, totalCount, "humidity总数应该是1")
 				assert.Equal(t, 1.0, nonNullCount, "humidity非空数应该是1")
 			}
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("测试超时，未收到聚合结果")
+		t.Fatal("The test timed out, and no aggregated results were received")
 	}
 }
 
-// TestIsNullInHaving 测试HAVING子句中真正的IS NULL功能
+// TestIsNullInHaving tests the true IS NULL functionality in the HAVING clause
 func TestIsNullInHaving(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 测试HAVING子句中的IS NULL：只返回平均值为NULL的设备类型
+	// Test IS NULL in the HAVING clause: only returns the device type with an average NULL
 	sql := `SELECT deviceType, 
 	               COUNT(*) as total_count,
 	               AVG(value) as avg_value
@@ -282,57 +282,57 @@ func TestIsNullInHaving(t *testing.T) {
 		resultChan <- result
 	})
 
-	// 添加测试数据：只给pressure设备类型添加null值，这样它的平均值会是null
+	// Add test data: only add null values to the pressure device type, so its average value will be null
 	testData := []map[string]any{
 		{"deviceType": "temperature", "value": 25.0},
-		{"deviceType": "temperature", "value": 27.0}, // temperature有值，平均值不为null
-		{"deviceType": "humidity", "value": 60.0},    // humidity有值，平均值不为null
-		{"deviceType": "pressure", "value": nil},     // pressure只有null值
-		{"deviceType": "pressure", "value": nil},     // pressure再次null值，平均值会是null
+		{"deviceType": "temperature", "value": 27.0}, // temperature is valued, and the average value is not null
+		{"deviceType": "humidity", "value": 60.0},    // humidity has a value, and the average value is not null
+		{"deviceType": "pressure", "value": nil},     // Pressure only has a null value
+		{"deviceType": "pressure", "value": nil},     // pressure is null again, and the average value will be null
 	}
 
 	for _, data := range testData {
 		ssql.Stream().Emit(data)
 	}
 
-	// 等待窗口触发
+	// Wait for the window to trigger
 	time.Sleep(3 * time.Second)
 
-	// 验证结果
+	// Verify the results
 	select {
 	case result := <-resultChan:
 		resultSlice, ok := result.([]map[string]any)
 		require.True(t, ok, "结果应该是[]map[string]any类型")
 
-		// 应该只有pressure类型的结果（平均值为null）
+		// There should only be results of pressure type (average value null)
 		assert.Len(t, resultSlice, 1, "应该只有一个结果")
 
 		if len(resultSlice) > 0 {
 			item := resultSlice[0]
 			assert.Equal(t, "pressure", item["deviceType"], "应该是pressure类型")
 
-			// 验证avg_value确实为null
+			// Verify that avg_value is indeed null
 			avgValue := item["avg_value"]
 			assert.Nil(t, avgValue, "pressure的平均值应该是null")
 
-			// 验证total_count
+			// Verification total_count
 			totalCount, ok := item["total_count"].(float64)
 			assert.True(t, ok, "total_count应该是float64类型")
 			assert.Equal(t, 2.0, totalCount, "pressure应该有2条记录")
 		}
 
 	case <-time.After(5 * time.Second):
-		t.Fatal("测试超时，未收到聚合结果")
+		t.Fatal("The test timed out, and no aggregated results were received")
 	}
 }
 
-// TestIsNullInHavingWithIsNotNull 测试HAVING子句中的IS NOT NULL功能
+// TestIsNullInHavingWithIsNotNull tests the IS NOT NULL function in the HAVING clause
 func TestIsNullInHavingWithIsNotNull(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 测试HAVING子句中的IS NOT NULL：只返回平均值不为NULL的设备类型
+	// Test IS NOT NULL in the HAVING clause: only returns the device type with an average value that is not NULL
 	sql := `SELECT deviceType, 
 	               COUNT(*) as total_count,
 	               AVG(value) as avg_value
@@ -348,12 +348,12 @@ func TestIsNullInHavingWithIsNotNull(t *testing.T) {
 		resultChan <- result
 	})
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
 		{"deviceType": "temperature", "value": 25.0},
-		{"deviceType": "temperature", "value": 27.0}, // temperature有值，平均值不为null
-		{"deviceType": "humidity", "value": 60.0},    // humidity有值，平均值不为null
-		{"deviceType": "pressure", "value": nil},     // pressure只有null值，平均值会是null
+		{"deviceType": "temperature", "value": 27.0}, // temperature is valued, and the average value is not null
+		{"deviceType": "humidity", "value": 60.0},    // humidity has a value, and the average value is not null
+		{"deviceType": "pressure", "value": nil},     // Pressure is only a null value, and the average value will be null
 		{"deviceType": "pressure", "value": nil},
 	}
 
@@ -361,16 +361,16 @@ func TestIsNullInHavingWithIsNotNull(t *testing.T) {
 		ssql.Stream().Emit(data)
 	}
 
-	// 等待窗口触发
+	// Wait for the window to trigger
 	time.Sleep(3 * time.Second)
 
-	// 验证结果
+	// Verify the results
 	select {
 	case result := <-resultChan:
 		resultSlice, ok := result.([]map[string]any)
 		require.True(t, ok, "结果应该是[]map[string]any类型")
 
-		// 应该有temperature和humidity两种类型的结果（平均值不为null）
+		// There should be two types of results: temperature and humidity (the average is not null).
 		assert.Len(t, resultSlice, 2, "应该有两个结果")
 
 		foundTypes := make([]string, 0)
@@ -378,30 +378,30 @@ func TestIsNullInHavingWithIsNotNull(t *testing.T) {
 			deviceType, ok := item["deviceType"].(string)
 			require.True(t, ok, "deviceType应该是string类型")
 
-			// 验证avg_value不为null
+			// Verify that avg_value is not null
 			avgValue := item["avg_value"]
 			assert.NotNil(t, avgValue, fmt.Sprintf("%s的平均值应该不为null", deviceType))
 
 			foundTypes = append(foundTypes, deviceType)
 		}
 
-		// 验证包含temperature和humidity，不包含pressure
+		// Verification includes temperature and humidity, but excludes pressure
 		assert.Contains(t, foundTypes, "temperature", "结果应该包含temperature")
 		assert.Contains(t, foundTypes, "humidity", "结果应该包含humidity")
 		assert.NotContains(t, foundTypes, "pressure", "结果不应该包含pressure")
 
 	case <-time.After(5 * time.Second):
-		t.Fatal("测试超时，未收到聚合结果")
+		t.Fatal("The test timed out, and no aggregated results were received")
 	}
 }
 
-// TestIsNullWithOtherOperators 测试IS NULL与其他操作符的组合
+// TestIsNullWithOtherOperators tests the combination of IS NULL and other operators
 func TestIsNullWithOtherOperators(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 测试复杂的WHERE条件
+	// Test complex WHERE conditions
 	sql := `SELECT deviceId, value, status, location 
 	        FROM stream 
 	        WHERE (value IS NOT NULL AND value > 20) OR 
@@ -415,20 +415,20 @@ func TestIsNullWithOtherOperators(t *testing.T) {
 		resultChan <- result
 	})
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
-		{"deviceId": "sensor1", "value": 25.0, "status": "active", "location": "warehouse-A"},  // 满足第一个条件
-		{"deviceId": "sensor2", "value": 15.0, "status": "active", "location": "warehouse-B"},  // 不满足条件
-		{"deviceId": "sensor3", "value": nil, "status": nil, "location": "warehouse-C"},        // 满足第二个条件
-		{"deviceId": "sensor4", "value": nil, "status": "inactive", "location": "warehouse-D"}, // 不满足条件
-		{"deviceId": "sensor5", "value": 30.0, "status": nil, "location": "office-A"},          // 满足第一个条件
+		{"deviceId": "sensor1", "value": 25.0, "status": "active", "location": "warehouse-A"},  // The first condition is met
+		{"deviceId": "sensor2", "value": 15.0, "status": "active", "location": "warehouse-B"},  // The conditions are not met
+		{"deviceId": "sensor3", "value": nil, "status": nil, "location": "warehouse-C"},        // The second condition must be met
+		{"deviceId": "sensor4", "value": nil, "status": "inactive", "location": "warehouse-D"}, // The conditions are not met
+		{"deviceId": "sensor5", "value": 30.0, "status": nil, "location": "office-A"},          // The first condition is met
 	}
 
 	for _, data := range testData {
 		ssql.Stream().Emit(data)
 	}
 
-	// 使用超时方式安全收集结果
+	// Safely collect results using timeout methods
 	var results []map[string]any
 	timeout := time.After(2 * time.Second)
 
@@ -444,7 +444,7 @@ collecting:
 		}
 	}
 
-	// 验证结果：应该有sensor1, sensor3, sensor5
+	// Verification result: There should be sensor1, sensor3, sensor5
 	assert.Len(t, results, 3, "应该有3个结果")
 
 	expectedDeviceIds := []string{"sensor1", "sensor3", "sensor5"}
@@ -458,7 +458,7 @@ collecting:
 	}
 }
 
-// TestCaseWhenWithIsNull 测试CASE WHEN表达式中使用IS NULL和IS NOT NULL
+// TestCaseWhenWithIsNull tests IS NULL and IS NOT NULL in a CASE WHEN expression
 func TestCaseWhenWithIsNull(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
@@ -478,7 +478,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 				{"deviceId": "sensor1", "status": "active"},
 				{"deviceId": "sensor2", "status": nil},
 				{"deviceId": "sensor3", "status": "inactive"},
-				{"deviceId": "sensor4"}, // 没有status字段
+				{"deviceId": "sensor4"}, // There is no status field
 			},
 			expected: []map[string]any{
 				{"deviceId": "sensor1", "status_flag": 1.0},
@@ -499,7 +499,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 				{"deviceId": "sensor1", "temperature": 30.0},
 				{"deviceId": "sensor2", "temperature": 20.0},
 				{"deviceId": "sensor3", "temperature": nil},
-				{"deviceId": "sensor4"}, // 没有temperature字段
+				{"deviceId": "sensor4"}, // There is no temperature field
 			},
 			expected: []map[string]any{
 				{"deviceId": "sensor1", "temp_level": 2.0},
@@ -522,7 +522,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 				{"deviceId": "sensor2", "status": "active", "temperature": nil},
 				{"deviceId": "sensor3", "status": nil, "temperature": 30.0},
 				{"deviceId": "sensor4", "status": nil, "temperature": nil},
-				{"deviceId": "sensor5"}, // 两个字段都不存在
+				{"deviceId": "sensor5"}, // Neither field exists
 			},
 			expected: []map[string]any{
 				{"deviceId": "sensor1", "combined_flag": 3.0},
@@ -567,15 +567,15 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// 创建StreamSQL实例
+			// Create a StreamSQL instance
 			ssql := streamsql.New()
 			defer ssql.Stop()
 
-			// 执行SQL
+			// Execute SQL
 			err := ssql.Execute(tc.sql)
 			require.NoError(t, err)
 
-			// 收集结果
+			// Collect the results
 			var results []map[string]any
 			resultChan := make(chan any, 10)
 
@@ -583,15 +583,15 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 				resultChan <- result
 			})
 
-			// 添加测试数据
+			// Add test data
 			for _, data := range tc.testData {
 				ssql.Stream().Emit(data)
 			}
 
-			// 使用超时方式安全收集结果
+			// Safely collect results using timeout methods
 			var timeout time.Duration
 			if tc.name == "CASE WHEN IS NULL与聚合函数结合测试" {
-				timeout = 4 * time.Second // 聚合查询需要更长时间
+				timeout = 4 * time.Second // Aggregate queries take longer
 			} else {
 				timeout = 500 * time.Millisecond
 			}
@@ -610,16 +610,16 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 				}
 			}
 
-			// 验证结果数量
+			// Verification of the number of results
 			assert.Len(t, results, len(tc.expected), "结果数量应该匹配")
 
-			// 对于聚合查询，验证逻辑略有不同
+			// For aggregated queries, the validation logic is slightly different
 			if tc.name == "CASE WHEN IS NULL与聚合函数结合测试" {
-				// 验证每个deviceType的结果
+				// Verify the results of each deviceType
 				for _, expectedResult := range tc.expected {
 					expectedDeviceType := expectedResult["deviceType"].(string)
 
-					// 在结果中找到对应的deviceType
+					// Find the corresponding deviceType in the results
 					var actualResult map[string]any
 					for _, result := range results {
 						if result["deviceType"].(string) == expectedDeviceType {
@@ -630,7 +630,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 
 					require.NotNil(t, actualResult, "应该找到设备类型 %s 的结果", expectedDeviceType)
 
-					// 验证各个统计值
+					// Verify each statistic
 					assert.Equal(t, expectedResult["total_count"], actualResult["total_count"],
 						"设备类型 %s 的total_count应该匹配", expectedDeviceType)
 					assert.Equal(t, expectedResult["null_count"], actualResult["null_count"],
@@ -639,7 +639,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 						"设备类型 %s 的non_null_count应该匹配", expectedDeviceType)
 				}
 			} else {
-				// 验证普通查询的结果
+				// Verify the results of ordinary queries
 				expectedDeviceIds := make([]string, len(tc.expected))
 				for i, exp := range tc.expected {
 					expectedDeviceIds[i] = exp["deviceId"].(string)
@@ -650,15 +650,15 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 					actualDeviceIds[i] = result["deviceId"].(string)
 				}
 
-				// 验证每个期望的设备ID都在结果中
+				// Verify the ID of each desired device in the results
 				for _, expectedId := range expectedDeviceIds {
 					assert.Contains(t, actualDeviceIds, expectedId, "结果应该包含设备ID %s", expectedId)
 				}
 
-				// 验证每个结果的字段值
+				// Verify the field values for each result
 				for _, result := range results {
 					deviceId := result["deviceId"].(string)
-					// 找到对应的期望结果
+					// Find the corresponding desired outcome
 					var expectedResult map[string]any
 					for _, exp := range tc.expected {
 						if exp["deviceId"].(string) == deviceId {
@@ -669,7 +669,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 
 					if expectedResult != nil {
 						for key, expectedValue := range expectedResult {
-							if key != "deviceId" { // deviceId已经验证过了
+							if key != "deviceId" { // deviceId has already been verified
 								actualValue := result[key]
 								assert.Equal(t, expectedValue, actualValue,
 									"设备 %s 的字段 %s 值应该匹配: 期望 %v, 实际 %v", deviceId, key, expectedValue, actualValue)
@@ -682,7 +682,7 @@ func TestCaseWhenWithIsNull(t *testing.T) {
 	}
 }
 
-// TestNullComparisons 测试 = nil、!= nil、= null、!= null 等语法
+// TestNullComparisons Syntax such as test = nil,!= nil, = null,!= null, etc
 func TestNullComparisons(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
@@ -770,7 +770,7 @@ func TestNullComparisons(t *testing.T) {
 			},
 			expected: []map[string]any{
 				{"deviceId": "sensor2", "device.location": nil},
-				{"deviceId": "sensor3", "device.location": nil}, // 字段不存在也被认为是null
+				{"deviceId": "sensor3", "device.location": nil}, // Fields that do not exist are also considered null
 			},
 		},
 		{
@@ -831,15 +831,15 @@ func TestNullComparisons(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// 创建StreamSQL实例
+			// Create a StreamSQL instance
 			ssql := streamsql.New()
 			defer ssql.Stop()
 
-			// 执行SQL
+			// Execute SQL
 			err := ssql.Execute(tc.sql)
 			require.NoError(t, err)
 
-			// 收集结果
+			// Collect the results
 			var results []map[string]any
 			resultChan := make(chan any, 10)
 
@@ -847,12 +847,12 @@ func TestNullComparisons(t *testing.T) {
 				resultChan <- result
 			})
 
-			// 添加测试数据
+			// Add test data
 			for _, data := range tc.testData {
 				ssql.Stream().Emit(data)
 			}
 
-			// 使用超时方式安全收集结果
+			// Safely collect results using timeout methods
 			timeout := time.After(500 * time.Millisecond)
 
 		collecting:
@@ -867,10 +867,10 @@ func TestNullComparisons(t *testing.T) {
 				}
 			}
 
-			// 验证结果数量
+			// Verification of the number of results
 			assert.Len(t, results, len(tc.expected), "结果数量应该匹配")
 
-			// 验证结果内容（不依赖顺序）
+			// Verification Result Content (Independent of Order)
 			expectedDeviceIds := make([]string, len(tc.expected))
 			for i, exp := range tc.expected {
 				expectedDeviceIds[i] = exp["deviceId"].(string)
@@ -881,15 +881,15 @@ func TestNullComparisons(t *testing.T) {
 				actualDeviceIds[i] = result["deviceId"].(string)
 			}
 
-			// 验证每个期望的设备ID都在结果中
+			// Verify the ID of each desired device in the results
 			for _, expectedId := range expectedDeviceIds {
 				assert.Contains(t, actualDeviceIds, expectedId, "结果应该包含设备ID %s", expectedId)
 			}
 
-			// 验证每个结果的字段值
+			// Verify the field values for each result
 			for _, result := range results {
 				deviceId := result["deviceId"].(string)
-				// 找到对应的期望结果
+				// Find the corresponding desired outcome
 				var expectedResult map[string]any
 				for _, exp := range tc.expected {
 					if exp["deviceId"].(string) == deviceId {
@@ -910,13 +910,13 @@ func TestNullComparisons(t *testing.T) {
 	}
 }
 
-// TestNullComparisonInAggregation 测试聚合查询中的 = nil 和 != nil
+// TestNullComparisonInAggregation tests the aggregated queries for = nil and!= nil
 func TestNullComparisonInAggregation(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 聚合查询：统计非空值的数量
+	// Aggregate query: Counts the number of non-null values
 	sql := `SELECT deviceType, 
 	               COUNT(*) as total_count,
 	               COUNT(value) as non_null_count
@@ -927,13 +927,13 @@ func TestNullComparisonInAggregation(t *testing.T) {
 	err := ssql.Execute(sql)
 	require.NoError(t, err)
 
-	// 收集结果
+	// Collect the results
 	resultChan := make(chan any, 10)
 	ssql.Stream().AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
 		{"deviceType": "temperature", "value": 25.5},
 		{"deviceType": "temperature", "value": nil},
@@ -946,16 +946,16 @@ func TestNullComparisonInAggregation(t *testing.T) {
 		ssql.Stream().Emit(data)
 	}
 
-	// 等待窗口触发
+	// Wait for the window to trigger
 	time.Sleep(3 * time.Second)
 
-	// 验证结果
+	// Verify the results
 	select {
 	case result := <-resultChan:
 		resultSlice, ok := result.([]map[string]any)
 		require.True(t, ok, "结果应该是[]map[string]any类型")
 
-		// 应该有temperature和humidity两种类型的结果
+		// There should be two types of results: temperature and humidity
 		assert.GreaterOrEqual(t, len(resultSlice), 1, "应该至少有一个聚合结果")
 
 		for _, item := range resultSlice {
@@ -964,27 +964,27 @@ func TestNullComparisonInAggregation(t *testing.T) {
 			nonNullCount, _ := item["non_null_count"].(float64)
 
 			if deviceType == "temperature" {
-				// temperature有2个非空值（25.5, 27.0）
+				// Temperature has 2 non-null values (25.5, 27.0)
 				assert.Equal(t, 2.0, totalCount, "temperature总数应该是2")
 				assert.Equal(t, 2.0, nonNullCount, "temperature非空数应该是2")
 			} else if deviceType == "humidity" {
-				// humidity有1个非空值（60.0）
+				// Humidity has 1 non-null value (60.0)
 				assert.Equal(t, 1.0, totalCount, "humidity总数应该是1")
 				assert.Equal(t, 1.0, nonNullCount, "humidity非空数应该是1")
 			}
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("测试超时，未收到聚合结果")
+		t.Fatal("The test timed out, and no aggregated results were received")
 	}
 }
 
-// TestMixedNullComparisons 测试混合使用 IS NULL、= nil、= null、!= null 等语法
+// TestMixedNullComparisons tests using syntax such as IS NULL, = nil, = null,!= null, etc
 func TestMixedNullComparisons(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 测试混合null比较语法
+	// Test mixed null comparative syntax
 	sql := `SELECT deviceId, value, status, priority 
 	        FROM stream 
 	        WHERE (value IS NOT NULL AND value > 20) OR 
@@ -998,21 +998,21 @@ func TestMixedNullComparisons(t *testing.T) {
 		resultChan <- result
 	})
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
-		{"deviceId": "sensor1", "value": 25.0, "status": "active", "priority": "high"}, // 满足第一个条件
-		{"deviceId": "sensor2", "value": 15.0, "status": "active", "priority": "low"},  // 不满足条件
-		{"deviceId": "sensor3", "value": nil, "status": nil, "priority": "medium"},     // 满足第二个条件
-		{"deviceId": "sensor4", "value": nil, "status": nil, "priority": nil},          // 不满足条件
-		{"deviceId": "sensor5", "value": 30.0, "status": "inactive", "priority": nil},  // 满足第一个条件
-		{"deviceId": "sensor6", "value": 10.0, "status": nil, "priority": "urgent"},    // 满足第二个条件
+		{"deviceId": "sensor1", "value": 25.0, "status": "active", "priority": "high"}, // The first condition is met
+		{"deviceId": "sensor2", "value": 15.0, "status": "active", "priority": "low"},  // The conditions are not met
+		{"deviceId": "sensor3", "value": nil, "status": nil, "priority": "medium"},     // The second condition must be met
+		{"deviceId": "sensor4", "value": nil, "status": nil, "priority": nil},          // The conditions are not met
+		{"deviceId": "sensor5", "value": 30.0, "status": "inactive", "priority": nil},  // The first condition is met
+		{"deviceId": "sensor6", "value": 10.0, "status": nil, "priority": "urgent"},    // The second condition must be met
 	}
 
 	for _, data := range testData {
 		ssql.Stream().Emit(data)
 	}
 
-	// 使用超时方式安全收集结果
+	// Safely collect results using timeout methods
 	var results []map[string]any
 	timeout := time.After(2 * time.Second)
 
@@ -1028,7 +1028,7 @@ collecting:
 		}
 	}
 
-	// 验证结果：应该有sensor1, sensor3, sensor5, sensor6
+	// Verification result: There should be sensor1, sensor3, sensor5, sensor6
 	assert.Len(t, results, 4, "应该有4个结果")
 
 	expectedDeviceIds := []string{"sensor1", "sensor3", "sensor5", "sensor6"}

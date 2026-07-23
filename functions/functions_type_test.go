@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TestTypeFunctions 测试类型函数
+// TestTypeFunctions
 func TestTypeFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -118,7 +118,7 @@ func TestTypeFunctions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 验证参数
+			// Validate parameters
 			if err := tt.function.Validate(tt.args); err != nil {
 				t.Errorf("Validate() error = %v", err)
 				return
@@ -136,7 +136,7 @@ func TestTypeFunctions(t *testing.T) {
 	}
 }
 
-// TestTypeFunctionValidation 测试类型函数的参数验证
+// TestTypeFunctionValidation: Validation of parameters for the test-type function
 func TestTypeFunctionValidation(t *testing.T) {
 	tests := []struct {
 		name     string

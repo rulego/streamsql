@@ -10,8 +10,8 @@ import (
 	streamsql "github.com/rulego/streamsql"
 )
 
-// 分析函数标准示例集，覆盖变化检测 / lag / latest / 累计 / 条件累计，
-// 作为分析函数语法的回归门禁。
+// Standard sample sets of analysis functions, covering change detection / lag / latest
+// It serves as a regression access control for analyzing function syntax.
 
 func analyticDemo() []map[string]any {
 	return []map[string]any{
@@ -32,7 +32,7 @@ func runWindow(t *testing.T, sql string, inputs []map[string]any) []map[string]a
 	if err := ssql.Execute(sql); err != nil {
 		t.Fatalf("Execute %q: %v", sql, err)
 	}
-	defer ssql.Stop() // 失败路径兜底（t.Fatalf → Goexit 仍执行）；正常路径已显式 Stop，幂等。
+	defer ssql.Stop() // Failure Path Bottom Cover (t.Fatalf → Goexit still executed); The normal path has explicitly stopped and explicitly stopped.
 	var mu sync.Mutex
 	var out []map[string]any
 	ssql.AddSink(func(r []map[string]any) {
@@ -43,8 +43,8 @@ func runWindow(t *testing.T, sql string, inputs []map[string]any) []map[string]a
 	for _, in := range inputs {
 		ssql.Emit(copyRow(in))
 	}
-	time.Sleep(500 * time.Millisecond) // 让窗口触发 + sink 回调执行完毕
-	ssql.Stop()                        // 停止并 join sink worker：在跑回调跑完、不再有并发写 out
+	time.Sleep(500 * time.Millisecond) // Let the window trigger + sink callback to finish
+	ssql.Stop()                        // Stop and join sink worker: After running the callback, no more concurrent writes out
 	mu.Lock()
 	result := out
 	mu.Unlock()
@@ -79,7 +79,7 @@ func copyRow(in map[string]any) map[string]any {
 	return out
 }
 
-// assertRows 按序断言结果行（直接路径结果有序）。
+// assertRows asserts the result rows in order (direct path results are ordered).
 func assertRows(t *testing.T, sql string, got, want []map[string]any) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
@@ -89,10 +89,10 @@ func assertRows(t *testing.T, sql string, got, want []map[string]any) {
 
 func TestAnalytic_ChangedCols(t *testing.T) {
 	d := analyticDemo()
-	// 单列无前缀：首值 + 变化值
+	// Single column without prefix: initial value + change value
 	assertRows(t, "E1", runDirect(t, `SELECT changed_cols("", true, temperature) FROM stream`, d),
 		[]map[string]any{{"temperature": 23}, {"temperature": 25}})
-	// 多列带前缀
+	// Many are prefixed with a row of belts
 	assertRows(t, "E2", runDirect(t, `SELECT changed_cols("c_", true, temperature, humidity) FROM stream`, d),
 		[]map[string]any{
 			{"c_temperature": 23, "c_humidity": 88},
@@ -100,7 +100,7 @@ func TestAnalytic_ChangedCols(t *testing.T) {
 			{"c_humidity": 90},
 			{"c_humidity": 91},
 		})
-	// 不忽略 null + *：每行至少输出变化的 ts
+	// Do not ignore null + *: output at least the change in ts per line
 	assertRows(t, "E3", runDirect(t, `SELECT changed_cols("c_", false, "*") FROM stream`, d),
 		[]map[string]any{
 			{"c_ts": 1, "c_temperature": 23, "c_humidity": 88},
@@ -129,7 +129,7 @@ func TestAnalytic_HadChanged_Where(t *testing.T) {
 
 func TestAnalytic_ChangedCol_AliasAndWhere(t *testing.T) {
 	d := analyticDemo()
-	// 别名：nil 字段省略、全 nil 行抑制
+	// Alias: nil field omitted, full nil row suppression
 	assertRows(t, "E7", runDirect(t, `SELECT changed_col(true, temperature) AS myTemp, changed_col(true, humidity) AS myHum FROM stream`, d),
 		[]map[string]any{
 			{"myTemp": 23, "myHum": 88},
@@ -137,19 +137,19 @@ func TestAnalytic_ChangedCol_AliasAndWhere(t *testing.T) {
 			{"myHum": 90},
 			{"myHum": 91},
 		})
-	// WHERE 比较
+	// WHERE comparison
 	assertRows(t, "E8", runDirect(t, `SELECT ts, temperature, humidity FROM stream WHERE changed_col(true, temperature) > 24`, d),
 		[]map[string]any{{"ts": 4, "temperature": 25, "humidity": 88}})
 }
 
 func TestAnalytic_LagLatest(t *testing.T) {
 	d := analyticDemo()
-	// lag：首事件无前值
+	// lag: The first event has no previous value
 	got := runDirect(t, `SELECT temperature, lag(temperature) AS prev FROM stream`, d)
 	if len(got) != 8 || got[0]["prev"] != nil || got[1]["prev"] != 23 || got[3]["prev"] != 23 {
 		t.Errorf("lag unexpected: %v", got)
 	}
-	// latest：最新非空值
+	// latest: Latest non-null value
 	gotL := runDirect(t, `SELECT latest(temperature) AS lt FROM stream`, d)
 	if len(gotL) != 8 || gotL[0]["lt"] != 23 || gotL[3]["lt"] != 25 {
 		t.Errorf("latest unexpected: %v", gotL)
@@ -157,14 +157,14 @@ func TestAnalytic_LagLatest(t *testing.T) {
 }
 
 func TestAnalytic_LagWhenHadChanged(t *testing.T) {
-	// lag 示例3：WHEN 内嵌 had_changed + 算术 ts - lag(ts,1,ts,true)
+	// lag Example 3: WHEN embedding had_changed + arithmetic ts - lag(ts,1,ts,true)
 	in := []map[string]any{
 		{"ts": 1, "Status": "A", "statusCode": 100},
 		{"ts": 5, "Status": "A", "statusCode": 100},
 		{"ts": 8, "Status": "B", "statusCode": 200},
 		{"ts": 12, "Status": "B", "statusCode": 300},
 	}
-	// 仅断言可解析执行 + prevStatus 正确（duration 的 WHEN 门控语义见设计文档）
+	// Only assert that parsable execution + prevStatus is correct (WHEN gating semantics for duration are in the design documentation)
 	got := runDirect(t, `SELECT ts, lag(Status) AS prevStatus, ts - lag(ts, 1, ts, true) OVER (WHEN had_changed(true, statusCode)) AS duration FROM stream`, in)
 	wantPrev := []any{nil, "A", "A", "B"}
 	for i, r := range got {
@@ -189,13 +189,13 @@ func TestAnalytic_Acc(t *testing.T) {
 }
 
 func TestAnalytic_AccConditional(t *testing.T) {
-	// acc_count(a, a>1, a<0)：a>1 开始累计，a<0 归零。a:1,2,1,3,-1,1 → 0,1,2,3,0,0
+	// acc_count(a, a>1, a<0): a>1 starts accumulation, a<0 resets to zero. a:1,2,1,3,-1,1 → 0,1,2,3,0,0
 	in := []map[string]any{{"a": 1}, {"a": 2}, {"a": 1}, {"a": 3}, {"a": -1}, {"a": 1}}
 	assertRows(t, "条件 acc_count", runDirect(t, `SELECT acc_count(a, a > 1, a < 0) AS c FROM stream`, in),
 		[]map[string]any{{"c": int64(0)}, {"c": int64(1)}, {"c": int64(2)}, {"c": int64(3)}, {"c": int64(0)}, {"c": int64(0)}})
 }
 
-// sortedFloatField 从结果行提取某字段的数值并排序（窗口 sink 异步无序，按集合比较）。
+// sortedFloatField extracts the value of a field from the result row and sorts it (window sink is asynchronously unsorted, compared by set).
 func sortedFloatField(rows []map[string]any, key string) []float64 {
 	var out []float64
 	for _, r := range rows {
@@ -217,14 +217,14 @@ func toFloatVal(v any) float64 {
 	return 0
 }
 
-// 分组+分析：分析函数按 GROUP BY 键分区，各分组跨窗口状态独立（不串扰）。
+// Grouping + Analysis: The analysis function is partitioned by the GROUP BY key, with each group independent across window states (no crosstalk).
 func TestAnalytic_Window_GroupPartition(t *testing.T) {
 	in := []map[string]any{
 		{"deviceId": "A", "temp": 10.0}, {"deviceId": "B", "temp": 5.0},
 		{"deviceId": "A", "temp": 20.0}, {"deviceId": "B", "temp": 15.0},
 		{"deviceId": "A", "temp": 30.0},
 	}
-	// CountingWindow(1)：每事件一窗。acc_sum(avg(temp)) 跨窗口累计，按 deviceId 分区。
+	// CountingWindow(1): One window per event. acc_sum(avg(temp)) Accumulates across windows, partitioned by deviceId.
 	got := runWindow(t, `SELECT deviceId, acc_sum(avg(temp)) AS s FROM stream GROUP BY deviceId, CountingWindow(1)`, in)
 	byDev := map[string][]float64{}
 	for _, r := range got {
@@ -234,18 +234,18 @@ func TestAnalytic_Window_GroupPartition(t *testing.T) {
 	for _, v := range byDev {
 		sort.Float64s(v)
 	}
-	// A: avg=10,20,30 → 累计 10,30,60；B: avg=5,15 → 累计 5,20。分区独立。
+	// A: avg=10, 20, 30 → cumulative 10, 30, 60; B: avg=5, 15 → cumulative 5, 20. Independent districts.
 	if len(byDev["A"]) != 3 || byDev["A"][0] != 10 || byDev["A"][1] != 30 || byDev["A"][2] != 60 ||
 		len(byDev["B"]) != 2 || byDev["B"][0] != 5 || byDev["B"][1] != 20 {
-		t.Errorf("分组分区错误: A=%v B=%v (want A=[10,30,60] B=[5,20])", byDev["A"], byDev["B"])
+		t.Errorf("Partition error: A=%v B=%v (want A=[10,30,60] B=[5,20])", byDev["A"], byDev["B"])
 	}
 }
 
-// E4：窗口内变化检测——changed_cols 包裹 avg，对窗口输出做变化检测。
+// E4: Window Change Detection—changed_cols Wrap AVG to perform change detection on window output.
 func TestAnalytic_Window_ChangedColsOverAgg(t *testing.T) {
 	d := analyticDemo()
-	// CountingWindow(2) → 窗口均值 23,24,25,25；changed_cols 跨窗口比较：
-	// 23(首),24(变),25(变),25(未变→抑制) → tavg:23,24,25
+	// CountingWindow(2) → Window Average 23,24,25,25; changed_cols Cross-window comparison:
+	// 23 (head), 24 (variant), 25 (invariant), 25 (unchanged → suppressed) → tavg:23, 24, 25
 	got := runWindow(t, `SELECT changed_cols("t", true, avg(temperature)) FROM stream GROUP BY CountingWindow(2)`, d)
 	vals := sortedFloatField(got, "tavg")
 	want := []float64{23, 24, 25}
@@ -254,10 +254,10 @@ func TestAnalytic_Window_ChangedColsOverAgg(t *testing.T) {
 	}
 }
 
-// 窗口内累计——acc_sum 包裹 avg，跨窗口累计求和。
+// Accumulate within the window—acc_sum packet avg, sum across windows.
 func TestAnalytic_Window_AccSumOverAgg(t *testing.T) {
 	d := analyticDemo()
-	// 4 窗口 avg=23,24,25,25 → 跨窗口累计求和 23,47,72,97
+	// 4 window avg = 23, 24, 25, 25 → cumulative sum across windows 23, 47, 72, 97
 	got := runWindow(t, `SELECT acc_sum(avg(temperature)) AS s FROM stream GROUP BY CountingWindow(2)`, d)
 	vals := sortedFloatField(got, "s")
 	want := []float64{23, 47, 72, 97}
@@ -273,8 +273,8 @@ func TestAnalytic_Window_AccSumOverAgg(t *testing.T) {
 	}
 }
 
-// acc_sum 直连 vs 窗口：同样数据，结果不同（累积频率/对象/行数均不同）。
-// 直连逐事件累积原始 v；窗口里 acc_sum 必须包裹聚合，对窗口结果跨窗口累积。
+// acc_sum Direct Connection vs. Windows: Same data, different results (cumulative frequency/objects/rows all vary).
+// Direct connection of events accumulates the original v; acc_sum in the window must be wrapped and aggregated, and the results of the window must be accumulated across windows.
 func TestAnalytic_AccSum_WindowVsDirect(t *testing.T) {
 	v := []map[string]any{{"v": 1}, {"v": 2}, {"v": 3}, {"v": 4}}
 
@@ -290,14 +290,14 @@ func TestAnalytic_AccSum_WindowVsDirect(t *testing.T) {
 	wantDirect := []float64{1, 3, 6, 10}
 	wantWin := []float64{3, 10}
 	if !reflect.DeepEqual(directVals, wantDirect) {
-		t.Errorf("直连 acc_sum(v)=%v want %v", directVals, wantDirect)
+		t.Errorf("Direct connection acc_sum(v) = %v want %v", directVals, wantDirect)
 	}
 	if !reflect.DeepEqual(winVals, wantWin) {
-		t.Errorf("窗口 acc_sum(sum(v))=%v want %v", winVals, wantWin)
+		t.Errorf("Window acc_sum(sum(v))) = %v want %v", winVals, wantWin)
 	}
 }
 
-// acc_sum 累积状态按实例隔离：两实例交叉 Emit，各自独立累积、互不影响。
+// acc_sum Cumulative State Isolated by Instance: Two instances cross Emit, each independently accumulated without affecting each other.
 func TestAnalytic_AccSum_InstanceIsolation(t *testing.T) {
 	a := streamsql.New()
 	defer a.Stop()
@@ -316,7 +316,7 @@ func TestAnalytic_AccSum_InstanceIsolation(t *testing.T) {
 			t.Fatalf("EmitSync v=%v: %v", v, err)
 		}
 		if r == nil {
-			t.Fatalf("EmitSync v=%v 返回 nil", v)
+			t.Fatalf("EmitSync v=%v Returns nil", v)
 		}
 		return r
 	}
@@ -326,7 +326,7 @@ func TestAnalytic_AccSum_InstanceIsolation(t *testing.T) {
 		}
 	}
 
-	// 交叉 Emit：若累积状态全局共享会互相污染
+	// Cross-Emit: If accumulated states are shared globally, they will cause mutual contamination
 	check(emit(a, 1), 1)
 	check(emit(b, 10), 10)
 	check(emit(a, 2), 3)
@@ -334,54 +334,54 @@ func TestAnalytic_AccSum_InstanceIsolation(t *testing.T) {
 	check(emit(a, 3), 6)
 }
 
-// === 解析放行但曾运行期静默错值/空的回归（B1-B4 修复）===
+// === Regression of parse release but previously runtime silence error/empty (B1-B4 fix) ===
 
-// B1: 算术表达式包分析函数——分析结果回代入外层表达式再求值。
+// B1: Arithmetic expression package analysis function—the analysis results are substituted back into the outer expression for further evaluation.
 func TestRuntimeFix_B1_ArithmeticAroundAnalytic(t *testing.T) {
 	d := []map[string]any{
 		{"k": "d1", "ts": 1}, {"k": "d1", "ts": 2}, {"k": "d1", "ts": 3}, {"k": "d2", "ts": 10},
 	}
-	// ts - lag(ts)：d1 → [nil,1,1]；d2 首行无 lag → nil。
+	// ts - lag(ts):d1 → [nil,1,1];  d2 first line has no lag → nil.
 	got := runDirect(t, `SELECT ts - lag(ts) OVER (PARTITION BY k) AS d FROM stream`, d)
 	assertNumericField(t, "B1 ts-lag", got, "d", []any{nil, 1.0, 1.0, nil})
-	// 100 - lag(ts)：d1 → [nil,99,98]；d2 → nil。
+	// 100 - lag(ts): d1 → [nil,99,98]; d2 → nil.
 	got = runDirect(t, `SELECT 100 - lag(ts) OVER (PARTITION BY k) AS d FROM stream`, d)
 	assertNumericField(t, "B1 100-lag", got, "d", []any{nil, 99.0, 98.0, nil})
-	// 纯分析字段不受回代影响：lag 仍 [nil,1,2,nil]。
+	// Pure analysis fields are not affected by reproduction: lag is still [nil,1,2,nil].
 	got = runDirect(t, `SELECT lag(ts) OVER (PARTITION BY k) AS p FROM stream`, d)
 	assertNumericField(t, "B1 plain lag", got, "p", []any{nil, 1.0, 2.0, nil})
 }
 
-// B2: 裸分析函数作 WHERE 条件——值型分析函数走 nil 判定（变化到 0 也要选中）。
+// B2: Use the bare analysis function as a WHERE condition—the value-type analysis function should follow the nil determination (even if it changes to 0, select it).
 func TestRuntimeFix_B2_BareAnalyticInWhere(t *testing.T) {
 	d := []map[string]any{{"temp": 5}, {"temp": 5}, {"temp": 0}, {"temp": 3}}
-	// changed_col：变化行（含变化到 0）→ 5,0,3；未变化的第二行被过滤。
+	// changed_col: Varied rows (including changes to 0) → 5, 0, 3; the second unchanged row is filtered.
 	got := runDirect(t, `SELECT temp FROM stream WHERE changed_col(true, temp)`, d)
 	assertTempSeq(t, "B2 changed_col", got, []float64{5, 0, 3})
-	// 显式 > 0 排除 0 → 5,3（旧行为不变）。
+	// Explicitly > 0 excludes 0 → 5,3 (old behavior unchanged).
 	got = runDirect(t, `SELECT temp FROM stream WHERE changed_col(true, temp) > 0`, d)
 	assertTempSeq(t, "B2 changed_col>0", got, []float64{5, 3})
-	// had_changed 裸作 WHERE：返回 bool 直判 → 5,0,3。
+	// had_changed Raw work WHERE: Return bool direct judgment → 5, 0, 3.
 	got = runDirect(t, `SELECT temp FROM stream WHERE had_changed(true, temp)`, d)
 	assertTempSeq(t, "B2 had_changed", got, []float64{5, 0, 3})
 }
 
-// B3: 窗口分析函数参数为"聚合+运算"复合表达式——抽内层聚合、留外层运算符。
+// B3: The window analysis function parameter is a "aggregation + operation" composite expression — extract the inner layer of aggregation and leave the outer layer operators.
 func TestRuntimeFix_B3_CompositeArgInlineAgg(t *testing.T) {
 	d := []map[string]any{{"temp": 23}, {"temp": 25}, {"temp": 25}, {"temp": 30}}
-	// CountingWindow(2) → 两窗 avg=24,27.5；avg(temp)+1 → 25,28.5。
+	// CountingWindow(2) → Two windows avg=24, 27.5; avg(temp)+1 → 25, 28.5.
 	got := runWindow(t, `SELECT changed_col(true, avg(temp) + 1) AS c FROM stream GROUP BY CountingWindow(2)`, d)
 	if vals := sortedFloatField(got, "c"); !reflect.DeepEqual(vals, []float64{25, 28.5}) {
 		t.Errorf("B3 avg+1: got %v, want [25, 28.5]", vals)
 	}
-	// 纯 avg(temp) 基线不变 → 24,27.5。
+	// Pure AVG (temp) baseline unchanged → 24, 27.5.
 	got = runWindow(t, `SELECT changed_col(true, avg(temp)) AS c FROM stream GROUP BY CountingWindow(2)`, d)
 	if vals := sortedFloatField(got, "c"); !reflect.DeepEqual(vals, []float64{24, 27.5}) {
 		t.Errorf("B3 avg baseline: got %v, want [24, 27.5]", vals)
 	}
 }
 
-// B4: 窗口分析函数参数用限定列（表.列）——运行期剥前缀解析到 GROUP BY 键值，不返回字面串。
+// B4: Window analysis function parameters use limited columns (tables). column) — Runtime stripping of prefixes to the GROUP BY key does not return literal strings.
 func TestRuntimeFix_B4_QualifiedColumnArg(t *testing.T) {
 	d := []map[string]any{{"k": "d1"}, {"k": "d1"}, {"k": "d2"}, {"k": "d2"}}
 	got := runWindow(t, `SELECT changed_col(true, stream.k) AS c FROM stream GROUP BY k, CountingWindow(2)`, d)
@@ -398,7 +398,7 @@ func TestRuntimeFix_B4_QualifiedColumnArg(t *testing.T) {
 	}
 }
 
-// assertNumericField 按序断言字段值：want[i]==nil 期望 nil；否则按浮点比较（容 int/float64）。
+// assertNumericField Sequentially asserts field values: want[i]==nil Expectation nil; Otherwise, compare by floating-point (accommodates int/float64).
 func assertNumericField(t *testing.T, label string, got []map[string]any, key string, want []any) {
 	t.Helper()
 	if len(got) != len(want) {
@@ -419,7 +419,7 @@ func assertNumericField(t *testing.T, label string, got []map[string]any, key st
 	}
 }
 
-// assertTempSeq 按序断言 temp 字段的浮点值序列（直连路径有序）。
+// assertTempSeq asserts the floating-point sequence of temp fields in order (direct path order).
 func assertTempSeq(t *testing.T, label string, got []map[string]any, want []float64) {
 	t.Helper()
 	vals := make([]float64, 0, len(got))

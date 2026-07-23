@@ -1,122 +1,122 @@
-# StreamSQL 非聚合场景使用示例
+# StreamSQL Example of non-aggregated scenario usage
 
-本示例展示了StreamSQL在非聚合场景中的各种应用，包括实时数据转换、过滤、清洗等功能。
+This example demonstrates various applications of StreamSQL in non-aggregated scenarios, including real-time data conversion, filtering, cleaning, and more.
 
-## 运行示例
+## Running Example
 
 ```bash
 cd examples/non-aggregation
 go run main.go
 ```
 
-## 场景说明
+## Scenario description
 
-### 1. 实时数据清洗和标准化
+### 1. Real-time data cleaning and standardization
 
-**场景描述**: 对输入的脏数据进行清洗和标准化处理，包括：
-- 空值处理（COALESCE）
-- 字符串规范化（UPPER, TRIM）
-- 数值精度处理（ROUND）
-- 状态码转换（CASE WHEN）
-- 无效数据过滤（WHERE条件）
+**Scenario Description**: Cleaning and standardizing dirty input data, including:
+- Null Value Handling (COALESCE)
+- String normalization (UPPER, TRIM)
+- Numerical Precision Processing (ROUND)
+- Status code conversion (CASE WHEN)
+- Invalid data filtering (WHERE condition)
 
-**适用场景**:
-- IoT设备数据清洗
-- 日志标准化处理
-- 数据质量保证
+**Applicable Scenarios**:
+- IoT Equipment data cleaning
+- Log standardization
+- Data quality assurance
 
-### 2. 数据富化和计算字段
+### 2. Data enrichment and computation fields
 
-**场景描述**: 基于原始数据计算和添加新字段，包括：
-- 单位转换（摄氏度转华氏度）
-- 分类标签生成（温度分级）
-- 字符串拼接（全标识符）
-- 时间戳添加
-- 比率计算
+**Scenario Description**: Calculate and add new fields based on raw data, including:
+- Unit conversion (Celsius to Fahrenheit)
+- Classification label generation (temperature grading)
+- String concatenation (full identifier)
+- Add timestamps
+- Ratio calculation
 
-**适用场景**:
-- 数据预处理
-- 业务规则应用
-- 指标计算
+**Applicable Scenarios**:
+- Data preprocessing
+- Application of business rules
+- Indicator calculation
 
-### 3. 实时告警和事件过滤
+### 3. Real-time alerts and event filtering
 
-**场景描述**: 实时检测异常数据并生成告警事件，包括：
-- 阈值检测
-- 告警级别分类
-- 告警消息生成
-- 时间戳记录
+**Scenario Description**: Real-time detection of abnormal data and generation of alarm events, including:
+- Threshold detection
+- Alarm level classification
+- Alert message generation
+- Timestamp records
 
-**适用场景**:
-- 监控系统
-- 异常检测
-- 实时告警
+**Applicable Scenarios**:
+- Monitoring system
+- Anomaly detection
+- Real-time alerts
 
-### 4. 数据格式转换
+### 4. Data format conversion
 
-**场景描述**: 将数据转换为不同的格式，包括：
-- JSON格式输出
-- CSV格式输出
-- 自定义格式转换
+**Scenario Description**: Convert data into different formats, including:
+- JSON Format output
+- CSV Format output
+- Custom format conversion
 
-**适用场景**:
-- 数据接口适配
-- 多系统集成
-- 数据导出
+**Applicable Scenarios**:
+- Data interface adaptation
+- Multi-system integration
+- Data export
 
-### 5. 基于条件的数据路由
+### 5. Condition-based data routing
 
-**场景描述**: 根据数据内容决定数据的路由目标，包括：
-- 条件路由规则
-- 优先级分类
-- 主题分发
+**Scenario Description**: Determine the routing target based on the data content, including:
+- Conditional routing rules
+- Priority classification
+- Themed distribution
 
-**适用场景**:
-- 消息队列路由
-- 数据分发
-- 负载均衡
+**Applicable Scenarios**:
+- Message queue routing
+- Data distribution
+- Load balancing
 
-### 6. 嵌套字段处理
+### 6. Nested field processing
 
-**场景描述**: 处理复杂的嵌套JSON数据，包括：
-- 深层字段提取
-- 嵌套字段组合
-- 条件判断
+**Scenario Description**: Handling complex nested JSON data, including:
+- Deep field extraction
+- Nested field combinations
+- Conditional judgment
 
-**适用场景**:
-- JSON数据处理
-- 复杂数据结构解析
-- API数据转换
+**Applicable Scenarios**:
+- JSON Data processing
+- Parsing complex data structures
+- API Data transformation
 
-## 核心特性
+## Core Features
 
-### 实时处理
-- 每条数据立即处理，无需等待窗口
-- 超低延迟，适合实时场景
-- 支持高吞吐量数据流
+### Real-time processing
+- Every data entry is processed instantly, with no waiting windows
+- Ultra-low latency, suitable for real-time scenarios
+- Supports high-throughput data streams
 
-### 丰富的函数支持
-- 字符串处理：UPPER, LOWER, TRIM, CONCAT, SUBSTRING等
-- 数学计算：ROUND, CAST, 算术运算等
-- 条件判断：CASE WHEN, COALESCE, IF等
-- 时间函数：NOW, DATE_FORMAT等
-- 类型转换：CAST, TO_JSON等
+### Rich function support
+- String handling: UPPER, LOWER, TRIM, CONCAT, SUBSTRING, etc
+- Mathematical calculation: ROUND, CAST, arithmetic operations, etc
+- Conditional judgment: CASE WHEN, COALESCE, IF, etc
+- Time function: NOW, DATE_FORMAT, etc
+- Type conversion: CAST, TO_JSON, etc
 
-### 灵活的字段操作
-- 字段选择和别名
-- 嵌套字段访问（点号语法）
-- 计算字段生成
-- 表达式计算
+### Flexible field operations
+- Field selection and aliases
+- Nested Field Access (Dotted Syntax)
+- Calculate field generation
+- Expression calculation
 
-### 强大的过滤能力
-- WHERE条件过滤
-- 复杂表达式支持
-- 多条件组合（AND, OR）
-- 模式匹配（LIKE 语法）
+### Powerful filtration capabilities
+- WHERE Conditional filtering
+- Support for complex expressions
+- Multi-conditional combination (AND, OR)
+- Pattern matching (LIKE syntax)
 
-## 性能特点
+## Performance Features
 
-- **低延迟**: 每条数据立即处理输出
-- **高吞吐**: 支持高频数据流
-- **内存友好**: 无需缓存数据，即时处理
-- **CPU高效**: 简单的数据转换操作
+- **Low latency**: Each data item is processed as output immediately
+- **High Throughput**: Supports high-frequency data streams
+- **Memory-friendly**: No need for caching data, instant processing
+- **CPU Efficient**: Simple data conversion operations

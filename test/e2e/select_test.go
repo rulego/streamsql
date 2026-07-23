@@ -6,9 +6,9 @@ import (
 	"github.com/rulego/streamsql"
 )
 
-// TestSelectAllAsterisk 锁定 SELECT * 行为：返回输入行的全部字段。
-// 回归保护：parser 曾把 * 误判为 TokenIdent（实为 TokenAsterisk），
-// 导致 SelectAll 标志永不置真（死代码）。修复后 SELECT * 仍应输出所有字段。
+// TestSelectAllAsterisk Lock SELECT * behavior: Returns all fields in the input row.
+// Regression protection: parser once misjudged * as TokenIdent (actually TokenAsterisk),
+// This causes the SelectAll flag to never be true (dead code). After fixing, SELECT * should still output all fields.
 func TestSelectAllAsterisk(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
@@ -34,7 +34,7 @@ func TestSelectAllAsterisk(t *testing.T) {
 	}
 }
 
-// TestSelectAllWithWhere 验证 SELECT * 与 WHERE 共存：先过滤再输出全部字段。
+// TestSelectAllWithWhere Verify that SELECT * coexists with WHERE: filter first, then output all fields.
 func TestSelectAllWithWhere(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()

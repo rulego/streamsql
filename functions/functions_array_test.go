@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// 测试数组函数
+// Test array functions
 func TestArrayFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -264,7 +264,7 @@ func TestArrayFunctionsUnhashable(t *testing.T) {
 	}
 }
 
-// TestArrayFunctionErrors 测试数组函数的错误处理
+// TestArrayFunctionErrors tests error handling of array functions
 func TestArrayFunctionErrors(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -272,39 +272,39 @@ func TestArrayFunctionErrors(t *testing.T) {
 		args     []any
 		wantErr  bool
 	}{
-		// array_length 错误测试
+		// array_length Error testing
 		{"array_length nil", "array_length", []any{nil}, true},
 		{"array_length invalid type", "array_length", []any{"not an array"}, true},
 
-		// array_contains 错误测试
+		// array_contains Error testing
 		{"array_contains nil array", "array_contains", []any{nil, 1}, true},
 		{"array_contains invalid type", "array_contains", []any{"not an array", 1}, true},
 
-		// array_position 错误测试
+		// array_position Error testing
 		{"array_position nil array", "array_position", []any{nil, 1}, true},
 		{"array_position invalid type", "array_position", []any{"not an array", 1}, true},
 
-		// array_remove 错误测试
+		// array_remove Error testing
 		{"array_remove nil array", "array_remove", []any{nil, 1}, true},
 		{"array_remove invalid type", "array_remove", []any{"not an array", 1}, true},
 
-		// array_distinct 错误测试
+		// array_distinct Error testing
 		{"array_distinct nil", "array_distinct", []any{nil}, true},
 		{"array_distinct invalid type", "array_distinct", []any{"not an array"}, true},
 
-		// array_intersect 错误测试
+		// array_intersect Error testing
 		{"array_intersect first nil", "array_intersect", []any{nil, []any{1, 2}}, true},
 		{"array_intersect second nil", "array_intersect", []any{[]any{1, 2}, nil}, true},
 		{"array_intersect first invalid type", "array_intersect", []any{"not an array", []any{1, 2}}, true},
 		{"array_intersect second invalid type", "array_intersect", []any{[]any{1, 2}, "not an array"}, true},
 
-		// array_union 错误测试
+		// array_union Error testing
 		{"array_union first nil", "array_union", []any{nil, []any{1, 2}}, true},
 		{"array_union second nil", "array_union", []any{[]any{1, 2}, nil}, true},
 		{"array_union first invalid type", "array_union", []any{"not an array", []any{1, 2}}, true},
 		{"array_union second invalid type", "array_union", []any{[]any{1, 2}, "not an array"}, true},
 
-		// array_except 错误测试
+		// array_except Error testing
 		{"array_except first nil", "array_except", []any{nil, []any{1, 2}}, true},
 		{"array_except second nil", "array_except", []any{[]any{1, 2}, nil}, true},
 		{"array_except first invalid type", "array_except", []any{"not an array", []any{1, 2}}, true},

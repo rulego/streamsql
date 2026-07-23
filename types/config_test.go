@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestConfig 测试 Config 结构体的基本功能
+// TestConfig tests the basic functionality of the Config structure
 func TestConfig(t *testing.T) {
 	config := &Config{
 		WindowConfig: WindowConfig{
@@ -73,7 +73,7 @@ func TestConfig(t *testing.T) {
 		},
 	}
 
-	// 验证基本字段
+	// Validate the basic field
 	if config.WindowConfig.Type != "tumbling" {
 		t.Errorf("Expected window type 'tumbling', got '%s'", config.WindowConfig.Type)
 	}
@@ -123,7 +123,7 @@ func TestConfig(t *testing.T) {
 	}
 }
 
-// TestWindowConfig 测试 WindowConfig 结构体
+// TestWindowConfig tests the WindowConfig structure
 func TestWindowConfig(t *testing.T) {
 	windowConfig := WindowConfig{
 		Type:        "sliding",
@@ -164,7 +164,7 @@ func TestWindowConfig(t *testing.T) {
 	}
 }
 
-// TestFieldExpression 测试 FieldExpression 结构体
+// TestFieldExpression tests the FieldExpression structure
 func TestFieldExpression(t *testing.T) {
 	fieldExpr := FieldExpression{
 		Field:      "total_amount",
@@ -192,7 +192,7 @@ func TestFieldExpression(t *testing.T) {
 	}
 }
 
-// TestProjection 测试 Projection 结构体
+// TestProjection Test the Projection structure
 func TestProjection(t *testing.T) {
 	projection := Projection{
 		SourceType: SourceGroupKey,
@@ -213,7 +213,7 @@ func TestProjection(t *testing.T) {
 	}
 }
 
-// TestPerformanceConfig 测试 PerformanceConfig 结构体
+// TestPerformanceConfig Tests the PerformanceConfig structure
 func TestPerformanceConfig(t *testing.T) {
 	perfConfig := PerformanceConfig{
 		BufferConfig: BufferConfig{
@@ -251,11 +251,11 @@ func TestPerformanceConfig(t *testing.T) {
 	}
 }
 
-// TestConfigDefaults 测试 Config 结构体的默认值
+// TestConfigDefaults tests the default value of the Config structure
 func TestConfigDefaults(t *testing.T) {
 	config := &Config{}
 
-	// 验证默认值
+	// Verify the default value
 	if config.NeedWindow {
 		t.Error("Expected NeedWindow default to be false")
 	}
@@ -281,11 +281,11 @@ func TestConfigDefaults(t *testing.T) {
 	}
 }
 
-// TestNewConfig 测试NewConfig函数
+// TestNewConfig tests the NewConfig function
 func TestNewConfig(t *testing.T) {
 	config := NewConfig()
 
-	// 验证默认值
+	// Verify the default value
 	assert.False(t, config.NeedWindow)
 	assert.False(t, config.Distinct)
 	assert.Equal(t, 0, config.Limit)
@@ -300,7 +300,7 @@ func TestNewConfig(t *testing.T) {
 	assert.Empty(t, config.Projections)
 }
 
-// TestNewConfigWithPerformance 测试NewConfigWithPerformance函数
+// TestNewConfigWithPerformance Tests the NewConfigWithPerformance function
 func TestNewConfigWithPerformance(t *testing.T) {
 	perfConfig := PerformanceConfig{
 		BufferConfig: BufferConfig{
@@ -314,21 +314,21 @@ func TestNewConfigWithPerformance(t *testing.T) {
 
 	config := NewConfigWithPerformance(perfConfig)
 
-	// 验证性能配置已设置
+	// Verify that performance configurations are set
 	assert.Equal(t, 200, config.PerformanceConfig.BufferConfig.DataChannelSize)
 	assert.Equal(t, 150, config.PerformanceConfig.BufferConfig.ResultChannelSize)
 	assert.True(t, config.PerformanceConfig.MonitoringConfig.EnableMonitoring)
 
-	// 验证其他字段为默认值
+	// Validate other fields as default values
 	assert.False(t, config.NeedWindow)
 	assert.False(t, config.Distinct)
 }
 
-// TestDefaultPerformanceConfig 测试DefaultPerformanceConfig函数
+// TestDefaultPerformanceConfig tests the DefaultPerformanceConfig function
 func TestDefaultPerformanceConfig(t *testing.T) {
 	config := DefaultPerformanceConfig()
 
-	// 验证缓冲区配置
+	// Verify buffer configuration
 	assert.Equal(t, 1000, config.BufferConfig.DataChannelSize)
 	assert.Equal(t, 100, config.BufferConfig.ResultChannelSize)
 	assert.Equal(t, 50, config.BufferConfig.WindowOutputSize)
@@ -336,27 +336,27 @@ func TestDefaultPerformanceConfig(t *testing.T) {
 	assert.Equal(t, 10000, config.BufferConfig.MaxBufferSize)
 	assert.Equal(t, 0.8, config.BufferConfig.UsageThreshold)
 
-	// 验证溢出配置
+	// Verify the overflow configuration
 	assert.Equal(t, "drop", config.OverflowConfig.Strategy)
 	assert.Equal(t, 5*time.Second, config.OverflowConfig.BlockTimeout)
 	assert.True(t, config.OverflowConfig.AllowDataLoss)
 
-	// 验证工作器配置
+	// Verify worker configuration
 	assert.Equal(t, 4, config.WorkerConfig.SinkPoolSize)
 	assert.Equal(t, 2, config.WorkerConfig.SinkWorkerCount)
 	assert.Equal(t, 10, config.WorkerConfig.MaxRetryRoutines)
 
-	// 验证监控配置
+	// Verify monitoring configuration
 	assert.False(t, config.MonitoringConfig.EnableMonitoring)
 	assert.Equal(t, 30*time.Second, config.MonitoringConfig.StatsUpdateInterval)
 	assert.False(t, config.MonitoringConfig.EnableDetailedStats)
 }
 
-// TestHighPerformanceConfig 测试HighPerformanceConfig函数
+// TestHighPerformanceConfig Tests the HighPerformanceConfig function
 func TestHighPerformanceConfig(t *testing.T) {
 	config := HighPerformanceConfig()
 
-	// 验证高性能配置
+	// Verify high-performance configurations
 	assert.Equal(t, 5000, config.BufferConfig.DataChannelSize)
 	assert.Equal(t, 500, config.BufferConfig.ResultChannelSize)
 	assert.Equal(t, 200, config.BufferConfig.WindowOutputSize)
@@ -366,11 +366,11 @@ func TestHighPerformanceConfig(t *testing.T) {
 	assert.True(t, config.MonitoringConfig.EnableMonitoring)
 }
 
-// TestLowLatencyConfig 测试LowLatencyConfig函数
+// TestLowLatencyConfig Tests the LowLatencyConfig function
 func TestLowLatencyConfig(t *testing.T) {
 	config := LowLatencyConfig()
 
-	// 验证低延迟配置
+	// Verify low-latency configurations
 	assert.Equal(t, 100, config.BufferConfig.DataChannelSize)
 	assert.Equal(t, 50, config.BufferConfig.ResultChannelSize)
 	assert.Equal(t, 20, config.BufferConfig.WindowOutputSize)
@@ -380,7 +380,7 @@ func TestLowLatencyConfig(t *testing.T) {
 	assert.Equal(t, 1*time.Second, config.MonitoringConfig.StatsUpdateInterval)
 }
 
-// TestBufferConfig 测试BufferConfig结构体
+// TestBufferConfig Tests the BufferConfig structure
 func TestBufferConfig(t *testing.T) {
 	config := BufferConfig{
 		DataChannelSize:     1000,
@@ -399,7 +399,7 @@ func TestBufferConfig(t *testing.T) {
 	assert.Equal(t, 0.75, config.UsageThreshold)
 }
 
-// TestWorkerConfig 测试WorkerConfig结构体
+// TestWorkerConfig tests the WorkerConfig structure
 func TestWorkerConfig(t *testing.T) {
 	config := WorkerConfig{
 		SinkPoolSize:     8,
@@ -412,7 +412,7 @@ func TestWorkerConfig(t *testing.T) {
 	assert.Equal(t, 20, config.MaxRetryRoutines)
 }
 
-// TestMonitoringConfig 测试MonitoringConfig结构体
+// TestMonitoringConfig Tests the MonitoringConfig structure
 func TestMonitoringConfig(t *testing.T) {
 	warningThresholds := WarningThresholds{
 		DropRateWarning:     0.01,
@@ -437,14 +437,14 @@ func TestMonitoringConfig(t *testing.T) {
 	assert.Equal(t, 0.95, config.WarningThresholds.BufferUsageCritical)
 }
 
-// TestProjectionSourceType 测试ProjectionSourceType枚举
+// TestProjectionSourceType TestProjectionSourceType enumeration
 func TestProjectionSourceType(t *testing.T) {
 	assert.Equal(t, ProjectionSourceType(0), SourceGroupKey)
 	assert.Equal(t, ProjectionSourceType(1), SourceAggregateResult)
 	assert.Equal(t, ProjectionSourceType(2), SourceWindowProperty)
 }
 
-// TestComplexConfig 测试复杂配置组合
+// TestComplexConfig Tests complex configuration combinations
 func TestComplexConfig(t *testing.T) {
 	config := Config{
 		WindowConfig: WindowConfig{
@@ -506,7 +506,7 @@ func TestComplexConfig(t *testing.T) {
 		PerformanceConfig: HighPerformanceConfig(),
 	}
 
-	// 验证复杂配置
+	// Verify complex configurations
 	assert.Equal(t, "sliding", config.WindowConfig.Type)
 	assert.Len(t, config.GroupFields, 3)
 	assert.Len(t, config.SelectFields, 5)
@@ -519,7 +519,7 @@ func TestComplexConfig(t *testing.T) {
 	assert.Equal(t, 5000, config.Limit)
 	assert.Len(t, config.Projections, 3)
 
-	// 验证字段表达式
+	// Validate the field expression
 	discountedExpr := config.FieldExpressions["discounted_total"]
 	assert.Equal(t, "total_amount", discountedExpr.Field)
 	assert.Equal(t, "total_amount * 0.9", discountedExpr.Expression)
@@ -530,7 +530,7 @@ func TestComplexConfig(t *testing.T) {
 	assert.Equal(t, "total_amount / order_count", pricePerItemExpr.Expression)
 	assert.Equal(t, []string{"total_amount", "order_count"}, pricePerItemExpr.Fields)
 
-	// 验证投影配置
+	// Verify the projection configuration
 	assert.Equal(t, SourceGroupKey, config.Projections[0].SourceType)
 	assert.Equal(t, SourceAggregateResult, config.Projections[1].SourceType)
 	assert.Equal(t, SourceWindowProperty, config.Projections[2].SourceType)

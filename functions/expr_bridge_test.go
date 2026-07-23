@@ -35,18 +35,18 @@ func TestExprBridge(t *testing.T) {
 	bridge := NewExprBridge()
 
 	t.Run("StreamSQL Functions Available", func(t *testing.T) {
-		// 测试StreamSQL函数是否可用
+		// Test whether the StreamSQL function is usable
 		data := map[string]any{
 			"temperature": 25.5,
 			"humidity":    60,
 		}
 
-		// 测试数学函数
+		// Test mathematical functions
 		result, err := bridge.EvaluateExpression("abs(-5)", data)
 		assert.NoError(t, err)
 		assert.Equal(t, float64(5), result)
 
-		// 测试字符串函数
+		// Test string function
 		result, err = bridge.EvaluateExpression("length(\"hello\")", data)
 		assert.NoError(t, err)
 		assert.Equal(t, int(5), result)
@@ -58,12 +58,12 @@ func TestExprBridge(t *testing.T) {
 			"text":    "Hello World",
 		}
 
-		// 测试expr-lang数组函数
+		// Test the expr-lang array function
 		result, err := bridge.EvaluateExpression("len(numbers)", data)
 		assert.NoError(t, err)
 		assert.Equal(t, 5, result)
 
-		// 测试expr-lang字符串函数
+		// Test the expr-lang string function
 		result, err = bridge.EvaluateExpression("trim(\"  hello  \")", data)
 		assert.NoError(t, err)
 		assert.Equal(t, "hello", result)
@@ -74,25 +74,25 @@ func TestExprBridge(t *testing.T) {
 			"values": []float64{-3.5, 2.1, -1.8, 4.2},
 		}
 
-		// 使用StreamSQL的abs函数和expr-lang的filter函数
-		// 注意：这个测试可能需要根据实际实现调整
+		// Use StreamSQL's abs function and expr-lang's filter function
+		// Note: This test may need to be adjusted based on actual implementation
 		env := bridge.CreateEnhancedExprEnvironment(data)
 
-		// 验证环境中包含所有预期的函数
+		// The verification environment contains all expected functions
 		assert.Contains(t, env, "abs")
 		assert.Contains(t, env, "length")
 		assert.Contains(t, env, "values")
 	})
 
 	t.Run("Function Resolution", func(t *testing.T) {
-		// 测试函数解析优先级
+		// Test function parsing priority
 		_, exists, source := bridge.ResolveFunction("abs")
 		assert.True(t, exists)
-		assert.Equal(t, "streamsql", source) // StreamSQL优先
+		assert.Equal(t, "streamsql", source) // StreamSQL is the priority
 
 		_, exists, source = bridge.ResolveFunction("encode")
 		assert.True(t, exists)
-		assert.Equal(t, "streamsql", source) // StreamSQL独有
+		assert.Equal(t, "streamsql", source) // Unique to StreamSQL
 
 		_, exists, _ = bridge.ResolveFunction("nonexistent")
 		assert.False(t, exists)
@@ -101,13 +101,13 @@ func TestExprBridge(t *testing.T) {
 	t.Run("Function Information", func(t *testing.T) {
 		info := bridge.GetFunctionInfo()
 
-		// 验证包含StreamSQL函数信息
+		// Verify that information about the StreamSQL function is included
 		streamSQLFuncs, ok := info["streamsql"].(map[string]any)
 		assert.True(t, ok)
 		assert.Contains(t, streamSQLFuncs, "abs")
 		assert.Contains(t, streamSQLFuncs, "encode")
 
-		// 验证包含expr-lang函数信息
+		// Verify that the information containing the expr-lang function is included
 		exprLangFuncs, ok := info["expr-lang"].(map[string]any)
 		assert.True(t, ok)
 		assert.Contains(t, exprLangFuncs, "trim")
@@ -121,12 +121,12 @@ func TestEvaluateWithBridge(t *testing.T) {
 		"y": -2.1,
 	}
 
-	// 测试简单表达式
+	// Test simple expressions
 	result, err := EvaluateWithBridge("abs(y)", data)
 	assert.NoError(t, err)
 	assert.Equal(t, 2.1, result)
 
-	// 测试复合表达式
+	// Test the composite expression
 	result, err = EvaluateWithBridge("x + abs(y)", data)
 	assert.NoError(t, err)
 	assert.Equal(t, 5.6, result)
@@ -135,21 +135,21 @@ func TestEvaluateWithBridge(t *testing.T) {
 func TestGetAllAvailableFunctions(t *testing.T) {
 	info := GetAllAvailableFunctions()
 
-	// 验证返回的信息结构
+	// Verify the returned information structure
 	assert.Contains(t, info, "streamsql")
 	assert.Contains(t, info, "expr-lang")
 
-	// 验证函数数量合理
+	// The number of verification functions is reasonable
 	streamSQLFuncs := info["streamsql"].(map[string]any)
 	t.Logf("StreamSQL functions count: %d", len(streamSQLFuncs))
 	// for name := range streamSQLFuncs {
 	// 	t.Logf("StreamSQL function: %s", name)
 	// }
-	assert.GreaterOrEqual(t, len(streamSQLFuncs), 1) // 至少应该有一个函数
+	assert.GreaterOrEqual(t, len(streamSQLFuncs), 1) // At the very least, there should be a function
 
 	exprLangFuncs := info["expr-lang"].(map[string]any)
 	t.Logf("Expr-lang functions count: %d", len(exprLangFuncs))
-	assert.GreaterOrEqual(t, len(exprLangFuncs), 1) // 至少应该有一个函数
+	assert.GreaterOrEqual(t, len(exprLangFuncs), 1) // At the very least, there should be a function
 }
 
 func TestFunctionConflictResolution(t *testing.T) {
@@ -158,15 +158,15 @@ func TestFunctionConflictResolution(t *testing.T) {
 		"value": -5.5,
 	}
 
-	// 测试冲突函数的解析（abs函数在两个系统中都存在）
-	// 应该优先使用expr-lang的版本
+	// Testing the parsing of the collision function (the abs function exists in both systems)
+	// The expr-lang version should be prioritized
 	env := bridge.CreateEnhancedExprEnvironment(data)
 
-	// 验证StreamSQL函数可以通过别名访问
+	// Verify that the StreamSQL function can be accessed with an alias
 	assert.Contains(t, env, "streamsql_abs")
 	assert.Contains(t, env, "abs")
 
-	// 测试两个版本都能正常工作
+	// Both versions worked properly
 	result, err := bridge.EvaluateExpression("abs(value)", data)
 	assert.NoError(t, err)
 	assert.Equal(t, 5.5, result)
@@ -181,7 +181,7 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 			"age":  25,
 		}
 
-		// 测试字符串连接表达式检测
+		// Test string concatenation expression detection
 		isConcat := bridge.isStringConcatenationExpression("name + ' is ' + age", data)
 		assert.True(t, isConcat)
 
@@ -194,7 +194,7 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 			"text": "hello",
 		}
 
-		// 测试回退到自定义表达式处理
+		// Test backward to custom expression processing
 		result, err := bridge.fallbackToCustomExpr("text + ' world'", data)
 		assert.NoError(t, err)
 		assert.Equal(t, "hello world", result)
@@ -206,7 +206,7 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 			"second": "World",
 		}
 
-		// 测试字符串连接求值
+		// Test string connection evaluation
 		result, err := bridge.evaluateStringConcatenation("first + ' ' + second", data)
 		assert.NoError(t, err)
 		assert.Equal(t, "Hello World", result)
@@ -218,14 +218,14 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 			"y": 5,
 		}
 
-		// 测试简单数值表达式
+		// Test simple numerical expressions
 		result, err := bridge.evaluateSimpleNumericExpression("x + y", data)
 		assert.NoError(t, err)
 		assert.Equal(t, float64(15), result)
 	})
 
 	t.Run("Function Call Detection", func(t *testing.T) {
-		// 测试函数调用检测
+		// Test function call detection
 		assert.True(t, bridge.isFunctionCall("abs(-5)"))
 		assert.True(t, bridge.isFunctionCall("length('hello')"))
 		assert.False(t, bridge.isFunctionCall("x + y"))
@@ -233,43 +233,43 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 	})
 
 	t.Run("Like Expression Preprocessing", func(t *testing.T) {
-		// 测试LIKE表达式预处理
+		// Test LIKE expression preprocessing
 		processed, err := bridge.PreprocessLikeExpression("name LIKE '%john%'")
 		assert.NoError(t, err)
 		assert.Contains(t, processed, "contains")
 	})
 
 	t.Run("IsNull Expression Preprocessing", func(t *testing.T) {
-		// 测试IS NULL表达式预处理
+		// Test the IS NULL expression preprocessing
 		processed, err := bridge.PreprocessIsNullExpression("field IS NULL")
 		assert.NoError(t, err)
 		assert.Contains(t, processed, "== nil")
 	})
 
 	t.Run("Backtick Identifiers", func(t *testing.T) {
-		// 测试反引号标识符检测
+		// Test backquote identifier detection
 		assert.True(t, bridge.ContainsBacktickIdentifiers("`field_name` = 1"))
 		assert.False(t, bridge.ContainsBacktickIdentifiers("field_name = 1"))
 
-		// 测试反引号标识符预处理
+		// Test backquote identifier preprocessing
 		processed, err := bridge.PreprocessBacktickIdentifiers("`field_name` = 1")
 		assert.NoError(t, err)
 		assert.Contains(t, processed, "field_name")
 	})
 
 	t.Run("Like Pattern Matching", func(t *testing.T) {
-		// 测试LIKE模式匹配
+		// Test LIKE pattern matching
 		assert.True(t, bridge.matchesLikePattern("hello", "h%"))
 		assert.True(t, bridge.matchesLikePattern("world", "%d"))
 		assert.False(t, bridge.matchesLikePattern("hello", "x%"))
 
-		// 测试LIKE匹配
+		// Test LIKE matching
 		assert.True(t, bridge.matchesLikePattern("hello", "h%o"))
 		assert.False(t, bridge.matchesLikePattern("hello", "x%"))
 	})
 
 	t.Run("Type Conversion", func(t *testing.T) {
-		// 测试类型转换
+		// Test type conversion
 		result, err := bridge.toFloat64(10)
 		assert.NoError(t, err)
 		assert.Equal(t, float64(10), result)
@@ -283,7 +283,7 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 	})
 
 	t.Run("Expr Lang Function Detection", func(t *testing.T) {
-		// 测试expr-lang函数检测
+		// Test expr-lang function detection
 		assert.True(t, bridge.IsExprLangFunction("trim"))
 		assert.True(t, bridge.IsExprLangFunction("len"))
 		assert.True(t, bridge.IsExprLangFunction("abs"))
@@ -291,7 +291,7 @@ func TestExprBridgeAdvancedFunctions(t *testing.T) {
 	})
 
 	t.Run("Like to Function Conversion", func(t *testing.T) {
-		// 测试LIKE转换为函数调用
+		// Test LIKE is converted into a function call
 		result := bridge.convertLikeToFunction("name", "%john%")
 		assert.Contains(t, result, "contains")
 		assert.Contains(t, result, "name")
@@ -317,7 +317,7 @@ func TestConvertLikeUnderscoreRoute(t *testing.T) {
 	assert.Contains(t, bridge.convertLikeToFunction("name", "%abc%"), "contains")
 }
 
-// TestExprBridgeComplexExpressions 测试复杂表达式处理
+// TestExprBridgeComplexExpressions tests complex expression handling
 func TestExprBridgeComplexExpressions(t *testing.T) {
 	bridge := NewExprBridge()
 

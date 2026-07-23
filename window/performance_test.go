@@ -8,9 +8,9 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
-// TestTumblingWindowPerformance 测试滚动窗口的性能
+// TestTumblingWindowPerformance Tests the performance of the rolling window
 func TestTumblingWindowPerformance(t *testing.T) {
-	// 测试不同缓冲区大小的性能
+	// Testing performance with different buffer sizes
 	bufferSizes := []int{10, 100, 1000, 5000}
 
 	for _, bufferSize := range bufferSizes {
@@ -23,7 +23,7 @@ func TestTumblingWindowPerformance(t *testing.T) {
 
 			go tw.Start()
 
-			// 模拟高频数据输入
+			// Simulates high-frequency data input
 			dataCount := 10000
 			startTime := time.Now()
 			baseTime := time.Now()
@@ -35,23 +35,23 @@ func TestTumblingWindowPerformance(t *testing.T) {
 				})
 			}
 
-			// 等待处理完成
+			// Wait for processing to complete
 			time.Sleep(2 * time.Second)
 
-			// 获取统计信息
+			// Get statistics
 			stats := tw.GetStats()
 			elapsed := time.Since(startTime)
 
-			t.Logf("缓冲区大小: %d", bufferSize)
-			t.Logf("处理时间: %v", elapsed)
-			t.Logf("发送成功: %d", stats["sentCount"])
-			t.Logf("丢弃数量: %d", stats["droppedCount"])
-			t.Logf("缓冲区利用率: %d/%d", stats["bufferUsed"], stats["bufferSize"])
+			t.Logf("Buffer size: %d", bufferSize)
+			t.Logf("Processing time: %v", elapsed)
+			t.Logf("Sent successfully: %d", stats["sentCount"])
+			t.Logf("Discarded quantity: %d", stats["droppedCount"])
+			t.Logf("Buffer Utilization: %d/%d", stats["bufferUsed"], stats["bufferSize"])
 
-			// 验证没有严重的数据丢失
+			// No serious data loss was verified
 			if bufferSize >= 1000 {
-				if stats["droppedCount"] > int64(dataCount/10) { // 允许最多10%的丢失
-					t.Errorf("丢失数据过多: %d (总数: %d)", stats["droppedCount"], dataCount)
+				if stats["droppedCount"] > int64(dataCount/10) { // Allows up to 10% loss
+					t.Errorf("Excessive data loss: %d (Total: %d)", stats["droppedCount"], dataCount)
 				}
 			}
 
@@ -60,13 +60,13 @@ func TestTumblingWindowPerformance(t *testing.T) {
 	}
 }
 
-// TestData 测试数据结构
+// TestData Tests data structures
 type TestData struct {
 	Ts  time.Time
 	tag string
 }
 
-// BenchmarkTumblingWindowThroughput 测试滚动窗口的吞吐量
+// BenchmarkTumblingWindowThroughput tests the throughput of the rolling window
 func BenchmarkTumblingWindowThroughput(b *testing.B) {
 	tw, _ := NewTumblingWindow(types.WindowConfig{
 		Type:   "TumblingWindow",
@@ -76,7 +76,7 @@ func BenchmarkTumblingWindowThroughput(b *testing.B) {
 
 	go tw.Start()
 
-	// 在后台消费结果，避免阻塞
+	// Backend consumption results to avoid blockages
 	done := make(chan struct{})
 	go func() {
 		for {
@@ -107,17 +107,17 @@ func BenchmarkTumblingWindowThroughput(b *testing.B) {
 		}
 	})
 
-	// 获取最终统计
+	// Get the final stats
 	stats := tw.GetStats()
-	b.Logf("发送成功: %d, 丢弃: %d", stats["sentCount"], stats["droppedCount"])
+	b.Logf("Send successfully: %d, Discard: %d", stats["sentCount"], stats["droppedCount"])
 
 	tw.Stop()
 	close(done)
 }
 
-// TestWindowBufferOverflow 测试缓冲区溢出处理
+// TestWindowBufferOverflow tests buffer overflow handling
 func TestWindowBufferOverflow(t *testing.T) {
-	// 创建一个小缓冲区的窗口
+	// Create a window with a small buffer
 	tw, _ := NewTumblingWindow(types.WindowConfig{
 		Type:   "TumblingWindow",
 		Params: []any{50 * time.Millisecond},
@@ -126,8 +126,8 @@ func TestWindowBufferOverflow(t *testing.T) {
 
 	go tw.Start()
 
-	// 不消费输出，导致缓冲区满
-	// 只添加数据，不读取输出通道
+	// No consumption of output, causing the buffer to be full
+	// Only add data, do not read the output channel
 
 	baseTime := time.Now()
 	for i := 0; i < 100; i++ {
@@ -137,20 +137,20 @@ func TestWindowBufferOverflow(t *testing.T) {
 		})
 	}
 
-	// 等待一段时间让窗口触发
+	// Wait a while for the window to trigger
 	time.Sleep(200 * time.Millisecond)
 
 	stats := tw.GetStats()
-	t.Logf("缓冲区溢出测试 - 发送: %d, 丢弃: %d", stats["sentCount"], stats["droppedCount"])
+	t.Logf("Buffer Overflow Test - Send: %d, Discard: %d", stats["sentCount"], stats["droppedCount"])
 
-	// 应该有数据被丢弃
+	// There should be data discarded
 	if stats["droppedCount"] == 0 {
-		t.Log("预期会有数据丢弃，但实际没有丢弃")
+		t.Log("Data was expected to be discarded, but in reality, it was not")
 	}
 
-	// 验证系统仍然运行正常（没有阻塞）
+	// Verify that the system is still running normally (no blocking)
 	if stats["sentCount"] == 0 {
-		t.Error("应该至少发送了一些数据")
+		t.Error("At least some data should have been sent")
 	}
 
 	tw.Stop()

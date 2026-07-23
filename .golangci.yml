@@ -29,7 +29,7 @@ linters-settings:
   
   gosec:
     excludes:
-      - G404 # 随机数生成器可能不是密码学安全的
+      - G404 # Random number generator may not be cryptographically secure
   
   gocritic:
     enabled-tags:
@@ -50,26 +50,26 @@ linters-settings:
 
 issues:
   exclude-rules:
-    # 排除测试文件中的某些检查
+    # Exclude selected checks in test files
     - path: _test\.go
       linters:
         - gosec
         - errcheck
         - gocyclo
     
-    # 排除CASE表达式测试中的复杂度检查
+    # Exclude complexity checks in CASE expression tests
     - path: streamsql_case_test\.go
       linters:
         - gocyclo
         - funlen
     
-    # 排除generated文件
+    # Exclude generated files
     - path: ".*\\.pb\\.go"
       linters:
         - all
 
   exclude:
-    # 排除一些常见的false positive
+    # Exclude common false positives
     - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*print.*|os\\.(Un)?Setenv). is not checked"
     - "should have a package comment"
 

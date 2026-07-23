@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// function_scenarios_test.go 补充内置函数的端到端 SQL 集成覆盖。
-// 复用 analytic_parity_test.go 中的 runDirect / runWindow / assertRows / toFloatVal 等助手，
-// 对每个函数至少给出确定值的主路径断言，并在有意义处补充边界用例。
+// function_scenarios_test.go supplements the end-to-end SQL integration coverage of built-in functions.
+// Reuse assistants like runDirect / runWindow / assertRows / toFloatVal from analytic_parity_test.go,
+// Provide at least a definite main path assertion for each function, and supplement boundary use cases where they are meaningful.
 
-// emitRow 执行单行并返回结果与错误，不在错误时 fatal（供边界用例观察错误传播）。
+// emitRow executes a single line and returns results and errors, not fatal when errors occur (for boundary use cases to observe error propagation).
 func emitRow(t *testing.T, sql string, row map[string]any) (map[string]any, error) {
 	t.Helper()
 	ssql := streamsql.New()
@@ -25,7 +25,7 @@ func emitRow(t *testing.T, sql string, row map[string]any) (map[string]any, erro
 	return ssql.EmitSync(row)
 }
 
-// scalarVal 取结果行中唯一（别名）字段的值。
+// scalarVal retrieves the value of the unique (alias) field in the result row.
 func scalarVal(row map[string]any) any {
 	for _, v := range row {
 		return v
@@ -33,7 +33,7 @@ func scalarVal(row map[string]any) any {
 	return nil
 }
 
-// numEq 容忍 int/int64/float64 的精确数值比较（用于结果类型随字面量类型变化的情况）。
+// numEq tolerates precise numerical comparisons of int/int64/float64 (used when the result type varies with literal type).
 func numEq(t *testing.T, name string, got any, want float64) {
 	t.Helper()
 	g := toFloatVal(got)
@@ -42,7 +42,7 @@ func numEq(t *testing.T, name string, got any, want float64) {
 	}
 }
 
-// numApprox 同 numEq，但带相对/绝对容差（用于三角/对数等浮点函数）。
+// numApprox is the same as numEq, but with relative and absolute tolerance (used for floating-point functions such as trigonometric and logarithmic).
 func numApprox(t *testing.T, name string, got any, want float64, tol float64) {
 	t.Helper()
 	g := toFloatVal(got)
@@ -51,7 +51,7 @@ func numApprox(t *testing.T, name string, got any, want float64, tol float64) {
 	}
 }
 
-// anySliceEq 比较 got 是否为 []any 且与 want 元素逐一相等；数值元素按 float64 归一比较。
+// anySliceEq compares whether got is []any and equal to the want element one by one; Numeric elements are compared using float64 as normalized.
 func anySliceEq(got any, want []any) bool {
 	g, ok := got.([]any)
 	if !ok || len(g) != len(want) {
@@ -61,7 +61,7 @@ func anySliceEq(got any, want []any) bool {
 		if g[i] == want[i] {
 			continue
 		}
-		// 数值类型归一为 float64 后比较。
+		// After normalizing the numeric type to float64, compare it.
 		if toFloatVal(g[i]) != 0 || toFloatVal(want[i]) != 0 {
 			if toFloatVal(g[i]) == toFloatVal(want[i]) {
 				continue
@@ -81,13 +81,13 @@ func TestFunctionScenarios_DateTime(t *testing.T) {
 		t.Parallel()
 		row, err := emitRow(t, "SELECT now() AS ts FROM stream", map[string]any{"x": 1})
 		require.NoError(t, err)
-		// now() 返回 time.Time。
+		// now() returns time.Time.
 		ts, ok := row["ts"].(time.Time)
 		require.True(t, ok, "now() should return time.Time, got %T", row["ts"])
 		assert.True(t, ts.After(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)), "now()=%v should be after 2024-01-01", ts)
 	})
 
-	// 回归：to_seconds(now()) 与 unix_timestamp() 取当前 Unix 秒，与 created_at（微秒）求差。
+	// Regression: to_seconds(now()) and unix_timestamp() take the current Unix second, and find the difference between created_at (microseconds).
 	t.Run("to_seconds_now_filter_le", func(t *testing.T) {
 		t.Parallel()
 		sql := "SELECT 'hit' AS result, abs(created_at/1000000 - to_seconds(now())) AS ts FROM stream WHERE abs(created_at/1000000 - to_seconds(now())) <= 100.0"
@@ -166,7 +166,7 @@ func TestFunctionScenarios_DateTime(t *testing.T) {
 		require.Len(t, got, 1)
 		tt, ok := got[0]["d"].(time.Time)
 		require.True(t, ok, "convert_tz should return time.Time, got %T", got[0]["d"])
-		// 输入按 UTC 解析，+08:00 后为 18:00:00。
+		// Enter by UTC parsing; after +08:00, it becomes 18:00:00.
 		assert.Equal(t, "2024-01-15 18:00:00", tt.Format("2006-01-02 15:04:05"))
 	})
 
@@ -186,7 +186,7 @@ func TestFunctionScenarios_DateTime(t *testing.T) {
 
 	t.Run("day_hour_dayofweek_dayofyear_extract", func(t *testing.T) {
 		t.Parallel()
-		// 2024-01-15 是周一（Go Weekday=1）。
+		// 2024-01-15 is a Monday (Go Weekday=1).
 		got := runDirect(t,
 			`SELECT day('2024-01-15 10:30:00') AS dy, hour('2024-01-15 10:30:00') AS hr,
 			        dayofweek('2024-01-15 10:30:00') AS dow, dayofyear('2024-01-15 10:30:00') AS doy,
@@ -250,7 +250,7 @@ func TestFunctionScenarios_JSON(t *testing.T) {
 
 	t.Run("json_extract_missing_path_nil", func(t *testing.T) {
 		t.Parallel()
-		// 缺失路径应优雅返回 nil，而非报错。
+		// Missing paths should elegantly return nil rather than errors.
 		row, err := emitRow(t, `SELECT json_extract(j, '$.missing') AS v FROM stream`,
 			map[string]any{"j": `{"a":1}`})
 		require.NoError(t, err)
@@ -285,7 +285,7 @@ func TestFunctionScenarios_Array(t *testing.T) {
 			`SELECT array_position(tags, 'b') AS p, array_position(tags, 'z') AS miss FROM stream`,
 			[]map[string]any{{"tags": []any{"a", "b", "c"}}})
 		require.Len(t, got, 1)
-		numEq(t, "array_position hit", got[0]["p"], 2)  // 1-based
+		numEq(t, "array_position hit", got[0]["p"], 2)     // 1-based
 		numEq(t, "array_position miss", got[0]["miss"], 0) // not found
 	})
 
@@ -346,10 +346,10 @@ func TestFunctionScenarios_Bitwise(t *testing.T) {
 		`SELECT bitand(12, 10) AS a, bitor(12, 10) AS o, bitxor(12, 10) AS x, bitnot(0) AS n FROM stream`,
 		[]map[string]any{{"x": 1}})
 	require.Len(t, got, 1)
-	numEq(t, "bitand", got[0]["a"], 8)   // 1100 & 1010 = 1000
-	numEq(t, "bitor", got[0]["o"], 14)   // 1100 | 1010 = 1110
-	numEq(t, "bitxor", got[0]["x"], 6)   // 1100 ^ 1010 = 0110
-	numEq(t, "bitnot", got[0]["n"], -1)  // ^0 = -1
+	numEq(t, "bitand", got[0]["a"], 8)  // 1100 & 1010 = 1000
+	numEq(t, "bitor", got[0]["o"], 14)  // 1100 | 1010 = 1110
+	numEq(t, "bitxor", got[0]["x"], 6)  // 1100 ^ 1010 = 0110
+	numEq(t, "bitnot", got[0]["n"], -1) // ^0 = -1
 }
 
 // ---------- String ----------
@@ -367,7 +367,7 @@ func TestFunctionScenarios_String(t *testing.T) {
 
 	t.Run("substring_basic_0based", func(t *testing.T) {
 		t.Parallel()
-		// 方言：0-based（非 ANSI 1-based）。substring('hello',1,2) -> "el"
+		// Dialect: 0-based (not ANSI 1-based). substring('hello',1,2) -> "el"
 		got := runDirect(t, `SELECT substring('hello', 1, 2) AS s FROM stream`,
 			[]map[string]any{{"x": 1}})
 		assertRows(t, "substring", got, []map[string]any{{"s": "el"}})
@@ -382,7 +382,7 @@ func TestFunctionScenarios_String(t *testing.T) {
 
 	t.Run("substring_negative_start", func(t *testing.T) {
 		t.Parallel()
-		// start=-2 -> 从末尾倒数：len(5)+(-2)=3 -> runes[3:] = "lo"
+		// start = -2 -> Counting from the end: len(5) + (-2) = 3 -> runes[3:] = "lo"
 		got := runDirect(t, `SELECT substring('hello', -2) AS s FROM stream`,
 			[]map[string]any{{"x": 1}})
 		assertRows(t, "substring neg", got, []map[string]any{{"s": "lo"}})
@@ -390,7 +390,7 @@ func TestFunctionScenarios_String(t *testing.T) {
 
 	t.Run("substring_out_of_range_empty", func(t *testing.T) {
 		t.Parallel()
-		// start 越界 -> 空串
+		// start Out-of-bounds -> Empty string
 		got := runDirect(t, `SELECT substring('hello', 10, 2) AS s FROM stream`,
 			[]map[string]any{{"x": 1}})
 		assertRows(t, "substring oob", got, []map[string]any{{"s": ""}})
@@ -398,7 +398,7 @@ func TestFunctionScenarios_String(t *testing.T) {
 
 	t.Run("regexp_substring", func(t *testing.T) {
 		t.Parallel()
-		// 注册名为 regexp_substring。用字符类避开反斜杠转义歧义。
+		// Registered name is regexp_substring. Use character classes to avoid backslash escape ambiguity.
 		got := runDirect(t, `SELECT regexp_substring('phone: 123-456', '[0-9]+') AS s FROM stream`,
 			[]map[string]any{{"x": 1}})
 		assertRows(t, "regexp_substring", got, []map[string]any{{"s": "123"}})
@@ -413,7 +413,7 @@ func TestFunctionScenarios_String(t *testing.T) {
 
 	t.Run("chr_out_of_range", func(t *testing.T) {
 		t.Parallel()
-		// chr 仅允许 0..127；128 应为错误或 nil，不得返回静默值。
+		// chr only allows 0..127; 128 should be an error or nil, and does not return a silence value.
 		row, err := emitRow(t, `SELECT chr(128) AS c FROM stream`, map[string]any{"x": 1})
 		if err == nil {
 			assert.Nil(t, row["c"], "chr(128) should be nil on out-of-range")
@@ -474,7 +474,7 @@ func TestFunctionScenarios_Conditional(t *testing.T) {
 
 	t.Run("greatest_with_nil_returns_nil", func(t *testing.T) {
 		t.Parallel()
-		// 实现约定：任意一个 nil 参数即返回 nil。
+		// Implementation convention: Any nil parameter returns nil.
 		got := runDirect(t, `SELECT greatest(a, b, c) AS g FROM stream`,
 			[]map[string]any{{"a": 1, "b": nil, "c": 3}})
 		require.Len(t, got, 1)
@@ -523,7 +523,7 @@ func TestFunctionScenarios_Math(t *testing.T) {
 
 	t.Run("sqrt_negative_is_error_or_nil", func(t *testing.T) {
 		t.Parallel()
-		// sqrt(-1) 应为错误或 nil，绝不可返回 NaN/数值。
+		// sqrt(-1) should be an error or nil, and must never return NaN/value.
 		row, err := emitRow(t, `SELECT sqrt(v) AS s FROM stream`, map[string]any{"v": -1.0})
 		if err == nil {
 			assert.Nil(t, row["s"], "sqrt(-1) must be nil/error, got %v", row["s"])
@@ -568,14 +568,14 @@ func TestFunctionScenarios_Aggregates(t *testing.T) {
 		}
 		got := runWindow(t, `SELECT percentile(v, 0.5) AS p FROM stream GROUP BY g, CountingWindow(10)`, in)
 		vals := sortedFloatField(got, "p")
-		// 正确：p=0.5 -> index=floor(0.5*9)=4 -> sorted[4]=50
+		// Correct: p = 0.5 - > index = floor(0.5*9) = 4 - > sorted[4] = 50
 		const want = 50.0
 		if len(vals) != 1 {
 			t.Errorf("percentile produced %d rows: %v", len(vals), vals)
 			return
 		}
 		if vals[0] != want {
-			t.Errorf("percentile(v, 0.5): got %v, want %v (p 参数应生效，index=floor(0.5*9)=4)", vals[0], want)
+			t.Errorf("percentile(v, 0.5): got %v, want %v (p parameter should be effective, index=floor(0.5*9)=4)", vals[0], want)
 		}
 	})
 }
@@ -588,7 +588,7 @@ func TestFunctionScenarios_SelectDistinct(t *testing.T) {
 		{"c": "A"}, {"c": "A"}, {"c": "B"}, {"c": "B"}, {"c": "C"},
 	}
 	got := runDirect(t, `SELECT DISTINCT c FROM stream`, in)
-	// 期望跨行去重为 [A,B,C]。
+	// The desired cross-line deduplication is [A,B,C].
 	gotVals := make([]string, 0, len(got))
 	for _, r := range got {
 		if v, ok := r["c"].(string); ok {
@@ -600,6 +600,6 @@ func TestFunctionScenarios_SelectDistinct(t *testing.T) {
 		t.Logf("SELECT DISTINCT produced %d rows %v, want %d distinct %v",
 			len(gotVals), gotVals, len(wantVals), wantVals)
 	}
-	// 无论 DISTINCT 在直连模式下是否跨行去重，至少每行应可解析。
+	// Regardless of whether DISTINCT deduplicates across lines in direct connection mode, at least every line should be parsable.
 	assert.NotEmpty(t, gotVals)
 }

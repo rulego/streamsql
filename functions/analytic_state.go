@@ -5,38 +5,38 @@ import (
 	"strings"
 )
 
-// AnalyticState 分析函数的流级状态机。每条事件调 Apply：
-// 用已从当前行解析出的 args 更新状态并返回当前结果值。每个 PARTITION 各持一份
-// 独立状态。与 AggregatorFunction 的批量 Add/Result 不同，这是逐条 Apply。
+// AnalyticState analyzes the flow level state machine of the function. Each event is adjusted to apply:
+// Update the status with ARGS parsed from the current row and return the current result value. Each PARTITION holds one copy
+// Independent state. Unlike AggregatorFunction's batch Add/Result, this applies one item at a time.
 type AnalyticState interface {
-	// Apply 用 args（args[0] 为主参数值，后续为 offset/default/ignoreNull 等）
-	// 更新状态，返回当前行的分析结果。
+	// Apply: Use args (args[0] as the main parameter, followed by offset/default/ignoreNull, etc.)
+	// Update status, returning the analysis result for the current row.
 	Apply(args []any) any
-	// Reset 重置状态（Stop 或状态清理时调用）。
+	// Reset: Resets the state (called during Stop or state cleanup).
 	Reset()
 }
 
-// StatefulAnalytic 由有状态分析函数（lag/latest/had_changed/changed_col/acc_*）实现。
-// NewState 创建一份独立状态，供状态机管理器为每个 PARTITION 各持一份。
+// StatefulAnalytic is implemented by stateful analysis functions (lag/latest/had_changed/changed_col/acc_*).
+// NewState creates an independent state for the state machine manager to hold for each PARTITION.
 type StatefulAnalytic interface {
 	NewState() AnalyticState
 }
 
-// MultiColumnState 由输出多列的分析函数（changed_cols）实现。引擎对 MultiColumn
-// 字段走 ApplyColumns：传入 prefix/ignoreNull 与 {列名: 当前值}，返回 {prefix+列名: 新值}
-// 仅含发生变化的列。单列函数继续走 Apply。
+// MultiColumnState is implemented by outputting multi-column analysis functions (changed_cols). The engine is compatible with MultiColumn
+// Fields go through ApplyColumns: Pass prefix/ignoreNull and {column_name: current value}, return {prefix+column_name: new}
+// Only columns with changes are included. Single-column function continues with Apply.
 type MultiColumnState interface {
 	ApplyColumns(prefix string, ignoreNull bool, cols map[string]any) map[string]any
 }
 
-// NamedRowState 由按列名比较整行的分析函数（had_changed 用 '*' 时）实现。按列名比较
-// 避免行 schema 变化（列增删/乱序）时的位置错位。
+// NamedRowState is implemented by an analysis function that compares entire rows by column name (had_changed using '*'). Compare by list name
+// Prevents misalignment when row schema changes (column addition, deletion, or disorder order).
 type NamedRowState interface {
 	ApplyNamed(ignoreNull bool, cols map[string]any) any
 }
 
-// analyticToInt 容错整数转换：lag offset 等参数经 parseFunctionArgs 后可能为
-// int/int64/float64，统一转 int。
+// analyticToInt: Fault-tolerant integer conversion: parameters like lag offset may be obtained after parseFunctionArgs
+// int/int64/float64, uniformly converted to int.
 func analyticToInt(v any) (int, bool) {
 	switch n := v.(type) {
 	case int:
@@ -51,8 +51,8 @@ func analyticToInt(v any) (int, bool) {
 	return 0, false
 }
 
-// AnalyticToBool 容错布尔转换：had_changed/changed_col(s) 的 ignoreNull 参数经
-// parseFunctionArgs 后可能为 bool 或字符串 "true"/"false"（未加引号的 true 落到字符串分支）。
+// AnalyticToBool fault-tolerant Boolean transform: The ignoreNull parameters of had_changed/changed_col(s) are used
+// parseFunctionArgs may be bool or string "true"/"false" (unquoted true falls into the string branch).
 func AnalyticToBool(v any) bool {
 	switch b := v.(type) {
 	case bool:
@@ -63,7 +63,7 @@ func AnalyticToBool(v any) bool {
 	return false
 }
 
-// analyticEqual 值相等比较，数字跨类型（int vs float64）判等，其余 reflect.DeepEqual。
+// analyticEqual values are equal, numbers cross-type (int vs float64) are equal, the rest reflect.DeepEqual.
 func analyticEqual(a, b any) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
@@ -76,7 +76,7 @@ func analyticEqual(a, b any) bool {
 	return reflect.DeepEqual(a, b)
 }
 
-// toFloat64Generic 把数字类型统一到 float64 用于相等/比较。
+// toFloat64Generic unifies numeric types to float64 for equality/comparison.
 func toFloat64Generic(v any) (float64, bool) {
 	switch n := v.(type) {
 	case int:

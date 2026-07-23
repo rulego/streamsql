@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestParseError 测试 ParseError 结构体
+// TestParseError Tests the ParseError structure
 func TestParseError(t *testing.T) {
 	err := &ParseError{
 		Type:        ErrorTypeSyntax,
@@ -21,7 +21,7 @@ func TestParseError(t *testing.T) {
 		Recoverable: true,
 	}
 
-	// 测试 Error() 方法
+	// Test the Error() method
 	errorStr := err.Error()
 	if !strings.Contains(errorStr, "SYNTAX_ERROR") {
 		t.Errorf("Error string should contain 'SYNTAX_ERROR', got: %s", errorStr)
@@ -45,13 +45,13 @@ func TestParseError(t *testing.T) {
 		t.Errorf("Error string should contain suggestions, got: %s", errorStr)
 	}
 
-	// 测试 IsRecoverable() 方法
+	// Test the IsRecoverable() method
 	if !err.IsRecoverable() {
 		t.Error("Error should be recoverable")
 	}
 }
 
-// TestEnhancedErrorHandling 测试增强的错误处理
+// TestEnhancedErrorHandling tests enhanced error handling
 func TestEnhancedErrorHandling(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -100,13 +100,13 @@ func TestEnhancedErrorHandling(t *testing.T) {
 			parser := NewParser(test.input)
 			_, err := parser.Parse()
 
-			// 应该有错误
+			// There should be errors
 			if err == nil && !parser.HasErrors() {
 				t.Errorf("Expected error but got none")
 				return
 			}
 
-			// 检查错误数量
+			// Check the number of errors
 			if test.expectedErrors > 0 {
 				errors := parser.GetErrors()
 				if len(errors) != test.expectedErrors {
@@ -114,7 +114,7 @@ func TestEnhancedErrorHandling(t *testing.T) {
 				}
 			}
 
-			// 检查错误内容
+			// Check for errors
 			if test.contains != "" {
 				errorFound := false
 				for _, parseErr := range parser.GetErrors() {
@@ -131,7 +131,7 @@ func TestEnhancedErrorHandling(t *testing.T) {
 	}
 }
 
-// TestErrorTypes 测试错误类型
+// TestErrorTypes Test error types
 func TestErrorTypes(t *testing.T) {
 	errorTypes := []ErrorType{
 		ErrorTypeSyntax,
@@ -161,7 +161,7 @@ func TestErrorTypes(t *testing.T) {
 	}
 }
 
-// TestErrorRecovery 测试错误恢复机制
+// TestErrorRecovery: Test error recovery mechanism
 func TestErrorRecovery(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -207,7 +207,7 @@ func TestErrorRecovery(t *testing.T) {
 	}
 }
 
-// TestNewFunctionValidator 测试 FunctionValidator 创建
+// TestNewFunctionValidator Test FunctionValidator created
 func TestNewFunctionValidator(t *testing.T) {
 	lexer := NewLexer("SELECT * FROM table")
 	parser := &Parser{lexer: lexer}
@@ -224,7 +224,7 @@ func TestNewFunctionValidator(t *testing.T) {
 	}
 }
 
-// TestFunctionValidatorValidateExpression 测试函数验证器的表达式验证
+// TestFunctionValidatorValidateExpression Validates the expression of the test function validator
 func TestFunctionValidatorValidateExpression(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -298,14 +298,14 @@ func TestFunctionValidatorValidateExpression(t *testing.T) {
 	}
 }
 
-// TestFunctionValidatorBuiltins 测试函数验证器内置函数
+// TestFunctionValidatorBuiltins Test function Verifier built-in function
 func TestFunctionValidatorBuiltins(t *testing.T) {
 	lexer := NewLexer("SELECT * FROM table")
 	parser := &Parser{lexer: lexer}
 	er := NewErrorRecovery(parser)
 	validator := NewFunctionValidator(er)
 
-	// 测试内置函数验证（基于实际实现的数学函数）
+	// Testing built-in function validation (mathematical functions based on actual implementation)
 	builtinFunctions := []string{"ABS", "ROUND", "SQRT", "SIN", "COS", "FLOOR", "CEIL"}
 	for _, funcName := range builtinFunctions {
 		t.Run("Builtin_"+funcName, func(t *testing.T) {
@@ -315,18 +315,18 @@ func TestFunctionValidatorBuiltins(t *testing.T) {
 		})
 	}
 
-	// 测试聚合函数（这些在函数注册系统中是有效的）
+	// Test aggregate functions (these are valid in function registration systems)
 	aggregateFunctions := []string{"COUNT", "SUM", "AVG", "MAX", "MIN"}
 	for _, funcName := range aggregateFunctions {
 		t.Run("Aggregate_"+funcName, func(t *testing.T) {
-			// 聚合函数应该在函数注册系统中存在
+			// Aggregate functions should exist in the function registration system
 			if !validator.isBuiltinFunction(funcName) {
 				t.Errorf("Expected %s to be a valid function (it's registered in the function registry)", funcName)
 			}
 		})
 	}
 
-	// 测试无效函数
+	// Test the invalid function
 	invalidFunctions := []string{"INVALID_FUNC", "UNKNOWN", ""}
 	for _, funcName := range invalidFunctions {
 		t.Run("Invalid_"+funcName, func(t *testing.T) {

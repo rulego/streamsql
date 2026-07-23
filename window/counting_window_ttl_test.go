@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCountingWindowStateTTL_ReapsIdleKeys: TTL>0，未攒满且超过 TTL 的死 key 被清理。
-// 用大 TTL 避免后台 ticker 干扰，直接调 reapIdleKeys 精确验证清理逻辑。
+// TestCountingWindowStateTTL_ReapsIdleKeys: TTL>0, dead keys that are not fully saved and exceed TTL are cleared.
+// Use large TTL to avoid background ticker interference; directly call reapIdleKeys to precisely verify the cleaning logic.
 func TestCountingWindowStateTTL_ReapsIdleKeys(t *testing.T) {
 	config := types.WindowConfig{
 		Type:          TypeCounting,
@@ -41,7 +41,7 @@ func TestCountingWindowStateTTL_ReapsIdleKeys(t *testing.T) {
 	cw.mu.Unlock()
 }
 
-// TestCountingWindowStateTTL_KeepsActiveKeys: TTL>0，TTL 内活跃的 key 不被误清。
+// TestCountingWindowStateTTL_KeepsActiveKeys: TTL>0, active keys within TTL are not mistakenly cleared.
 func TestCountingWindowStateTTL_KeepsActiveKeys(t *testing.T) {
 	config := types.WindowConfig{
 		Type:          TypeCounting,
@@ -69,7 +69,7 @@ func TestCountingWindowStateTTL_KeepsActiveKeys(t *testing.T) {
 	cw.mu.Unlock()
 }
 
-// TestCountingWindowStateTTL_DisabledByDefault: TTL=0（默认）不启动清理，keyedBuffer 正常累积。
+// TestCountingWindowStateTTL_DisabledByDefault: TTL=0 (default) does not start cleanup, but keyedBuffer accumulates normally.
 func TestCountingWindowStateTTL_DisabledByDefault(t *testing.T) {
 	config := types.WindowConfig{
 		Type:        TypeCounting,

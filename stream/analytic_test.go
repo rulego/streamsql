@@ -9,14 +9,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// D2：PARTITION 状态受 LRU 上限约束，超限淘汰最久未使用的分区（含其 lastResults）。
+// D2: The PARTITION state is constrained by the LRU limit; the most unused partition (including its lastResults) is eliminated when overrun.
 func TestAnalyticPartitionLRUEviction(t *testing.T) {
 	fe := &analyticFieldEngine{
-		af:          types.AnalyticField{Over: &types.OverSpec{PartitionBy: []string{"k"}}},
-		stateCtors:  []func() functions.AnalyticState{func() functions.AnalyticState { return new(functions.LagFunction).NewState() }},
-		partitions:  make(map[string]*list.Element),
-		lru:         list.New(),
-		lastResults: make(map[string]any),
+		af:            types.AnalyticField{Over: &types.OverSpec{PartitionBy: []string{"k"}}},
+		stateCtors:    []func() functions.AnalyticState{func() functions.AnalyticState { return new(functions.LagFunction).NewState() }},
+		partitions:    make(map[string]*list.Element),
+		lru:           list.New(),
+		lastResults:   make(map[string]any),
 		maxPartitions: 3,
 	}
 
@@ -27,13 +27,13 @@ func TestAnalyticPartitionLRUEviction(t *testing.T) {
 		fe.getStateLocked(keyOf(v))
 	}
 
-	// 填满 3 个分区。
+	// Fill 3 sections.
 	touch(1)
 	touch(2)
 	touch(3)
 	assert.Equal(t, 3, fe.lru.Len())
 
-	// 加入第 4 个 → 淘汰最久未用的 k=1。
+	// Add the 4th → to eliminate the oldest unused k=1.
 	touch(4)
 	assert.Equal(t, 3, fe.lru.Len(), "超出上限应按 LRU 淘汰")
 	_, has1 := fe.partitions[keyOf(1)]
@@ -43,7 +43,7 @@ func TestAnalyticPartitionLRUEviction(t *testing.T) {
 		assert.True(t, ok, "k=%v 应保留", v)
 	}
 
-	// 访问 k=2（提升为最近使用），再加入 k=5 → 应淘汰 k=3（当前最久未用）。
+	// Access k=2 (elevate to recently used), then add k=5 → k=3 should be eliminated (currently the longest unused).
 	touch(2)
 	touch(5)
 	_, has3 := fe.partitions[keyOf(3)]
@@ -54,7 +54,7 @@ func TestAnalyticPartitionLRUEviction(t *testing.T) {
 	}
 }
 
-// D1：partitionKey 带类型前缀，同值不同类型落不同键。
+// D1: partitionKey with type prefix; different keys of the same value but different types are used.
 func TestAnalyticPartitionKeyTypeTag(t *testing.T) {
 	assert.Equal(t, "int|1", typeKey(1))
 	assert.Equal(t, "string|1", typeKey("1"))
@@ -62,7 +62,7 @@ func TestAnalyticPartitionKeyTypeTag(t *testing.T) {
 	assert.Equal(t, "nil|", typeKey(nil))
 }
 
-// B2：多列 PARTITION 键在值含 '|' 时不得碰撞串台。
+// B2: Multi-row PARTITION keys must not collide with serial stations when the value contains '|'.
 func TestAnalyticPartitionKeyPipeCollision(t *testing.T) {
 	fe := &analyticFieldEngine{
 		af: types.AnalyticField{Over: &types.OverSpec{PartitionBy: []string{"a", "b"}}},

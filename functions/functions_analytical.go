@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-// LagFunction LAG函数 - 返回当前行之前的第N行的值
+// LagFunction LAG function - Returns the value of the Nth row before the current line
 type LagFunction struct {
 	*BaseFunction
 }
@@ -31,12 +31,12 @@ func (f *LagFunction) Validate(args []any) error {
 	return nil
 }
 
-// Execute 标量路径禁用：分析函数需跨行状态，只能作为独立字段/OVER 由状态机求值。
+// Execute scalar path disabled: The analysis function needs to be cross-line and can only be used as an independent field/OVER evaluated by the state machine.
 func (f *LagFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER, not in a scalar expression", f.GetName())
 }
 
-// LatestFunction 最新值函数 - 返回指定列的最新值
+// LatestFunction Latest Value Function - Returns the latest value for the specified column
 type LatestFunction struct {
 	*BaseFunction
 }
@@ -55,7 +55,7 @@ func (f *LatestFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 	return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER, not in a scalar expression", f.GetName())
 }
 
-// ChangedColFunction 变化列函数 - 返回发生变化的列名
+// ChangedColFunction - Returns the column name where the change occurred
 type ChangedColFunction struct {
 	*BaseFunction
 }
@@ -74,7 +74,7 @@ func (f *ChangedColFunction) Execute(ctx *FunctionContext, args []any) (any, err
 	return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER, not in a scalar expression", f.GetName())
 }
 
-// HadChangedFunction 是否变化函数 - 判断指定列的值是否发生变化
+// HadChangedFunction - Checks whether the value of a specified column has changed
 type HadChangedFunction struct {
 	*BaseFunction
 }
@@ -93,11 +93,11 @@ func (f *HadChangedFunction) Execute(ctx *FunctionContext, args []any) (any, err
 	return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER, not in a scalar expression", f.GetName())
 }
 
-// ===== 流式状态机实现（走直连路径逐条 Apply）=====
-// 与 AggregatorFunction 的批量 Add/Result 不同，这里是跨事件、逐条 Apply 的状态机，
-// 由 stream.AnalyticEngine 为每个 PARTITION 各持一份。
+// ===== Stream state machine implementation (applying each directly connected path one by one) =====
+// Unlike AggregatorFunction's batch Add/Result, here it is a state machine that applies across events and applies one by one,
+// By stream.AnalyticEngine holds a copy for each PARTITION.
 
-// lagState 维护最近 offset 个历史值，Apply 返回前 offset 个值（无则 default/nil）。
+// lagState maintains the most recent offset historical values; Apply returns the previous offset values (if none, default/nil).
 type lagState struct {
 	history []any
 }
@@ -119,7 +119,7 @@ func (s *lagState) Apply(args []any) any {
 		def = args[2]
 		hasDef = true
 	}
-	// 第 4 参数 ignoreNull：nil 值跳过，不存入历史（默认 true，与主流分析函数一致）
+	// 4th parameter ignoreNull: nil value skipped, not stored in history (default true, consistent with mainstream analysis functions)
 	ignoreNull := true
 	if len(args) >= 4 {
 		ignoreNull = AnalyticToBool(args[3])
@@ -141,10 +141,10 @@ func (s *lagState) Apply(args []any) any {
 
 func (s *lagState) Reset() { s.history = nil }
 
-// NewState 实现 StatefulAnalytic。
+// NewState implements StatefulAnalytic.
 func (f *LagFunction) NewState() AnalyticState { return &lagState{} }
 
-// latestState 维护最新非空值。
+// latestState maintains the latest non-null values.
 type latestState struct {
 	latest any
 	hasVal bool
@@ -168,7 +168,7 @@ func (s *latestState) Reset() { s.latest = nil; s.hasVal = false }
 
 func (f *LatestFunction) NewState() AnalyticState { return &latestState{} }
 
-// hadChangedState 维护各列上次值，Apply 返回是否有变化（首次视为变化。
+// hadChangedState maintains the previous values in each column, and Apply returns whether there has been a change (the first time is considered a change).
 type hadChangedState struct {
 	prev       []any
 	first      bool
@@ -189,7 +189,7 @@ func (s *hadChangedState) Apply(args []any) any {
 		return true
 	}
 	changed := false
-	// ignoreNull+nil：不触发变化，且保留旧基准（不把 nil 写入 prev）。
+	// ignoreNull+nil: does not trigger changes and retains the old reference (nil is not written to prev).
 	newPrev := make([]any, len(values))
 	for i, v := range values {
 		if ignoreNull && v == nil {
@@ -207,8 +207,8 @@ func (s *hadChangedState) Apply(args []any) any {
 	return changed
 }
 
-// ApplyNamed 按列名比较整行（had_changed '*' 用）。列增删/乱序均按名字判定，
-// 不受位置影响。ignoreNull+nil 不触发变化且保留旧基准。
+// ApplyNamed compares entire rows by column name (had_changed '*'). Additions, deletions, and disordered order are all determined by name,
+// Not affected by location. ignoreNull+nil does not trigger changes and retains the old benchmark.
 func (s *hadChangedState) ApplyNamed(ignoreNull bool, cols map[string]any) any {
 	if !s.firstNamed {
 		s.firstNamed = true
@@ -221,7 +221,7 @@ func (s *hadChangedState) ApplyNamed(ignoreNull bool, cols map[string]any) any {
 		return true
 	}
 	changed := false
-	// 新增/变化的列
+	// Columns that have been added/changed
 	for k, v := range cols {
 		if ignoreNull && v == nil {
 			continue
@@ -230,7 +230,7 @@ func (s *hadChangedState) ApplyNamed(ignoreNull bool, cols map[string]any) any {
 			changed = true
 		}
 	}
-	// 删除的列（旧基准有、本次无）也算变化
+	// Deleted columns (old benchmarks existed, but not this time) also count as changes
 	for k, pv := range s.prevNamed {
 		if _, had := cols[k]; !had {
 			if !(ignoreNull && pv == nil) {
@@ -238,7 +238,7 @@ func (s *hadChangedState) ApplyNamed(ignoreNull bool, cols map[string]any) any {
 			}
 		}
 	}
-	// 更新基准：ignoreNull+nil 保留旧值
+	// Update benchmark: ignoreNull+nil retains the old value
 	next := make(map[string]any, len(cols))
 	for k, v := range cols {
 		if ignoreNull && v == nil {

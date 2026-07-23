@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewExprCondition 测试创建表达式条件
+// TestNewExprCondition Tests to create expression conditions
 func TestNewExprCondition(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -55,7 +55,7 @@ func TestNewExprCondition(t *testing.T) {
 	}
 }
 
-// TestExprCondition_Evaluate 测试表达式条件求值
+// TestExprCondition_Evaluate Test expression conditional evaluation
 func TestExprCondition_Evaluate(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -125,7 +125,7 @@ func TestExprCondition_Evaluate(t *testing.T) {
 	}
 }
 
-// TestExprCondition_IsNull 测试is_null函数
+// TestExprCondition_IsNull Test is_null function
 func TestExprCondition_IsNull(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -177,7 +177,7 @@ func TestExprCondition_IsNull(t *testing.T) {
 	}
 }
 
-// TestExprCondition_LikeMatch 测试like_match函数
+// TestExprCondition_LikeMatch Test like_match function
 func TestExprCondition_LikeMatch(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -241,7 +241,7 @@ func TestExprCondition_LikeMatch(t *testing.T) {
 	}
 }
 
-// TestMatchesLikePattern 测试LIKE模式匹配函数
+// TestMatchesLikePattern tests the LIKE pattern matching function
 func TestMatchesLikePattern(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -325,7 +325,7 @@ func TestMatchesLikePattern(t *testing.T) {
 	}
 }
 
-// TestExprCondition_ErrorHandling 测试错误处理
+// TestExprCondition_ErrorHandling Handling of test errors
 func TestExprCondition_ErrorHandling(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -357,7 +357,7 @@ func TestExprCondition_ErrorHandling(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cond, err := NewExprCondition(tt.expression)
 			if err != nil {
-				// 如果编译失败，跳过这个测试
+				// If the compilation fails, skip this test
 				t.Skipf("Expression compilation failed: %v", err)
 				return
 			}
@@ -369,7 +369,7 @@ func TestExprCondition_ErrorHandling(t *testing.T) {
 	}
 }
 
-// TestExprCondition_ComplexExpressions 测试复杂表达式
+// TestExprCondition_ComplexExpressions Test complex expressions
 func TestExprCondition_ComplexExpressions(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -415,7 +415,7 @@ func TestExprCondition_ComplexExpressions(t *testing.T) {
 	}
 }
 
-// TestExprCondition_FunctionErrors 测试函数错误处理
+// TestExprCondition_FunctionErrors Error handling of test functions
 func TestExprCondition_FunctionErrors(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -442,7 +442,7 @@ func TestExprCondition_FunctionErrors(t *testing.T) {
 	}
 }
 
-// TestExprCondition_AdvancedFeatures 测试高级功能
+// TestExprCondition_AdvancedFeatures Test advanced features
 func TestExprCondition_AdvancedFeatures(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -469,7 +469,7 @@ func TestExprCondition_AdvancedFeatures(t *testing.T) {
 	}
 }
 
-// TestExprCondition_EdgeCases 测试边界情况
+// TestExprCondition_EdgeCases Test boundary conditions
 func TestExprCondition_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string

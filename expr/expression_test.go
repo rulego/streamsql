@@ -203,7 +203,7 @@ func TestCaseExpressionParsing(t *testing.T) {
 	}
 }
 
-// TestCaseExpressionFieldExtraction 测试CASE表达式的字段提取功能
+// TestCaseExpressionFieldExtraction tests the field extraction function of CASE expressions
 func TestCaseExpressionFieldExtraction(t *testing.T) {
 	testCases := []struct {
 		name           string
@@ -239,7 +239,7 @@ func TestCaseExpressionFieldExtraction(t *testing.T) {
 
 			fields := expression.GetFields()
 
-			// 验证所有期望的字段都被提取到了
+			// All the desired fields were extracted for verification
 			for _, expectedField := range tc.expectedFields {
 				assert.Contains(t, fields, expectedField, "应该包含字段: %s", expectedField)
 			}
@@ -247,13 +247,13 @@ func TestCaseExpressionFieldExtraction(t *testing.T) {
 	}
 }
 
-// TestCaseExpressionWithNullComparisons 测试CASE表达式中的NULL比较
+// TestCaseExpressionWithNullComparisons: Tests the NULL comparison in the CASE expression
 func TestCaseExpressionWithNullComparisons(t *testing.T) {
 	tests := []struct {
 		name     string
 		exprStr  string
 		data     map[string]any
-		expected any // 使用any以支持NULL值
+		expected any // Use any to support NULL values
 		isNull   bool
 	}{
 		{
@@ -298,7 +298,7 @@ func TestCaseExpressionWithNullComparisons(t *testing.T) {
 			expression, err := NewExpression(tt.exprStr)
 			assert.NoError(t, err, "表达式解析应该成功")
 
-			// 测试支持NULL的计算方法
+			// Testing the computational methods that support NULL
 			result, isNull, err := expression.EvaluateWithNull(tt.data)
 			assert.NoError(t, err, "表达式计算应该成功")
 
@@ -312,7 +312,7 @@ func TestCaseExpressionWithNullComparisons(t *testing.T) {
 	}
 }
 
-// TestNegativeNumberSupport 专门测试负数支持
+// TestNegativeNumberSupport is specifically designed to test negative number support
 func TestNegativeNumberSupport(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -370,7 +370,7 @@ func TestNegativeNumberSupport(t *testing.T) {
 			expected: 1.0,
 			wantErr:  false,
 		},
-		// 基本负数运算
+		// Basic negative number operations
 		{
 			name:     "直接负数",
 			exprStr:  "-5",
@@ -405,7 +405,7 @@ func TestNegativeNumberSupport(t *testing.T) {
 			assert.NoError(t, err, "负数表达式解析应该成功")
 			assert.NotNil(t, expression, "表达式不应为空")
 
-			// 测试表达式计算
+			// Test expression calculation
 			result, err := expression.Evaluate(tt.data)
 			assert.NoError(t, err, "负数表达式计算应该成功")
 			assert.Equal(t, tt.expected, result, "负数表达式结果应该匹配期望值")
@@ -432,7 +432,7 @@ func TestGetFields(t *testing.T) {
 
 			fields := expr.GetFields()
 
-			// 由于map迭代顺序不确定，我们只检查长度和包含关系
+			// Since the map iteration order is uncertain, we only check the length and inclusion relationships
 			assert.Equal(t, len(tt.expectedFields), len(fields), "Number of fields should match")
 
 			for _, field := range tt.expectedFields {
@@ -468,7 +468,7 @@ func TestParseError(t *testing.T) {
 	}
 }
 
-// TestExpressionTokenization 测试表达式分词功能
+// TestExpressionTokenization tests the word segmentation function of expressions
 func TestExpressionTokenization(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -492,7 +492,7 @@ func TestExpressionTokenization(t *testing.T) {
 	}
 }
 
-// TestExpressionValidation 测试表达式验证功能
+// TestExpressionValidation Function of test expressions
 func TestExpressionValidation(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -524,7 +524,7 @@ func TestExpressionValidation(t *testing.T) {
 	}
 }
 
-// TestExpressionOperatorPrecedence 测试运算符优先级
+// TestExpressionOperatorPrecedence The test operator precedence
 func TestExpressionOperatorPrecedence(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -551,7 +551,7 @@ func TestExpressionOperatorPrecedence(t *testing.T) {
 	}
 }
 
-// TestExpressionFunctions 测试内置函数
+// TestExpressionFunctions tests built-in functions
 func TestExpressionFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -600,7 +600,7 @@ func TestExpressionFunctions(t *testing.T) {
 	}
 }
 
-// TestExpressionDataTypeConversion 测试数据类型转换
+// TestExpressionDataTypeConversion Tests data type conversion
 func TestExpressionDataTypeConversion(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -635,7 +635,7 @@ func TestExpressionDataTypeConversion(t *testing.T) {
 	}
 }
 
-// TestExpressionEdgeCases 测试边界情况
+// TestExpressionEdgeCases tests boundary conditions
 func TestExpressionEdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -675,12 +675,12 @@ func TestExpressionEdgeCases(t *testing.T) {
 	}
 }
 
-// TestExpressionConcurrency 测试并发安全性
+// TestExpressionConcurrency tests concurrency security
 func TestExpressionConcurrency(t *testing.T) {
 	expr, err := NewExpression("a + b * c")
 	require.NoError(t, err, "Expression parsing should not fail")
 
-	// 并发执行多个计算
+	// Multiple computations are performed concurrently
 	const numGoroutines = 100
 	results := make(chan float64, numGoroutines)
 
@@ -697,16 +697,16 @@ func TestExpressionConcurrency(t *testing.T) {
 		}(i)
 	}
 
-	// 收集结果
+	// Collect the results
 	for i := 0; i < numGoroutines; i++ {
 		result := <-results
-		// 验证结果是合理的（非零且非NaN）
+		// Verification results are reasonable (non-zero and non-NaN)
 		assert.False(t, math.IsNaN(result), "Result should not be NaN")
 		assert.True(t, result >= 0, "Result should be non-negative for this test")
 	}
 }
 
-// TestExpressionComplexNesting 测试复杂嵌套表达式
+// TestExpressionComplexNesting Tests complex nested expressions
 func TestExpressionComplexNesting(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -746,7 +746,7 @@ func TestExpressionComplexNesting(t *testing.T) {
 	}
 }
 
-// TestExpressionStringHandling 测试字符串处理
+// TestExpressionStringHandling test string processing
 func TestExpressionStringHandling(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -779,9 +779,9 @@ func TestExpressionStringHandling(t *testing.T) {
 	}
 }
 
-// TestExpressionPerformance 测试表达式性能
+// TestExpressionPerformance Tests the performance of the expression
 func TestExpressionPerformance(t *testing.T) {
-	// 创建一个复杂表达式
+	// Create a complex expression
 	expr, err := NewExpression("sqrt(pow(a, 2) + pow(b, 2)) + abs(c - d) * (e + f) / (g + 1)")
 	require.NoError(t, err, "Expression parsing should not fail")
 
@@ -789,7 +789,7 @@ func TestExpressionPerformance(t *testing.T) {
 		"a": 3.0, "b": 4.0, "c": 10.0, "d": 7.0, "e": 2.0, "f": 3.0, "g": 4.0,
 	}
 
-	// 执行多次计算以测试性能
+	// Perform multiple calculations to test performance
 	const iterations = 10000
 	for i := 0; i < iterations; i++ {
 		_, err := expr.Evaluate(data)
@@ -797,9 +797,9 @@ func TestExpressionPerformance(t *testing.T) {
 	}
 }
 
-// TestExpressionMemoryUsage 测试内存使用
+// TestExpressionMemoryUsage tests memory usage
 func TestExpressionMemoryUsage(t *testing.T) {
-	// 创建多个表达式实例
+	// Create multiple expression instances
 	const numExpressions = 1000
 	expressions := make([]*Expression, numExpressions)
 
@@ -809,7 +809,7 @@ func TestExpressionMemoryUsage(t *testing.T) {
 		expressions[i] = expr
 	}
 
-	// 验证所有表达式都能正常工作
+	// Verify that all expressions work properly
 	data := map[string]any{"a": 1, "b": 2, "c": 3}
 	for i, expr := range expressions {
 		result, err := expr.Evaluate(data)
@@ -1160,12 +1160,12 @@ func TestEvaluateValueWithNull(t *testing.T) {
 			name:        "missing field",
 			expr:        "field1 + field2",
 			data:        map[string]any{"field1": 1},
-			expectNull:  false, // 实际行为：返回nil但isNull为false
+			expectNull:  false, // Actual behavior: returns nil but isNull is false
 			expectError: false,
 		},
 		{
 			name:        "invalid expression",
-			expr:        "field1 + field2 +", // 使用无效语法
+			expr:        "field1 + field2 +", // Use invalid grammar
 			data:        map[string]any{},
 			expectNull:  false,
 			expectError: true,
@@ -1177,7 +1177,7 @@ func TestEvaluateValueWithNull(t *testing.T) {
 			expr, err := NewExpression(tt.expr)
 			if err != nil {
 				if tt.expectError {
-					// 如果期望错误，那么创建表达式失败是正常的
+					// If the expectation is incorrect, then failure to create the expression is normal
 					return
 				}
 				t.Errorf("failed to create expression: %v", err)
@@ -1196,7 +1196,7 @@ func TestEvaluateValueWithNull(t *testing.T) {
 			if !tt.expectError && isNull != tt.expectNull {
 				t.Errorf("expected null=%v, got null=%v", tt.expectNull, isNull)
 			}
-			// 对于缺失字段的情况，允许result为nil
+			// For missing fields, result is allowed to be nil
 			if !tt.expectError && !tt.expectNull && result == nil && tt.name != "missing field" {
 				t.Error("expected non-nil result but got nil")
 			}

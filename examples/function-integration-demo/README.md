@@ -1,26 +1,26 @@
-# 函数集成演示
+# Function integration demonstration
 
-## 简介
+## Introduction
 
-展示自定义函数与StreamSQL各种特性的集成使用，包括窗口聚合、表达式计算、条件过滤等。
+Demonstrates the integration of custom functions with various StreamSQL features, including window aggregation, expression calculation, and conditional filtering.
 
-## 功能演示
+## Feature Demonstration
 
-- 🪟 **窗口集成**：自定义函数在不同窗口类型中的使用
-- 🧮 **表达式集成**：函数与算术表达式的组合使用
-- 🔍 **条件集成**：在WHERE、HAVING子句中使用自定义函数
-- 📊 **聚合集成**：自定义函数与内置聚合函数的协同工作
+- 🪟 **Window Integration**: Custom functions for use in different window types
+- 🧮 **Expression Integration**: Combined use of functions and arithmetic expressions
+- 🔍 **Conditional Integration**: Use custom functions in WHERE and HAVING clauses
+- 📊 **Aggregation Integration**: Collaboration between custom functions and built-in aggregate functions
 
-## 运行方式
+## Operating Mode
 
 ```bash
 cd examples/function-integration-demo
 go run main.go
 ```
 
-## 代码亮点
+## Code Highlights
 
-### 1. 窗口函数集成
+### 1. Window function integration
 ```sql
 SELECT 
     device,
@@ -30,7 +30,7 @@ FROM stream
 GROUP BY device, SlidingWindow('30s', '10s')
 ```
 
-### 2. 复杂表达式集成
+### 2. Complex expression integration
 ```sql
 SELECT 
     device,
@@ -40,7 +40,7 @@ FROM stream
 GROUP BY device
 ```
 
-### 3. 条件过滤集成
+### 3. Conditional filtering integration
 ```sql
 SELECT device, AVG(temperature) 
 FROM stream 
@@ -48,15 +48,15 @@ WHERE custom_validator(status) = true
 HAVING custom_threshold(AVG(temperature)) > 0
 ```
 
-## 演示场景
+## Demonstration Scene
 
-1. **传感器数据处理** - 温度、湿度、压力的综合计算
-2. **业务指标计算** - 自定义评分和分级函数
-3. **数据清洗** - 自定义验证和转换函数
-4. **实时监控** - 阈值检查和告警函数
+1. **Sensor Data Processing** - Comprehensive calculation of temperature, humidity, and pressure
+2. **Business Metrics Calculation** - Custom scoring and grading functions
+3. **Data Cleaning** - Custom validation and transformation functions
+4. **Real-time monitoring** - threshold checks and alarm functions
 
-## 适用场景
+## Applicable Scenarios
 
-- 🏭 **工业物联网**：复杂传感器数据处理
-- 💼 **业务分析**：自定义业务逻辑计算
-- 🔧 **系统集成**：已有函数库的整合使用 
+- 🏭 **Industrial IoT**: Processing of complex sensor data
+- 💼 **Business Analysis**: Custom business logic calculations
+- 🔧 **System Integration**: Integration and use of existing libraries 

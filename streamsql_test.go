@@ -16,10 +16,10 @@
 
 package streamsql
 
-// package streamsql 的白盒测试与基准（覆盖/性能/溢出策略/表格打印 + 端到端示例）。
-// 访问非导出字段（performanceMode/customConfig/stream/fieldOrder）与非导出方法
-// （printTableFormat），故必须在 package streamsql 内，不能迁 test/e2e。
-// 纯公开 API 的集成测试见 test/e2e。
+// Package streamsql white-box testing and benchmarking (override/performance/overflow policy/table printing + end-to-end examples).
+// Access non-export fields (performanceMode/customConfig/stream/fieldOrder) and non-export methods
+// (printTableFormat), so it must be inside package streamsql and cannot transfer test/e2e.
+// For fully public API integration testing, see test/e2e.
 
 import (
 	"context"
@@ -36,7 +36,7 @@ import (
 )
 
 // ---------- coverage ----------
-// TestStreamSQLPerformanceModesExtended 测试不同性能模式的配置
+// TestStreamSQLPerformanceModesExtended tests the configurations of different performance modes
 func TestStreamSQLPerformanceModesExtended(t *testing.T) {
 	t.Run("default performance mode", func(t *testing.T) {
 		ssql := New()
@@ -95,14 +95,14 @@ func TestStreamSQLPerformanceModesExtended(t *testing.T) {
 	})
 }
 
-// TestStreamSQLFieldOrder 测试字段顺序保持功能
+// TestStreamSQLFieldOrder Test field order retention function
 func TestStreamSQLFieldOrder(t *testing.T) {
 	t.Run("field order preservation", func(t *testing.T) {
 		ssql := New()
 		err := ssql.Execute("SELECT name, id, value FROM stream")
 		require.NoError(t, err)
 
-		// 验证字段顺序被正确保存
+		// Verify that the order of the fields is saved correctly
 		expectedOrder := []string{"name", "id", "value"}
 		assert.Equal(t, expectedOrder, ssql.fieldOrder)
 		ssql.Stop()
@@ -113,27 +113,27 @@ func TestStreamSQLFieldOrder(t *testing.T) {
 		err := ssql.Execute("SELECT name as device_name, id as device_id FROM stream")
 		require.NoError(t, err)
 
-		// 验证别名字段顺序
+		// Verify the order of alias fields
 		expectedOrder := []string{"device_name", "device_id"}
 		assert.Equal(t, expectedOrder, ssql.fieldOrder)
 		ssql.Stop()
 	})
 }
 
-// TestStreamSQLPrintTableFormat 测试表格打印功能
+// TestStreamSQLPrintTableFormat tests the table printing function
 func TestStreamSQLPrintTableFormat(t *testing.T) {
 	t.Run("print table format with data", func(t *testing.T) {
 		ssql := New()
 		err := ssql.Execute("SELECT id, name FROM stream")
 		require.NoError(t, err)
 
-		// 测试 printTableFormat 方法
+		// Test the printTableFormat method
 		testResults := []map[string]any{
 			{"id": 1, "name": "test1"},
 			{"id": 2, "name": "test2"},
 		}
 
-		// 这个方法主要是打印输出，我们确保它不会panic
+		// This method mainly involves printing output, and we make sure it doesn't panic
 		assert.NotPanics(t, func() {
 			ssql.printTableFormat(testResults)
 		})
@@ -145,7 +145,7 @@ func TestStreamSQLPrintTableFormat(t *testing.T) {
 		err := ssql.Execute("SELECT id FROM stream")
 		require.NoError(t, err)
 
-		// 测试空数据
+		// Test empty data
 		emptyResults := []map[string]any{}
 		assert.NotPanics(t, func() {
 			ssql.printTableFormat(emptyResults)
@@ -158,7 +158,7 @@ func TestStreamSQLPrintTableFormat(t *testing.T) {
 		err := ssql.Execute("SELECT id FROM stream")
 		require.NoError(t, err)
 
-		// 清空字段顺序
+		// Clear the field order
 		ssql.fieldOrder = nil
 		testResults := []map[string]any{
 			{"id": 1},
@@ -171,18 +171,18 @@ func TestStreamSQLPrintTableFormat(t *testing.T) {
 	})
 }
 
-// TestStreamSQLToChannel 测试通道功能
+// TestStreamSQLToChannel test channel functionality
 func TestStreamSQLToChannel(t *testing.T) {
 	t.Run("to channel with aggregation query", func(t *testing.T) {
 		ssql := New()
 		err := ssql.Execute("SELECT COUNT(*) FROM stream GROUP BY TumblingWindow('1s')")
 		require.NoError(t, err)
 
-		// 获取结果通道
+		// Obtain the results channel
 		resultChan := ssql.ToChannel()
 		assert.NotNil(t, resultChan)
 
-		// 启动goroutine接收结果
+		// Start goroutine to receive results
 		var wg sync.WaitGroup
 		wg.Add(1)
 		var receivedResults [][]map[string]any
@@ -202,16 +202,16 @@ func TestStreamSQLToChannel(t *testing.T) {
 			}
 		}()
 
-		// 发送一些数据
+		// Send some data
 		for i := 0; i < 5; i++ {
 			ssql.Emit(map[string]any{"id": i})
 		}
 
-		// 等待结果
+		// Wait for the results
 		wg.Wait()
 		ssql.Stop()
 
-		// 验证至少收到了一些结果
+		// At least some results have been obtained from the verification
 		assert.GreaterOrEqual(t, len(receivedResults), 0)
 	})
 
@@ -226,10 +226,10 @@ func TestStreamSQLToChannel(t *testing.T) {
 	})
 }
 
-// TestStreamSQLMultipleOptions 测试多个配置选项组合
+// TestStreamSQLMultipleOptions tests multiple configuration option combinations
 func TestStreamSQLMultipleOptions(t *testing.T) {
 	t.Run("multiple options combination", func(t *testing.T) {
-		// 组合多个配置选项
+		// Combine multiple configuration options
 		ssql := New(
 			WithHighPerformance(),
 			WithDiscardLog(),
@@ -242,7 +242,7 @@ func TestStreamSQLMultipleOptions(t *testing.T) {
 	})
 
 	t.Run("override performance mode", func(t *testing.T) {
-		// 后面的选项应该覆盖前面的
+		// The later options should override the earlier ones
 		ssql := New(
 			WithHighPerformance(),
 			WithLowLatency(),
@@ -255,11 +255,11 @@ func TestStreamSQLMultipleOptions(t *testing.T) {
 	})
 }
 
-// TestStreamSQLExecuteErrorHandling 测试Execute方法的错误处理
+// TestStreamSQLExecuteErrorHandling: Error handling of the Execute method
 func TestStreamSQLExecuteErrorHandling(t *testing.T) {
 	t.Run("stream creation failure simulation", func(t *testing.T) {
 		ssql := New()
-		// 使用一个可能导致stream创建失败的SQL
+		// Using an SQL that may cause stream creation failure
 		err := ssql.Execute("SELECT invalid_function() FROM test_stream")
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "function")
@@ -268,10 +268,10 @@ func TestStreamSQLExecuteErrorHandling(t *testing.T) {
 	t.Run("filter registration failure", func(t *testing.T) {
 		ssql := New()
 		defer ssql.Stop()
-		// 使用可能导致过滤器注册失败的SQL
+		// Use SQL that may cause filter registration failures
 		err := ssql.Execute("SELECT id FROM stream WHERE INVALID_CONDITION")
 		if err != nil {
-			// 如果有错误，应该包含相关信息
+			// If there are errors, relevant information should be included
 			assert.True(t,
 				strings.Contains(err.Error(), "SQL parsing failed") ||
 					strings.Contains(err.Error(), "failed to register filter condition") ||
@@ -280,7 +280,7 @@ func TestStreamSQLExecuteErrorHandling(t *testing.T) {
 	})
 }
 
-// TestStreamSQLConcurrentAccess 测试并发访问安全性
+// TestStreamSQLConcurrentAccess tests the security of concurrent access
 func TestStreamSQLConcurrentAccess(t *testing.T) {
 	t.Run("concurrent emit and stop", func(t *testing.T) {
 		ssql := New()
@@ -290,7 +290,7 @@ func TestStreamSQLConcurrentAccess(t *testing.T) {
 		var wg sync.WaitGroup
 		numWorkers := 10
 
-		// 启动多个goroutine并发发送数据
+		// Starts multiple goroutines to send data concurrently
 		for i := 0; i < numWorkers; i++ {
 			wg.Add(1)
 			go func(workerID int) {
@@ -301,7 +301,7 @@ func TestStreamSQLConcurrentAccess(t *testing.T) {
 			}(i)
 		}
 
-		// 等待一段时间后停止
+		// After waiting for a while, stop
 		time.Sleep(100 * time.Millisecond)
 		ssql.Stop()
 
@@ -316,12 +316,12 @@ func TestStreamSQLConcurrentAccess(t *testing.T) {
 		var wg sync.WaitGroup
 		numWorkers := 5
 
-		// 并发调用各种方法
+		// Concurrent calls to various methods
 		for i := 0; i < numWorkers; i++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				// 这些方法调用应该是安全的
+				// These method calls should be safe
 				_ = ssql.GetStats()
 				_ = ssql.GetDetailedStats()
 				_ = ssql.IsAggregationQuery()
@@ -336,22 +336,22 @@ func TestStreamSQLConcurrentAccess(t *testing.T) {
 	})
 }
 
-// TestStreamSQLEdgeCasesAdditional 测试额外的边界情况
+// TestStreamSQLEdgeCasesAdditional tests for additional boundary cases
 func TestStreamSQLEdgeCasesAdditional(t *testing.T) {
 	t.Run("execute with different performance modes after creation", func(t *testing.T) {
 		ssql := New()
 
-		// 先用默认模式执行
+		// Start by running in default mode
 		err := ssql.Execute("SELECT id FROM stream")
 		require.NoError(t, err)
 		ssql.Stop()
 
-		// 改变性能模式后再次执行应该失败，因为已经执行过了
+		// Executing again after changing the performance mode should fail because it has already been executed
 		ssql.performanceMode = "high_performance"
 		err = ssql.Execute("SELECT name FROM stream")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Execute() has already been called")
-		// 不需要再次调用Stop()，因为第二次Execute失败了
+		// There is no need to call Stop() again because the second Execute failed
 	})
 
 	t.Run("field order with complex query", func(t *testing.T) {
@@ -359,7 +359,7 @@ func TestStreamSQLEdgeCasesAdditional(t *testing.T) {
 		err := ssql.Execute("SELECT COUNT(*) as cnt, AVG(value) as avg_val, deviceId FROM stream GROUP BY deviceId")
 		require.NoError(t, err)
 
-		// 验证复杂查询的字段顺序
+		// Verify the field order for complex queries
 		expectedOrder := []string{"cnt", "avg_val", "deviceId"}
 		assert.Equal(t, expectedOrder, ssql.fieldOrder)
 		ssql.Stop()
@@ -370,10 +370,10 @@ func TestStreamSQLEdgeCasesAdditional(t *testing.T) {
 		err := ssql.Execute("SELECT name, id, value FROM stream")
 		require.NoError(t, err)
 
-		// 设置字段顺序
+		// Set the order of the fields
 		ssql.fieldOrder = []string{"name", "id", "value"}
 
-		// 测试PrintTable方法
+		// Test the PrintTable method
 		assert.NotPanics(t, func() {
 			ssql.PrintTable()
 		})
@@ -381,11 +381,11 @@ func TestStreamSQLEdgeCasesAdditional(t *testing.T) {
 	})
 }
 
-// TestStreamSQLEmitSync 测试EmitSync方法的各种情况
+// TestStreamSQLEmitSync tests various scenarios for the EmitSync method
 func TestStreamSQLEmitSync(t *testing.T) {
 	t.Run("emit sync with uninitialized stream", func(t *testing.T) {
 		ssql := New()
-		// 在没有执行SQL的情况下调用EmitSync
+		// Call EmitSync without executing the SQL
 		result, err := ssql.EmitSync(map[string]any{"id": 1})
 		require.Error(t, err)
 		require.Nil(t, result)
@@ -397,7 +397,7 @@ func TestStreamSQLEmitSync(t *testing.T) {
 		err := ssql.Execute("SELECT COUNT(*) FROM stream GROUP BY id")
 		require.NoError(t, err)
 
-		// 对聚合查询调用EmitSync应该返回错误
+		// Calling EmitSync for aggregated queries should return an error
 		result, err := ssql.EmitSync(map[string]any{"id": 1})
 		require.Error(t, err)
 		require.Nil(t, result)
@@ -410,10 +410,10 @@ func TestStreamSQLEmitSync(t *testing.T) {
 		err := ssql.Execute("SELECT id, name FROM stream WHERE id > 0")
 		require.NoError(t, err)
 
-		// 对非聚合查询调用EmitSync
+		// Call EmitSync for non-aggregated queries
 		data := map[string]any{"id": 1, "name": "test"}
 		result, err := ssql.EmitSync(data)
-		// 根据实际实现，这里可能成功或失败
+		// Depending on actual implementation, success or failure may be possible here
 		if err != nil {
 			t.Logf("EmitSync error (expected): %v", err)
 		} else {
@@ -423,14 +423,14 @@ func TestStreamSQLEmitSync(t *testing.T) {
 	})
 }
 
-// TestStreamSQLCustomPerformanceConfig 测试自定义性能配置
+// TestStreamSQLCustomPerformanceConfig tests custom performance configurations
 func TestStreamSQLCustomPerformanceConfig(t *testing.T) {
 	t.Run("custom performance config with nil config", func(t *testing.T) {
 		ssql := New()
 		ssql.performanceMode = "custom"
-		ssql.customConfig = nil // 设置为nil
+		ssql.customConfig = nil // Set to nil
 
-		// 执行SQL时应该回退到默认配置
+		// When executing SQL, you should revert to the default configuration
 		err := ssql.Execute("SELECT id FROM stream")
 		require.NoError(t, err)
 		ssql.Stop()
@@ -458,7 +458,7 @@ func TestStreamSQLCustomPerformanceConfig(t *testing.T) {
 	})
 }
 
-// TestStreamSQLStatsMethods 测试统计信息相关方法
+// TestStreamSQLStatsMethods Methods for testing statistical information
 func TestStreamSQLStatsMethods(t *testing.T) {
 	t.Run("get stats with uninitialized stream", func(t *testing.T) {
 		ssql := New()
@@ -489,18 +489,18 @@ func TestStreamSQLStatsMethods(t *testing.T) {
 	})
 
 	t.Run("is aggregation query method", func(t *testing.T) {
-		// 测试未初始化的情况
+		// Test for cases where the initialization is not initialized
 		ssql := New()
 		require.False(t, ssql.IsAggregationQuery())
 
-		// 测试非聚合查询
+		// Test non-aggregated queries
 		err := ssql.Execute("SELECT id FROM stream")
 		require.NoError(t, err)
 		isAgg := ssql.IsAggregationQuery()
 		t.Logf("Is aggregation query: %v", isAgg)
 		ssql.Stop()
 
-		// 测试聚合查询
+		// Test aggregated queries
 		ssql2 := New()
 		err = ssql2.Execute("SELECT COUNT(*) FROM stream GROUP BY id")
 		require.NoError(t, err)
@@ -510,11 +510,11 @@ func TestStreamSQLStatsMethods(t *testing.T) {
 	})
 }
 
-// TestStreamSQLNilAndEdgeCases 测试空值和边界情况
+// TestStreamSQLNilAndEdgeCases tests the null values and boundary conditions
 func TestStreamSQLNilAndEdgeCases(t *testing.T) {
 	t.Run("emit with nil stream", func(t *testing.T) {
 		ssql := New()
-		// 在没有执行SQL的情况下调用Emit
+		// Calling Emit without executing SQL
 		assert.NotPanics(t, func() {
 			ssql.Emit(map[string]any{"id": 1})
 		})
@@ -522,7 +522,7 @@ func TestStreamSQLNilAndEdgeCases(t *testing.T) {
 
 	t.Run("add sink with nil stream", func(t *testing.T) {
 		ssql := New()
-		// 在没有执行SQL的情况下调用AddSink
+		// Call AddSink without executing the SQL
 		assert.NotPanics(t, func() {
 			ssql.AddSink(func(results []map[string]any) {
 				t.Log("Sink called")
@@ -532,21 +532,21 @@ func TestStreamSQLNilAndEdgeCases(t *testing.T) {
 
 	t.Run("to channel with nil stream", func(t *testing.T) {
 		ssql := New()
-		// 在没有执行SQL的情况下调用ToChannel
+		// Call ToChannel without executing SQL
 		resultChan := ssql.ToChannel()
 		require.Nil(t, resultChan)
 	})
 
 	t.Run("stream method with nil stream", func(t *testing.T) {
 		ssql := New()
-		// 在没有执行SQL的情况下调用Stream
+		// Call Stream without executing the SQL
 		stream := ssql.Stream()
 		require.Nil(t, stream)
 	})
 
 	t.Run("stop with nil stream", func(t *testing.T) {
 		ssql := New()
-		// 在没有执行SQL的情况下调用Stop
+		// Call Stop without executing the SQL
 		assert.NotPanics(t, func() {
 			ssql.Stop()
 		})
@@ -556,7 +556,7 @@ func TestStreamSQLNilAndEdgeCases(t *testing.T) {
 		ssql := New()
 		ssql.fieldOrder = []string{"id", "name"}
 
-		// 测试空结果的表格打印
+		// Test empty results for the table print
 		assert.NotPanics(t, func() {
 			ssql.printTableFormat([]map[string]any{})
 		})
@@ -570,31 +570,31 @@ func TestStreamSQLNilAndEdgeCases(t *testing.T) {
 			{"id": 1, "name": "test"},
 		}
 
-		// 测试nil字段顺序的表格打印
+		// Print a table to test the order of the nil fields
 		assert.NotPanics(t, func() {
 			ssql.printTableFormat(results)
 		})
 	})
 }
 
-// TestStreamSQLComplexScenarios 测试复杂场景
+// TestStreamSQLComplexScenarios tests complex scenarios
 func TestStreamSQLComplexScenarios(t *testing.T) {
 	t.Run("multiple execute calls", func(t *testing.T) {
 		ssql := New()
 
-		// 第一次执行
+		// The first time it was executed
 		err := ssql.Execute("SELECT id FROM stream")
 		require.NoError(t, err)
 		ssql.Stop()
 
-		// 第二次执行应该失败，因为已经执行过了
+		// The second execution should fail because it has already been carried out
 		err = ssql.Execute("SELECT name FROM stream")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Execute() has already been called")
 	})
 
 	t.Run("performance mode switching", func(t *testing.T) {
-		// 测试所有性能模式
+		// Test all performance modes
 		modes := []string{"default", "high_performance", "low_latency", "zero_data_loss"}
 
 		for _, mode := range modes {
@@ -615,7 +615,7 @@ func TestStreamSQLComplexScenarios(t *testing.T) {
 		err := ssql.Execute("SELECT z, a, m, b FROM stream")
 		require.NoError(t, err)
 
-		// 验证字段顺序被正确保存
+		// Verify that the order of the fields is saved correctly
 		expectedOrder := []string{"z", "a", "m", "b"}
 		require.Equal(t, expectedOrder, ssql.fieldOrder)
 		ssql.Stop()
@@ -688,9 +688,9 @@ func BenchmarkMainPath_NoFilter(b *testing.B) {
 }
 
 // ---------- overflow strategy ----------
-// TestSQLIntegration_StrategyBlock 测试 SQL 集成下的阻塞策略
+// TestSQLIntegration_StrategyBlock Test blocking policies under SQL integration
 func TestSQLIntegration_StrategyBlock(t *testing.T) {
-	// 配置：输出缓冲为 1，阻塞策略，超时 100ms
+	// Configuration: Output buffer is 1, blocking policy, timeout is 100ms
 	ssql := New(WithCustomPerformance(types.PerformanceConfig{
 		BufferConfig: types.BufferConfig{
 			DataChannelSize:   100,
@@ -703,63 +703,63 @@ func TestSQLIntegration_StrategyBlock(t *testing.T) {
 			AllowDataLoss: true,
 		},
 		WorkerConfig: types.WorkerConfig{
-			SinkPoolSize:    0, // 无缓冲任务队列
-			SinkWorkerCount: 1, // 1个 worker
+			SinkPoolSize:    0, // No buffer task queue
+			SinkWorkerCount: 1, // 1 worker
 		},
 	}))
 	defer ssql.Stop()
 
-	// SQL: 每条数据触发一次窗口
+	// SQL: Each data entry triggers a window once
 	rsql := "SELECT deviceId FROM stream GROUP BY deviceId, CountingWindow(1)"
 	err := ssql.Execute(rsql)
 	require.NoError(t, err)
 
-	// 添加同步 Sink 阻塞 Stream 处理，从而反压 Window
-	// 注意：必须在 Execute 之后添加，因为 Execute 才会创建 stream
+	// Adds synchronous Sink blocking stream handling, thereby backpressing Windows
+	// Note: It must be added after Execute, because Execute will create the stream
 	ssql.AddSyncSink(func(results []map[string]any) {
 		time.Sleep(500 * time.Millisecond)
 	})
 
-	// 发送 5 条数据
-	// d1: Worker 处理中 (阻塞 500ms)
-	// d2: Stream 尝试写入 WorkerPool -> 阻塞 (无缓冲)
-	// d3: Window OutputChan (size 1) -> 填满
-	// d4: Window OutputChan 满 -> 尝试写入 -> 阻塞 (Window Add) -> 放入 TriggerChan (size=1)
-	// d5: Window Add -> TriggerChan 满 -> 阻塞? No, Emit 是异步的?
-	// Emit 往 dataChan 写. DataProcessor 读 dataChan -> Window.Add.
-	// Window.Add 往 triggerChan 写.
+	// Send 5 data entries
+	// d1: Worker processing (blocking 500ms)
+	// d2: Stream tries to write to WorkerPool -> block (no buffering)
+	// d3: Window OutputChan (size 1) -> fill
+	// d4: Window OutputChan full -> tries to write -> block (Window Add) -> insert TriggerChan (size=1)
+	// d5: Window Add -> TriggerChan full -> blocking? No, is Emit asynchronous?
+	// Emit wrote to dataChan. DataProcessor reads dataChan -> Window.Add.
+	// Window.Add to triggerChan.
 	//
-	// 修正分析:
-	// Window.Add 是非阻塞的 (如果 triggerChan 不满).
+	// Correction Analysis:
+	// Window.Add is non-blocking (if triggerChan is dissatisfied).
 	// CountingWindow triggerChan size = bufferSize = 1.
-	// Worker 协程: 从 triggerChan 读 -> 处理 -> sendResult (到 OutputChan).
+	// Worker coroutine: Read -> from triggerChan and process -> sendResult (to OutputChan).
 	//
-	// d1: Worker读triggerChan -> OutputChan -> Stream -> WorkerPool -> Worker(busy).
-	// d2: Worker读triggerChan -> OutputChan -> Stream -> Blocked on WorkerPool.
-	//     此时 Stream 持有 d2. OutputChan 空.
-	//     Worker 协程 阻塞在 sendResult(d2)? No, Stream 取走了 d2, Stream 阻塞在 dispatch.
-	//     所以 OutputChan 是空的!
+	// d1: Worker reads triggerChan -> OutputChan -> Stream -> WorkerPool -> Worker(busy).
+	// d2: Worker reads triggerChan -> OutputChan -> Stream -> Blocked on WorkerPool.
+	//     At this point, Stream holds d2. OutputChan empty.
+	//     Worker coroutine blocked at sendResult(d2)? No, Stream takes d2, Stream blocks dispatch.
+	//     So OutputChan is empty!
 	//     Wait, Stream loop:
 	//     result := <-OutputChan. (Stream has d2).
 	//     handleResult(d2) -> Blocked.
 	//     So OutputChan is empty.
-	// d3: Worker读triggerChan -> OutputChan (d3). Success.
+	// d3: Worker reads triggerChan -> OutputChan (d3). Success.
 	//     OutputChan has d3.
-	// d4: Worker读triggerChan -> OutputChan (d4). Blocked (OutputChan full).
-	//     Worker 协程 阻塞在 sendResult(d4).
+	// d4: Worker reads triggerChan -> OutputChan (d4). Blocked (OutputChan full).
+	//     Worker coroutine blocked at sendResult(d4).
 	// d5: Add -> triggerChan (d5). Success (triggerChan size 1).
 	// d6: Add -> triggerChan (d6). Blocked (triggerChan full).
 	//     Add blocks. DataProcessor blocks. Emit succeeds (dataChan).
 	//
-	// 所以 Window Worker 只有在 sendResult 阻塞时才触发 Drop logic.
-	// sendResult 只有在 OutputChan 满且超时时才 Drop.
+	// Therefore, the Window Worker only triggers the drop logic when sendResult is blocked.
+	// sendResult only drops when OutputChan is full and timed out.
 	//
-	// d4 阻塞在 sendResult.
-	// 100ms 后超时 -> Drop d4.
-	// Worker 继续.
+	// d4 is blocked in sendResult.
+	// Timeout after 100ms -> Drop d4.
+	// Worker continues.
 	//
-	// 所以 d4 应该是被 Drop 的那个.
-	// Sent: d1, d2, d3. (d5 在 triggerChan, d6 在 dataChan).
+	// So d4 should be the one that got dropped.
+	// Sent: d1, d2, d3. (d5 on triggerChan, d6 on dataChan).
 	// Wait, d5 is in triggerChan, not processed yet.
 	// So Sent = 3. Dropped = 1 (d4).
 
@@ -768,15 +768,15 @@ func TestSQLIntegration_StrategyBlock(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	// 等待足够长的时间让 Stream 醒来并处理完，以及 Window 丢弃逻辑执行
+	// Wait long enough for the stream to wake up and finish processing, and for the window to discard the logic execution
 	time.Sleep(1000 * time.Millisecond)
 
-	// 获取统计信息
-	// d1: Stream 处理完
-	// d2: Stream 处理完 (Worker 醒来后处理 d2)
-	// d3: Dropped (Worker 阻塞 -> 超时)
-	// d4: Dropped (Worker 阻塞 -> 超时)
-	// d5: Dropped (Worker 阻塞 -> 超时)
+	// Get statistics
+	// d1: Stream finishes processing
+	// d2: Stream finishes processing (Worker wakes up and processes d2)
+	// d3: Dropped (Worker blocks -> timeout)
+	// d4: Dropped (Worker blocks -> timeout)
+	// d5: Dropped (Worker blocks -> timeout)
 	// Total Sent: 2 (d1, d2).
 	// Dropped: 3 (d3, d4, d5).
 	stats := ssql.stream.GetStats()
@@ -784,9 +784,9 @@ func TestSQLIntegration_StrategyBlock(t *testing.T) {
 	assert.Equal(t, int64(2), stats["sentCount"], "Should have 2 sent window result")
 }
 
-// TestSQLIntegration_StrategyDrop 测试 SQL 集成下的丢弃策略
+// TestSQLIntegration_StrategyDrop Test the dropout policy under SQL integration
 func TestSQLIntegration_StrategyDrop(t *testing.T) {
-	// 配置：输出缓冲为 1，丢弃策略
+	// Configuration: Output buffer is set to 1, discard policy
 	ssql := New(WithCustomPerformance(types.PerformanceConfig{
 		BufferConfig: types.BufferConfig{
 			DataChannelSize:   100,
@@ -799,50 +799,50 @@ func TestSQLIntegration_StrategyDrop(t *testing.T) {
 	}))
 	defer ssql.Stop()
 
-	// SQL: 每条数据触发一次窗口
+	// SQL: Each data entry triggers a window once
 	rsql := "SELECT deviceId FROM stream GROUP BY deviceId, CountingWindow(1)"
 	err := ssql.Execute(rsql)
 	require.NoError(t, err)
 
-	// 连续发送 3 条数据
+	// Send 3 data records consecutively
 	ssql.Emit(map[string]any{"deviceId": "d1"})
 	ssql.Emit(map[string]any{"deviceId": "d2"})
 	ssql.Emit(map[string]any{"deviceId": "d3"})
 
-	// 等待处理完成
+	// Wait for processing to complete
 	time.Sleep(200 * time.Millisecond)
 
-	// 对于 StrategyDrop，它会挤掉旧数据，所以 sentCount 应该持续增加
+	// For StrategyDrop, it squeezes out old data, so sentCount should keep increasing
 	stats := ssql.stream.GetStats()
-	// d1, d2, d3 都会成功发送（虽然 d1, d2 可能被挤掉，但 sendResult 逻辑中挤掉旧的后写入新的算发送成功）
+	// d1, d2, and d3 will all be successfully sent (although d1 and d2 may be squeezed out, the sendResult logic pushes out the old ones and writes the new ones to count as successful sends).
 	assert.Equal(t, int64(3), stats["sentCount"])
 
-	// 验证最终留在缓冲区的是最后一条数据 (d3)
-	// 注意：AddSink 会启动 worker 从 OutputChan 读。
-	// 为了验证，我们直接从 Window 的 OutputChan 读
+	// Verification ultimately remains in the buffer with the last data (d3)
+	// Note: AddSink will start the worker to read from OutputChan.
+	// To verify, we read directly from OutputChan in Windows
 	select {
 	case result := <-ssql.stream.Window.OutputChan():
 		assert.Equal(t, "d3", result[0].Data.(map[string]any)["deviceId"])
 	case <-time.After(100 * time.Millisecond):
-		// 如果已经被 AddSink 的 worker 读走了也正常，但由于我们没加 Sink，所以应该在里面
+		// If the AddSink worker has already read it, that's normal, but since we didn't add a Sink, it should be inside
 	}
 }
 
 // ---------- table print ----------
-// TestPrintTable 测试PrintTable方法的基本功能
+// TestPrintTable Tests the basic functionality of the PrintTable method
 func TestPrintTable(t *testing.T) {
-	// 创建StreamSQL实例并测试PrintTable
+	// Create a StreamSQL instance and test the PrintTable
 	ssql := New()
 	defer ssql.Stop()
 	err := ssql.Execute("SELECT device, AVG(temperature) as avg_temp FROM stream GROUP BY device, TumblingWindow('2s')")
 	assert.NoError(t, err)
 
-	// 使用PrintTable方法（不验证输出内容，只确保不会panic）
+	// Use the PrintTable method (does not verify the output, only ensures it does not panic)
 	assert.NotPanics(t, func() {
 		ssql.PrintTable()
 	}, "PrintTable方法不应该panic")
 
-	// 发送测试数据
+	// Send test data
 	testData := []map[string]any{
 		{"device": "sensor1", "temperature": 25.0},
 		{"device": "sensor2", "temperature": 30.0},
@@ -852,101 +852,101 @@ func TestPrintTable(t *testing.T) {
 		ssql.Emit(data)
 	}
 
-	// 等待窗口触发
+	// Wait for the window to trigger
 	time.Sleep(3 * time.Second)
 }
 
-// TestPrintTableFormat 测试printTableFormat方法处理不同数据类型
+// TestPrintTableFormat: The printTableFormat method handles different data types
 func TestPrintTableFormat(t *testing.T) {
 	ssql := New()
 
-	// 测试不同类型的数据，确保不会panic
+	// Test different types of data to ensure you don't panic
 	assert.NotPanics(t, func() {
-		// 测试空切片
+		// Test the empty slices
 		ssql.printTableFormat([]map[string]any{})
 	}, "空切片不应该panic")
 }
 
 // ---------- end-to-end example ----------
 func TestStreamData(t *testing.T) {
-	// 步骤1: 创建 StreamSQL 实例
-	// StreamSQL 是流式 SQL 处理引擎的核心组件，负责管理整个流处理生命周期
+	// Step 1: Create a StreamSQL instance
+	// StreamSQL is the core component of the streaming SQL processing engine, responsible for managing the entire stream processing lifecycle
 	ssql := New()
-	// 确保测试结束时停止流处理，释放资源
+	// Ensure that streaming processing stops at the end of the test and resources are freed
 	defer ssql.Stop()
 
-	// 步骤2: 定义流式 SQL 查询语句
-	// 这个 SQL 语句展示了 StreamSQL 的核心功能：
-	// - SELECT: 选择要输出的字段和聚合函数
-	// - FROM stream: 指定数据源为流数据
-	// - WHERE: 过滤条件，排除 device3 的数据
-	// - GROUP BY: 按设备ID分组，配合滚动窗口进行聚合
-	// - TumblingWindow('5s'): 5秒滚动窗口，每5秒触发一次计算
-	// - avg(), min(): 聚合函数，计算平均值和最小值
-	// - window_start(), window_end(): 窗口函数，获取窗口的开始和结束时间
+	// Step 2: Define the streaming SQL query statement
+	// This SQL statement demonstrates the core features of StreamSQL:
+	// - SELECT: Selects the fields and aggregate functions to output
+	// - FROM stream: Specifies the data source as stream data
+	// - WHERE: Filter condition to exclude data from device3
+	// - GROUP BY: Grouped by device ID and aggregated with scrolling windows
+	// - TumblingWindow('5s'): Scrolls the window every 5 seconds, triggering calculation every 5 seconds
+	// - avg(), min(): Aggregate function, calculates the mean and minimum value
+	// - window_start(), window_end(): Window function, retrieves the start and end times of the window
 	rsql := "SELECT deviceId,avg(temperature) as avg_temp,min(humidity) as min_humidity ," +
 		"window_start() as start,window_end() as end FROM  stream  where deviceId!='device3' group by deviceId,TumblingWindow('5s')"
 
-	// 步骤3: 执行 SQL 语句，启动流式分析任务
-	// Execute 方法会解析 SQL、构建执行计划、初始化窗口管理器和聚合器
+	// Step 3: Execute the SQL statement to start the stream analysis task
+	// The Execute method parses SQL, builds execution plans, initializes window managers and aggregators
 	err := ssql.Execute(rsql)
 	if err != nil {
 		panic(err)
 	}
 
-	// 步骤4: 设置测试环境和并发控制
+	// Step 4: Set up the test environment and concurrency control
 	var wg sync.WaitGroup
 	wg.Add(1)
-	// 设置30秒测试超时时间，防止测试无限运行
+	// Set a 30-second test timeout to prevent unlimited testing
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// 步骤5: 启动数据生产者协程
-	// 模拟实时数据流，持续向 StreamSQL 输入数据
+	// Step 5: Start the data producer coroutine
+	// Simulates real-time data flows and continuously inputs data to StreamSQL
 	go func() {
 		defer wg.Done()
-		// 创建定时器，每秒触发一次数据生成
+		// Create a timer that triggers data generation every second
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				// 每秒生成10条随机测试数据，模拟高频数据流
-				// 这种数据密度可以测试 StreamSQL 的实时处理能力
+				// Generates 10 random test data per second, simulating high-frequency data streams
+				// This data density can test StreamSQL's real-time processing capabilities
 				for i := 0; i < 10; i++ {
-					// 构造设备数据，包含设备ID、温度和湿度
+					// Construct device data, including device ID, temperature, and humidity
 					randomData := map[string]any{
-						"deviceId":    fmt.Sprintf("device%d", rand.Intn(3)+1), // 随机选择 device1, device2, device3
-						"temperature": 20.0 + rand.Float64()*10,                // 温度范围: 20-30度
-						"humidity":    50.0 + rand.Float64()*20,                // 湿度范围: 50-70%
+						"deviceId":    fmt.Sprintf("device%d", rand.Intn(3)+1), // Randomly select device1, device2, device3
+						"temperature": 20.0 + rand.Float64()*10,                // Temperature range: 20-30 degrees
+						"humidity":    50.0 + rand.Float64()*20,                // Humidity range: 50-70%
 					}
-					// 将数据添加到流中，触发 StreamSQL 的实时处理
-					// Emit 会将数据分发到相应的窗口和聚合器中
+					// Add data to the stream to trigger real-time processing in StreamSQL
+					// Emit distributes data to the corresponding windows and aggregators
 					ssql.Emit(randomData)
 				}
 
 			case <-ctx.Done():
-				// 超时或取消信号，停止数据生成
+				// Timeout or cancellation of signals stops data generation
 				return
 			}
 		}
 	}()
 
-	// 步骤6: 设置结果处理管道
+	// Step 6: Set up the result processing pipeline
 	resultChan := make(chan any, 10)
-	// 添加计算结果回调函数（Sink）
-	// 当窗口触发计算时，结果会通过这个回调函数输出
+	// Add calculation result callback function (Sink)
+	// When the window triggers the calculation, the result is output through this callback function
 	ssql.stream.AddSink(func(result []map[string]any) {
-		// 非阻塞发送，避免阻塞 sink worker
+		// Non-blocking sending to avoid blocking sink workers
 		select {
 		case resultChan <- result:
 		default:
-			// Channel 已满，忽略（非阻塞发送）
+			// Channel is full, ignore (non-blocking sending)
 		}
 	})
 
-	// 步骤7: 启动结果消费者协程
-	// 记录收到的结果数量，用于验证测试效果
+	// Step 7: Start the result consumer coroutine
+	// Record the number of results received to verify the test effectiveness
 	var resultCount int64
 	var countMutex sync.Mutex
 	var consumerWg sync.WaitGroup
@@ -956,40 +956,40 @@ func TestStreamData(t *testing.T) {
 		for {
 			select {
 			case <-resultChan:
-				// 每当收到一个窗口的计算结果时，计数器加1
-				// 注释掉的代码可以用于调试，打印每个结果的详细信息
-				//fmt.Printf("打印结果: [%s] %v\n", time.Now().Format("15:04:05.000"), result)
+				// Whenever a window receives a calculation result, the counter increments by 1
+				// The commented code can be used for debugging and printing detailed information for each result
+				//fmt.Printf("Print result: [%s] %v\n", time.Now().Format("15:04:05.000"), result)
 				countMutex.Lock()
 				resultCount++
 				countMutex.Unlock()
 			case <-ctx.Done():
-				// 测试超时，退出消费者 goroutine
-				// 不关闭 channel，让主程序自动退出时清理
+				// Test timeout, exit consumer goroutine
+				// Do not close the channel, allowing the main program to clean up automatically when exiting
 				return
 			}
 		}
 	}()
 
-	// 步骤8: 等待测试完成
-	// 等待数据生产者协程结束（30秒超时或手动取消）
+	// Step 8: Wait for the test to complete
+	// Wait for the data producer coroutine to finish (30-second timeout or manual cancellation)
 	wg.Wait()
 
-	// 停止流处理，确保所有 goroutine 正确退出
+	// Stop stream processing and ensure all goroutines exit correctly
 	ssql.Stop()
 
-	// 等待一小段时间，确保所有 sink worker 完成当前任务
-	// 这样可以确保所有结果都被发送到 channel
+	// Wait a short while to ensure all sink workers complete the current task
+	// This ensures that all results are sent to the channel
 	time.Sleep(100 * time.Millisecond)
 
-	// 取消 context，通知消费者 goroutine 退出
+	// Cancel context to notify consumers to exit the goroutine
 	cancel()
 
-	// 等待消费者 goroutine 完成（处理完 channel 中剩余的数据或收到取消信号）
+	// Wait for the consumer goroutine to complete (after processing the remaining data in the channel or receiving a cancellation signal)
 	consumerWg.Wait()
 
-	// 步骤9: 验证测试结果
-	// 预期在30秒内应该收到5个窗口的计算结果（每5秒一个窗口）
-	// 这验证了 StreamSQL 的窗口触发机制是否正常工作
+	// Step 9: Verify the test results
+	// Expect to receive the calculation results of 5 windows within 30 seconds (one window every 5 seconds)
+	// This verifies whether StreamSQL's window trigger mechanism is working properly
 	countMutex.Lock()
 	finalCount := resultCount
 	countMutex.Unlock()

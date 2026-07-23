@@ -14,36 +14,36 @@ func main() {
 	fmt.Println("🔧 StreamSQL 复杂嵌套字段访问功能演示")
 	fmt.Println("=======================================")
 
-	// 创建 StreamSQL 实例
+	// Create a StreamSQL instance
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 演示1: 数组索引访问
+	// Demo 1: Array index access
 	fmt.Println("\n📊 演示1: 数组索引访问")
 	demonstrateArrayAccess(ssql)
 
-	// 演示2: Map键访问
+	// Demo 2: Map key access
 	fmt.Println("\n🗝️ 演示2: Map键访问")
 	demonstrateMapKeyAccess(ssql)
 
-	// 演示3: 混合复杂访问
+	// Demo 3: Hybrid Complex Access
 	fmt.Println("\n🔄 演示3: 混合复杂访问")
 	demonstrateComplexMixedAccess(ssql)
 
-	// 演示4: 负数索引访问
+	// Demo 4: Negative Index Access
 	fmt.Println("\n⬅️ 演示4: 负数索引访问")
 	demonstrateNegativeIndexAccess(ssql)
 
-	// 演示5: 数组索引聚合计算
+	// Demo 5: Array Index Aggregation Computation
 	fmt.Println("\n📈 演示5: 数组索引聚合计算")
 	demonstrateArrayIndexAggregation(ssql)
 
 	fmt.Println("\n✅ 演示完成!")
 }
 
-// 演示数组索引访问
+// Demonstration of array index access
 func demonstrateArrayAccess(ssql *streamsql.Streamsql) {
-	// SQL查询：提取数组中的特定元素
+	// SQL query: extracting specific elements from an array
 	rsql := `SELECT device, 
                     sensors[0].temperature as first_sensor_temp,
                     sensors[1].humidity as second_sensor_humidity,
@@ -56,7 +56,7 @@ func demonstrateArrayAccess(ssql *streamsql.Streamsql) {
 		return
 	}
 
-	// 准备测试数据
+	// Prepare test data
 	testData := []map[string]any{
 		{
 			"device": "工业传感器-001",
@@ -82,7 +82,7 @@ func demonstrateArrayAccess(ssql *streamsql.Streamsql) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	// 设置结果回调
+	// Set result callback
 	ssql.AddSink(func(result []map[string]any) {
 		defer wg.Done()
 
@@ -97,18 +97,18 @@ func demonstrateArrayAccess(ssql *streamsql.Streamsql) {
 		}
 	})
 
-	// 添加测试数据
+	// Add test data
 	for _, data := range testData {
 		ssql.Emit(data)
 	}
 
-	// 等待结果
+	// Wait for the results
 	wg.Wait()
 }
 
-// 演示Map键访问
+// Demonstration of Map key access
 func demonstrateMapKeyAccess(ssql *streamsql.Streamsql) {
-	// SQL查询：使用字符串键访问Map数据
+	// SQL query: Accessing Map data using string keys
 	rsql := `SELECT device_id,
                     config['host'] as server_host,
                     config["port"] as server_port,
@@ -122,7 +122,7 @@ func demonstrateMapKeyAccess(ssql *streamsql.Streamsql) {
 		return
 	}
 
-	// 准备测试数据
+	// Prepare test data
 	testData := []map[string]any{
 		{
 			"device_id": "gateway-001",
@@ -165,7 +165,7 @@ func demonstrateMapKeyAccess(ssql *streamsql.Streamsql) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	// 设置结果回调
+	// Set result callback
 	ssql.AddSink(func(result []map[string]any) {
 		defer wg.Done()
 
@@ -182,18 +182,18 @@ func demonstrateMapKeyAccess(ssql *streamsql.Streamsql) {
 		}
 	})
 
-	// 添加测试数据
+	// Add test data
 	for _, data := range testData {
 		ssql.Emit(data)
 	}
 
-	// 等待结果
+	// Wait for the results
 	wg.Wait()
 }
 
-// 演示混合复杂访问
+// Demonstration of hybrid complex access
 func demonstrateComplexMixedAccess(ssql *streamsql.Streamsql) {
-	// SQL查询：混合使用数组索引、Map键和嵌套字段访问
+	// SQL queries: Combining array indexes, Map keys, and nested field access
 	rsql := `SELECT building,
                     floors[0].rooms[2]['name'] as first_floor_room3_name,
                     floors[1].sensors[0].readings['temperature'] as second_floor_first_sensor_temp,
@@ -207,11 +207,11 @@ func demonstrateComplexMixedAccess(ssql *streamsql.Streamsql) {
 		return
 	}
 
-	// 准备复杂嵌套数据
+	// Prepare complex nested data
 	testData := map[string]any{
 		"building": "智能大厦A座",
 		"floors": []any{
-			// 第一层
+			// The first level
 			map[string]any{
 				"floor_number": 1,
 				"rooms": []any{
@@ -221,7 +221,7 @@ func demonstrateComplexMixedAccess(ssql *streamsql.Streamsql) {
 					map[string]any{"name": "休息区", "type": "lounge"},
 				},
 			},
-			// 第二层
+			// The second floor
 			map[string]any{
 				"floor_number": 2,
 				"sensors": []any{
@@ -262,7 +262,7 @@ func demonstrateComplexMixedAccess(ssql *streamsql.Streamsql) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	// 设置结果回调
+	// Set result callback
 	ssql.AddSink(func(result []map[string]any) {
 		defer wg.Done()
 
@@ -279,16 +279,16 @@ func demonstrateComplexMixedAccess(ssql *streamsql.Streamsql) {
 		}
 	})
 
-	// 添加数据
+	// Add data
 	ssql.Emit(testData)
 
-	// 等待结果
+	// Wait for the results
 	wg.Wait()
 }
 
-// 演示负数索引访问
+// Demonstrating negative index access
 func demonstrateNegativeIndexAccess(ssql *streamsql.Streamsql) {
-	// SQL查询：使用负数索引访问数组末尾元素
+	// SQL query: Uses negative indexes to access the last element of an array
 	rsql := `SELECT device_name,
                     readings[-1] as latest_reading,
                     history[-2] as second_last_event,
@@ -301,7 +301,7 @@ func demonstrateNegativeIndexAccess(ssql *streamsql.Streamsql) {
 		return
 	}
 
-	// 准备测试数据
+	// Prepare test data
 	testData := []map[string]any{
 		{
 			"device_name": "温度监测器-Alpha",
@@ -320,7 +320,7 @@ func demonstrateNegativeIndexAccess(ssql *streamsql.Streamsql) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	// 设置结果回调
+	// Set result callback
 	ssql.AddSink(func(result []map[string]any) {
 		defer wg.Done()
 
@@ -336,18 +336,18 @@ func demonstrateNegativeIndexAccess(ssql *streamsql.Streamsql) {
 		}
 	})
 
-	// 添加测试数据
+	// Add test data
 	for _, data := range testData {
 		ssql.Emit(data)
 	}
 
-	// 等待结果
+	// Wait for the results
 	wg.Wait()
 }
 
-// 演示数组索引聚合计算
+// Demonstration of array index aggregation calculation
 func demonstrateArrayIndexAggregation(ssql *streamsql.Streamsql) {
-	// SQL查询：对数组中特定位置的数据进行聚合计算
+	// SQL Query: Aggregates data at specific locations in an array for calculation
 	rsql := `SELECT location,
                     AVG(sensors[0].temperature) as avg_first_sensor_temp,
                     MAX(sensors[1].humidity) as max_second_sensor_humidity,
@@ -366,7 +366,7 @@ func demonstrateArrayIndexAggregation(ssql *streamsql.Streamsql) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	// 设置结果回调
+	// Set result callback
 	ssql.AddSink(func(result []map[string]any) {
 		defer wg.Done()
 
@@ -383,7 +383,7 @@ func demonstrateArrayIndexAggregation(ssql *streamsql.Streamsql) {
 		}
 	})
 
-	// 生成模拟数据
+	// Generate simulated data
 	locations := []string{"车间A", "车间B", "车间C"}
 
 	go func() {
@@ -407,11 +407,11 @@ func demonstrateArrayIndexAggregation(ssql *streamsql.Streamsql) {
 			}
 
 			ssql.Emit(data)
-			time.Sleep(200 * time.Millisecond) // 每200ms发送一条数据
+			time.Sleep(200 * time.Millisecond) // Send a data piece every 200ms
 		}
 	}()
 
-	// 等待聚合结果
+	// Waiting for the aggregated results
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 

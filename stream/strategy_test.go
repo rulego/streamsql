@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestStrategyFactory 测试策略工厂
+// TestStrategyFactory
 func TestStrategyFactory(t *testing.T) {
 	factory := NewStrategyFactory()
 
@@ -55,7 +55,7 @@ func TestStrategyFactory(t *testing.T) {
 	}
 }
 
-// TestStrategy_Constructor 测试策略构造函数
+// TestStrategy_Constructor Test policy constructor
 func TestStrategy_Constructor(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -69,7 +69,7 @@ func TestStrategy_Constructor(t *testing.T) {
 	}()
 }
 
-// TestBlockingStrategy_ProcessData 测试阻塞策略数据处理
+// TestBlockingStrategy_ProcessData Test blocking policy data processing
 func TestBlockingStrategy_ProcessData(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -83,7 +83,7 @@ func TestBlockingStrategy_ProcessData(t *testing.T) {
 	}()
 }
 
-// TestExpansionStrategy_ProcessData 测试扩容策略数据处理
+// TestExpansionStrategy_ProcessData Testing scaling strategy data processing
 func TestExpansionStrategy_ProcessData(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -97,7 +97,7 @@ func TestExpansionStrategy_ProcessData(t *testing.T) {
 	}()
 }
 
-// TestDropStrategy_ProcessData 测试丢弃策略数据处理
+// TestDropStrategy_ProcessData Test the processing of discarding policy data
 func TestDropStrategy_ProcessData(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -111,9 +111,9 @@ func TestDropStrategy_ProcessData(t *testing.T) {
 	}()
 }
 
-// TestStrategyInitialization 测试策略初始化
+// TestStrategyInitialization
 func TestStrategyInitialization(t *testing.T) {
-	// 创建测试配置
+	// Create test configurations
 	config := types.Config{
 		PerformanceConfig: types.PerformanceConfig{
 			BufferConfig: types.BufferConfig{
@@ -133,14 +133,14 @@ func TestStrategyInitialization(t *testing.T) {
 		},
 	}
 
-	// 创建Stream实例
+	// Create a Stream instance
 	stream, err := NewStream(config)
 	if err != nil {
 		t.Fatalf("Failed to create stream: %v", err)
 	}
 	defer stream.Stop()
 
-	// 验证策略是否正确设置
+	// Verify that the policy is set correctly
 	if stream.dataStrategy == nil {
 		t.Fatal("Data strategy not set")
 	}
@@ -150,7 +150,7 @@ func TestStrategyInitialization(t *testing.T) {
 	}
 }
 
-// TestStrategyProcessData 测试策略数据处理
+// TestStrategyProcessData Processing of test strategy data
 func TestStrategyProcessData(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -163,7 +163,7 @@ func TestStrategyProcessData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 创建测试配置
+			// Create test configurations
 			config := types.Config{
 				PerformanceConfig: types.PerformanceConfig{
 					BufferConfig: types.BufferConfig{
@@ -183,23 +183,23 @@ func TestStrategyProcessData(t *testing.T) {
 				},
 			}
 
-			// 创建Stream实例
+			// Create a Stream instance
 			stream, err := NewStream(config)
 			if err != nil {
 				t.Fatalf("Failed to create stream: %v", err)
 			}
 			defer stream.Stop()
 
-			// 测试数据处理
+			// Test data processing
 			testData := map[string]any{
 				"test": "data",
 				"id":   1,
 			}
 
-			// 这里主要测试策略能够正常调用，不会panic
+			// The main test here is that the policy can be called normally without panic
 			stream.Emit(testData)
 
-			// 验证输入计数增加
+			// Validation input count increases
 			if stream.mInput.Value() != 1 {
 				t.Errorf("Expected input count 1, got %d", stream.mInput.Value())
 			}
@@ -207,7 +207,7 @@ func TestStrategyProcessData(t *testing.T) {
 	}
 }
 
-// TestStrategyCleanup 测试策略清理
+// TestStrategyCleanup
 func TestStrategyCleanup(t *testing.T) {
 	config := types.Config{
 		PerformanceConfig: types.PerformanceConfig{
@@ -228,25 +228,25 @@ func TestStrategyCleanup(t *testing.T) {
 		},
 	}
 
-	// 创建Stream实例
+	// Create a Stream instance
 	stream, err := NewStream(config)
 	if err != nil {
 		t.Fatalf("Failed to create stream: %v", err)
 	}
 
-	// 验证策略存在
+	// Verification strategies exist
 	if stream.dataStrategy == nil {
 		t.Fatal("Data strategy not set")
 	}
 
-	// 测试停止和清理
+	// Testing stops and cleans up
 	stream.Stop()
 
-	// 这里主要验证Stop方法能够正常执行，不会panic
-	// 实际的清理逻辑在各个策略的Cleanup方法中实现
+	// Here, the main goal is to verify that the Stop method can execute normally without panic
+	// The actual cleanup logic is implemented in the Cleanup methods of each policy
 }
 
-// MockStrategy 模拟策略，用于测试扩展性
+// MockStrategy is a simulation strategy used to test scalability
 type MockStrategy struct {
 	stream      *Stream
 	processed   int
@@ -254,41 +254,41 @@ type MockStrategy struct {
 	cleaned     bool
 }
 
-// NewMockStrategy 创建模拟策略实例
+// NewMockStrategy creates a simulation strategy example
 func NewMockStrategy() *MockStrategy {
 	return &MockStrategy{}
 }
 
-// ProcessData 模拟数据处理
+// ProcessData simulates data processing
 func (ms *MockStrategy) ProcessData(data map[string]any) {
 	ms.processed++
-	// 模拟处理逻辑
+	// Simulating processing logic
 }
 
-// GetStrategyName 获取策略名称
+// GetStrategyName: Get the strategy name
 func (ms *MockStrategy) GetStrategyName() string {
 	return "mock"
 }
 
-// Init 初始化模拟策略
+// Init initializes the simulation strategy
 func (ms *MockStrategy) Init(stream *Stream, config types.PerformanceConfig) error {
 	ms.stream = stream
 	ms.initialized = true
 	return nil
 }
 
-// Stop 停止并清理模拟策略资源
+// Stop and clear the simulation strategy resources
 func (ms *MockStrategy) Stop() error {
 	ms.cleaned = true
 	return nil
 }
 
-// TestCustomStrategy 测试自定义策略的扩展性
+// TestCustomStrategy Tests the scalability of custom strategies
 func TestCustomStrategy(t *testing.T) {
-	// 创建自定义策略
+	// Create custom policies
 	mockStrategy := NewMockStrategy()
 
-	// 创建基本的Stream实例（不通过工厂）
+	// Create a basic Stream instance (without going through the factory)
 	reg := metrics.NewRegistry()
 	stream := &Stream{
 		dataChan:        make(chan map[string]any, 10),
@@ -300,7 +300,7 @@ func TestCustomStrategy(t *testing.T) {
 		mOutputDropped:  reg.Counter(OutputDroppedCount),
 	}
 
-	// 手动设置策略
+	// Manually set the strategy
 	config := types.PerformanceConfig{}
 	err := mockStrategy.Init(stream, config)
 	if err != nil {
@@ -309,7 +309,7 @@ func TestCustomStrategy(t *testing.T) {
 
 	stream.dataStrategy = mockStrategy
 
-	// 测试策略功能
+	// Test strategy functionality
 	if !mockStrategy.initialized {
 		t.Error("Mock strategy not initialized")
 	}
@@ -318,7 +318,7 @@ func TestCustomStrategy(t *testing.T) {
 		t.Errorf("Expected strategy name 'mock', got %s", mockStrategy.GetStrategyName())
 	}
 
-	// 测试数据处理
+	// Test data processing
 	testData := map[string]any{"test": "data"}
 	stream.Emit(testData)
 
@@ -326,18 +326,18 @@ func TestCustomStrategy(t *testing.T) {
 		t.Errorf("Expected processed count 1, got %d", mockStrategy.processed)
 	}
 
-	// 测试清理
+	// Test cleanup
 	stream.Stop()
 	if !mockStrategy.cleaned {
 		t.Error("Mock strategy not cleaned")
 	}
 }
 
-// TestStrategyRegistration 测试策略注册机制
+// TestStrategyRegistration: Test the strategy registration mechanism
 func TestStrategyRegistration(t *testing.T) {
 	factory := NewStrategyFactory()
 
-	// 测试内置策略是否已注册
+	// Test whether the built-in policy is registered
 	registeredStrategies := factory.GetRegisteredStrategies()
 	expectedStrategies := []string{StrategyBlock, StrategyExpand, StrategyDrop}
 
@@ -354,12 +354,12 @@ func TestStrategyRegistration(t *testing.T) {
 		}
 	}
 
-	// 测试注册自定义策略
+	// Test the registration custom policy
 	factory.RegisterStrategy("kafka", func() DataProcessingStrategy {
 		return &KafkaStrategy{}
 	})
 
-	// 验证自定义策略已注册
+	// Verify that the custom policy is registered
 	strategy, err := factory.CreateStrategy("kafka")
 	if err != nil {
 		t.Fatalf("Failed to create kafka strategy: %v", err)
@@ -369,44 +369,44 @@ func TestStrategyRegistration(t *testing.T) {
 		t.Errorf("Expected strategy name 'kafka', got %s", strategy.GetStrategyName())
 	}
 
-	// 测试注销策略
+	// Test the deregistration strategy
 	factory.UnregisterStrategy("kafka")
 	strategy, err = factory.CreateStrategy("kafka")
 	if err != nil {
 		t.Fatalf("Failed to create default strategy: %v", err)
 	}
-	// 注销后应该返回默认的丢弃策略
+	// After logout, the default discarding policy should be restored
 	if strategy.GetStrategyName() != StrategyDrop {
 		t.Errorf("Expected default strategy '%s', got %s", StrategyDrop, strategy.GetStrategyName())
 	}
 }
 
-// KafkaStrategy Kafka削峰策略示例
+// KafkaStrategy Kafka Peak Shaving Strategy Example
 type KafkaStrategy struct {
 	stream *Stream
 }
 
-// ProcessData 实现Kafka削峰数据处理
+// ProcessData implements Kafka peak shaving data processing
 func (ks *KafkaStrategy) ProcessData(data map[string]any) {
-	// 模拟Kafka削峰逻辑
-	// 实际实现中会将数据发送到Kafka队列
+	// Simulates Kafka peak-cutting logic
+	// In actual implementations, data is sent to the Kafka queue
 	logger.Debug("Data sent to Kafka for peak shaving")
 }
 
-// GetStrategyName 获取策略名称
+// GetStrategyName: Get the strategy name
 func (ks *KafkaStrategy) GetStrategyName() string {
 	return "kafka"
 }
 
-// Init 初始化Kafka策略
+// Init initializes the Kafka strategy
 func (ks *KafkaStrategy) Init(stream *Stream, config types.PerformanceConfig) error {
 	ks.stream = stream
-	// 这里可以初始化Kafka连接等
+	// Here, you can initialize Kafka connections, etc
 	return nil
 }
 
-// Stop 停止并清理Kafka策略资源
+// Stop and clean up Kafka's strategic resources
 func (ks *KafkaStrategy) Stop() error {
-	// 这里可以关闭Kafka连接等
+	// You can disable Kafka connections and similar connections here
 	return nil
 }

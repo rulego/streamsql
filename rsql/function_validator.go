@@ -77,9 +77,9 @@ func (fv *FunctionValidator) extractFunctionCalls(expression string) []FunctionC
 }
 
 // isBuiltinFunction checks if it's a built-in function using the unified function registry
-// 使用统一的函数注册系统检查函数是否存在
+// Use a unified function registration system to check if a function exists
 func (fv *FunctionValidator) isBuiltinFunction(funcName string) bool {
-	// 检查函数是否在统一的函数注册系统中
+	// Check whether the function is registered in a unified function registration system
 	_, exists := functions.Get(strings.ToLower(funcName))
 	return exists
 }

@@ -9,11 +9,12 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
-// extractWhereAnalyticCalls 从 WHERE 文本中提取分析函数调用（含可选 OVER），替换为占位符。
-// 返回改写后的 WHERE（占位符引用）和调用信息列表。无分析函数时原样返回。
+// extractWhereAnalyticCalls extracts analysis function calls (including optional OVER) from the WHERE text and replaces them with placeholders.
+// Returns the rewritten WHERE (placeholder reference) and a list of call information. Returns as is when there is no analysis function.
 //
-// 例："current > 300 and lag(current) over (partition by deviceId) < 300"
-//   → "current > 300 and __analytic_0__ < 300" + [{Placeholder:__analytic_0__, FuncName:lag, Over:{PartitionBy:[deviceId]}}]
+// Example: "current > 300 and lag(current) over (partition by deviceId) < 300"
+//
+//	→ "current > 300 and __analytic_0__ < 300" + [{Placeholder:__analytic_0__, FuncName:lag, Over:{PartitionBy:[deviceId]}}]
 func extractWhereAnalyticCalls(condition string) (string, []types.WhereAnalyticCall, error) {
 	if strings.TrimSpace(condition) == "" {
 		return condition, nil, nil
@@ -31,7 +32,7 @@ func extractWhereAnalyticCalls(condition string) (string, []types.WhereAnalyticC
 			}
 			ident := condition[start:i]
 			lowerIdent := strings.ToLower(ident)
-			// 命中分析函数 + 后跟 (
+			// Hit analysis function + heel (
 			if fn, ok := functions.Get(lowerIdent); ok && fn.GetType() == functions.TypeAnalytical {
 				j := skipSpaces(condition, i)
 				if j < len(condition) && condition[j] == '(' {
@@ -79,25 +80,25 @@ func extractWhereAnalyticCalls(condition string) (string, []types.WhereAnalyticC
 		i++
 	}
 	result := out.String()
-	// 裸分析函数作整个 WHERE 条件（如 WHERE changed_col(true, temp)）：值型分析函数返回的是
-	// 列值本身（可能是 0/""/false 这类合法变化值），expr AsBool 会失败 → 整条件恒 false 全过滤。
-	// 改写为 "占位 != nil"：变化/有值=非 nil→true，未变化=nil→false（不受新值是否 0/空串影响）。
-	// had_changed 返回 bool，AsBool 可直接处理，不改写（否则 had_changed=false 会被误判 true）。
+	// The bare analysis function performs the entire WHERE condition (e.g., WHERE changed_col(true, temp)): the value-type analysis function returns
+	// The column value itself (possibly valid variants like 0/""/false), expr AsBool will fail → full filtering of integer conditions always false.
+	// Rewrite as "Placeholder!= nil": Variant/Value = Non-nil→true, Unchanged = nil→false (not affected by whether the new value is 0/empty string).
+	// had_changed Returns bool, which AsBool can handle directly without rewriting (otherwise, had_changed=false will be false false and false).
 	if len(calls) == 1 && calls[0].FuncName != "had_changed" && strings.TrimSpace(result) == calls[0].Placeholder {
 		result = calls[0].Placeholder + " != nil"
 	}
 	return result, calls, nil
 }
 
-// parseOverFromString 从 pos 起尝试解析 "over (...)"，返回 OverSpec 和消耗后的位置。
-// 无 OVER 时返回 (nil, pos, nil)。
+// parseOverFromString attempts to parse "over (...)" starting from pos, returning the position after OverSpec and consumption.
+// Returns when there is no OVER (nil, pos, nil).
 func parseOverFromString(s string, pos int) (*types.OverSpec, int, error) {
 	j := skipSpaces(s, pos)
 	if j+4 > len(s) || strings.ToLower(s[j:j+4]) != "over" {
 		return nil, pos, nil
 	}
 	after := j + 4
-	// over 后必须是非标识符字符（避免 "overfield" 误匹配）
+	// After over, the character must be a non-identifier (to avoid mismatches with "overfield").
 	if after < len(s) && (isLetter(s[after]) || isDigit(s[after])) {
 		return nil, pos, nil
 	}
@@ -132,8 +133,8 @@ var (
 	overWhenRe      = regexp.MustCompile(`(?i)\bwhen\b\s+(.*)$`)
 )
 
-// parseOverBodyString 解析 OVER 体（如 "partition by deviceId, region when status > 0"）。
-// 仅支持 PARTITION BY 和 WHEN。
+// parseOverBodyString parses the OVER body (e.g., "partition by deviceId, region when status > 0").
+// Only PARTITION BY and WHEN are supported.
 func parseOverBodyString(body string) (*types.OverSpec, error) {
 	spec := &types.OverSpec{}
 	if m := overPartitionRe.FindStringSubmatch(body); m != nil {

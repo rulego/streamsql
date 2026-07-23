@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 压力测试：v1.0.3 分析函数路径在持续负载下的稳定性——goroutine 不泄漏、堆不无限增长、
-// 无 panic。针对 v1.0.2→v1.0.3（OVER 状态机 / PARTITION BY / splitAnalyticExprMulti）最可能
-// 引入的回归。本地普通模式跑（-race 由 CI/Linux 回归）。
+// Stress Testing: v1.0.3 Analyze the stability of function paths under continuous load—goroutine does not leak, heaps do not grow infinitely,
+// No panic. Most likely for v1.0.2→v1.0.3 (OVER State Machine / PARTITION BY / splitAnalyticExprMulti).
+// Introducing a return. Local normal mode running (-race reverts from CI/Linux).
 
-// 多次 New→负载→Stop 循环：每次 Stop 应回收全部 sink/处理协程，NumGoroutine 回到基线。
-// 捕获“Stop 不收敛”型泄漏——每轮残留 k 个 → 末值 = base + cycles*k，远超基线。
+// Multiple New → load→Stop cycle: Each Stop should recover all sink/processing coroutines, and NumGoroutine returns to baseline.
+// Capture "Stop non-convergence" type leaks—each round leaves k → final values = base + cycles * k, far exceeding the baseline.
 func TestStress_NoGoroutineLeak_CreateStop(t *testing.T) {
 	runtime.GC()
 	base := runtime.NumGoroutine()
@@ -32,7 +32,7 @@ func TestStress_NoGoroutineLeak_CreateStop(t *testing.T) {
 		s.Stop()
 	}
 
-	// Stop 为 grace join，给余量等残留协程退出后采样。
+	// Stop is grace join, which samples residual coroutines such as margins after exiting.
 	deadline := time.Now().Add(3 * time.Second)
 	var final int
 	for {
@@ -51,15 +51,15 @@ func TestStress_NoGoroutineLeak_CreateStop(t *testing.T) {
 	t.Logf("goroutine: base=%d final=%d (cycles=%d)", base, final, cycles)
 }
 
-// 单实例持续 10 万事件（50 分区，落在默认上限内）：堆增量受控、全程无 panic。
-// 同时给出持续吞吐作为性能参考。堆增量若超阈值，疑为每事件或每分区状态留存型泄漏。
+// A single instance sustains 100,000 events (50 partitions, within the default limit): heap increment is controlled with no panic throughout.
+// At the same time, continuous throughput is provided as a performance reference. If the heap increment exceeds the threshold, it is suspected to be a per-event or per-partition state-retention leakage.
 func TestStress_SustainedLoad_HeapStable(t *testing.T) {
 	s := streamsql.New()
 	require.NoError(t, s.Execute(
 		`SELECT deviceId, lag(v) OVER (PARTITION BY deviceId) AS p, acc_sum(v) OVER (PARTITION BY deviceId) AS t FROM stream`))
 	defer s.Stop()
 
-	// 预热（触发 ensureAnalytic 的 sync.Once 初始化），再取基线。
+	// Preheat (trigger ensureAnalytic sync.Once initialization), then take the baseline.
 	_, err := s.EmitSync(map[string]any{"deviceId": 0, "v": 0})
 	require.NoError(t, err)
 	runtime.GC()
@@ -79,13 +79,13 @@ func TestStress_SustainedLoad_HeapStable(t *testing.T) {
 	runtime.ReadMemStats(&ms)
 	heapEnd := ms.HeapAlloc
 
-	t.Logf("持续负载: %d 事件 / %v = %.0f ops/sec", events, dur, float64(events)/dur.Seconds())
-	t.Logf("堆: %.2fMB → %.2fMB (delta %.2fMB)", float64(heapStart)/1e6, float64(heapEnd)/1e6, float64(int64(heapEnd) - int64(heapStart))/1e6)
-	require.Less(t, float64(int64(heapEnd) - int64(heapStart)), 50.0*1e6,
-		"堆增量过大，疑为状态留存型泄漏：delta=%.2fMB", float64(int64(heapEnd) - int64(heapStart))/1e6)
+	t.Logf("Continuous load: %d events / %v = %.0f ops/sec", events, dur, float64(events)/dur.Seconds())
+	t.Logf("Dui: %.2fMB → %.2fMB (delta %.2fMB)", float64(heapStart)/1e6, float64(heapEnd)/1e6, float64(int64(heapEnd)-int64(heapStart))/1e6)
+	require.Less(t, float64(int64(heapEnd)-int64(heapStart)), 50.0*1e6,
+		"堆增量过大，疑为状态留存型泄漏：delta=%.2fMB", float64(int64(heapEnd)-int64(heapStart))/1e6)
 }
 
-// 分区数远超默认上限：LRU 驱逐在持续负载下不应泄漏、不应 panic。每轮把最久未用分区淘汰。
+// The number of partitions far exceeds the default limit: LRU ejection should not leak or panic under continuous load. Each round, the longest group eliminated without a division.
 func TestStress_PartitionEviction_NoLeak(t *testing.T) {
 	s := streamsql.New()
 	require.NoError(t, s.Execute(
@@ -99,7 +99,7 @@ func TestStress_PartitionEviction_NoLeak(t *testing.T) {
 	runtime.ReadMemStats(&ms)
 	heapStart := ms.HeapAlloc
 
-	// 5 万个不同分区，持续触发淘汰；每分区仅一条，lag 恒为 nil。
+	// 50,000 different zones, continuously triggering elimination; Each partition has only one segment, and lag is always nil.
 	const distinct = 50000
 	start := time.Now()
 	for i := 0; i < distinct; i++ {
@@ -111,17 +111,17 @@ func TestStress_PartitionEviction_NoLeak(t *testing.T) {
 	runtime.ReadMemStats(&ms)
 	heapEnd := ms.HeapAlloc
 
-	t.Logf("淘汰负载: %d 分区 / %v = %.0f ops/sec", distinct, dur, float64(distinct)/dur.Seconds())
-	t.Logf("堆: %.2fMB → %.2fMB (delta %.2fMB)", float64(heapStart)/1e6, float64(heapEnd)/1e6, float64(int64(heapEnd) - int64(heapStart))/1e6)
-	// 驱逐应把旧分区回收，驻留仅近 LRU 上限个；驻留若随总分区数线性增长即为驱逐失效。
-	require.Less(t, float64(int64(heapEnd) - int64(heapStart)), 100.0*1e6,
-		"堆随分区数线性增长，疑为 LRU 驱逐未回收：delta=%.2fMB", float64(int64(heapEnd) - int64(heapStart))/1e6)
+	t.Logf("Elimination load: %d partition / %v = %.0f ops/sec", distinct, dur, float64(distinct)/dur.Seconds())
+	t.Logf("Dui: %.2fMB → %.2fMB (delta %.2fMB)", float64(heapStart)/1e6, float64(heapEnd)/1e6, float64(int64(heapEnd)-int64(heapStart))/1e6)
+	// Expulsion should reclaim old partitions, and only reside near the LRU limit; If the residency increases linearly with the total number of partitions, it is considered a deportation failure.
+	require.Less(t, float64(int64(heapEnd)-int64(heapStart)), 100.0*1e6,
+		"堆随分区数线性增长，疑为 LRU 驱逐未回收：delta=%.2fMB", float64(int64(heapEnd)-int64(heapStart))/1e6)
 }
 
-// --- 128MB 网关常见规则容量基准 ---
-// 每事件新建 map（贴近真实接入：网关把每条入消息解析成 map）；单流 EmitSync。
-// 用 GOMAXPROCS / GOMEMLIMIT 环境变量模拟网关 CPU/内存约束。
-// 注意：EmitSync 是同步单 goroutine，单条规则吞吐与核数无关——多核靠并行多实例。
+// --- Common Rules and Capacity Benchmarks for 128MB Gateways ---
+// Create a new map for each event (close to real access: the gateway parses each incoming message into a map); Single-stream EmitSync.
+// Use GOMAXPROCS / GOMEMLIMIT environment variables to simulate the gateway CPU/memory constraints.
+// Note: EmitSync is a synchronous single goroutine; single rule throughput is independent of core count—multi-core relies on parallel multi-instance operation.
 
 const gatewayDeviceCount = 100
 
@@ -158,23 +158,23 @@ func benchGatewayRule(b *testing.B, sql string) {
 	}
 }
 
-// 常见规则1：过滤（最高频）。
+// Common rule 1: Filter (highest frequency).
 func BenchmarkGateway_Filter(b *testing.B) {
 	benchGatewayRule(b, `SELECT deviceId, temperature FROM stream WHERE temperature > 25`)
 }
 
-// 常见规则2：转换（单位换算）。
+// Common Rule 2: Conversion (unit conversion).
 func BenchmarkGateway_Transform(b *testing.B) {
 	benchGatewayRule(b, `SELECT deviceId, temperature * 1.8 + 32 AS fahrenheit FROM stream`)
 }
 
-// 常见规则3：变化检测（分析函数 + 分区）。
+// Common Rule 3: Change detection (analysis function + partitioning).
 func BenchmarkGateway_AnalyticChange(b *testing.B) {
 	benchGatewayRule(b, `SELECT deviceId, temperature, lag(temperature) OVER (PARTITION BY deviceId) AS prev FROM stream`)
 }
 
-// 并行多实例（多核利用：网关同跑多条规则，每核一条）。RunParallel 随 GOMAXPROCS 扩展，
-// 体现多核网关的聚合吞吐。
+// Parallel multi-instance (multi-core utilization: gateways run multiple rules simultaneously, one per core). RunParallel extends with GOMAXPROCS,
+// Demonstrates the aggregation throughput of multi-core gateways.
 func BenchmarkGateway_ParallelInstances(b *testing.B) {
 	sql := `SELECT deviceId, temperature FROM stream WHERE temperature > 25`
 	b.ReportAllocs()
@@ -192,10 +192,10 @@ func BenchmarkGateway_ParallelInstances(b *testing.B) {
 	})
 }
 
-// TestWindowEventTime_MultiTimestampAggregation 验证 event-time TumblingWindow 的 epoch 对齐：
-// 1s 窗口对齐到整秒边界（alignWindowStart），多时间戳事件须落在同一对齐窗口内才会一起聚合。
-// base 对齐到秒边界后，base / base+100 同属 [base, base+1000)，count 恒为 2。
-// （曾误判为「窗口竞态」——实为测试时间戳跨越 epoch 对齐边界所致，引擎无误。）
+// TestWindowEventTime_MultiTimestampAggregation Verify epoch alignment of the event-time TumblingWindow:
+// 1s window alignment to the full-second boundary (alignWindowStart); multi-timestamp events must fall within the same aligned window to aggregate together.
+// After aligning base to the second boundary, base / base+100 belong to [base, base+1000), and count is always 2.
+// (It was once misidentified as "window race"—actually caused by test timestamps crossing epoch alignment boundaries, but the engine was correct.))
 func TestWindowEventTime_MultiTimestampAggregation(t *testing.T) {
 	const iters = 300
 	fails := 0
@@ -206,7 +206,7 @@ func TestWindowEventTime_MultiTimestampAggregation(t *testing.T) {
 		}
 		ch := make(chan []map[string]any, 4)
 		s.AddSink(func(r []map[string]any) { ch <- r })
-		base := ((time.Now().UnixMilli() - 5000) / 1000) * 1000 // 对齐到秒边界：避免 base/base+100 跨越 epoch 对齐的 1s 窗口
+		base := ((time.Now().UnixMilli() - 5000) / 1000) * 1000 // Align to the second boundary: Avoid base/base+100 crossing the 1-second window of epoch alignment
 		s.Emit(map[string]any{"ts": base, "v": 10})
 		s.Emit(map[string]any{"ts": base + 100, "v": 60})
 		s.Emit(map[string]any{"ts": base + 2000, "v": 5})

@@ -17,7 +17,7 @@ type testData struct {
 	humidity    float64
 }
 
-// TestGetResultsErrorCases 测试GetResults函数的错误情况
+// TestGetResultsErrorCases Tests for errors in the GetResults function
 func TestGetResultsErrorCases(t *testing.T) {
 	groupFields := []string{"category"}
 	aggFields := []AggregationField{
@@ -25,7 +25,7 @@ func TestGetResultsErrorCases(t *testing.T) {
 	}
 	agg := NewEnhancedGroupAggregator(groupFields, aggFields)
 
-	// 添加一个无效的后聚合表达式
+	// Add an invalid post-aggregate expression
 	requiredFields := []AggregationFieldInfo{
 		{FuncName: "invalid", InputField: "value", AggType: Sum},
 	}
@@ -34,7 +34,7 @@ func TestGetResultsErrorCases(t *testing.T) {
 		t.Skip("Expected error when adding invalid expression, but got none")
 	}
 
-	// 测试获取结果时的错误处理
+	// Error handling when testing results
 	results, err := agg.GetResults()
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -44,7 +44,7 @@ func TestGetResultsErrorCases(t *testing.T) {
 	}
 }
 
-// TestParseFunctionCallEdgeCases 测试parseFunctionCall函数的边界情况
+// TestParseFunctionCallEdgeCases tests the boundary status of the parseFunctionCall function
 func TestParseFunctionCallEdgeCases(t *testing.T) {
 	groupFields := []string{"category"}
 	aggFields := []AggregationField{
@@ -97,7 +97,7 @@ func TestParseFunctionCallEdgeCases(t *testing.T) {
 	}
 }
 
-// TestHasMultipleTopLevelArgsEdgeCases 测试hasMultipleTopLevelArgs函数的边界情况
+// TestHasMultipleTopLevelArgsEdgeCases tests the boundary status of the hasMultipleTopLevelArgs function
 func TestHasMultipleTopLevelArgsEdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -151,7 +151,7 @@ func TestHasMultipleTopLevelArgsEdgeCases(t *testing.T) {
 	}
 }
 
-// TestBuiltinAggregatorEdgeCases 测试内置聚合器的边界情况
+// TestBuiltinAggregatorEdgeCases tests the boundaries of the built-in aggregator
 func TestBuiltinAggregatorEdgeCases(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -236,7 +236,7 @@ func TestGroupAggregator_MultiFieldSum(t *testing.T) {
 	assert.ElementsMatch(t, expected, results)
 }
 
-// TestGroupAggregator_Put 测试Put方法
+// TestGroupAggregator_Put Test the Put method
 func TestGroupAggregator_Put(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"Device"},
@@ -249,18 +249,18 @@ func TestGroupAggregator_Put(t *testing.T) {
 		},
 	)
 
-	// 测试Put方法
+	// Test the put method
 	err := agg.Put("test_key", "test_value")
 	assert.NoError(t, err)
 
-	// 测试多次Put
+	// Test multiple puts
 	err = agg.Put("key1", 123)
 	assert.NoError(t, err)
 	err = agg.Put("key2", 456.78)
 	assert.NoError(t, err)
 }
 
-// TestGroupAggregator_RegisterExpression 测试表达式注册
+// TestGroupAggregator_RegisterExpression Test expression registration
 func TestGroupAggregator_RegisterExpression(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"Device"},
@@ -273,12 +273,12 @@ func TestGroupAggregator_RegisterExpression(t *testing.T) {
 		},
 	)
 
-	// 注册表达式
+	// Register the expression
 	evaluator := func(data any) (any, error) {
 		if dataMap, ok := data.(map[string]any); ok {
 			if temp, exists := dataMap["temperature"]; exists {
 				if tempFloat, ok := temp.(float64); ok {
-					return tempFloat*1.8 + 32, nil // 摄氏度转华氏度
+					return tempFloat*1.8 + 32, nil // Celsius degrees are converted to Fahrenheit degrees
 				}
 			}
 		}
@@ -287,14 +287,14 @@ func TestGroupAggregator_RegisterExpression(t *testing.T) {
 
 	agg.RegisterExpression("fahrenheit", "temperature * 1.8 + 32", []string{"temperature"}, evaluator)
 
-	// 验证表达式已注册
+	// The verification expression is registered
 	assert.NotNil(t, agg.expressions["fahrenheit"])
 	assert.Equal(t, "fahrenheit", agg.expressions["fahrenheit"].Field)
 	assert.Equal(t, "temperature * 1.8 + 32", agg.expressions["fahrenheit"].Expression)
 	assert.Equal(t, []string{"temperature"}, agg.expressions["fahrenheit"].Fields)
 }
 
-// TestGroupAggregator_Reset 测试Reset方法
+// TestGroupAggregator_Reset Test the reset method
 func TestGroupAggregator_Reset(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"Device"},
@@ -307,7 +307,7 @@ func TestGroupAggregator_Reset(t *testing.T) {
 		},
 	)
 
-	// 添加一些数据
+	// Add some data
 	testData := []map[string]any{
 		{"Device": "test", "temperature": 25.5},
 		{"Device": "test", "temperature": 26.8},
@@ -317,20 +317,20 @@ func TestGroupAggregator_Reset(t *testing.T) {
 		agg.Add(d)
 	}
 
-	// 验证有数据
+	// Verification has data
 	results, err := agg.GetResults()
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 
-	// 重置
+	// Reset
 	agg.Reset()
 
-	// 验证数据已清空
+	// Verification data has been cleared
 	results, _ = agg.GetResults()
 	assert.Len(t, results, 0)
 }
 
-// TestGroupAggregator_ErrorHandling 测试错误处理
+// TestGroupAggregator_ErrorHandling Handling of test errors
 func TestGroupAggregator_ErrorHandling(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"Device"},
@@ -343,20 +343,20 @@ func TestGroupAggregator_ErrorHandling(t *testing.T) {
 		},
 	)
 
-	// 测试添加无效数据
+	// Testing adds invalid data
 	err := agg.Add(nil)
 	assert.Error(t, err)
 
-	// 测试添加非map类型数据
+	// Test adding non-map type data
 	err = agg.Add("invalid data")
 	assert.Error(t, err)
 
-	// 缺少分组字段：归入 NULL 分组，不再报错
+	// Missing grouping fields: Incorporate NULL grouping, no longer causing errors
 	err = agg.Add(map[string]any{"temperature": 25.5})
 	assert.NoError(t, err)
 }
 
-// 数值 GROUP BY 键必须保留原始类型输出（曾恒为 string）；int(1) 与 float64(1) 应同组。
+// The GROUP BY key must retain the original type output (Zeng Heng is string); int(1) and float64(1) should be in the same group.
 func TestGroupAggregator_GroupKeyPreservesType(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -378,7 +378,7 @@ func TestGroupAggregator_GroupKeyPreservesType(t *testing.T) {
 		assert.IsType(t, tc.val, got, "%s: region_id must keep original type, not become string", tc.name)
 	}
 
-	// int(1) 与 float64(1) 同值应分到同一组（SQL 数值相等），不得拆成两组。
+	// int(1) and float64(1) with the same value should be grouped together (SQL values are equal), and must not be split into two groups.
 	agg := NewGroupAggregator([]string{"region_id"}, []AggregationField{
 		{InputField: "*", AggregateType: Count, OutputAlias: "cnt"},
 	})
@@ -390,7 +390,7 @@ func TestGroupAggregator_GroupKeyPreservesType(t *testing.T) {
 	assert.Equal(t, float64(2), res[0]["cnt"])
 }
 
-// 字段值含分隔符必须完整保留（曾用 "|" 还原时被 Split 截断为 "a"）。
+// Field values with separators must be fully preserved (previously truncated as "a" by Split when restoring with "|").
 func TestGroupAggregator_GroupKeyWithSeparator(t *testing.T) {
 	agg := NewGroupAggregator([]string{"tag"}, []AggregationField{
 		{InputField: "*", AggregateType: Count, OutputAlias: "cnt"},
@@ -411,8 +411,8 @@ func TestGroupAggregator_GroupKeyWithSeparator(t *testing.T) {
 	assert.Equal(t, 1, seen["x"])
 }
 
-// 数值聚合字段 cast 失败应只跳过该字段该行，不得 return 中断整行 Add（曾导致同行
-// 其后字段漏算）。切片顺序 [b,c] 下 b 先于 c：行 {b:"x",c:2} 的 c 必须仍被 SUM(c) 计入。
+// If the numeric aggregate field cast fails, only skip that field and the corresponding line; do not return interrupt the entire line Add (which has caused competitors).
+// The following fields are omitted). In the slice order [b,c], b precedes the c in row {b:"x", c:2} must still be counted by SUM(c).
 func TestGroupAggregator_NumericCastFailureSkipsFieldOnly(t *testing.T) {
 	agg := NewGroupAggregator(nil, []AggregationField{
 		{InputField: "b", AggregateType: Sum, OutputAlias: "sum_b"},
@@ -420,20 +420,20 @@ func TestGroupAggregator_NumericCastFailureSkipsFieldOnly(t *testing.T) {
 	})
 	rows := []map[string]any{
 		{"b": 10, "c": 1},
-		{"b": "x", "c": 2}, // b 非数值：只跳过 sum_b，sum_c 仍计 2
+		{"b": "x", "c": 2}, // b Non-numeric value: skipping only sum_b, sum_c still counts as 2
 		{"b": 20, "c": 3},
 	}
 	for _, r := range rows {
-		require.NoError(t, agg.Add(r)) // 修复前 Add(row2) 返回 cast error
+		require.NoError(t, agg.Add(r)) // Before repairing, Add(row2) returned a cast error
 	}
 	res, err := agg.GetResults()
 	require.NoError(t, err)
 	require.Len(t, res, 1)
-	assert.Equal(t, float64(30), res[0]["sum_b"]) // 10+20，"x" 跳过
-	assert.Equal(t, float64(6), res[0]["sum_c"])  // 1+2+3，修复前=4（return 中断漏算 c）
+	assert.Equal(t, float64(30), res[0]["sum_b"]) // 10+20, skip with "x"."
+	assert.Equal(t, float64(6), res[0]["sum_c"])  // 1+2+3, before repair = 4 (return interrupt omitted c)
 }
 
-// TestGroupAggregator_DifferentAggregateTypes 测试不同聚合类型
+// TestGroupAggregator_DifferentAggregateTypes Test different types of aggregation
 func TestGroupAggregator_DifferentAggregateTypes(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"category"},
@@ -478,7 +478,7 @@ func TestGroupAggregator_DifferentAggregateTypes(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, results, 2)
 
-	// 验证结果
+	// Verify the results
 	for _, result := range results {
 		category := result["category"]
 		if category == "A" {
@@ -495,7 +495,7 @@ func TestGroupAggregator_DifferentAggregateTypes(t *testing.T) {
 	}
 }
 
-// TestGroupAggregator_MultipleGroupFields 测试多个分组字段
+// TestGroupAggregator_MultipleGroupFields Test multiple grouped fields
 func TestGroupAggregator_MultipleGroupFields(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"region", "category"},
@@ -525,7 +525,7 @@ func TestGroupAggregator_MultipleGroupFields(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, results, 4)
 
-	// 验证每个组合的结果
+	// Verify the results of each combination
 	expected := map[string]float64{
 		"North-A": 250.0,
 		"North-B": 200.0,
@@ -541,7 +541,7 @@ func TestGroupAggregator_MultipleGroupFields(t *testing.T) {
 	}
 }
 
-// TestGroupAggregator_EmptyData 测试空数据处理
+// TestGroupAggregator_EmptyData Testspace data processing
 func TestGroupAggregator_EmptyData(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"Device"},
@@ -554,13 +554,13 @@ func TestGroupAggregator_EmptyData(t *testing.T) {
 		},
 	)
 
-	// 不添加任何数据，直接获取结果
+	// No data is added, just get the results directly
 	results, err := agg.GetResults()
 	assert.NoError(t, err)
 	assert.Len(t, results, 0)
 }
 
-// TestGroupAggregator_NilValues 测试空值处理
+// TestGroupAggregator_NilValues Test null value handling
 func TestGroupAggregator_NilValues(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"Device"},
@@ -575,7 +575,7 @@ func TestGroupAggregator_NilValues(t *testing.T) {
 
 	testData := []map[string]any{
 		{"Device": "test", "temperature": 25.5},
-		{"Device": "test", "temperature": nil}, // 空值
+		{"Device": "test", "temperature": nil}, // Null value
 		{"Device": "test", "temperature": 30.0},
 	}
 
@@ -588,12 +588,12 @@ func TestGroupAggregator_NilValues(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 
-	// 空值应该被忽略，只计算非空值
+	// Null values should be ignored, and only non-null values are calculated
 	expected := 55.5 // 25.5 + 30.0
 	assert.Equal(t, expected, results[0]["temperature_sum"])
 }
 
-// TestGroupAggregator_ConcurrentAccess 测试并发访问
+// TestGroupAggregator_ConcurrentAccess Test for concurrent access
 func TestGroupAggregator_ConcurrentAccess(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"Device"},
@@ -606,7 +606,7 @@ func TestGroupAggregator_ConcurrentAccess(t *testing.T) {
 		},
 	)
 
-	// 并发添加数据
+	// Concurrent data addition
 	go func() {
 		for i := 0; i < 10; i++ {
 			agg.Add(map[string]any{"Device": "A", "temperature": float64(i)})
@@ -619,7 +619,7 @@ func TestGroupAggregator_ConcurrentAccess(t *testing.T) {
 		}
 	}()
 
-	// 并发注册表达式
+	// Concurrent registration expressions
 	go func() {
 		evaluator := func(data any) (any, error) {
 			return 1.0, nil
@@ -627,23 +627,23 @@ func TestGroupAggregator_ConcurrentAccess(t *testing.T) {
 		agg.RegisterExpression("test_expr", "1", []string{}, evaluator)
 	}()
 
-	// 并发Put操作
+	// Concurrent Put operations
 	go func() {
 		for i := 0; i < 5; i++ {
 			agg.Put("key"+string(rune(i)), i)
 		}
 	}()
 
-	// 等待一段时间确保所有goroutine完成
-	// 注意：这不是最佳的同步方式，但对于测试来说足够了
-	// 在实际应用中应该使用sync.WaitGroup
+	// Wait a while to ensure all goroutines are completed
+	// Note: This is not the best synchronization method, but it is sufficient for testing
+	// In practical applications, sync.WaitGroup
 	for i := 0; i < 100; i++ {
-		// 尝试获取结果，测试并发读取
+		// Attempt to obtain results and test concurrent reads
 		_, _ = agg.GetResults()
 	}
 }
 
-// TestCreateBuiltinAggregator 测试内置聚合器创建
+// TestCreateBuiltinAggregator tests the creation of a built-in aggregator
 func TestCreateBuiltinAggregator(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -662,28 +662,28 @@ func TestCreateBuiltinAggregator(t *testing.T) {
 			aggregator := CreateBuiltinAggregator(tt.aggType)
 			assert.NotNil(t, aggregator)
 
-			// 测试New方法
+			// Test the new method
 			newAgg := aggregator.New()
 			assert.NotNil(t, newAgg)
 		})
 	}
 }
 
-// TestExpressionAggregatorWrapper 测试表达式聚合器包装器
+// TestExpressionAggregatorWrapper Tests the expression aggregator wrapper
 func TestExpressionAggregatorWrapper(t *testing.T) {
 	wrapper := CreateBuiltinAggregator(Expression)
 	require.NotNil(t, wrapper)
 
-	// 测试类型断言
+	// Test type assertion
 	exprWrapper, ok := wrapper.(*ExpressionAggregatorWrapper)
 	assert.True(t, ok)
 	assert.NotNil(t, exprWrapper.function)
 
-	// 测试New方法
+	// Test the new method
 	newWrapper := wrapper.New()
 	assert.NotNil(t, newWrapper)
 
-	// 测试Add和Result方法
+	// Test the Add and Result methods
 	wrapper.Add(10.0)
 	wrapper.Add(20.0)
 	result := wrapper.Result()
@@ -799,9 +799,9 @@ func TestGroupAggregator_NoAlias(t *testing.T) {
 	assert.ElementsMatch(t, expected, results)
 }
 
-// TestGroupAggregatorAdvancedFeatures 测试聚合器高级功能
+// TestGroupAggregatorAdvancedFeatures Advanced features of the test aggregator
 func TestGroupAggregatorAdvancedFeatures(t *testing.T) {
-	// 测试复杂聚合表达式
+	// Test complex aggregated expressions
 	t.Run("Complex Aggregation Expressions", func(t *testing.T) {
 		agg := NewGroupAggregator(
 			[]string{"Device"},
@@ -839,7 +839,7 @@ func TestGroupAggregatorAdvancedFeatures(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, results, 2)
 
-		// 验证结果
+		// Verify the results
 		for _, result := range results {
 			device := result["Device"].(string)
 			if device == "sensor1" {
@@ -854,7 +854,7 @@ func TestGroupAggregatorAdvancedFeatures(t *testing.T) {
 		}
 	})
 
-	// 测试统计聚合函数
+	// Test statistical aggregation functions
 	t.Run("Statistical Aggregation Functions", func(t *testing.T) {
 		tests := []struct {
 			name    string
@@ -895,7 +895,7 @@ func TestGroupAggregatorAdvancedFeatures(t *testing.T) {
 	})
 }
 
-// TestGroupAggregatorDataTypes 测试不同数据类型的聚合
+// TestGroupAggregatorDataTypes tests aggregations of different data types
 func TestGroupAggregatorDataTypes(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -913,7 +913,7 @@ func TestGroupAggregatorDataTypes(t *testing.T) {
 				{"group": "B", "value": "test"},
 			},
 			expectedKey: "count",
-			expectedVal: 2.0, // Count聚合器计算所有非空值
+			expectedVal: 2.0, // The Count aggregator calculates all non-null values
 		},
 		{
 			name:    "Boolean Count",
@@ -925,7 +925,7 @@ func TestGroupAggregatorDataTypes(t *testing.T) {
 				{"group": "B", "value": false},
 			},
 			expectedKey: "count",
-			expectedVal: 3.0, // Count聚合器计算所有非空值
+			expectedVal: 3.0, // The Count aggregator calculates all non-null values
 		},
 		{
 			name:    "Mixed Types Count",
@@ -937,7 +937,7 @@ func TestGroupAggregatorDataTypes(t *testing.T) {
 				{"group": "B", "value": 456},
 			},
 			expectedKey: "count",
-			expectedVal: 3.0, // Count聚合器计算所有非空值
+			expectedVal: 3.0, // The Count aggregator calculates all non-null values
 		},
 	}
 
@@ -961,7 +961,7 @@ func TestGroupAggregatorDataTypes(t *testing.T) {
 			results, err := agg.GetResults()
 			assert.NoError(t, err)
 
-			// 找到A组的结果
+			// Find the results of Group A
 			var groupAResult map[string]any
 			for _, result := range results {
 				if result["group"] == "A" {
@@ -976,9 +976,9 @@ func TestGroupAggregatorDataTypes(t *testing.T) {
 	}
 }
 
-// TestGroupAggregatorEdgeCases 测试聚合器边界情况
+// TestGroupAggregatorEdgeCases tests aggregator boundaries
 func TestGroupAggregatorEdgeCases(t *testing.T) {
-	// 测试空数据
+	// Test empty data
 	t.Run("Empty Data", func(t *testing.T) {
 		agg := NewGroupAggregator(
 			[]string{"Device"},
@@ -996,7 +996,7 @@ func TestGroupAggregatorEdgeCases(t *testing.T) {
 		assert.Empty(t, results)
 	})
 
-	// 测试空分组字段
+	// Test empty group fields
 	t.Run("Empty Group Fields", func(t *testing.T) {
 		agg := NewGroupAggregator(
 			[]string{},
@@ -1024,7 +1024,7 @@ func TestGroupAggregatorEdgeCases(t *testing.T) {
 		assert.InDelta(t, 52.3, results[0]["temperature_sum"], 0.01)
 	})
 
-	// 测试空聚合字段
+	// Test the empty aggregate field
 	t.Run("Empty Aggregation Fields", func(t *testing.T) {
 		agg := NewGroupAggregator(
 			[]string{"Device"},
@@ -1043,14 +1043,14 @@ func TestGroupAggregatorEdgeCases(t *testing.T) {
 		results, err := agg.GetResults()
 		assert.NoError(t, err)
 		assert.Len(t, results, 2)
-		// 只应该包含分组字段，没有聚合字段
+		// Only grouped fields should be included, no aggregated fields
 		for _, result := range results {
 			assert.Contains(t, result, "Device")
 			assert.Len(t, result, 1)
 		}
 	})
 
-	// 测试缺失字段
+	// Test for missing fields
 	t.Run("Missing Fields", func(t *testing.T) {
 		agg := NewGroupAggregator(
 			[]string{"Device"},
@@ -1065,7 +1065,7 @@ func TestGroupAggregatorEdgeCases(t *testing.T) {
 
 		testData := []map[string]any{
 			{"Device": "sensor1", "temperature": 25.5},
-			{"Device": "sensor2"}, // 缺少temperature字段
+			{"Device": "sensor2"}, // Missing the temperature field
 			{"Device": "sensor3", "temperature": 26.8},
 		}
 
@@ -1077,13 +1077,13 @@ func TestGroupAggregatorEdgeCases(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, results, 3)
 
-		// 验证结果
+		// Verify the results
 		for _, result := range results {
 			device := result["Device"].(string)
 			if device == "sensor1" {
 				assert.Equal(t, 25.5, result["temperature_sum"])
 			} else if device == "sensor2" {
-				assert.Nil(t, result["temperature_sum"]) // 缺失字段应该为nil
+				assert.Nil(t, result["temperature_sum"]) // The missing field should be nil
 			} else if device == "sensor3" {
 				assert.Equal(t, 26.8, result["temperature_sum"])
 			}
@@ -1091,9 +1091,9 @@ func TestGroupAggregatorEdgeCases(t *testing.T) {
 	})
 }
 
-// TestGroupAggregatorPerformance 测试聚合器性能
+// TestGroupAggregatorPerformance Tests aggregator performance
 func TestGroupAggregatorPerformance(t *testing.T) {
-	// 测试大量数据处理性能
+	// Testing large amounts of data processing performance
 	t.Run("Large Dataset Performance", func(t *testing.T) {
 		agg := NewGroupAggregator(
 			[]string{"category"},
@@ -1121,7 +1121,7 @@ func TestGroupAggregatorPerformance(t *testing.T) {
 			},
 		)
 
-		// 生成大量测试数据
+		// Generates a large amount of test data
 		const numRecords = 10000
 		const numCategories = 100
 
@@ -1139,7 +1139,7 @@ func TestGroupAggregatorPerformance(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, results, numCategories)
 
-		// 验证结果
+		// Verify the results
 		for _, result := range results {
 			assert.Contains(t, result, "sum")
 			assert.Contains(t, result, "avg")
@@ -1148,7 +1148,7 @@ func TestGroupAggregatorPerformance(t *testing.T) {
 		}
 	})
 
-	// 测试并发性能
+	// Testing concurrency performance
 	t.Run("Concurrent Performance", func(t *testing.T) {
 		agg := NewGroupAggregator(
 			[]string{"category"},
@@ -1167,7 +1167,7 @@ func TestGroupAggregatorPerformance(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(numGoroutines)
 
-		// 启动多个goroutine并发添加数据
+		// Start multiple goroutines to add data concurrently
 		for i := 0; i < numGoroutines; i++ {
 			go func(goroutineID int) {
 				defer wg.Done()
@@ -1191,9 +1191,9 @@ func TestGroupAggregatorPerformance(t *testing.T) {
 	})
 }
 
-// TestGroupAggregatorMemoryUsage 测试聚合器内存使用
+// TestGroupAggregatorMemoryUsage tests aggregator memory usage
 func TestGroupAggregatorMemoryUsage(t *testing.T) {
-	// 测试大量分组的内存使用
+	// Testing memory usage across large packets
 	t.Run("Many Groups Memory Usage", func(t *testing.T) {
 		agg := NewGroupAggregator(
 			[]string{"group"},
@@ -1206,7 +1206,7 @@ func TestGroupAggregatorMemoryUsage(t *testing.T) {
 			},
 		)
 
-		// 创建大量不同的分组
+		// Create a large number of different groups
 		const numGroups = 10000
 		for i := 0; i < numGroups; i++ {
 			data := map[string]any{
@@ -1220,7 +1220,7 @@ func TestGroupAggregatorMemoryUsage(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, results, numGroups)
 
-		// 验证每个分组都有正确的结果
+		// Verify that each group has the correct results
 		for i := 0; i < numGroups; i++ {
 			expectedGroup := fmt.Sprintf("group_%d", i)
 			found := false
@@ -1236,7 +1236,7 @@ func TestGroupAggregatorMemoryUsage(t *testing.T) {
 	})
 }
 
-// TestGroupAggregatorResetAndReuse 测试聚合器重置和重用
+// TestGroupAggregatorResetAndReuse: Test aggregator reset and reuse
 func TestGroupAggregatorResetAndReuse(t *testing.T) {
 	agg := NewGroupAggregator(
 		[]string{"category"},
@@ -1249,7 +1249,7 @@ func TestGroupAggregatorResetAndReuse(t *testing.T) {
 		},
 	)
 
-	// 第一轮数据
+	// First round data
 	testData1 := []map[string]any{
 		{"category": "A", "value": 10.0},
 		{"category": "B", "value": 20.0},
@@ -1263,10 +1263,10 @@ func TestGroupAggregatorResetAndReuse(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, results1, 2)
 
-	// 重置聚合器
+	// Reset the aggregator
 	agg.Reset()
 
-	// 第二轮数据
+	// Second round data
 	testData2 := []map[string]any{
 		{"category": "A", "value": 15.0},
 		{"category": "C", "value": 25.0},
@@ -1280,7 +1280,7 @@ func TestGroupAggregatorResetAndReuse(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, results2, 2)
 
-	// 验证第二轮结果
+	// Verify the results of the second round
 	for _, result := range results2 {
 		category := result["category"].(string)
 		if category == "A" {
@@ -1291,9 +1291,9 @@ func TestGroupAggregatorResetAndReuse(t *testing.T) {
 	}
 }
 
-// TestGroupAggregatorBasic 测试基本聚合器功能
+// TestGroupAggregatorBasic tests basic aggregator functionality
 func TestGroupAggregatorBasic(t *testing.T) {
-	// 创建聚合字段配置
+	// Create aggregated field configurations
 	aggFields := []AggregationField{
 		{
 			InputField:    "value",
@@ -1302,17 +1302,17 @@ func TestGroupAggregatorBasic(t *testing.T) {
 		},
 	}
 
-	// 创建分组聚合器
+	// Create a packet aggregator
 	ga := NewGroupAggregator([]string{"group"}, aggFields)
 
-	// 测试数据
+	// Test data
 	data := []map[string]any{
 		{"group": "A", "value": 10},
 		{"group": "A", "value": 20},
 		{"group": "B", "value": 30},
 	}
 
-	// 添加数据
+	// Add data
 	for _, item := range data {
 		err := ga.Add(item)
 		if err != nil {
@@ -1320,42 +1320,42 @@ func TestGroupAggregatorBasic(t *testing.T) {
 		}
 	}
 
-	// 获取结果
+	// Get results
 	results, err := ga.GetResults()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	// 验证结果
+	// Verify the results
 	if len(results) != 2 {
 		t.Errorf("expected 2 groups, got %d", len(results))
 	}
 }
 
-// TestGroupAggregatorErrorHandling 测试错误处理
+// TestGroupAggregatorErrorHandling Test error handling
 func TestGroupAggregatorErrorHandling(t *testing.T) {
-	// 测试空配置
+	// Test the empty configuration
 	ga := NewGroupAggregator([]string{}, []AggregationField{})
 
-	// 添加数据应该不会出错
+	// Adding data shouldn't go wrong
 	err := ga.Add(map[string]any{"field": "value"})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	// 获取结果
+	// Get results
 	results, err := ga.GetResults()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	// 空配置应该返回空结果
+	// An empty configuration should return an empty result
 	if len(results) != 1 {
 		t.Errorf("expected 1 result, got %d", len(results))
 	}
 }
 
-// TestGroupAggregatorConcurrency 测试并发安全
+// TestGroupAggregatorConcurrency tests concurrency security
 func TestGroupAggregatorConcurrency(t *testing.T) {
 	aggFields := []AggregationField{
 		{
@@ -1367,7 +1367,7 @@ func TestGroupAggregatorConcurrency(t *testing.T) {
 
 	ga := NewGroupAggregator([]string{"group"}, aggFields)
 
-	// 并发添加数据
+	// Concurrent data addition
 	for i := 0; i < 100; i++ {
 		go func(id int) {
 			data := map[string]any{
@@ -1381,37 +1381,37 @@ func TestGroupAggregatorConcurrency(t *testing.T) {
 		}(i)
 	}
 
-	// 等待一段时间确保所有goroutine完成
+	// Wait a while to ensure all goroutines are completed
 	time.Sleep(100 * time.Millisecond)
 
-	// 获取结果
+	// Get results
 	results, err := ga.GetResults()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	// 验证结果存在
+	// The verification results exist
 	if len(results) == 0 {
 		t.Error("expected results, got none")
 	}
 }
 
-// TestRegisterFunction 测试 Register 函数
+// TestRegisterFunction Register function
 func TestRegisterFunction(t *testing.T) {
-	// 创建自定义聚合器
+	// Create custom aggregators
 	customAggregator := func() AggregatorFunction {
 		return &testCustomAggregator{}
 	}
 
-	// 注册自定义聚合器
+	// Register a custom aggregator
 	Register("custom_test", customAggregator)
 
-	// 验证注册成功（通过创建聚合器来验证）
+	// Verify registration success (by creating aggregators to verify it)
 	agg := CreateBuiltinAggregator("custom_test")
 	assert.NotNil(t, agg)
 }
 
-// testCustomAggregator 测试用的自定义聚合器
+// testCustomAggregator is a custom aggregator for testing
 type testCustomAggregator struct {
 	sum float64
 }
@@ -1430,11 +1430,11 @@ func (t *testCustomAggregator) Result() any {
 	return t.sum
 }
 
-// TestIsNumericAggregator 测试 isNumericAggregator 方法的各种分支
+// TestIsNumericAggregator tests various branches of the isNumericAggregator method
 func TestIsNumericAggregator(t *testing.T) {
 	ga := NewGroupAggregator([]string{"group"}, []AggregationField{})
 
-	// 测试数值聚合器
+	// Test numerical aggregator
 	assert.True(t, ga.isNumericAggregator(Sum))
 	assert.True(t, ga.isNumericAggregator(Avg))
 	assert.True(t, ga.isNumericAggregator(Max))
@@ -1447,19 +1447,19 @@ func TestIsNumericAggregator(t *testing.T) {
 	assert.True(t, ga.isNumericAggregator(VarS))
 	assert.True(t, ga.isNumericAggregator(StdDevS))
 
-	// 测试非数值聚合器
+	// Testing non-numerical aggregators
 	assert.False(t, ga.isNumericAggregator(Collect))
 	assert.False(t, ga.isNumericAggregator(MergeAgg))
 	assert.False(t, ga.isNumericAggregator(Deduplicate))
 	assert.False(t, ga.isNumericAggregator(LastValue))
 
-	// 测试分析函数
+	// Test the analysis function
 	assert.False(t, ga.isNumericAggregator(Lag))
 	assert.False(t, ga.isNumericAggregator(Latest))
 	assert.False(t, ga.isNumericAggregator(ChangedCol))
 	assert.False(t, ga.isNumericAggregator(HadChanged))
 
-	// 测试未知聚合器（通过名称模式匹配）
+	// Testing unknown aggregators (by name pattern matching)
 	assert.True(t, ga.isNumericAggregator("custom_sum"))
 	assert.True(t, ga.isNumericAggregator("custom_avg"))
 	assert.True(t, ga.isNumericAggregator("custom_min"))
@@ -1468,33 +1468,33 @@ func TestIsNumericAggregator(t *testing.T) {
 	assert.True(t, ga.isNumericAggregator("custom_std"))
 	assert.True(t, ga.isNumericAggregator("custom_var"))
 
-	// 测试不匹配模式的未知聚合器
+	// Testing an unknown aggregator with mismatched patterns
 	assert.False(t, ga.isNumericAggregator("custom_collect"))
 	assert.False(t, ga.isNumericAggregator("unknown_function"))
 }
 
-// TestExpressionAggregator 测试表达式聚合器
+// TestExpressionAggregator tests the expression aggregator
 func TestExpressionAggregator(t *testing.T) {
-	// 创建表达式聚合器
+	// Create an expression aggregator
 	agg := CreateBuiltinAggregator(Expression)
 	assert.NotNil(t, agg)
 
-	// 测试创建新实例
+	// Test to create new instances
 	newAgg := agg.New()
 	assert.NotNil(t, newAgg)
 
-	// 测试添加值和获取结果
+	// Test the added value and obtain the results
 	newAgg.Add("test_value")
 	result := newAgg.Result()
 	assert.NotNil(t, result)
 }
 
-// TestGroupAggregatorContextAggregator 测试 ContextAggregator 功能
+// TestGroupAggregatorContextAggregator tests the ContextAggregator feature
 func TestGroupAggregatorContextAggregator(t *testing.T) {
-	// 创建一个共享的values切片来跟踪所有添加的值
+	// Create a shared values slice to track all added values
 	sharedValues := &[]any{}
 
-	// 注册模拟聚合器
+	// Register the analog aggregator
 	Register("mock_context", func() AggregatorFunction {
 		return &mockContextAggregator{
 			contextKey: "test_context_key",
@@ -1506,34 +1506,34 @@ func TestGroupAggregatorContextAggregator(t *testing.T) {
 		[]string{"group"},
 		[]AggregationField{
 			{
-				InputField:    "missing_field", // 故意使用不存在的字段
+				InputField:    "missing_field", // Deliberately using fields that don't exist
 				AggregateType: "mock_context",
 				OutputAlias:   "context_result",
 			},
 		},
 	)
 
-	// 设置上下文值
+	// Set context values
 	err := ga.Put("test_context_key", "context_value")
 	assert.NoError(t, err)
 
-	// 添加数据（字段不存在，应该从上下文获取）
+	// Add data (fields do not exist and should be retrieved from context)
 	err = ga.Add(map[string]any{
 		"group": "test_group",
-		// 故意不包含 missing_field
+		// Intentionally omitting missing_field
 	})
 	assert.NoError(t, err)
 
-	// 获取结果
+	// Get results
 	results, err := ga.GetResults()
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 
-	// 验证上下文值被使用
+	// Verify that context values are used
 	assert.Contains(t, *sharedValues, "context_value")
 }
 
-// mockContextAggregator 模拟的 ContextAggregator
+// mockContextAggregator Simulates ContextAggregator
 type mockContextAggregator struct {
 	contextKey string
 	values     *[]any
@@ -1542,7 +1542,7 @@ type mockContextAggregator struct {
 func (m *mockContextAggregator) New() AggregatorFunction {
 	return &mockContextAggregator{
 		contextKey: m.contextKey,
-		values:     m.values, // 共享同一个values切片
+		values:     m.values, // Share the same values slices
 	}
 }
 
@@ -1558,33 +1558,33 @@ func (m *mockContextAggregator) GetContextKey() string {
 	return m.contextKey
 }
 
-// TestGroupAggregatorNumericConversionError 非数值字段应被数值聚合跳过（不中断整行
-// Add、不报错），其余有效值照常聚合（A5：曾 return 错误中断整行 Add，致同行其后字段漏算）。
+// TestGroupAggregatorNumericConversionError Non-numeric fields should be skipped by numeric aggregation (without interrupting the entire line).
+// Add, no error), and the remaining valid values are aggregated as usual (A5: Zeng returned errors interrupted the entire line of Add, causing the following fields to be omitted).
 func TestGroupAggregatorNumericConversionError(t *testing.T) {
 	ga := NewGroupAggregator(
 		[]string{"group"},
 		[]AggregationField{
 			{
 				InputField:    "value",
-				AggregateType: Sum, // Sum 需要数值类型
+				AggregateType: Sum, // Sum requires a numeric type
 				OutputAlias:   "sum_value",
 			},
 		},
 	)
 
-	// 非数值行：跳过 value，不应报错
+	// Non-numeric rows: skip the value and should not report errors
 	require.NoError(t, ga.Add(map[string]any{"group": "g1", "value": "not_a_number"}))
-	// 有效行：照常聚合
+	// Effective row: Polymerization as usual
 	require.NoError(t, ga.Add(map[string]any{"group": "g1", "value": 10}))
 	require.NoError(t, ga.Add(map[string]any{"group": "g1", "value": 20}))
 
 	res, err := ga.GetResults()
 	require.NoError(t, err)
 	require.Len(t, res, 1)
-	assert.Equal(t, float64(30), res[0]["sum_value"]) // 仅 10+20，"not_a_number" 被跳过
+	assert.Equal(t, float64(30), res[0]["sum_value"]) // Only 10+20, the "not_a_number" was skipped
 }
 
-// TestGroupAggregatorWithExpressionEvaluator 测试表达式求值器
+// TestGroupAggregatorWithExpressionEvaluator: Test expression evaluator
 func TestGroupAggregatorWithExpressionEvaluator(t *testing.T) {
 	ga := NewGroupAggregator(
 		[]string{"group"},
@@ -1597,7 +1597,7 @@ func TestGroupAggregatorWithExpressionEvaluator(t *testing.T) {
 		},
 	)
 
-	// 注册表达式求值器（摄氏度转华氏度）
+	// Register expression evaluator (Celsius to Fahrenheit)
 	evaluator := func(data any) (any, error) {
 		if dataMap, ok := data.(map[string]any); ok {
 			if temp, exists := dataMap["temperature"]; exists {
@@ -1611,7 +1611,7 @@ func TestGroupAggregatorWithExpressionEvaluator(t *testing.T) {
 
 	ga.RegisterExpression("fahrenheit_sum", "temperature * 1.8 + 32", []string{"temperature"}, evaluator)
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
 		{"group": "sensor1", "temperature": 0.0},   // 32°F
 		{"group": "sensor1", "temperature": 100.0}, // 212°F
@@ -1622,17 +1622,17 @@ func TestGroupAggregatorWithExpressionEvaluator(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	// 获取结果
+	// Get results
 	results, err := ga.GetResults()
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 
-	// 验证表达式求值结果 (32 + 212 = 244)
+	// Verify the evaluation result of the expression (32 + 212 = 244)
 	assert.Equal(t, "sensor1", results[0]["group"])
 	assert.Equal(t, 244.0, results[0]["fahrenheit_sum"])
 }
 
-// TestGroupAggregatorExpressionEvaluatorError 测试表达式求值器错误处理
+// TestGroupAggregatorExpressionEvaluatorError Error handling of test expression evaluator
 func TestGroupAggregatorExpressionEvaluatorError(t *testing.T) {
 	ga := NewGroupAggregator(
 		[]string{"group"},
@@ -1645,50 +1645,50 @@ func TestGroupAggregatorExpressionEvaluatorError(t *testing.T) {
 		},
 	)
 
-	// 注册会出错的表达式求值器
+	// Register an error expression evaluator
 	errorEvaluator := func(data any) (any, error) {
 		return nil, errors.New("expression evaluation failed")
 	}
 
 	ga.RegisterExpression("processed_value", "error_expression", []string{"value"}, errorEvaluator)
 
-	// 添加测试数据
+	// Add test data
 	err := ga.Add(map[string]any{
 		"group": "test_group",
 		"value": 10.0,
 	})
 
-	// 应该没有错误，因为表达式错误会被忽略
+	// There should be no errors, because expression errors are ignored
 	assert.NoError(t, err)
 
-	// 获取结果
+	// Get results
 	results, err := ga.GetResults()
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 
-	// 由于表达式求值失败，聚合器应该没有值
+	// Because the expression evaluation failed, the aggregator should have no value
 	assert.Equal(t, "test_group", results[0]["group"])
-	// processed_value 应该是聚合器的默认结果（通常是 nil 或 0）
+	// processed_value should be the default result of the aggregator (usually nil or 0)
 }
 
-// TestGroupAggregatorCountStarField 测试 count(*) 功能
+// TestGroupAggregatorCountStarField tests count(*) functionality
 func TestGroupAggregatorCountStarField(t *testing.T) {
 	ga := NewGroupAggregator(
 		[]string{"category"},
 		[]AggregationField{
 			{
-				InputField:    "*", // count(*) 语法
+				InputField:    "*", // count(*) syntax
 				AggregateType: Count,
 				OutputAlias:   "total_count",
 			},
 		},
 	)
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
 		{"category": "A", "value": 10},
 		{"category": "A", "value": 20},
-		{"category": "A"}, // 没有 value 字段
+		{"category": "A"}, // There is no value field
 		{"category": "B", "value": 30},
 	}
 
@@ -1697,23 +1697,23 @@ func TestGroupAggregatorCountStarField(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	// 获取结果
+	// Get results
 	results, err := ga.GetResults()
 	assert.NoError(t, err)
 	assert.Len(t, results, 2)
 
-	// 验证 count(*) 结果
+	// Verify count(*) results
 	for _, result := range results {
 		category := result["category"].(string)
 		if category == "A" {
-			assert.Equal(t, float64(3), result["total_count"]) // A 类别有 3 条记录
+			assert.Equal(t, float64(3), result["total_count"]) // There are 3 records in category A
 		} else if category == "B" {
-			assert.Equal(t, float64(1), result["total_count"]) // B 类别有 1 条记录
+			assert.Equal(t, float64(1), result["total_count"]) // There is 1 record in category B
 		}
 	}
 }
 
-// TestGroupAggregatorNilFieldValue 测试 nil 字段值处理
+// TestGroupAggregatorNilFieldValue tests nil field-value handling.
 func TestGroupAggregatorNilFieldValue(t *testing.T) {
 	ga := NewGroupAggregator(
 		[]string{"group"},
@@ -1726,10 +1726,10 @@ func TestGroupAggregatorNilFieldValue(t *testing.T) {
 		},
 	)
 
-	// 添加包含 nil 值的数据
+	// Add data containing the nil value
 	testData := []map[string]any{
 		{"group": "test", "value": 10.0},
-		{"group": "test", "value": nil}, // nil 值应该被跳过
+		{"group": "test", "value": nil}, // The nil value should be skipped
 		{"group": "test", "value": 20.0},
 	}
 
@@ -1738,19 +1738,19 @@ func TestGroupAggregatorNilFieldValue(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	// 获取结果
+	// Get results
 	results, err := ga.GetResults()
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
 
-	// nil 值应该被跳过，只计算 10.0 + 20.0 = 30.0
+	// The nil value should be skipped, and only 10.0 + 20.0 = 30.0 is calculated
 	assert.Equal(t, "test", results[0]["group"])
 	assert.Equal(t, 30.0, results[0]["sum_value"])
 }
 
-// TestGroupAggregatorStructData 测试结构体数据
+// TestGroupAggregatorStructData tests structure data
 func TestGroupAggregatorStructData(t *testing.T) {
-	// 定义测试结构体
+	// Define the test structure
 	type TestStruct struct {
 		Group string
 		Value float64
@@ -1767,7 +1767,7 @@ func TestGroupAggregatorStructData(t *testing.T) {
 		},
 	)
 
-	// 添加结构体数据
+	// Add structure data
 	testData := []TestStruct{
 		{Group: "A", Value: 10.0},
 		{Group: "A", Value: 20.0},
@@ -1779,12 +1779,12 @@ func TestGroupAggregatorStructData(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	// 获取结果
+	// Get results
 	results, err := ga.GetResults()
 	assert.NoError(t, err)
 	assert.Len(t, results, 2)
 
-	// 验证结果
+	// Verify the results
 	for _, result := range results {
 		group := result["Group"].(string)
 		if group == "A" {
@@ -1795,7 +1795,7 @@ func TestGroupAggregatorStructData(t *testing.T) {
 	}
 }
 
-// TestGroupAggregatorPointerData 测试指针数据
+// TestGroupAggregatorPointerData: Test pointer data
 func TestGroupAggregatorPointerData(t *testing.T) {
 	type TestStruct struct {
 		Group string
@@ -1813,12 +1813,12 @@ func TestGroupAggregatorPointerData(t *testing.T) {
 		},
 	)
 
-	// 添加指针数据
+	// Add pointer data
 	testData := &TestStruct{Group: "test", Value: 42.0}
 	err := ga.Add(testData)
 	assert.NoError(t, err)
 
-	// 获取结果
+	// Get results
 	results, err := ga.GetResults()
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
@@ -1826,7 +1826,7 @@ func TestGroupAggregatorPointerData(t *testing.T) {
 	assert.Equal(t, 42.0, results[0]["sum_value"])
 }
 
-// TestGroupAggregatorUnsupportedDataType 测试不支持的数据类型
+// TestGroupAggregatorUnsupportedDataType Tests data types that are not supported
 func TestGroupAggregatorUnsupportedDataType(t *testing.T) {
 	ga := NewGroupAggregator(
 		[]string{"group"},
@@ -1839,21 +1839,21 @@ func TestGroupAggregatorUnsupportedDataType(t *testing.T) {
 		},
 	)
 
-	// 测试不支持的数据类型
-	err := ga.Add(123) // int 类型不是 struct 或 map
+	// Test for data types that are not supported
+	err := ga.Add(123) // The int type is not struct or map
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported data type")
 
-	err = ga.Add("string") // string 类型不支持
+	err = ga.Add("string") // string type is not supported
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported data type")
 
-	err = ga.Add([]int{1, 2, 3}) // slice 类型不支持
+	err = ga.Add([]int{1, 2, 3}) // The slice type is not supported
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported data type")
 }
 
-// TestGroupAggregatorGroupFieldNilValue 测试分组字段为 nil 时归入 NULL 分组（不丢行）
+// TestGroupAggregatorGroupFieldNilValue When the test grouping field is nil, it is assigned to a NULL group (no line dropped)
 func TestGroupAggregatorGroupFieldNilValue(t *testing.T) {
 	ga := NewGroupAggregator(
 		[]string{"group"},
@@ -1866,7 +1866,7 @@ func TestGroupAggregatorGroupFieldNilValue(t *testing.T) {
 		},
 	)
 
-	// 分组字段为 nil：归入 NULL 分组，不再报错丢行
+	// Group field nil: Includes NULL grouping, no more errors or line drops
 	err := ga.Add(map[string]any{
 		"group": nil,
 		"value": 10.0,
@@ -1880,15 +1880,15 @@ func TestGroupAggregatorGroupFieldNilValue(t *testing.T) {
 	}
 }
 
-// TestIsNumericAggregatorAdvanced 测试 isNumericAggregator 的更多分支
+// TestIsNumericAggregatorAdvanced covers additional isNumericAggregator branches
 func TestIsNumericAggregatorAdvanced(t *testing.T) {
 	ga := NewGroupAggregator([]string{"group"}, []AggregationField{})
 
-	// 测试 TypeAnalytical 类型
+	// Test TypeAnalytical type
 	result := ga.isNumericAggregator("analytical_func")
 	assert.False(t, result)
 
-	// 测试不存在的函数，但名称包含数值聚合关键字
+	// Tests functions that do not exist, but whose names contain numerical aggregation keywords
 	result = ga.isNumericAggregator("custom_sum_func")
 	assert.True(t, result)
 
@@ -1910,12 +1910,12 @@ func TestIsNumericAggregatorAdvanced(t *testing.T) {
 	result = ga.isNumericAggregator("custom_var_func")
 	assert.True(t, result)
 
-	// 测试不包含数值关键字的函数
+	// Tests functions that do not contain numeric keywords
 	result = ga.isNumericAggregator("custom_text_func")
 	assert.False(t, result)
 }
 
-// TestGroupAggregatorNilData 测试 nil 数据
+// TestGroupAggregatorNilData tests nil data
 func TestGroupAggregatorNilData(t *testing.T) {
 	ga := NewGroupAggregator(
 		[]string{"group"},
@@ -1928,13 +1928,13 @@ func TestGroupAggregatorNilData(t *testing.T) {
 		},
 	)
 
-	// 测试 nil 数据
+	// Test NIL data
 	err := ga.Add(nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "data cannot be nil")
 }
 
-// TestGroupAggregatorMissingGroupField 测试缺少分组字段时归入 NULL 分组（不丢行）
+// TestGroupAggregatorMissingGroupField When a group field is missing, NULL grouping is added (no line dropped)
 func TestGroupAggregatorMissingGroupField(t *testing.T) {
 	ga := NewGroupAggregator(
 		[]string{"missing_group"},
@@ -1947,7 +1947,7 @@ func TestGroupAggregatorMissingGroupField(t *testing.T) {
 		},
 	)
 
-	// 缺少分组字段：归入 NULL 分组，不再报错丢行
+	// Missing grouping fields: Includes NULL grouping, no longer throws errors or missing lines
 	err := ga.Add(map[string]any{
 		"value": 10,
 	})
@@ -1960,9 +1960,9 @@ func TestGroupAggregatorMissingGroupField(t *testing.T) {
 	}
 }
 
-// TestGroupAggregatorMissingAggregationField 测试缺少聚合字段但有上下文
+// TestGroupAggregatorMissingAggregationField The test lacks an aggregation field but has context
 func TestGroupAggregatorMissingAggregationField(t *testing.T) {
-	// 创建一个不会从上下文获取值的聚合器
+	// Create an aggregator that does not retrieve values from context
 	ga := NewGroupAggregator(
 		[]string{"group"},
 		[]AggregationField{
@@ -1974,21 +1974,21 @@ func TestGroupAggregatorMissingAggregationField(t *testing.T) {
 		},
 	)
 
-	// 添加缺少聚合字段的数据（没有上下文）
+	// Add data missing aggregated fields (without context)
 	err := ga.Add(map[string]any{
 		"group": "test",
-		// 缺少 missing_field
+		// Lack of missing_field
 	})
-	assert.NoError(t, err) // 应该成功，因为会跳过缺少的字段
+	assert.NoError(t, err) // It should succeed, because missing fields will be skipped
 
-	// 获取结果
+	// Get results
 	results, err := ga.GetResults()
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
-	// 由于没有添加任何值，聚合器应该返回默认值
+	// Since no value is added, the aggregator should return the default value
 }
 
-// TestGroupAggregatorExpressionEvaluationError 测试表达式求值错误但继续处理
+// TestGroupAggregatorExpressionEvaluationError The test expression is evaluated incorrectly but continues to be processed
 func TestGroupAggregatorExpressionEvaluationError(t *testing.T) {
 	ga := NewGroupAggregator(
 		[]string{"group"},
@@ -2006,23 +2006,23 @@ func TestGroupAggregatorExpressionEvaluationError(t *testing.T) {
 		},
 	)
 
-	// 注册一个会出错的表达式求值器
+	// Register an error expression evaluator
 	ga.RegisterExpression("expr_result", "error_expr", []string{"other"}, func(data any) (any, error) {
 		return nil, fmt.Errorf("evaluation error")
 	})
 
-	// 添加数据
+	// Add data
 	err := ga.Add(map[string]any{
 		"group": "test",
 		"value": 10,
 		"other": 20,
 	})
-	assert.NoError(t, err) // 应该成功，因为表达式错误会被跳过
+	assert.NoError(t, err) // It should succeed because an expression error can be skipped
 
-	// 获取结果
+	// Get results
 	results, err := ga.GetResults()
 	assert.NoError(t, err)
 	assert.Len(t, results, 1)
-	// sum_value 应该有值，expr_result 应该没有值或为默认值
+	// sum_value should have a value, expr_result should have no value or be the default value
 	assert.Equal(t, float64(10), results[0]["sum_value"])
 }

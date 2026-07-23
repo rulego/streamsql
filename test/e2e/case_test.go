@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestCaseExpressionInSQL 测试CASE表达式在SQL查询中的使用
+// TestCaseExpressionInSQL tests the use of CASE expressions in SQL queries
 func TestCaseExpressionInSQL(t *testing.T) {
 	t.Parallel()
-	// 测试非聚合场景中的CASE表达式
+	// Test CASE expressions in non-aggregated scenarios
 	sql := `SELECT deviceId, 
 	              CASE WHEN temperature > 30 THEN 'HOT' 
 	                   WHEN temperature > 20 THEN 'WARM' 
@@ -23,22 +23,22 @@ func TestCaseExpressionInSQL(t *testing.T) {
 	         FROM stream 
 	         WHERE temperature > 15`
 
-	// 创建StreamSQL实例
+	// Create a StreamSQL instance
 	streamSQL := streamsql.New()
 	defer streamSQL.Stop()
 
 	err := streamSQL.Execute(sql)
 	assert.NoError(t, err, "执行SQL应该成功")
 
-	// 模拟数据
+	// Simulation data
 	testData := []map[string]any{
 		{"deviceId": "device1", "temperature": 35.0, "status": "active"},
 		{"deviceId": "device2", "temperature": 25.0, "status": "inactive"},
 		{"deviceId": "device3", "temperature": 18.0, "status": "active"},
-		{"deviceId": "device4", "temperature": 10.0, "status": "inactive"}, // 应该被WHERE过滤掉
+		{"deviceId": "device4", "temperature": 10.0, "status": "inactive"}, // It should be filtered out by WHERE (WHERE files).
 	}
 
-	// 添加数据并获取结果
+	// Add data and get results
 	var results []map[string]any
 	var resultsMutex sync.Mutex
 	streamSQL.Stream().AddSink(func(result []map[string]any) {
@@ -51,21 +51,21 @@ func TestCaseExpressionInSQL(t *testing.T) {
 		streamSQL.Emit(data)
 	}
 
-	// 等待处理
+	// Waiting for processing
 	time.Sleep(100 * time.Millisecond)
 
-	// 验证结果
+	// Verify the results
 	resultsMutex.Lock()
 	resultCount := len(results)
 	resultsMutex.Unlock()
 	assert.GreaterOrEqual(t, resultCount, 3, "应该有至少3条结果（排除temperature <= 15的记录）")
 }
 
-// TestCaseExpressionInAggregation 测试CASE表达式在聚合查询中的使用
+// TestCaseExpressionInAggregation tests the use of CASE expressions in aggregated queries
 func TestCaseExpressionInAggregation(t *testing.T) {
 	t.Parallel()
-	// 使用处理时间窗口，避免需要推进watermark的复杂性
-	// 这个测试主要验证CASE表达式在聚合函数中的使用，而不是事件时间窗口
+	// Use a processing time window to avoid the complexity of advancing watermarks
+	// This test mainly verifies the use of CASE expressions in aggregate functions, rather than event time windows
 	sql := `SELECT deviceId,
 	              COUNT(*) as total_count,
 	              SUM(CASE WHEN temperature > 30 THEN 1 ELSE 0 END) as hot_count,
@@ -73,14 +73,14 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 	         FROM stream 
 	         GROUP BY deviceId, TumblingWindow('1s')`
 
-	// 创建StreamSQL实例
+	// Create a StreamSQL instance
 	streamSQL := streamsql.New()
 	defer streamSQL.Stop()
 
 	err := streamSQL.Execute(sql)
 	assert.NoError(t, err, "执行SQL应该成功")
 
-	// 模拟数据（不需要时间戳字段，因为使用处理时间窗口）
+	// Simulated data (no timestamp field required, since processing time window is used)
 	testData := []map[string]any{
 		{"deviceId": "device1", "temperature": 35.0, "status": "active"},
 		{"deviceId": "device1", "temperature": 25.0, "status": "inactive"},
@@ -89,7 +89,7 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 		{"deviceId": "device2", "temperature": 22.0, "status": "inactive"},
 	}
 
-	// 添加数据并获取结果
+	// Add data and get results
 	var results []map[string]any
 	var resultsMutex sync.Mutex
 	streamSQL.Stream().AddSink(func(result []map[string]any) {
@@ -102,22 +102,22 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 		streamSQL.Emit(data)
 	}
 
-	// 等待窗口触发
+	// Wait for the window to trigger
 	time.Sleep(1200 * time.Millisecond)
 
-	// 手动触发窗口
+	// Manually trigger the window
 	streamSQL.TriggerWindow()
 
-	// 等待结果
+	// Wait for the results
 	time.Sleep(100 * time.Millisecond)
 
-	// 验证结果
+	// Verify the results
 	resultsMutex.Lock()
 	defer resultsMutex.Unlock()
 
 	assert.Greater(t, len(results), 0, "应该有聚合结果返回")
 
-	// 验证结果结构和内容
+	// Verify the structure and content of the results
 	deviceResults := make(map[string]map[string]any)
 	for _, result := range results {
 		deviceId, ok := result["deviceId"].(string)
@@ -125,62 +125,62 @@ func TestCaseExpressionInAggregation(t *testing.T) {
 		deviceResults[deviceId] = result
 	}
 
-	// 期望有两个设备的结果
+	// Expect results from two devices
 	assert.Len(t, deviceResults, 2, "应该有两个设备的聚合结果")
 	assert.Contains(t, deviceResults, "device1", "应该包含device1的结果")
 	assert.Contains(t, deviceResults, "device2", "应该包含device2的结果")
 
-	// 验证device1的结果
+	// Verify the results of device1
 	device1Result := deviceResults["device1"]
 
-	// 基本字段检查
+	// Basic field check
 	assert.Contains(t, device1Result, "total_count", "device1结果应该包含total_count")
 	assert.Contains(t, device1Result, "hot_count", "device1结果应该包含hot_count")
 	assert.Contains(t, device1Result, "avg_active_temp", "device1结果应该包含avg_active_temp")
 
-	// 详细数值验证
+	// Detailed numerical verification
 	totalCount1 := getFloat64Value(device1Result["total_count"])
 	hotCount1 := getFloat64Value(device1Result["hot_count"])
 	avgActiveTemp1 := getFloat64Value(device1Result["avg_active_temp"])
 
-	// device1: 3条记录总数
+	// device1: Total number of 3 records
 	assert.Equal(t, 3.0, totalCount1, "device1应该有3条记录")
 
-	// device1: 2条高温记录 (35.0 > 30, 32.0 > 30)
+	// device1: 2 high-temperature records (35.0 > 30, 32.0 > 30)
 	assert.Equal(t, 2.0, hotCount1, "device1应该有2条高温记录")
 
-	// device1: active状态的平均温度 (35.0 + 0 + 32.0) / 3 = 22.333...
+	// device1: Average temperature in active state (35.0 + 0 + 32.0) / 3 = 22.333...
 	expectedActiveAvg := (35.0 + 0 + 32.0) / 3.0
 	assert.InDelta(t, expectedActiveAvg, avgActiveTemp1, 0.01,
 		"device1的AVG(CASE WHEN...)应该正确计算")
 
-	// 验证device2的结果
+	// Verify the results of device2
 	device2Result := deviceResults["device2"]
 
-	// 基本字段检查
+	// Basic field check
 	assert.Contains(t, device2Result, "total_count", "device2结果应该包含total_count")
 	assert.Contains(t, device2Result, "hot_count", "device2结果应该包含hot_count")
 	assert.Contains(t, device2Result, "avg_active_temp", "device2结果应该包含avg_active_temp")
 
-	// 详细数值验证
+	// Detailed numerical verification
 	totalCount2 := getFloat64Value(device2Result["total_count"])
 	hotCount2 := getFloat64Value(device2Result["hot_count"])
 	avgActiveTemp2 := getFloat64Value(device2Result["avg_active_temp"])
 
-	// device2: 2条记录总数
+	// device2: Total number of 2 records
 	assert.Equal(t, 2.0, totalCount2, "device2应该有2条记录")
 
-	// device2: 0条高温记录 (没有温度>30的)
+	// device2: 0 high-temperature records (no temperature >30)
 	assert.Equal(t, 0.0, hotCount2, "device2应该有0条高温记录")
 
 	// device2: CASE WHEN status='active' THEN temperature ELSE 0
-	// 28.0 (active) + 0 (inactive) = 28.0, 平均值 = (28.0 + 0) / 2 = 14.0
+	// 28.0 (active) + 0 (inactive) = 28.0, mean = (28.0 + 0) / 2 = 14.0
 	expectedActiveAvg2 := (28.0 + 0) / 2.0
 	assert.InDelta(t, expectedActiveAvg2, avgActiveTemp2, 0.01,
 		"device2的AVG(CASE WHEN...)应该正确计算")
 }
 
-// getFloat64Value 辅助函数，将any转换为float64
+// getFloat64Value auxiliary function to convert any to float64
 func getFloat64Value(value any) float64 {
 	switch v := value.(type) {
 	case float64:
@@ -196,7 +196,7 @@ func getFloat64Value(value any) float64 {
 	}
 }
 
-// TestComplexCaseExpressionsInAggregation 测试复杂CASE表达式在聚合查询中的使用
+// TestComplexCaseExpressionsInAggregation: Tests the use of complex CASE expressions in aggregated queries
 func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
@@ -229,7 +229,7 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 			data: []map[string]any{
 				{"deviceId": "device1", "temperature": 23.0},
 				{"deviceId": "device1", "temperature": 27.0},
-				{"deviceId": "device1", "temperature": 35.0}, // 这个会被排除
+				{"deviceId": "device1", "temperature": 35.0}, // This will be ruled out
 			},
 			description: "测试带函数的CASE表达式在AVG聚合中的使用",
 		},
@@ -250,14 +250,14 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// 创建StreamSQL实例
+			// Create a StreamSQL instance
 			streamSQL := streamsql.New()
 			defer streamSQL.Stop()
 
 			err := streamSQL.Execute(tc.sql)
 			assert.NoError(t, err, "执行SQL应该成功")
 
-			// 添加数据并获取结果
+			// Add data and get results
 			var results []map[string]any
 			var resultsMutex sync.Mutex
 			streamSQL.Stream().AddSink(func(result []map[string]any) {
@@ -270,16 +270,16 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 				streamSQL.Emit(data)
 			}
 
-			// 等待窗口触发
+			// Wait for the window to trigger
 			time.Sleep(1200 * time.Millisecond)
 
-			// 手动触发窗口
+			// Manually trigger the window
 			streamSQL.TriggerWindow()
 
-			// 等待结果
+			// Wait for the results
 			time.Sleep(100 * time.Millisecond)
 
-			// 验证至少有结果返回
+			// At least verification yields results
 			resultsMutex.Lock()
 			hasResults := len(results) > 0
 			resultsMutex.Unlock()
@@ -288,14 +288,14 @@ func TestComplexCaseExpressionsInAggregation(t *testing.T) {
 	}
 }
 
-// TestCaseExpressionNonAggregated 测试非聚合场景下的CASE表达式
+// TestCaseExpressionNonAggregated Tests CASE expressions in non-aggregated scenarios
 func TestCaseExpressionNonAggregated(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
 		sql      string
 		testData []map[string]any
-		expected []map[string]any // 期望的结果
+		expected []map[string]any // The expected result
 		wantErr  bool
 	}{
 		{
@@ -383,10 +383,10 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 				return
 			}
 
-			// 如果执行成功，继续测试数据处理
+			// If successful, continue testing data processing
 			strm := ssql.Stream()
 
-			// 收集所有结果
+			// Collect all the results
 			var allResults []map[string]any
 			resultChan := make(chan []map[string]any, 10)
 			strm.AddSink(func(result []map[string]any) {
@@ -396,16 +396,16 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 				}
 			})
 
-			// 添加测试数据
+			// Add test data
 			for _, data := range tt.testData {
 				strm.Emit(data)
 			}
 
-			// 等待并收集结果
+			// Wait and collect results
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 
-			// 收集所有结果
+			// Collect all the results
 			for i := 0; i < len(tt.testData); i++ {
 				select {
 				case result := <-resultChan:
@@ -418,10 +418,10 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 				}
 			}
 
-			// 验证结果数量
+			// Verification of the number of results
 			assert.Equal(t, len(tt.expected), len(allResults), "结果数量不匹配")
 
-			// 验证每个结果的内容（不依赖顺序）
+			// Verify the content of each result (not based on order)
 			expectedMap := make(map[string]map[string]any)
 			for _, expected := range tt.expected {
 				deviceId, ok := expected["deviceId"].(string)
@@ -430,7 +430,7 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 				}
 			}
 
-			// 验证所有期望的设备都出现在结果中
+			// All the devices you expect to verify appear in the results
 			for deviceId := range expectedMap {
 				found := false
 				for _, actual := range allResults {
@@ -445,22 +445,22 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 			for _, actual := range allResults {
 				deviceId, ok := actual["deviceId"].(string)
 				if !ok {
-					t.Errorf("结果中缺少deviceId字段")
+					t.Errorf("deviceId fields are missing from the results")
 					continue
 				}
 
 				expected, exists := expectedMap[deviceId]
 				if !exists {
-					t.Errorf("未找到设备 %s 的期望结果", deviceId)
+					t.Errorf("Expected results for device %s not found", deviceId)
 					continue
 				}
 
-				// 验证每个字段
+				// Verify each field
 				for key, expectedValue := range expected {
 					actualValue, exists := actual[key]
 					assert.True(t, exists, "字段 %s 不存在于结果中", key)
 					if exists {
-						// 对于数值类型，使用近似比较
+						// For numeric types, approximate comparison is used
 						if expectedFloat, ok := expectedValue.(float64); ok {
 							if actualFloat, ok := actualValue.(float64); ok {
 								assert.InDelta(t, expectedFloat, actualFloat, 0.001, "字段 %s 的值不匹配", key)
@@ -473,7 +473,7 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 					}
 				}
 
-				// 验证结果中没有多余的字段（除了deviceId）
+				// There are no extra fields in the validation results (except deviceId)
 				for key := range actual {
 					if key == "deviceId" {
 						continue
@@ -482,13 +482,13 @@ func TestCaseExpressionNonAggregated(t *testing.T) {
 					assert.True(t, exists, "结果中包含未期望的字段 %s", key)
 				}
 
-				t.Logf("设备 %s: 期望=%v, 实际=%v", deviceId, expected, actual)
+				t.Logf("Equipment %s: Expected = %v, Actual = %v", deviceId, expected, actual)
 			}
 		})
 	}
 }
 
-// TestCaseExpressionAggregated 测试聚合场景下的CASE表达式
+// TestCaseExpressionAggregated tests the CASE expression in the aggregation scenario
 func TestCaseExpressionAggregated(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -558,7 +558,7 @@ func TestCaseExpressionAggregated(t *testing.T) {
 
 			strm := ssql.Stream()
 
-			// 使用通道等待结果，避免固定等待时间
+			// Use channels to wait for results and avoid fixed waiting times
 			resultChan := make(chan any, 5)
 			strm.AddSink(func(result []map[string]any) {
 				select {
@@ -571,37 +571,37 @@ func TestCaseExpressionAggregated(t *testing.T) {
 				strm.Emit(data)
 			}
 
-			// 使用带超时的等待机制
+			// Use a wait-out mechanism with timeouts
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 
 			var results []map[string]any
 
-			// 等待窗口触发或超时
+			// Wait for the window to trigger or time out
 			select {
 			case result := <-resultChan:
 				if resultSlice, ok := result.([]map[string]any); ok {
 					results = append(results, resultSlice...)
 				}
 			case <-time.After(1200 * time.Millisecond):
-				// 如果1.2秒内没有结果，手动触发窗口
+				// If there is no result within 1.2 seconds, manually trigger the window
 				if strm.Window != nil {
 					ssql.TriggerWindow()
 				}
-				// 再等待一点时间获取结果
+				// Wait a little longer for the results
 				select {
 				case result := <-resultChan:
 					if resultSlice, ok := result.([]map[string]any); ok {
 						results = append(results, resultSlice...)
 					}
 				case <-time.After(200 * time.Millisecond):
-					// 超时，继续验证
+					// Timeout, continue verification
 				}
 			case <-ctx.Done():
 				return
 			}
 
-			// 验证结果
+			// Verify the results
 			if len(results) > 0 {
 				firstResult := results[0]
 				assert.NotNil(t, firstResult)
@@ -611,7 +611,7 @@ func TestCaseExpressionAggregated(t *testing.T) {
 	}
 }
 
-// TestCaseExpressionNullHandlingInAggregation 测试CASE表达式在聚合函数中正确处理NULL值
+// TestCaseExpressionNullHandlingInAggregation: Tests whether the CASE expression correctly handles NULL values in the aggregation function
 func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
@@ -631,24 +631,24 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 			      FROM stream 
 			      GROUP BY deviceType, TumblingWindow('2s')`,
 			testData: []map[string]any{
-				{"deviceType": "sensor", "temperature": 35.0},  // 满足条件
-				{"deviceType": "sensor", "temperature": 25.0},  // 不满足条件，返回NULL
-				{"deviceType": "sensor", "temperature": 32.0},  // 满足条件
-				{"deviceType": "monitor", "temperature": 28.0}, // 不满足条件，返回NULL
-				{"deviceType": "monitor", "temperature": 33.0}, // 满足条件
+				{"deviceType": "sensor", "temperature": 35.0},  // Conditions are met
+				{"deviceType": "sensor", "temperature": 25.0},  // If the condition is not met, return NULL
+				{"deviceType": "sensor", "temperature": 32.0},  // Conditions are met
+				{"deviceType": "monitor", "temperature": 28.0}, // If the condition is not met, return NULL
+				{"deviceType": "monitor", "temperature": 33.0}, // Conditions are met
 			},
 			expectedDeviceResults: map[string]map[string]any{
 				"sensor": {
 					"high_temp_sum":   67.0, // 35 + 32
-					"high_temp_count": 2.0,  // COUNT应该忽略NULL
+					"high_temp_count": 2.0,  // COUNT should ignore NULL
 					"high_temp_avg":   33.5, // (35 + 32) / 2
-					"total_count":     3.0,  // 总记录数
+					"total_count":     3.0,  // Total recorded count
 				},
 				"monitor": {
-					"high_temp_sum":   33.0, // 只有33
-					"high_temp_count": 1.0,  // COUNT应该忽略NULL
-					"high_temp_avg":   33.0, // 只有33
-					"total_count":     2.0,  // 总记录数
+					"high_temp_sum":   33.0, // Only 33
+					"high_temp_count": 1.0,  // COUNT should ignore NULL
+					"high_temp_avg":   33.0, // Only 33
+					"total_count":     2.0,  // Total recorded count
 				},
 			},
 			description: "验证CASE表达式返回的NULL值被聚合函数正确忽略",
@@ -663,16 +663,16 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 			      FROM stream 
 			      GROUP BY deviceType, TumblingWindow('2s')`,
 			testData: []map[string]any{
-				{"deviceType": "cold_sensor", "temperature": 20.0}, // 不满足条件
-				{"deviceType": "cold_sensor", "temperature": 25.0}, // 不满足条件
-				{"deviceType": "cold_sensor", "temperature": 30.0}, // 不满足条件
+				{"deviceType": "cold_sensor", "temperature": 20.0}, // The conditions are not met
+				{"deviceType": "cold_sensor", "temperature": 25.0}, // The conditions are not met
+				{"deviceType": "cold_sensor", "temperature": 30.0}, // The conditions are not met
 			},
 			expectedDeviceResults: map[string]map[string]any{
 				"cold_sensor": {
-					"impossible_sum":   nil, // 全NULL时SUM应返回NULL
-					"impossible_count": 0.0, // COUNT应返回0
-					"impossible_avg":   nil, // 全NULL时AVG应返回NULL
-					"total_count":      3.0, // 总记录数
+					"impossible_sum":   nil, // For full NULL, the SUM should return NULL
+					"impossible_count": 0.0, // COUNT should return 0
+					"impossible_avg":   nil, // For full NULL, AVG should return NULL
+					"total_count":      3.0, // Total recorded count
 				},
 			},
 			description: "验证当CASE表达式全部返回NULL时，聚合函数的正确行为",
@@ -681,15 +681,15 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// 创建StreamSQL实例
+			// Create a StreamSQL instance
 			ssql := streamsql.New()
 			defer ssql.Stop()
 
-			// 执行SQL
+			// Execute SQL
 			err := ssql.Execute(tc.sql)
 			assert.NoError(t, err, "SQL执行应该成功")
 
-			// 收集结果
+			// Collect the results
 			var results []map[string]any
 			resultChan := make(chan any, 10)
 
@@ -697,15 +697,15 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 				resultChan <- result
 			})
 
-			// 添加测试数据
+			// Add test data
 			for _, data := range tc.testData {
 				ssql.Stream().Emit(data)
 			}
 
-			// 等待窗口触发
+			// Wait for the window to trigger
 			time.Sleep(3 * time.Second)
 
-			// 收集结果
+			// Collect the results
 		collecting:
 			for {
 				select {
@@ -718,17 +718,17 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 				}
 			}
 
-			// 验证结果数量
+			// Verification of the number of results
 			assert.Len(t, results, len(tc.expectedDeviceResults), "结果数量应该匹配")
 
-			// 验证各个deviceType的结果
+			// Verify the results of each deviceType
 			for _, result := range results {
 				deviceType := result["deviceType"].(string)
 				expected := tc.expectedDeviceResults[deviceType]
 
 				assert.NotNil(t, expected, "应该有设备类型 %s 的期望结果", deviceType)
 
-				// 验证每个字段
+				// Verify each field
 				for key, expectedValue := range expected {
 					if key == "deviceType" {
 						continue
@@ -736,7 +736,7 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 
 					actualValue := result[key]
 
-					// 处理NULL值比较
+					// Handle NULL value comparison
 					if expectedValue == nil {
 						assert.Nil(t, actualValue,
 							"设备类型 %s 的字段 %s 应该为NULL", deviceType, key)
@@ -750,7 +750,7 @@ func TestCaseExpressionNullHandlingInAggregation(t *testing.T) {
 	}
 }
 
-// TestHavingWithCaseExpression 测试HAVING子句中的CASE表达式
+// TestHavingWithCaseExpression tests the CASE expression in the HAVING clause
 func TestHavingWithCaseExpression(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -787,7 +787,7 @@ func TestHavingWithCaseExpression(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 测试SQL解析
+			// Test SQL parsing
 			_, err := rsql.NewParser(tt.sql).Parse()
 
 			if tt.wantErr {
@@ -799,21 +799,21 @@ func TestHavingWithCaseExpression(t *testing.T) {
 				assert.NoError(t, err, "SQL解析应该成功")
 			}
 
-			// 如果解析成功，尝试创建StreamSQL实例
+			// If the parsing succeeds, try creating a StreamSQL instance
 			if !tt.wantErr && err == nil {
 				streamSQL := streamsql.New()
 				defer streamSQL.Stop()
 
 				err = streamSQL.Execute(tt.sql)
 				if err != nil {
-					t.Skipf("HAVING中的CASE表达式执行暂不支持: %v", err)
+					t.Skipf("CASE expression execution in HAVING is not currently supported: %v", err)
 				}
 			}
 		})
 	}
 }
 
-// TestHavingWithCaseExpressionFunctional 功能测试HAVING子句中的CASE表达式
+// TestHavingWithCaseExpressionFunctional Function tests CASE expressions in HAVING clauses
 func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 	t.Parallel()
 	sql := `SELECT deviceId, 
@@ -824,33 +824,33 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 	        GROUP BY deviceId, TumblingWindow('2s')
 	        HAVING hot_count >= 2`
 
-	// 创建StreamSQL实例
+	// Create a StreamSQL instance
 	streamSQL := streamsql.New()
 	defer streamSQL.Stop()
 
 	err := streamSQL.Execute(sql)
 	assert.NoError(t, err, "执行SQL应该成功")
 
-	// 模拟数据
+	// Simulation data
 	testData := []map[string]any{
-		// device1: 3条高温记录，应该通过HAVING条件
+		// device1: 3 high-temperature records, should pass HAVING conditions
 		{"deviceId": "device1", "temperature": 35.0},
 		{"deviceId": "device1", "temperature": 32.0},
 		{"deviceId": "device1", "temperature": 31.0},
-		{"deviceId": "device1", "temperature": 25.0}, // 不是高温
+		{"deviceId": "device1", "temperature": 25.0}, // Not high temperatures
 
-		// device2: 1条高温记录，不应该通过HAVING条件
+		// device2: One high-temperature record, should not pass HAVING conditions
 		{"deviceId": "device2", "temperature": 33.0},
 		{"deviceId": "device2", "temperature": 28.0},
 		{"deviceId": "device2", "temperature": 26.0},
 
-		// device3: 2条高温记录，应该通过HAVING条件
+		// device3: Two high-temperature records, should pass HAVING conditions
 		{"deviceId": "device3", "temperature": 34.0},
 		{"deviceId": "device3", "temperature": 31.0},
 		{"deviceId": "device3", "temperature": 29.0},
 	}
 
-	// 添加数据并获取结果
+	// Add data and get results
 	var results []map[string]any
 	var resultsMutex sync.Mutex
 	streamSQL.Stream().AddSink(func(result []map[string]any) {
@@ -863,23 +863,23 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 		streamSQL.Emit(data)
 	}
 
-	// 等待窗口触发
+	// Wait for the window to trigger
 	time.Sleep(2500 * time.Millisecond)
 
-	// 手动触发窗口
+	// Manually trigger the window
 	streamSQL.TriggerWindow()
 
-	// 等待结果
+	// Wait for the results
 	time.Sleep(200 * time.Millisecond)
 
-	// 验证结果
+	// Verify the results
 	resultsMutex.Lock()
 	defer resultsMutex.Unlock()
 
-	// 应该只有device1和device3通过HAVING条件（hot_count >= 2）
+	// Only device1 and device3 should pass the HAVING condition (hot_count > = 2)
 	assert.Greater(t, len(results), 0, "应该有结果返回")
 
-	// 验证结果中只包含满足HAVING条件的设备
+	// Only devices that meet the HAVING criteria are included in the validation results
 	deviceResults := make(map[string]map[string]any)
 	for _, result := range results {
 		deviceId, ok := result["deviceId"].(string)
@@ -887,23 +887,23 @@ func TestHavingWithCaseExpressionFunctional(t *testing.T) {
 		deviceResults[deviceId] = result
 	}
 
-	// 验证HAVING条件的过滤效果
+	// Verify the filtering effect of HAVING conditions
 	for deviceId, result := range deviceResults {
 		hotCount := getFloat64Value(result["hot_count"])
 		assert.GreaterOrEqual(t, hotCount, 2.0,
 			"设备 %s 的hot_count应该 >= 2 (HAVING条件)", deviceId)
 	}
 
-	// device2应该被HAVING条件过滤掉（只有1条高温记录 < 2）
+	// device2 should be filtered out by HAVING conditions (only 1 high-temperature record < 2)
 	assert.NotContains(t, deviceResults, "device2",
 		"device2应该被HAVING条件过滤掉（hot_count=1 < 2）")
 
-	// 验证期望的设备出现在结果中
+	// The device that verifies the desired results appears in the results
 	assert.Contains(t, deviceResults, "device1", "device1应该通过HAVING条件")
 	assert.Contains(t, deviceResults, "device3", "device3应该通过HAVING条件")
 }
 
-// TestNegativeNumberInSQL 测试负数在完整SQL中的使用
+// TestNegativeNumberInSQL tests the use of negative numbers in full SQL
 func TestNegativeNumberInSQL(t *testing.T) {
 	t.Parallel()
 	sql := `SELECT deviceId,
@@ -926,7 +926,7 @@ func TestNegativeNumberInSQL(t *testing.T) {
 	err := streamSQL.Execute(sql)
 	assert.NoError(t, err, "包含负数的SQL应该执行成功")
 
-	// 模拟包含负数的数据
+	// The simulation contains negative data
 	testData := []map[string]any{
 		{"deviceId": "sensor1", "temperature": -15.0},
 		{"deviceId": "sensor2", "temperature": -5.0},
@@ -934,7 +934,7 @@ func TestNegativeNumberInSQL(t *testing.T) {
 		{"deviceId": "sensor4", "temperature": 10.0},
 	}
 
-	// 收集结果
+	// Collect the results
 	var results []map[string]any
 	var resultsMutex sync.Mutex
 
@@ -944,20 +944,20 @@ func TestNegativeNumberInSQL(t *testing.T) {
 		results = append(results, result...)
 	})
 
-	// 添加测试数据
+	// Add test data
 	for _, data := range testData {
 		streamSQL.Emit(data)
 	}
 
-	// 等待处理
+	// Waiting for processing
 	time.Sleep(200 * time.Millisecond)
 
-	// 验证结果
+	// Verify the results
 	resultsMutex.Lock()
 	defer resultsMutex.Unlock()
 
 	for _, result := range results {
-		// 验证包含必要字段
+		// Verify that the required fields are included
 		assert.Contains(t, result, "deviceId", "结果应该包含deviceId")
 		assert.Contains(t, result, "temperature", "结果应该包含temperature")
 		assert.Contains(t, result, "temp_category", "结果应该包含temp_category")

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// getTypeString 获取对象的类型字符串表示
+// getTypeString Retrieves the type string representation of the object
 func getTypeString(obj any) string {
 	if obj == nil {
 		return ""
@@ -20,14 +20,14 @@ func getTypeString(obj any) string {
 	return reflect.TypeOf(obj).String()
 }
 
-// TestWindowEdgeCases 测试窗口的边界条件
+// TestWindowEdgeCases: The boundary condition of the test window
 func TestWindowEdgeCases(t *testing.T) {
 	t.Run("tumbling window with zero duration", func(t *testing.T) {
 		config := types.WindowConfig{
 			Params: []any{time.Duration(0)},
 		}
 		_, err := NewTumblingWindow(config)
-		// 零持续时间可能是有效的，取决于实现
+		// Zero duration may be effective, depending on implementation
 		_ = err
 	})
 
@@ -36,7 +36,7 @@ func TestWindowEdgeCases(t *testing.T) {
 			Params: []any{-time.Second},
 		}
 		_, err := NewTumblingWindow(config)
-		// 负持续时间可能是有效的，取决于实现
+		// The duration of negative outcomes may be effective, depending on implementation
 		_ = err
 	})
 
@@ -45,7 +45,7 @@ func TestWindowEdgeCases(t *testing.T) {
 			Params: []any{time.Duration(0), time.Second},
 		}
 		_, err := NewSlidingWindow(config)
-		// 零滑动间隔可能是有效的，取决于实现
+		// Zero swipe intervals can be effective, depending on implementation
 		_ = err
 	})
 
@@ -54,12 +54,12 @@ func TestWindowEdgeCases(t *testing.T) {
 			Params: []any{time.Minute, time.Duration(0)},
 		}
 		_, err := NewSlidingWindow(config)
-		// 零滑动间隔可能是有效的，取决于实现
+		// Zero swipe intervals can be effective, depending on implementation
 		_ = err
 	})
 
 	t.Run("sliding window with slide larger than window", func(t *testing.T) {
-		// 这种情况可能是有效的，取决于实现
+		// This situation may be effective, depending on how it is implemented
 		config := types.WindowConfig{
 			Params: []any{time.Second, time.Minute},
 		}
@@ -89,7 +89,7 @@ func TestWindowEdgeCases(t *testing.T) {
 			Params: []any{time.Duration(0)},
 		}
 		_, err := NewSessionWindow(config)
-		// 零超时可能是有效的，取决于实现
+		// Zero timeouts may be effective, depending on implementation
 		_ = err
 	})
 
@@ -98,12 +98,12 @@ func TestWindowEdgeCases(t *testing.T) {
 			Params: []any{-time.Second},
 		}
 		_, err := NewSessionWindow(config)
-		// 负超时可能是有效的，取决于实现
+		// Negative timeouts may be effective, depending on implementation
 		_ = err
 	})
 }
 
-// TestWindowWithNilCallback 测试窗口使用nil回调函数
+// TestWindowWithNilCallback The test window uses the nil callback function
 func TestWindowWithNilCallback(t *testing.T) {
 	t.Run("tumbling window with nil callback", func(t *testing.T) {
 		config := types.WindowConfig{
@@ -114,7 +114,7 @@ func TestWindowWithNilCallback(t *testing.T) {
 			require.NotNil(t, window)
 			window.Start()
 
-			// 添加数据不应该panic
+			// Adding data shouldn't panic
 			row := types.Row{
 				Data:      map[string]any{"id": 1},
 				Timestamp: time.Now(),
@@ -175,7 +175,7 @@ func TestWindowWithNilCallback(t *testing.T) {
 	})
 }
 
-// TestWindowConcurrency 测试窗口的并发安全性
+// TestWindowConcurrency tests the concurrency security of the window
 func TestWindowConcurrency(t *testing.T) {
 	t.Run("concurrent add to tumbling window", func(t *testing.T) {
 		var receivedData [][]types.Row
@@ -221,7 +221,7 @@ func TestWindowConcurrency(t *testing.T) {
 
 		wg.Wait()
 
-		// 等待窗口处理完成
+		// Wait for the window to finish
 		time.Sleep(time.Millisecond * 200)
 	})
 
@@ -265,7 +265,7 @@ func TestWindowConcurrency(t *testing.T) {
 
 		var wg sync.WaitGroup
 
-		// 一个goroutine添加数据
+		// A goroutine adds data
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -279,7 +279,7 @@ func TestWindowConcurrency(t *testing.T) {
 			}
 		}()
 
-		// 另一个goroutine停止窗口
+		// Another goroutine stops the window
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -291,7 +291,7 @@ func TestWindowConcurrency(t *testing.T) {
 	})
 }
 
-// TestWindowMemoryManagement 测试窗口的内存管理
+// TestWindowMemoryManagement The memory management of the test window
 func TestWindowMemoryManagement(t *testing.T) {
 	t.Run("large data in tumbling window", func(t *testing.T) {
 		var processedCount int
@@ -310,7 +310,7 @@ func TestWindowMemoryManagement(t *testing.T) {
 
 		window.Start()
 
-		// 添加大量数据
+		// Add a lot of data
 		largeData := make([]byte, 1024*1024) // 1MB
 		for i := range largeData {
 			largeData[i] = byte(i % 256)
@@ -327,7 +327,7 @@ func TestWindowMemoryManagement(t *testing.T) {
 			window.Add(row)
 		}
 
-		// 等待处理完成
+		// Wait for processing to complete
 		time.Sleep(time.Millisecond * 200)
 	})
 
@@ -352,7 +352,7 @@ func TestWindowMemoryManagement(t *testing.T) {
 
 		window.Start()
 
-		// 快速添加大量小数据
+		// Quickly add a large amount of small data
 		for i := 0; i < 1000; i++ {
 			row := types.Row{
 				Data:      map[string]any{"id": i},
@@ -361,12 +361,12 @@ func TestWindowMemoryManagement(t *testing.T) {
 			window.Add(row)
 		}
 
-		// 等待处理完成
+		// Wait for processing to complete
 		time.Sleep(time.Millisecond * 100)
 	})
 }
 
-// TestWindowErrorConditions 测试窗口的错误条件
+// TestWindowErrorConditions The error conditions of the test window
 func TestWindowErrorConditions(t *testing.T) {
 	t.Run("add to stopped window", func(t *testing.T) {
 		config := types.WindowConfig{
@@ -380,7 +380,7 @@ func TestWindowErrorConditions(t *testing.T) {
 
 		window.Start()
 
-		// 向已停止的窗口添加数据不应该panic
+		// Adding data to stopped windows should not panic
 		row := types.Row{
 			Data:      map[string]any{"id": 1},
 			Timestamp: time.Now(),
@@ -400,7 +400,7 @@ func TestWindowErrorConditions(t *testing.T) {
 
 		window.Start()
 
-		// 添加包含不可序列化数据的行
+		// Add rows containing non-serializable data
 		row := types.Row{
 			Data: map[string]any{
 				"id":      1,
@@ -424,7 +424,7 @@ func TestWindowErrorConditions(t *testing.T) {
 
 		window.Start()
 
-		// 添加时间戳为零值的行
+		// Add rows with zero timestamps
 		row := types.Row{
 			Data:      map[string]any{"id": 1},
 			Timestamp: time.Time{},
@@ -444,7 +444,7 @@ func TestWindowErrorConditions(t *testing.T) {
 
 		window.Start()
 
-		// 添加未来时间戳的行
+		// Add a line for future timestamps
 		row := types.Row{
 			Data:      map[string]any{"id": 1},
 			Timestamp: time.Now().Add(time.Hour),
@@ -464,7 +464,7 @@ func TestWindowErrorConditions(t *testing.T) {
 
 		window.Start()
 
-		// 添加很久以前的时间戳的行
+		// Add a line of timestamps from a long time ago
 		row := types.Row{
 			Data:      map[string]any{"id": 1},
 			Timestamp: time.Now().Add(-time.Hour * 24),
@@ -473,7 +473,7 @@ func TestWindowErrorConditions(t *testing.T) {
 	})
 }
 
-// TestWindowStatsAndMetrics 测试窗口的统计和指标
+// TestWindowStatsAndMetrics Statistics and metrics for the test window
 func TestWindowStatsAndMetrics(t *testing.T) {
 	t.Run("get stats from tumbling window", func(t *testing.T) {
 		config := types.WindowConfig{
@@ -485,7 +485,7 @@ func TestWindowStatsAndMetrics(t *testing.T) {
 		}
 		assert.Nil(t, err)
 
-		// 获取统计信息不应该panic
+		// Getting statistics shouldn't be panicking
 		stats := window.GetStats()
 		_ = stats
 	})
@@ -502,14 +502,14 @@ func TestWindowStatsAndMetrics(t *testing.T) {
 
 		window.Start()
 
-		// 添加一些数据
+		// Add some data
 		row := types.Row{
 			Data:      map[string]any{"id": 1},
 			Timestamp: time.Now(),
 		}
 		window.Add(row)
 
-		// 重置统计信息不应该panic
+		// Resetting statistics should not be panicking
 		window.ResetStats()
 	})
 
@@ -523,7 +523,7 @@ func TestWindowStatsAndMetrics(t *testing.T) {
 		}
 		assert.Nil(t, err)
 
-		// 获取输出通道不应该panic
+		// Getting the output channel should not panic
 		outputChan := window.OutputChan()
 		_ = outputChan
 	})
@@ -534,16 +534,16 @@ func TestWindowStatsAndMetrics(t *testing.T) {
 		}
 		window, err := NewTumblingWindow(config)
 		if err == nil {
-			// 设置新的回调函数不应该panic
+			// Setting a new callback function should not be panicking
 			newCallback := func(rows []types.Row) {
-				// 新的回调逻辑
+				// A new pullback logic
 			}
 			window.SetCallback(newCallback)
 		}
 	})
 }
 
-// TestWindowWithPerformanceConfig 测试窗口性能配置
+// TestWindowWithPerformanceConfig Configuration of the test window
 func TestWindowWithPerformanceConfig(t *testing.T) {
 	tests := []struct {
 		name               string
@@ -677,7 +677,7 @@ func TestWindowWithPerformanceConfig(t *testing.T) {
 	})
 }
 
-// TestGetTimestampEdgeCases 测试GetTimestamp函数的边缘情况
+// TestGetTimestampEdgeCases tests the edge conditions of the GetTimestamp function
 func TestGetTimestampEdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -742,16 +742,16 @@ func TestGetTimestampEdgeCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetTimestamp(tt.data, tt.tsProp, tt.timeUnit)
 			if tt.checkNow {
-				// 检查返回的时间是否接近当前时间（允许1秒误差）
+				// Check if the return time is close to the current time (allow a 1-second margin of error)
 				assert.WithinDuration(t, time.Now(), result, time.Second)
 			}
 		})
 	}
 }
 
-// TestExtractTimestampNumericEpochs 校验 event-time 时间戳提取接受全部数值族
-// （JSON 把数字解码成 float64，Go 整数字面量是 int）与数字字符串，且需非零 TimeUnit。
-// 无 TimeUnit 的数值 epoch 因 s/ms 歧义被拒（丢行）。
+// TestExtractTimestampNumericEpochs verifies event-time timestamp extraction accepts all value families
+// (JSON decodes the numbers as float64, and the Go integer face is int) and the numeric string, which must be non-zero TimeUnit.
+// Values without TimeUnit are rejected (line dropped) due to s/ms ambiguity.
 func TestExtractTimestampNumericEpochs(t *testing.T) {
 	const msEpoch int64 = 1700000000000 // 2023-11-14T22:13:20Z
 	want := time.Unix(0, msEpoch*int64(time.Millisecond))
@@ -784,9 +784,9 @@ func TestExtractTimestampNumericEpochs(t *testing.T) {
 	}
 }
 
-// TestNewWindowRejectsNonPositiveDuration 校验构造函数拒绝非正 duration，
-// 避免 NewTicker(<=0) 在 Add/Start 里 panic 拖垮进程（SQL 路径由 validateWindowParams
-// 兜底，这里覆盖直接构造路径）。
+// TestNewWindowRejectsNonPositiveDuration The validation constructor rejects non-positive durations,
+// Avoid NewTicker (<=0) in Add/Start that can cause a process to crash (SQL path is validateWindowParams
+// Bottom line, here overlays the direct construction path).
 func TestNewWindowRejectsNonPositiveDuration(t *testing.T) {
 	cases := []struct {
 		name string
@@ -812,8 +812,8 @@ func TestNewWindowRejectsNonPositiveDuration(t *testing.T) {
 	}
 }
 
-// TestEventTimeWindowDropsUnplaceableLateData 校验 event-time 窗口丢弃无法落位的
-// 迟到行（AllowedLateness=0 默认），避免 tw.data/sw.data 无界增长 OOM。
+// TestEventTimeWindowDropsUnplaceableLateData Checks event-time window discards those that cannot be placed
+// Late-arriving line (AllowedLateness=0 default) to avoid unbounded growth of tw.data/sw.data OOM.
 func TestEventTimeWindowDropsUnplaceableLateData(t *testing.T) {
 	mkWindow := func(typ string) Window {
 		params := []any{time.Second}
@@ -886,8 +886,8 @@ func TestWatermarkIgnoresFarFutureTimestamp(t *testing.T) {
 		"real event judged late after a corrupt far-future event")
 }
 
-// TestSessionWindowDropsLateEvent 校验 event-time session 窗口丢弃不可吸收的迟到行，
-// 而非按陈旧 timestamp 建立即刻过期的伪单事件会话。
+// TestSessionWindowDropsLateEvent Validation: The event-time session window discards late, unabsorbable lines,
+// Instead of creating an expired fake order event session based on outdated timestamps.
 func TestSessionWindowDropsLateEvent(t *testing.T) {
 	cfg := types.WindowConfig{
 		Type: TypeSession, Params: []any{time.Hour}, // long timeout keeps the in-order session alive
@@ -911,7 +911,7 @@ func TestSessionWindowDropsLateEvent(t *testing.T) {
 	assert.True(t, n <= 2, "late events must not create sessions, got %d", n)
 }
 
-// TestSessionWindowSessionKey 测试会话窗口的会话键提取
+// TestSessionWindowSessionKey tests session key extraction for the session window
 func TestSessionWindowSessionKey(t *testing.T) {
 	config := types.WindowConfig{
 		Type:        TypeSession,
@@ -922,7 +922,7 @@ func TestSessionWindowSessionKey(t *testing.T) {
 	sw, err := NewSessionWindow(config)
 	assert.NoError(t, err)
 
-	// 测试不同类型的数据
+	// Test different types of data
 	tests := []struct {
 		name string
 		data any
@@ -949,7 +949,7 @@ func TestSessionWindowSessionKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 这里只是测试Add方法不会panic
+			// This is just testing that the Add method does not panic
 			assert.NotPanics(t, func() {
 				sw.Add(tt.data)
 			})
@@ -957,7 +957,7 @@ func TestSessionWindowSessionKey(t *testing.T) {
 	}
 }
 
-// TestWindowStopBeforeStart 测试在启动前停止窗口
+// TestWindowStopBeforeStart Tests the window that stops before starting
 func TestWindowStopBeforeStart(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -998,7 +998,7 @@ func TestWindowStopBeforeStart(t *testing.T) {
 			window, err := CreateWindow(tt.config)
 			assert.NoError(t, err)
 
-			// 在启动前停止窗口应该不会panic
+			// The stop window before startup should not panic
 			assert.NotPanics(t, func() {
 				if tw, ok := window.(*TumblingWindow); ok {
 					tw.Stop()
@@ -1015,7 +1015,7 @@ func TestWindowStopBeforeStart(t *testing.T) {
 	}
 }
 
-// TestWindowMultipleStops 测试多次停止窗口
+// TestWindowMultipleStops Tests multiple stops windows
 func TestWindowMultipleStops(t *testing.T) {
 	config := types.WindowConfig{
 		Type:   TypeTumbling,
@@ -1027,7 +1027,7 @@ func TestWindowMultipleStops(t *testing.T) {
 
 	tw.Start()
 
-	// 多次停止应该不会panic
+	// Stopping multiple times shouldn't cause panic
 	assert.NotPanics(t, func() {
 		tw.Stop()
 		tw.Stop()
@@ -1035,7 +1035,7 @@ func TestWindowMultipleStops(t *testing.T) {
 	})
 }
 
-// TestWindowAddAfterStop 测试停止后添加数据
+// TestWindowAddAfterStop: Adds data after the test stops
 func TestWindowAddAfterStop(t *testing.T) {
 	config := types.WindowConfig{
 		Type:   TypeTumbling,
@@ -1048,13 +1048,13 @@ func TestWindowAddAfterStop(t *testing.T) {
 	tw.Start()
 	tw.Stop()
 
-	// 停止后添加数据应该不会panic
+	// Adding data after stopping should not cause panic
 	assert.NotPanics(t, func() {
 		tw.Add(map[string]any{"value": 42})
 	})
 }
 
-// TestCountingWindowWithCallback 测试计数窗口的回调功能
+// TestCountingWindowWithCallback: The callback function of the test counting window
 func TestCountingWindowWithCallback(t *testing.T) {
 	var mu sync.Mutex
 	callbackData := make([][]types.Row, 0)
@@ -1076,14 +1076,14 @@ func TestCountingWindowWithCallback(t *testing.T) {
 	cw.Start()
 	// CountingWindow doesn't have Stop method, will be handled by context cancellation
 
-	// 添加数据
+	// Add data
 	cw.Add(map[string]any{"value": 1})
 	cw.Add(map[string]any{"value": 2})
 
-	// 等待处理
+	// Waiting for processing
 	time.Sleep(100 * time.Millisecond)
 
-	// 检查回调是否被调用
+	// Check if the callback has been called
 	assert.Eventually(t, func() bool {
 		mu.Lock()
 		defer mu.Unlock()
@@ -1091,7 +1091,7 @@ func TestCountingWindowWithCallback(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 }
 
-// TestSlidingWindowInvalidParams 测试滑动窗口的无效参数
+// TestSlidingWindowInvalidParams Tests invalid parameters for the slider
 func TestSlidingWindowInvalidParams(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -1119,7 +1119,7 @@ func TestSlidingWindowInvalidParams(t *testing.T) {
 	}
 }
 
-// TestWindowUnifiedConfigIntegration 集成测试：验证窗口配置与实际数据处理的集成
+// TestWindowUnifiedConfigIntegration Integration Testing: Verifies the integration of window configuration with actual data processing
 func TestWindowUnifiedConfigIntegration(t *testing.T) {
 	t.Run("性能配置集成测试", func(t *testing.T) {
 		performanceConfig := types.HighPerformanceConfig()
@@ -1134,13 +1134,13 @@ func TestWindowUnifiedConfigIntegration(t *testing.T) {
 		assert.NoError(t, err)
 		defer tw.Stop()
 
-		// 验证缓冲区大小
+		// Verify the buffer size
 		assert.Equal(t, 200, cap(tw.outputChan))
 
-		// 启动窗口
+		// Startup window
 		tw.Start()
 
-		// 发送测试数据
+		// Send test data
 		for i := 0; i < 10; i++ {
 			tw.Add(map[string]any{
 				"id":    i,
@@ -1148,24 +1148,24 @@ func TestWindowUnifiedConfigIntegration(t *testing.T) {
 			})
 		}
 
-		// 等待窗口触发
+		// Wait for the window to trigger
 		time.Sleep(1200 * time.Millisecond)
 
-		// 验证窗口能正常工作
+		// The verification window works properly
 		select {
 		case data := <-tw.OutputChan():
 			assert.Greater(t, len(data), 0)
 			assert.LessOrEqual(t, len(data), 10)
 		case <-time.After(500 * time.Millisecond):
-			t.Error("超时未接收到窗口输出")
+			t.Error("No window output received after timeout")
 		}
 	})
 
 	t.Run("缓冲区溢出处理", func(t *testing.T) {
-		// 创建一个小缓冲区的窗口
+		// Create a window with a small buffer
 		smallBufferConfig := types.PerformanceConfig{
 			BufferConfig: types.BufferConfig{
-				WindowOutputSize: 1, // 非常小的缓冲区
+				WindowOutputSize: 1, // A very small buffer zone
 			},
 		}
 
@@ -1181,22 +1181,22 @@ func TestWindowUnifiedConfigIntegration(t *testing.T) {
 		tw.Start()
 		defer tw.Stop()
 
-		// 快速添加大量数据，可能导致缓冲区溢出
+		// Quickly adding large amounts of data may cause buffer overflow
 		for i := 0; i < 10; i++ {
 			tw.Add(map[string]any{"value": i})
 		}
 
-		// 等待处理
+		// Waiting for processing
 		time.Sleep(200 * time.Millisecond)
 
-		// 检查统计信息
+		// Check the statistics
 		stats := tw.GetStats()
 		assert.Contains(t, stats, "droppedCount")
 		assert.Contains(t, stats, "sentCount")
 	})
 }
 
-// TestCreateWindow 测试窗口工厂函数
+// TestCreateWindow TestWindow Factory function
 func TestCreateWindow(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -1278,7 +1278,7 @@ func TestCreateWindow(t *testing.T) {
 			assert.NotNil(t, window)
 			assert.Equal(t, tt.expectedType, getTypeString(window))
 
-			// 验证窗口能正常工作
+			// The verification window works properly
 			if closer, ok := window.(interface{ Stop() }); ok {
 				closer.Stop()
 			}
@@ -1286,7 +1286,7 @@ func TestCreateWindow(t *testing.T) {
 	}
 }
 
-// TestGetTimestampCoverage 测试时间戳提取函数
+// TestGetTimestampCoverage tests the timestamp extraction function
 func TestGetTimestampCoverage(t *testing.T) {
 	testTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
 
@@ -1346,7 +1346,7 @@ func TestGetTimestampCoverage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetTimestamp(tt.data, tt.tsProp, tt.timeUnit)
 			if tt.name == "无法提取时间戳，使用当前时间" {
-				// 检查返回的时间是否接近当前时间（允许1秒误差）
+				// Check if the return time is close to the current time (allow a 1-second margin of error)
 				assert.WithinDuration(t, time.Now(), result, time.Second)
 			} else {
 				assert.Equal(t, tt.expected, result)
@@ -1355,7 +1355,7 @@ func TestGetTimestampCoverage(t *testing.T) {
 	}
 }
 
-// TestWindowErrorHandling 测试窗口错误处理
+// TestWindowErrorHandling: Test window error handling
 func TestWindowErrorHandling(t *testing.T) {
 	t.Run("滚动窗口无效大小", func(t *testing.T) {
 		config := types.WindowConfig{
@@ -1394,7 +1394,7 @@ func TestWindowErrorHandling(t *testing.T) {
 	})
 }
 
-// TestSessionWindowAdvanced 测试会话窗口的高级功能
+// TestSessionWindowAdvanced is an advanced feature of the test session window
 func TestSessionWindowAdvanced(t *testing.T) {
 	config := types.WindowConfig{
 		Type:        TypeSession,
@@ -1406,16 +1406,16 @@ func TestSessionWindowAdvanced(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, sw)
 
-	// 测试设置回调函数
+	// Test the callback function
 	sw.SetCallback(func(results []types.Row) {
 		// Callback executed
 	})
 
-	// 启动窗口
+	// Startup window
 	sw.Start()
 	defer sw.Stop()
 
-	// 添加不同用户的数据
+	// Add data from different users
 	sw.Add(map[string]any{
 		"user_id": "user1",
 		"value":   100,
@@ -1426,25 +1426,25 @@ func TestSessionWindowAdvanced(t *testing.T) {
 		"value":   200,
 	})
 
-	// 等待会话超时
+	// Waiting for the session to time out
 	time.Sleep(1500 * time.Millisecond)
 
-	// 检查输出通道
+	// Check the output channel
 	select {
 	case data := <-sw.OutputChan():
 		assert.NotEmpty(t, data)
 	case <-time.After(500 * time.Millisecond):
-		// 可能没有数据输出，这也是正常的
+		// There may be no data output, which is normal
 	}
 
-	// 测试重置功能
+	// Test reset function
 	sw.Reset()
 
-	// 测试手动触发
+	// Testing is triggered manually
 	sw.Trigger()
 }
 
-// TestSlidingWindowAdvanced 测试滑动窗口的高级功能
+// TestSlidingWindowAdvanced Tests the advanced features of sliding windows
 func TestSlidingWindowAdvanced(t *testing.T) {
 	config := types.WindowConfig{
 		Type:     TypeSliding,
@@ -1457,18 +1457,18 @@ func TestSlidingWindowAdvanced(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, sw)
 
-	// 测试获取输出通道
+	// Test to obtain the output channel
 	outputChan := sw.OutputChan()
 	assert.NotNil(t, outputChan)
 
-	// 测试重置功能
+	// Test reset function
 	sw.Reset()
 
-	// 测试手动触发
+	// Testing is triggered manually
 	sw.Trigger()
 }
 
-// TestCountingWindowAdvanced 测试计数窗口的高级功能
+// TestCountingWindowAdvanced: Advanced features of the test counting window
 func TestCountingWindowAdvanced(t *testing.T) {
 	config := types.WindowConfig{
 		Type:     TypeCounting,
@@ -1481,16 +1481,16 @@ func TestCountingWindowAdvanced(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, cw)
 
-	// 测试设置回调函数
+	// Test the callback function
 	cw.SetCallback(func(results []types.Row) {
 		// Callback executed
 	})
 
-	// 启动窗口
+	// Startup window
 	cw.Start()
 	// CountingWindow doesn't have Stop method
 
-	// 添加数据直到达到阈值
+	// Add data until the threshold is reached
 	for i := 0; i < 3; i++ {
 		cw.Add(map[string]any{
 			"timestamp": time.Now().Unix(),
@@ -1498,25 +1498,25 @@ func TestCountingWindowAdvanced(t *testing.T) {
 		})
 	}
 
-	// 等待一段时间让窗口处理数据
+	// Wait a while for the window to process the data
 	time.Sleep(100 * time.Millisecond)
 
-	// 检查输出通道
+	// Check the output channel
 	select {
 	case data := <-cw.OutputChan():
 		assert.Len(t, data, 3)
 	case <-time.After(500 * time.Millisecond):
-		// 可能没有数据输出，这也是正常的
+		// There may be no data output, which is normal
 	}
 
-	// 测试重置功能
+	// Test reset function
 	cw.Reset()
 
-	// 测试手动触发
+	// Testing is triggered manually
 	cw.Trigger()
 }
 
-// TestTumblingWindowAdvanced 测试滚动窗口的高级功能
+// TestTumblingWindowAdvanced tests the advanced features of rolling windows
 func TestTumblingWindowAdvanced(t *testing.T) {
 	config := types.WindowConfig{
 		Type:     TypeTumbling,
@@ -1529,29 +1529,29 @@ func TestTumblingWindowAdvanced(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, tw)
 
-	// 检查统计信息
+	// Check the statistics
 	stats := tw.GetStats()
 	assert.Contains(t, stats, "sentCount")
 	assert.Contains(t, stats, "droppedCount")
 
-	// 测试重置统计信息
+	// Test reset statistics
 	tw.ResetStats()
 	stats = tw.GetStats()
 	assert.Equal(t, int64(0), stats["droppedCount"])
 	assert.Equal(t, int64(0), stats["sentCount"])
 
-	// 测试设置回调函数
+	// Test the callback function
 	tw.SetCallback(func(results []types.Row) {
 		// Callback executed
 	})
 
-	// 测试获取输出通道
+	// Test to obtain the output channel
 	outputChan := tw.OutputChan()
 	assert.NotNil(t, outputChan)
 
-	// 测试重置功能
+	// Test reset function
 	tw.Reset()
 
-	// 测试手动触发
+	// Testing is triggered manually
 	tw.Trigger()
 }

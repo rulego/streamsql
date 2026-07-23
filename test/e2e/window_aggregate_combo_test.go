@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 窗口 × 聚合组合的语义测试。预期值从 SQL 标准语义推导（不从代码反推）。
-// 统一用事件时间 + 远未来事件推水位触发窗口（确定性，不依赖真实时钟）。
+// Window × Semantic testing of aggregated combinations. Expected values are derived from SQL standard semantics (not backwards from code).
+// Unified trigger window using event time + distant future event push-up threshold (deterministic, not dependent on the actual clock).
 
-// asFloat64 把 count/sum/avg 等可能为 int/int64/float64 的聚合结果统一成 float64 比对，
-// 避免 count(*) 的具体整数类型耦合。
+// asFloat64 unifies the aggregate results of count/sum/avg that may be int/int/int64/float64 into float64 comparison,
+// Avoid coupling count(*) into specific integer types.
 func asFloat64(v any) float64 {
 	switch x := v.(type) {
 	case float64:
@@ -30,8 +30,8 @@ func asFloat64(v any) float64 {
 	return 0
 }
 
-// HAVING 引用「未在 SELECT 出现」的聚合：SELECT 只有 count(*)，HAVING 用 max(v)。
-// 窗口 [base,base+1s) 值 10,60 → max=60>50 通过，count=2。
+// HAVING references aggregations that do not appear in SELECT: SELECT only count(*), HAVING uses max(v).
+// Window [base,base+1s) values 10, 60 → max=60>50 pass, count=2.
 func TestWindowCombo_Having_NonSelectedAggregate(t *testing.T) {
 	ssql := streamsql.New()
 	defer ssql.Stop()
@@ -43,19 +43,19 @@ func TestWindowCombo_Having_NonSelectedAggregate(t *testing.T) {
 	base := time.Now().UnixMilli() - 5000
 	ssql.Emit(map[string]any{"ts": base, "v": 10.0})
 	ssql.Emit(map[string]any{"ts": base, "v": 60.0})
-	ssql.Emit(map[string]any{"ts": base + 2000, "v": 5.0}) // 推水位触发 [base,base+1s)
+	ssql.Emit(map[string]any{"ts": base + 2000, "v": 5.0}) // Push the water level to trigger [base,base+1s)
 
 	select {
 	case rows := <-ch:
 		require.Len(t, rows, 1)
 		assert.Equal(t, 2.0, asFloat64(rows[0]["c"]), "count=2，max=60>50 应通过 HAVING")
 	case <-time.After(5 * time.Second):
-		t.Fatal("timeout: HAVING 引用未选中的 max(v) 应能正常求值触发")
+		t.Fatal("timeout: HAVING The reference to an unselected max(v) should be able to evaluate and trigger normally")
 	}
 }
 
-// 两个聚合做算术（后聚合回代）：SELECT max(v)-min(v) AS rng, sum(v)。
-// 值 10,40,25 → max-min=30，sum=75。
+// Arithmetic for two aggregates (post-aggregation backsubstitution): SELECT max(v) - min(v) AS rng, sum(v).
+// Values 10, 40, 25 → max-min=30, sum=75.
 func TestWindowCombo_PostAggArithmetic_TwoAggregates(t *testing.T) {
 	ssql := streamsql.New()
 	defer ssql.Stop()
@@ -76,12 +76,12 @@ func TestWindowCombo_PostAggArithmetic_TwoAggregates(t *testing.T) {
 		assert.Equal(t, 30.0, asFloat64(rows[0]["rng"]), "max-min = 40-10")
 		assert.Equal(t, 75.0, asFloat64(rows[0]["total"]), "sum = 10+40+25")
 	case <-time.After(5 * time.Second):
-		t.Fatal("timeout: 两聚合 max-min 算术应回代求值")
+		t.Fatal("timeout: Two aggregates max-min arithmetic should be performed by substitution")
 	}
 }
 
-// 同一窗口多种聚合类型：count/sum/avg/min/max 各自正确。
-// 值 10,20,30 → c=3 s=60 a=20 mn=10 mx=30。
+// Multiple aggregation types in the same window: count/sum/avg/min/max are each correct.
+// Values 10, 20, 30 → c = 3, s = 60, a = 20, mn = 10, mx = 30.
 func TestWindowCombo_MultipleAggregates(t *testing.T) {
 	ssql := streamsql.New()
 	defer ssql.Stop()
@@ -109,8 +109,8 @@ func TestWindowCombo_MultipleAggregates(t *testing.T) {
 	}
 }
 
-// NULL 在聚合里的处理（SQL 标准）：count(*) 计行，count(v)/avg/sum 忽略 NULL。
-// 值 10,nil,30 → c=3 cv=2 a=20 s=40。
+// NULL processing in aggregates (SQL standard): count(*) counts rows, count(v)/avg/sum ignores NULL.
+// Values 10, nil, 30 → c=3, cv=2, a=20, s=40.
 func TestWindowCombo_NullInAggregates(t *testing.T) {
 	ssql := streamsql.New()
 	defer ssql.Stop()

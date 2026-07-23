@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TestAggregateTypeConstants 测试聚合类型常量
+// TestAggregateTypeConstants Tests the aggregation type constants
 func TestAggregateTypeConstants(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -44,7 +44,7 @@ func TestAggregateTypeConstants(t *testing.T) {
 	}
 }
 
-// TestStringConstants 测试字符串常量
+// TestStringConstants tests string constants
 func TestStringConstants(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -84,17 +84,17 @@ func TestStringConstants(t *testing.T) {
 	}
 }
 
-// TestRegisterLegacyAggregator 测试注册遗留聚合器
+// TestRegisterLegacyAggregator tests the Legacy aggregator
 func TestRegisterLegacyAggregator(t *testing.T) {
-	// 创建一个测试聚合器构造函数
+	// Create a test aggregator constructor
 	constructor := func() LegacyAggregatorFunction {
 		return &TestLegacyAggregator{}
 	}
 
-	// 注册聚合器
+	// Register aggregators
 	RegisterLegacyAggregator("test_agg", constructor)
 
-	// 验证注册成功
+	// Verify registration successfully
 	legacyRegistryMutex.RLock()
 	_, exists := legacyAggregatorRegistry["test_agg"]
 	legacyRegistryMutex.RUnlock()
@@ -103,13 +103,13 @@ func TestRegisterLegacyAggregator(t *testing.T) {
 		t.Error("Failed to register legacy aggregator")
 	}
 
-	// 测试创建聚合器
+	// Test the creation of aggregators
 	createdAgg := CreateLegacyAggregator("test_agg")
 	if createdAgg == nil {
 		t.Error("Failed to create legacy aggregator")
 	}
 
-	// 测试聚合器功能
+	// Test the aggregator function
 	createdAgg.Add(10)
 	createdAgg.Add(20)
 	result := createdAgg.Result()
@@ -145,126 +145,125 @@ func TestCreateLegacyAggregatorPercentile(t *testing.T) {
 	}
 }
 
-// TestFunctionAggregatorWrapper 测试函数聚合器包装器
+// TestFunctionAggregatorWrapper is a test function aggregator wrapper
 func TestFunctionAggregatorWrapper(t *testing.T) {
-	// 创建一个测试聚合器函数
+	// Create a test aggregator function
 	testAgg := &TestAggregatorFunction{}
 
-	// 创建一个测试适配器
+	// Create a test adapter
 	adapter := &AggregatorAdapter{
 		aggFunc: testAgg,
 	}
 	wrapper := &FunctionAggregatorWrapper{adapter: adapter}
 
-	// 测试New方法
+	// Test the new method
 	newWrapper := wrapper.New()
 	if newWrapper == nil {
 		t.Error("New() should return a new wrapper")
 	}
 
-	// 测试GetContextKey方法
+	// Test the GetContextKey method
 	contextKey := wrapper.GetContextKey()
 	if contextKey != "" {
 		t.Logf("Context key: %s", contextKey)
 	}
 }
 
-// TestLegacyAggregator 测试用的遗留聚合器实现
+// TestLegacyAggregator implementation for testing
 type TestLegacyAggregator struct {
 	sum int
 }
 
-// New 创建新的聚合器实例
+// New: Create a new aggregator instance
 func (t *TestLegacyAggregator) New() LegacyAggregatorFunction {
 	return &TestLegacyAggregator{}
 }
 
-// Add 添加值
+// Add value
 func (t *TestLegacyAggregator) Add(value any) {
 	if v, ok := value.(int); ok {
 		t.sum += v
 	}
 }
 
-// Result 返回聚合结果
+// Result: Returns the aggregated result
 func (t *TestLegacyAggregator) Result() any {
 	return t.sum
 }
 
-// TestAggregatorFunction 测试用的聚合器函数实现
+// TestAggregatorFunction is an aggregator function implemented for testing
 type TestAggregatorFunction struct {
 	sum int
 }
 
-// New 创建新的聚合器实例
+// New: Create a new aggregator instance
 func (t *TestAggregatorFunction) New() AggregatorFunction {
 	return &TestAggregatorFunction{}
 }
 
-// Add 添加值
+// Add value
 func (t *TestAggregatorFunction) Add(value any) {
 	if v, ok := value.(int); ok {
 		t.sum += v
 	}
 }
 
-// Result 返回聚合结果
+// Result: Returns the aggregated result
 func (t *TestAggregatorFunction) Result() any {
 	return t.sum
 }
 
-// Reset 重置聚合器状态
+// Reset: Resets the aggregator state
 func (t *TestAggregatorFunction) Reset() {
 	t.sum = 0
 }
 
-// Clone 克隆聚合器
+// Clone cloning aggregator
 func (t *TestAggregatorFunction) Clone() AggregatorFunction {
 	return &TestAggregatorFunction{sum: t.sum}
 }
 
-// GetName 返回函数名称
+// GetName returns the function name
 func (t *TestAggregatorFunction) GetName() string {
 	return "test_aggregator"
 }
 
-// GetType 返回函数类型
+// GetType returns the function type
 func (t *TestAggregatorFunction) GetType() FunctionType {
 	return TypeAggregation
 }
 
-// GetCategory 返回函数分类
+// GetCategory returns the function classification
 func (t *TestAggregatorFunction) GetCategory() string {
 	return "test"
 }
 
-// GetDescription 返回函数描述
+// GetDescription returns the function description
 func (t *TestAggregatorFunction) GetDescription() string {
 	return "Test aggregator function"
 }
 
-// GetAliases 返回函数别名
+// GetAliases returns the function alias
 func (t *TestAggregatorFunction) GetAliases() []string {
 	return []string{}
 }
 
-// Validate 验证参数
+// Validate the parameters
 func (t *TestAggregatorFunction) Validate(args []any) error {
 	return nil
 }
 
-// Execute 执行函数
+// Execute the function
 func (t *TestAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return t.Result(), nil
 }
 
-// GetMinArgs 返回最小参数数量
+// GetMinArgs returns the minimum number of parameters
 func (t *TestAggregatorFunction) GetMinArgs() int {
 	return 1
 }
 
-// GetMaxArgs 返回最大参数数量
+// GetMaxArgs returns the maximum number of parameters
 func (t *TestAggregatorFunction) GetMaxArgs() int {
 	return 1
 }
-

@@ -11,10 +11,10 @@ func main() {
 	fmt.Println("🔧 StreamSQL 函数系统整合演示")
 	fmt.Println(strings.Repeat("=", 50))
 
-	// 1. 获取桥接器
+	// 1. Get the bridge
 	bridge := functions.GetExprBridge()
 
-	// 2. 准备测试数据
+	// 2. Prepare test data
 	data := map[string]any{
 		"temperature": -15.5,
 		"humidity":    65.8,
@@ -29,23 +29,23 @@ func main() {
 
 	fmt.Printf("📊 测试数据: %+v\n\n", data)
 
-	// 3. 演示 StreamSQL 函数
+	// 3. Demonstrate the StreamSQL function
 	fmt.Println("🎯 StreamSQL 内置函数演示:")
 	testStreamSQLFunctions(bridge, data)
 
-	// 4. 演示 expr-lang 函数
+	// 4. Demonstrate the expr-lang function
 	fmt.Println("\n🚀 expr-lang 内置函数演示:")
 	testExprLangFunctions(bridge, data)
 
-	// 5. 演示混合使用
+	// 5. Demonstrate mixed use
 	fmt.Println("\n🔀 混合函数使用演示:")
 	testMixedFunctions(bridge, data)
 
-	// 6. 演示函数冲突解决
+	// 6. Demonstration of function conflict resolution
 	fmt.Println("\n⚖️ 函数冲突解决演示:")
 	testFunctionConflicts(bridge, data)
 
-	// 7. 显示所有可用函数
+	// 7. Display all available functions
 	fmt.Println("\n📋 所有可用函数:")
 	showAllFunctions()
 }
@@ -129,7 +129,7 @@ func testMixedFunctions(bridge *functions.ExprBridge, data map[string]any) {
 }
 
 func testFunctionConflicts(bridge *functions.ExprBridge, data map[string]any) {
-	// 测试冲突函数的解析
+	// Test the analysis of the conflict function
 	conflictFunctions := []string{"abs", "max", "min", "upper", "lower"}
 
 	for _, funcName := range conflictFunctions {
@@ -139,7 +139,7 @@ func testFunctionConflicts(bridge *functions.ExprBridge, data map[string]any) {
 		}
 	}
 
-	// 测试使用别名访问StreamSQL版本
+	// Test accessing the StreamSQL version using aliases
 	fmt.Println("\n   📝 使用别名访问StreamSQL函数:")
 	env := bridge.CreateEnhancedExprEnvironment(data)
 	if _, exists := env["streamsql_abs"]; exists {
@@ -153,7 +153,7 @@ func testFunctionConflicts(bridge *functions.ExprBridge, data map[string]any) {
 func showAllFunctions() {
 	info := functions.GetAllAvailableFunctions()
 
-	// StreamSQL 函数
+	// StreamSQL function
 	if streamSQLFuncs, ok := info["streamsql"].(map[string]any); ok {
 		fmt.Printf("   📦 StreamSQL 函数 (%d个):\n", len(streamSQLFuncs))
 		categories := make(map[string][]string)
@@ -171,7 +171,7 @@ func showAllFunctions() {
 		}
 	}
 
-	// expr-lang 函数
+	// expr-lang function
 	if exprLangFuncs, ok := info["expr-lang"].(map[string]any); ok {
 		fmt.Printf("\n   🚀 expr-lang 函数 (%d个):\n", len(exprLangFuncs))
 		categories := make(map[string][]string)

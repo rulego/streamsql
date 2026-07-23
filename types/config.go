@@ -21,29 +21,29 @@ const (
 // Config stream processing configuration
 type Config struct {
 	// SQL processing related configuration
-	WindowConfig       WindowConfig                        `json:"windowConfig"`
-	GroupFields        []string                            `json:"groupFields"`
-	SelectFields       map[string]aggregator.AggregateType `json:"selectFields"`
-	FieldAlias         map[string]string                   `json:"fieldAlias"`
+	WindowConfig WindowConfig                        `json:"windowConfig"`
+	GroupFields  []string                            `json:"groupFields"`
+	SelectFields map[string]aggregator.AggregateType `json:"selectFields"`
+	FieldAlias   map[string]string                   `json:"fieldAlias"`
 	// SelectAlias maps a SELECT item's raw expression to its AS alias (e.g.
 	// "m.location" -> "loc"). The aggregation path uses it to name output
 	// columns for grouped non-aggregate columns, matching the direct path
 	// (where the alias is applied during SimpleField compilation).
-	SelectAlias        map[string]string                   `json:"selectAlias"`
-	SimpleFields       []string                            `json:"simpleFields"`
-	FieldExpressions   map[string]FieldExpression          `json:"fieldExpressions"`
-	PostAggExpressions []PostAggregationExpression         `json:"postAggExpressions"` // Post-aggregation expressions
-	FieldOrder         []string                            `json:"fieldOrder"`         // Original order of fields in SELECT statement
-	Where              string                              `json:"where"`
-	Having             string                              `json:"having"`
+	SelectAlias        map[string]string           `json:"selectAlias"`
+	SimpleFields       []string                    `json:"simpleFields"`
+	FieldExpressions   map[string]FieldExpression  `json:"fieldExpressions"`
+	PostAggExpressions []PostAggregationExpression `json:"postAggExpressions"` // Post-aggregation expressions
+	FieldOrder         []string                    `json:"fieldOrder"`         // Original order of fields in SELECT statement
+	Where              string                      `json:"where"`
+	Having             string                      `json:"having"`
 
 	// Feature switches
 	NeedWindow bool `json:"needWindow"`
 	Distinct   bool `json:"distinct"`
 
-	// Mode 选择执行路径（直连/窗口/CEP）。NeedWindow 保留为兼容谓词（==ExecWindow）。
+	// Mode selects the execution path (direct connection/window/CEP). NeedWindow is reserved as a compatibility predicate (==ExecWindow).
 	Mode ExecMode `json:"mode"`
-	// MatchRecognize 携带 MATCH_RECOGNIZE 子句；非空时 Mode=ExecCEP。
+	// MatchRecognize carries MATCH_RECOGNIZE clauses; Non-null Mode=ExecCEP.
 	MatchRecognize *MatchRecognizeSpec `json:"matchRecognize,omitempty"`
 
 	// Result control
@@ -60,15 +60,15 @@ type Config struct {
 	// When set, stream fields can be qualified as "s.<field>" in SELECT/WHERE.
 	SourceAlias string `json:"sourceAlias"`
 
-	// AnalyticFields 分析函数字段（带可选 OVER）。走直连路径，由
-	// 流级状态机逐条求值，不进聚合路径。空表示无分析函数。
+	// Numeric segment of the AnalyticFields analysis function (with optional OVER). Take the direct connection path, by
+	// The flow level state machine evaluates each item without entering the aggregation path. An empty means no analysis function.
 	AnalyticFields []AnalyticField `json:"analyticFields"`
-	// WhereAnalyticCalls WHERE 中出现的分析函数调用；解析期从 WHERE 文本提取并
-	// 替换为占位符，求值期在 WHERE 之前算出值注入 dataMap[Placeholder]。
+	// Analysis function calls that appear in WhereAnalyticCalls WHERE; During the parsing period, extract and extract from the WHERE text
+	// Replace with placeholders, and the evaluation period is calculated before WHERE to inject the value into dataMap[Placeholder].
 	WhereAnalyticCalls []WhereAnalyticCall `json:"whereAnalyticCalls"`
-	// AnalyticMaxPartitions 每个分析函数字段 PARTITION 状态的分区数上限，超出按
-	// LRU 淘汰最久未用的分区。≤0 表示用默认值（见 stream.defaultMaxPartitions）。
-	// 由 WithAnalyticMaxPartitions 注入。高基数分区键（如设备上万）且内存充裕时可调高。
+	// AnalyticMaxPartitions is the maximum number of partitions in each segment of the analysis function's PARTITION state; if exceeded, click
+	// LRU eliminates the longest-unused partitions. ≤0 means the default value is used (see stream.defaultMaxPartitions).
+	// Injected by WithAnalyticMaxPartitions. High base zone keys (such as tens of thousands of devices on the same scale) can be adjusted higher when memory is abundant.
 	AnalyticMaxPartitions int `json:"analyticMaxPartitions"`
 
 	// Logger is the per-instance logger for the stream pipeline. Injected by
@@ -143,7 +143,7 @@ type WindowConfig struct {
 	// group without buffering raw rows. Populated from the parsed SELECT for
 	// windowType=global only.
 	TriggerCondition string                              `json:"triggerCondition,omitempty"`
-	SelectFields    map[string]aggregator.AggregateType `json:"selectFields,omitempty"`
+	SelectFields     map[string]aggregator.AggregateType `json:"selectFields,omitempty"`
 	FieldAlias       map[string]string                   `json:"fieldAlias,omitempty"`
 }
 
@@ -156,19 +156,19 @@ type FieldExpression struct {
 
 // PostAggregationExpression represents an expression that needs to be evaluated after aggregation
 type PostAggregationExpression struct {
-	OutputField        string                 `json:"outputField"`        // 输出字段名
-	OriginalExpr       string                 `json:"originalExpr"`       // 原始表达式
-	ExpressionTemplate string                 `json:"expressionTemplate"` // 表达式模板
-	RequiredFields     []AggregationFieldInfo `json:"requiredFields"`     // 依赖的聚合字段
+	OutputField        string                 `json:"outputField"`        // Output field name
+	OriginalExpr       string                 `json:"originalExpr"`       // Primitive expression
+	ExpressionTemplate string                 `json:"expressionTemplate"` // Expression template
+	RequiredFields     []AggregationFieldInfo `json:"requiredFields"`     // Dependent aggregated fields
 }
 
 // AggregationFieldInfo holds information about an aggregation function in an expression
 type AggregationFieldInfo struct {
-	FuncName    string                   `json:"funcName"`    // 函数名，如 "first_value"
-	InputField  string                   `json:"inputField"`  // 输入字段，如 "displayNum"
-	Placeholder string                   `json:"placeholder"` // 占位符，如 "__first_value_0__"
-	AggType     aggregator.AggregateType `json:"aggType"`     // 聚合类型
-	FullCall    string                   `json:"fullCall"`    // 完整函数调用，如 "NTH_VALUE(value, 2)"
+	FuncName    string                   `json:"funcName"`    // Function name, such as "first_value"
+	InputField  string                   `json:"inputField"`  // Input fields, such as "displayNum"
+	Placeholder string                   `json:"placeholder"` // Placeholders, such as "__first_value_0__"
+	AggType     aggregator.AggregateType `json:"aggType"`     // Types of aggregation
+	FullCall    string                   `json:"fullCall"`    // Full function calls, such as "NTH_VALUE(value, 2)"
 }
 
 // ProjectionSourceType projection source type

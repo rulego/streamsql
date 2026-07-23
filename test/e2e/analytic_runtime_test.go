@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 分析函数 OVER 状态机的运行时特性：并发正确性 + 分区上限 + 性能基准。
-// 并发测试在 CI/Linux 的 -race 下回归（捕获把 lastResults/partitions/state
-// 访问移出 fe.mu 的改动）；本地普通模式验证无 panic/死锁、增量守恒、上限生效。
+// Analyze the runtime characteristics of the OVER function state machine: concurrency correctness + partition limit + performance benchmark.
+// Concurrent tests regress under CI/Linux -race (capture lastResults/partitions/state).
+// Changes to the access removal fe.mu); Authenticated in local normal mode, there is no panic/deadlock, incremental conservation, and upper limit effect.
 
-// --- 并发 ---
+// --- Concurrent ---
 
-// 多 goroutine 各打一个独立分区：互斥串行化后每分区计数精确，无跨分区串扰。
+// Multiple goroutines each run an independent partition: after mutex serialization, each partition counts accurately, with no cross-partition crosstalk.
 func TestAnalytic_ConcurrentEmitSync_DistinctPartitions(t *testing.T) {
 	const g, m = 8, 500
 	ssql := streamsql.New()
@@ -49,8 +49,8 @@ func TestAnalytic_ConcurrentEmitSync_DistinctPartitions(t *testing.T) {
 	}
 }
 
-// 同一分区高并发：所有 Apply 在同一把 fe.mu 下串行，返回值集合恰为 {1..total}，
-// 故最大返回值 == total（总事件数），证明增量不丢失。
+// High concurrency within the same partition: All Apply are serialized under the same fe.mu, and the return value set is exactly {1..total},
+// Therefore, the maximum return value == total (total number of events) proves that the increment is not lost.
 func TestAnalytic_ConcurrentEmitSync_SharedPartition(t *testing.T) {
 	const g, m = 8, 500
 	const total = g * m
@@ -87,10 +87,10 @@ func TestAnalytic_ConcurrentEmitSync_SharedPartition(t *testing.T) {
 	assert.Equal(t, total, gmax, "并发下 acc_count 不得丢增量；max=%d want=%d", gmax, total)
 }
 
-// --- 分区上限（LRU）---
+// --- Partition Limit (LRU) ---
 
-// WithAnalyticMaxPartitions(2)：打 3 个分区后最久未用的 dev1 被淘汰，
-// 再来 dev1 状态已重置，acc_count 回到 1（而非 2）。
+// WithAnalyticMaxPartitions(2): After running 3 partitions, the longest-unused dev1 is eliminated,
+// Next, the dev1 state has been reset, acc_count return to 1 (instead of 2).
 func TestAnalytic_MaxPartitions_EvictionResets(t *testing.T) {
 	ssql := streamsql.New(streamsql.WithAnalyticMaxPartitions(2))
 	require.NoError(t, ssql.Execute(
@@ -106,13 +106,13 @@ func TestAnalytic_MaxPartitions_EvictionResets(t *testing.T) {
 	}
 	assert.Equal(t, int64(1), emit("dev1"))
 	assert.Equal(t, int64(1), emit("dev2"))
-	assert.Equal(t, int64(1), emit("dev3")) // cap=2 → dev1 被淘汰
+	assert.Equal(t, int64(1), emit("dev3")) // cap=2 → dev1 is eliminated
 	assert.Equal(t, int64(1), emit("dev1"), "dev1 被淘汰后状态重置，计数回到 1")
 }
 
-// 默认上限足够大：同样的序列下 dev1 不被淘汰，再来时计数为 2。
+// The default upper limit is large enough: under the same sequence, dev1 is not eliminated, and the count is 2 when it comes back.
 func TestAnalytic_MaxPartitions_DefaultKeeps(t *testing.T) {
-	ssql := streamsql.New() // 默认上限
+	ssql := streamsql.New() // Default upper limit
 	require.NoError(t, ssql.Execute(
 		`SELECT acc_count(v) OVER (PARTITION BY deviceId) AS c FROM stream`))
 	defer ssql.Stop()
@@ -130,7 +130,7 @@ func TestAnalytic_MaxPartitions_DefaultKeeps(t *testing.T) {
 	assert.Equal(t, int64(2), emit("dev1"), "默认上限下 dev1 状态保留，计数累加到 2")
 }
 
-// --- 性能基准 ---
+// --- Performance Benchmark ---
 
 func benchEmitSync(b *testing.B, sql string, row map[string]any) {
 	b.Helper()
@@ -139,7 +139,7 @@ func benchEmitSync(b *testing.B, sql string, row map[string]any) {
 		b.Fatalf("execute: %v", err)
 	}
 	defer ssql.Stop()
-	// 预热（首次 EmitSync 触发 ensureAnalytic 的 sync.Once 初始化）。
+	// Preheating (the first EmitSync triggers ensureAnalytic's sync.Once initialized).
 	if _, err := ssql.EmitSync(row); err != nil {
 		b.Fatalf("emit: %v", err)
 	}
@@ -150,38 +150,38 @@ func benchEmitSync(b *testing.B, sql string, row map[string]any) {
 	}
 }
 
-// 基准：无分析函数的普通投影（analytic 引擎走 nil 快路径）。
+// Benchmark: Ordinary projection without analysis functions (analytic engine follows the NIL fast path).
 func BenchmarkEmitSync_NoAnalytic(b *testing.B) {
 	benchEmitSync(b,
 		`SELECT deviceId, v FROM stream`,
 		map[string]any{"deviceId": "d1", "v": 1})
 }
 
-// 分析函数无分区：partitionKey 早返回 ""，仅 lag 状态机开销。
+// Parsing functions without partitioning: partitionKey returns "" early, only lags state machine overhead.
 func BenchmarkAnalytic_NoPartition(b *testing.B) {
 	benchEmitSync(b,
 		`SELECT lag(v) AS p FROM stream`,
 		map[string]any{"deviceId": "d1", "v": 1})
 }
 
-// PARTITION BY 单列：每事件构造分区键（类型 switch + Builder）。
+// PARTITION BY Single Column: Constructs partition keys for each event (type switch + Builder).
 func BenchmarkAnalytic_Partition1Col(b *testing.B) {
 	benchEmitSync(b,
 		`SELECT lag(v) OVER (PARTITION BY deviceId) AS p FROM stream`,
 		map[string]any{"deviceId": "d1", "v": 1})
 }
 
-// PARTITION BY 双列：分区键构造 ×2。
+// PARTITION BY Dual Column: Partition Key Construction ×2.
 func BenchmarkAnalytic_Partition2Col(b *testing.B) {
 	benchEmitSync(b,
 		`SELECT lag(v) OVER (PARTITION BY deviceId, region) AS p FROM stream`,
 		map[string]any{"deviceId": "d1", "region": "z1", "v": 1})
 }
 
-// --- 分区语义正确性（边界组合）---
+// --- Semantic correctness of partitions (boundary combinations) ---
 
-// PARTITION BY 在 SELECT 侧的状态隔离：交错输入 d1/d2，各分区 lag 只看本分区前值。
-// 预期 prev = [nil, nil, 10, 100, 20]（无隔离会把 d1 的值串进 d2）。
+// PARTITION BY state isolation on the SELECT side: staggered input d1/d2, and the lag of each partition only looks at the previous value of the partition.
+// Expect prev = [nil, nil, 10, 100, 20] (without isolation, the value of d1 will be linked to d2).
 func TestAnalytic_PartitionIsolation_Lag(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT deviceId, lag(value) OVER (PARTITION BY deviceId) AS prev FROM stream"))
@@ -203,8 +203,8 @@ func TestAnalytic_PartitionIsolation_Lag(t *testing.T) {
 	}
 }
 
-// acc_sum 带 PARTITION BY：各分区独立累加。
-// 预期 total = [10, 100, 30, 300, 60]。
+// acc_sum With PARTITION BY: Each partition is independently accumulated.
+// Expected total = [10, 100, 30, 300, 60].
 func TestAnalytic_AccSum_Partition(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT deviceId, acc_sum(value) OVER (PARTITION BY deviceId) AS total FROM stream"))
@@ -226,8 +226,8 @@ func TestAnalytic_AccSum_Partition(t *testing.T) {
 	}
 }
 
-// 同一查询多个分析函数 + PARTITION BY：lag 与 acc_max 各自维护独立状态。
-// 预期 prev = [nil, 10, 5]，mx = [10, 10, 20]。
+// Multiple analysis functions + PARTITION BY: lag and acc_max each maintain their own independent state within the same query.
+// Expected prev = [nil, 10, 5], mx = [10, 10, 20].
 func TestAnalytic_MultipleAnalytic_Partition(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT deviceId, lag(value) OVER (PARTITION BY deviceId) AS prev, acc_max(value) OVER (PARTITION BY deviceId) AS mx FROM stream"))
@@ -249,10 +249,11 @@ func TestAnalytic_MultipleAnalytic_Partition(t *testing.T) {
 	}
 }
 
-// OVER WHEN × PARTITION BY 组合：每分区独立维护 (历史 + 缓存输出)。
-// WHEN 满足才更新状态并重算 lag、刷新缓存；不满足时返回该分区缓存的上一输出（而非上一个满足值）。
-// 预期 prev = [nil, 20, 20, nil, 20, 30]。
-//   row2(5≤15,F) 复用 d1 缓存 20；row4(10≤15,F,d1) 即便前面插了 d2 行，仍取 d1 自己的缓存 20。
+// OVER WHEN × PARTITION BY combination: Each partition is maintained independently (history + cache output).
+// Update status and recalculate lag and cache only when WHEN conditions are met; If not met, it returns the previous output of the partition's cache (rather than the previous satisfied value).
+// Expected prev = [nil, 20, 20, nil, 20, 30].
+//
+//	row2(5≤15,F) reuses d1's cache 20; row4(10≤15,F,d1) still takes d1's own cache 20 even if d2 is inserted earlier.
 func TestAnalytic_WhenAndPartition_Lag(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT deviceId, lag(value) OVER (PARTITION BY deviceId WHEN value > 15) AS prev FROM stream"))
@@ -275,8 +276,8 @@ func TestAnalytic_WhenAndPartition_Lag(t *testing.T) {
 	}
 }
 
-// acc_avg 带 PARTITION BY：各分区独立累积均值（count 与 sum 都按分区隔离）。
-// 预期 avg = [10, 100, 15, 20, 150]。
+// acc_avg with PARTITION BY: The independent cumulative mean of each partition (count and sum are partitioned separately).
+// Expected avg = [10, 100, 15, 20, 150].
 func TestAnalytic_AccAvg_Partition(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT deviceId, acc_avg(value) OVER (PARTITION BY deviceId) AS avg FROM stream"))
@@ -298,8 +299,8 @@ func TestAnalytic_AccAvg_Partition(t *testing.T) {
 	}
 }
 
-// acc_count 带 PARTITION BY：各分区独立计数。
-// 预期 cnt = [1, 1, 2, 3, 2]（d1: 1→2→3；d2: 1→2）。
+// acc_count With PARTITION BY: Each partition counts independently.
+// Expected CNT = [1, 1, 2, 3, 2](d1: 1→2→3; d2: 1→2).
 func TestAnalytic_AccCount_Partition(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT deviceId, acc_count(value) OVER (PARTITION BY deviceId) AS cnt FROM stream"))
@@ -321,9 +322,9 @@ func TestAnalytic_AccCount_Partition(t *testing.T) {
 	}
 }
 
-// lag 多偏移 + 默认值 + ignoreNull 组合：nil 不入历史，历史不足时返回默认值。
-// 序列 [10, 20, nil, 30, 40]，预期 lg = [-1.0, -1.0, 10, 10, 20]。
-// 关键判别：row3(nil) 与 row4 都返回 10——nil 被忽略未入历史，故 row4 仍取到 20 之前的 10。
+// lag multi-offset + default + ignoreNull combination: nil does not enter history; returns default value when history is insufficient.
+// Sequence [10, 20, nil, 30, 40], expected lg = [-1.0, -1.0, 10, 10, 20].
+// Key determination: Both row3(nil) and row4 return 10—nil is ignored and not historic, so row4 still takes the 10 before 20.
 func TestAnalytic_LagOffsetDefaultIgnoreNull(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT lag(value, 2, -1, true) AS lg FROM stream"))

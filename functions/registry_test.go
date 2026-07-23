@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestFunction 是用于测试的简单函数实现
+// TestFunction is a simple implementation of a function used for testing
 type TestFunction struct {
 	name        string
 	fnType      FunctionType
@@ -45,13 +45,13 @@ func (f *TestFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 }
 
 func TestRegistryEdgeCases(t *testing.T) {
-	// 测试注册nil函数
+	// Test the registration nil function
 	t.Run("Register nil function", func(t *testing.T) {
 		err := Register(nil)
 		assert.Error(t, err)
 	})
 
-	// 测试注册重复函数名
+	// Test registers duplicate function names
 	t.Run("Register duplicate name", func(t *testing.T) {
 		testFunc1 := &TestFunction{
 			name:     "duplicate_func",
@@ -68,37 +68,37 @@ func TestRegistryEdgeCases(t *testing.T) {
 			maxArgs:  -1,
 		}
 
-		// 先注册第一个函数
+		// First, register the first function
 		err := Register(testFunc1)
 		assert.NoError(t, err)
 
-		// 尝试注册同名函数
+		// Try registering a function with the same name
 		err = Register(testFunc2)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "already registered")
 
-		// 清理
+		// Cleanup
 		Unregister("duplicate_func")
 	})
 }
 
-// TestGetFunctionEdgeCases 测试Get函数的边界情况
+// TestGetFunctionEdgeCases tests the boundary status of the Get function
 func TestGetFunctionEdgeCases(t *testing.T) {
-	// 测试获取不存在的函数
+	// Test to retrieve a function that doesn't exist
 	t.Run("Get non-existent function", func(t *testing.T) {
 		func_, exists := Get("non_existent_func")
 		assert.False(t, exists)
 		assert.Nil(t, func_)
 	})
 
-	// 测试获取空名称函数
+	// Test to get the empty name function
 	t.Run("Get empty name function", func(t *testing.T) {
 		func_, exists := Get("")
 		assert.False(t, exists)
 		assert.Nil(t, func_)
 	})
 
-	// 测试大小写不敏感性（函数名会被转换为小写）
+	// Testing case insensitivity (function names will be converted to lowercase)
 	t.Run("Case insensitivity", func(t *testing.T) {
 		testFunc := &TestFunction{
 			name:     "lowercase_func",
@@ -108,47 +108,47 @@ func TestGetFunctionEdgeCases(t *testing.T) {
 			maxArgs:  -1,
 		}
 
-		// 注册小写函数名
+		// Register lowercase function names
 		err := Register(testFunc)
 		assert.NoError(t, err)
 
-		// 用大写获取应该也能找到（因为内部转换为小写）
+		// You should be able to find it using uppercase (since internal conversion is lowercase).
 		func_, exists := Get("LOWERCASE_FUNC")
 		assert.True(t, exists)
 		assert.NotNil(t, func_)
 
-		// 用正确的小写获取
+		// Get with the correct lowercase
 		func_, exists = Get("lowercase_func")
 		assert.True(t, exists)
 		assert.NotNil(t, func_)
 
-		// 清理
+		// Cleanup
 		Unregister("lowercase_func")
 	})
 }
 
-// TestUnregisterEdgeCases 测试Unregister函数的边界情况
+// TestUnregisterEdgeCases tests the boundary status of the Unregister function
 func TestUnregisterEdgeCases(t *testing.T) {
-	// 测试注销不存在的函数
+	// Test logout functions that do not exist
 	t.Run("Unregister non-existent function", func(t *testing.T) {
-		// 这应该不会引起panic或错误
+		// This should not cause panic or errors
 		result := Unregister("non_existent_func")
 		assert.False(t, result)
 
-		// 验证函数确实不存在
+		// The verification function really does not exist
 		func_, exists := Get("non_existent_func")
 		assert.False(t, exists)
 		assert.Nil(t, func_)
 	})
 
-	// 测试注销空名称函数
+	// Test the logout empty name function
 	t.Run("Unregister empty name", func(t *testing.T) {
-		// 这应该不会引起panic或错误
+		// This should not cause panic or errors
 		result := Unregister("")
 		assert.False(t, result)
 	})
 
-	// 测试注销后再次注销
+	// After test deregistration, deregister again
 	t.Run("Double unregister", func(t *testing.T) {
 		testFunc := &TestFunction{
 			name:     "double_unregister_func",
@@ -158,26 +158,26 @@ func TestUnregisterEdgeCases(t *testing.T) {
 			maxArgs:  -1,
 		}
 
-		// 注册函数
+		// Register the function
 		err := Register(testFunc)
 		assert.NoError(t, err)
 
-		// 第一次注销
+		// The first time it was canceled
 		result := Unregister("double_unregister_func")
 		assert.True(t, result)
 		func_, exists := Get("double_unregister_func")
 		assert.False(t, exists)
 		assert.Nil(t, func_)
 
-		// 第二次注销（应该不会有问题）
+		// Second cancellation (should be fine)
 		result = Unregister("double_unregister_func")
 		assert.False(t, result)
 	})
 }
 
-// TestListAllEdgeCases 测试ListAll函数的边界情况
+// TestListAllEdgeCases tests the boundary status of the ListAll function
 func TestListAllEdgeCases(t *testing.T) {
-	// 注册一些测试函数
+	// Register some test functions
 	testFunctions := []*TestFunction{
 		{
 			name:     "test_func1",
@@ -207,10 +207,10 @@ func TestListAllEdgeCases(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	// 测试非空注册表
+	// Test non-empty registry
 	t.Run("Non-empty registry", func(t *testing.T) {
 		functions := ListAll()
-		assert.GreaterOrEqual(t, len(functions), 3) // 至少包含我们注册的3个函数
+		assert.GreaterOrEqual(t, len(functions), 3) // Include at least 3 functions we registered
 		_, exists1 := functions["test_func1"]
 		_, exists2 := functions["test_func2"]
 		_, exists3 := functions["test_func3"]
@@ -219,15 +219,15 @@ func TestListAllEdgeCases(t *testing.T) {
 		assert.True(t, exists3)
 	})
 
-	// 清理测试函数
+	// Clean up the test function
 	for _, fn := range testFunctions {
 		Unregister(fn.name)
 	}
 }
 
-// TestExecuteEdgeCases 测试Execute函数的边界情况
+// TestExecuteEdgeCases tests the boundary status of the Execute function
 func TestExecuteEdgeCases(t *testing.T) {
-	// 测试执行不存在的函数
+	// Testing to execute a function that does not exist
 	t.Run("Execute non-existent function", func(t *testing.T) {
 		ctx := &FunctionContext{}
 		result, err := Execute("non_existent_func", ctx, []any{})
@@ -236,7 +236,7 @@ func TestExecuteEdgeCases(t *testing.T) {
 		assert.Contains(t, err.Error(), "not found")
 	})
 
-	// 测试执行返回错误的函数
+	// The test executes the function that returns an error
 	t.Run("Execute function that returns error", func(t *testing.T) {
 		errorFunc := &TestFunction{
 			name:     "error_func",
@@ -258,11 +258,11 @@ func TestExecuteEdgeCases(t *testing.T) {
 		assert.Nil(t, result)
 		assert.Contains(t, err.Error(), "test error")
 
-		// 清理
+		// Cleanup
 		Unregister("error_func")
 	})
 
-	// 测试执行带参数的函数
+	// Test executing a function with parameters
 	t.Run("Execute function with arguments", func(t *testing.T) {
 		sumFunc := &TestFunction{
 			name:     "sum_func",
@@ -289,21 +289,21 @@ func TestExecuteEdgeCases(t *testing.T) {
 		assert.NoError(t, err)
 
 		ctx := &FunctionContext{}
-		// 无参数调用
+		// No parameter calls
 		result, err := Execute("sum_func", ctx, []any{})
 		assert.NoError(t, err)
 		assert.Equal(t, 0, result)
 
-		// 带参数调用
+		// Call with parameters
 		result, err = Execute("sum_func", ctx, []any{1, 2, 3, 4, 5})
 		assert.NoError(t, err)
 		assert.Equal(t, 15, result)
 
-		// 清理
+		// Cleanup
 		Unregister("sum_func")
 	})
 
-	// 测试执行panic的函数
+	// Test the function that executes panic
 	t.Run("Execute function that panics", func(t *testing.T) {
 		panicFunc := &TestFunction{
 			name:     "panic_func",
@@ -320,33 +320,33 @@ func TestExecuteEdgeCases(t *testing.T) {
 		assert.NoError(t, err)
 
 		ctx := &FunctionContext{}
-		// 执行应该捕获panic并返回错误
+		// The execution should capture panic and return errors
 		assert.Panics(t, func() {
 			Execute("panic_func", ctx, []any{})
 		})
 
-		// 清理
+		// Cleanup
 		Unregister("panic_func")
 	})
 }
 
-// TestValidateEdgeCases 测试Validate函数的边界情况
+// TestValidateEdgeCases tests the boundaries of the Validate function
 func TestValidateEdgeCases(t *testing.T) {
-	// 测试验证不存在的函数
+	// Testing verifies functions that do not exist
 	t.Run("Validate non-existent function", func(t *testing.T) {
 		err := Validate("non_existent_func")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "function 'non_existent_func' not found")
 	})
 
-	// 测试验证空名称函数
+	// Test and verify the empty name function
 	t.Run("Validate empty name function", func(t *testing.T) {
 		err := Validate("")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "function '' not found")
 	})
 
-	// 测试验证有效函数
+	// Test validates the effective function
 	t.Run("Validate valid function", func(t *testing.T) {
 		validFunc := &TestFunction{
 			name:     "valid_func",
@@ -365,11 +365,11 @@ func TestValidateEdgeCases(t *testing.T) {
 		err = Validate("valid_func")
 		assert.NoError(t, err)
 
-		// 清理
+		// Cleanup
 		Unregister("valid_func")
 	})
 
-	// 测试验证多个函数
+	// Test and verify multiple functions
 	t.Run("Validate multiple functions", func(t *testing.T) {
 		testFunc1 := &TestFunction{
 			name:     "test_func1",
@@ -397,26 +397,26 @@ func TestValidateEdgeCases(t *testing.T) {
 		err = Register(testFunc2)
 		assert.NoError(t, err)
 
-		// 验证存在的函数
+		// Verify the function that exists
 		err = Validate("test_func1")
 		assert.NoError(t, err)
 		err = Validate("test_func2")
 		assert.NoError(t, err)
 
-		// 验证不存在的函数
+		// Verify functions that do not exist
 		err = Validate("test_func3")
 		assert.Error(t, err)
 
-		// 清理
+		// Cleanup
 		Unregister("test_func1")
 		Unregister("test_func2")
 	})
 }
 
-// TestConcurrentAccess 测试并发访问
+// TestConcurrentAccess tests for concurrent access
 func TestConcurrentAccess(t *testing.T) {
-	// 这个测试检查注册表在并发访问时的行为
-	// 注意：实际的并发安全需要在registry实现中处理
+	// This test checks the behavior of the registry during concurrent access
+	// Note: Actual concurrency security needs to be handled in the registry implementation
 	t.Run("Concurrent register and get", func(t *testing.T) {
 		testFunc := &TestFunction{
 			name:     "concurrent_func",
@@ -429,29 +429,29 @@ func TestConcurrentAccess(t *testing.T) {
 			},
 		}
 
-		// 注册函数
+		// Register the function
 		err := Register(testFunc)
 		assert.NoError(t, err)
 
-		// 获取函数
+		// Get the function
 		func_, exists := Get("concurrent_func")
 		assert.True(t, exists)
 		assert.NotNil(t, func_)
 
 		ctx := &FunctionContext{}
-		// 执行函数
+		// Execute the function
 		result, err := Execute("concurrent_func", ctx, []any{})
 		assert.NoError(t, err)
 		assert.Equal(t, "concurrent_test", result)
 
-		// 清理
+		// Cleanup
 		Unregister("concurrent_func")
 	})
 }
 
-// TestFunctionSignatureVariations 测试不同函数签名的变化
+// TestFunctionSignatureVariations tests changes in signatures of different functions
 func TestFunctionSignatureVariations(t *testing.T) {
-	// 测试无参数函数
+	// Testing the no-parameter function
 	t.Run("No parameter function", func(t *testing.T) {
 		noParamFunc := &TestFunction{
 			name:     "no_param_func",
@@ -475,11 +475,11 @@ func TestFunctionSignatureVariations(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "no_params", result)
 
-		// 清理
+		// Cleanup
 		Unregister("no_param_func")
 	})
 
-	// 测试可变参数函数
+	// Test variable parameter functions
 	t.Run("Variadic parameter function", func(t *testing.T) {
 		variadicFunc := &TestFunction{
 			name:     "variadic_func",
@@ -496,7 +496,7 @@ func TestFunctionSignatureVariations(t *testing.T) {
 		assert.NoError(t, err)
 
 		ctx := &FunctionContext{}
-		// 测试不同数量的参数
+		// Test different numbers of parameters
 		result, err := Execute("variadic_func", ctx, []any{})
 		assert.NoError(t, err)
 		assert.Equal(t, 0, result)
@@ -509,13 +509,13 @@ func TestFunctionSignatureVariations(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 3, result)
 
-		// 清理
+		// Cleanup
 		Unregister("variadic_func")
 	})
 
-	// 测试返回不同类型的函数
+	// Tests return functions of different types
 	t.Run("Different return types", func(t *testing.T) {
-		// 返回字符串
+		// Returns the string
 		stringFunc := &TestFunction{
 			name:     "string_func",
 			fnType:   TypeCustom,
@@ -527,7 +527,7 @@ func TestFunctionSignatureVariations(t *testing.T) {
 			},
 		}
 
-		// 返回数字
+		// Return the numbers
 		numberFunc := &TestFunction{
 			name:     "number_func",
 			fnType:   TypeCustom,
@@ -539,7 +539,7 @@ func TestFunctionSignatureVariations(t *testing.T) {
 			},
 		}
 
-		// 返回布尔值
+		// Returns the boolean value
 		boolFunc := &TestFunction{
 			name:     "bool_func",
 			fnType:   TypeCustom,
@@ -551,7 +551,7 @@ func TestFunctionSignatureVariations(t *testing.T) {
 			},
 		}
 
-		// 返回nil
+		// Return nil
 		nilFunc := &TestFunction{
 			name:     "nil_func",
 			fnType:   TypeCustom,
@@ -563,14 +563,14 @@ func TestFunctionSignatureVariations(t *testing.T) {
 			},
 		}
 
-		// 注册所有函数
+		// Register all functions
 		assert.NoError(t, Register(stringFunc))
 		assert.NoError(t, Register(numberFunc))
 		assert.NoError(t, Register(boolFunc))
 		assert.NoError(t, Register(nilFunc))
 
 		ctx := &FunctionContext{}
-		// 测试执行
+		// Test execution
 		result, err := Execute("string_func", ctx, []any{})
 		assert.NoError(t, err)
 		assert.Equal(t, "string_result", result)
@@ -587,7 +587,7 @@ func TestFunctionSignatureVariations(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Nil(t, result)
 
-		// 清理
+		// Cleanup
 		Unregister("string_func")
 		Unregister("number_func")
 		Unregister("bool_func")

@@ -7,90 +7,90 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAggregatorAdapterBasic 测试聚合器适配器基本功能
+// TestAggregatorAdapterBasic Tests the basic functions of the aggregator adapter
 func TestAggregatorAdapterBasic(t *testing.T) {
-	// 测试创建聚合器适配器
+	// Test the creation of aggregator adapters
 	adapter, err := NewAggregatorAdapter("sum")
 	require.NoError(t, err)
 	require.NotNil(t, adapter)
 
-	// 测试GetFunctionName
+	// Test GetFunctionName
 	funcName := adapter.GetFunctionName()
 	assert.Equal(t, "sum", funcName)
 
-	// 测试New方法
+	// Test the new method
 	newAdapter := adapter.New()
 	assert.NotNil(t, newAdapter)
 
-	// 测试Add和Result方法
+	// Test the Add and Result methods
 	adapter.Add(10)
 	adapter.Add(20)
 	adapter.Add(30)
 	result := adapter.Result()
 	assert.Equal(t, 60.0, result)
 
-	// 测试创建不存在的聚合器
+	// Test to create aggregators that don't exist
 	_, err = NewAggregatorAdapter("nonexistent")
 	assert.Error(t, err)
 }
 
-// TestAggregatorAdapterWithNilFunction 测试聚合器适配器的nil函数情况
+// TestAggregatorAdapterWithNilFunction tests the nil function of the aggregator adapter
 func TestAggregatorAdapterWithNilFunction(t *testing.T) {
 	adapter := &AggregatorAdapter{aggFunc: nil}
 	funcName := adapter.GetFunctionName()
 	assert.Equal(t, "", funcName)
 }
 
-// TestRegisterAggregatorAdapter 测试注册聚合器适配器
+// TestRegisterAggregatorAdapter Tests the registration aggregator adapter
 func TestRegisterAggregatorAdapter(t *testing.T) {
-	// 注册聚合器适配器
+	// Register the aggregator adapter
 	err := RegisterAggregatorAdapter("sum")
 	assert.NoError(t, err)
 
-	// 获取聚合器适配器
+	// Get the aggregator adapter
 	constructor, exists := GetAggregatorAdapter("sum")
 	assert.True(t, exists)
 	assert.NotNil(t, constructor)
 
-	// 使用构造函数创建实例
+	// Create instances using constructors
 	instance := constructor()
 	assert.NotNil(t, instance)
 
-	// 测试不存在的适配器
+	// Testing adapters that don't exist
 	_, exists = GetAggregatorAdapter("nonexistent")
 	assert.False(t, exists)
 }
 
-// TestCreateBuiltinAggregatorFromFunctions 测试从函数模块创建内置聚合器
+// TestCreateBuiltinAggregatorFromFunctions tests the built-in aggregator created from function modules
 func TestCreateBuiltinAggregatorFromFunctions(t *testing.T) {
-	// 先注册一个适配器
+	// First, register an adapter
 	err := RegisterAggregatorAdapter("sum")
 	assert.NoError(t, err)
 
-	// 从注册的适配器创建
+	// Created from the registered adapter
 	aggregator := CreateBuiltinAggregatorFromFunctions("sum")
 	assert.NotNil(t, aggregator)
 
-	// 从未注册的函数直接创建
+	// Directly created from unregistered functions
 	aggregator2 := CreateBuiltinAggregatorFromFunctions("avg")
 	assert.NotNil(t, aggregator2)
 
-	// 测试不存在的聚合器
+	// Testing aggregators that don't exist
 	aggregator3 := CreateBuiltinAggregatorFromFunctions("nonexistent")
 	assert.Nil(t, aggregator3)
 }
 
-// TestAggregatorAdapterErrorHandling 测试聚合器适配器错误处理
+// TestAggregatorAdapterErrorHandling Tests aggregator adapter error handling
 func TestAggregatorAdapterErrorHandling(t *testing.T) {
-	// 注册一个会失败的适配器（使用不存在的函数名）
+	// Register an adapter that will fail (using a non-existent function name)
 	err := RegisterAggregatorAdapter("invalid_function")
 	assert.NoError(t, err)
 
-	// 获取并尝试创建实例
+	// Obtain and attempt to create instances
 	constructor, exists := GetAggregatorAdapter("invalid_function")
 	assert.True(t, exists)
 
-	// 创建实例应该返回nil（因为函数不存在）
+	// Creating an instance should return nil (because the function does not exist)
 	instance := constructor()
 	assert.Nil(t, instance)
 }

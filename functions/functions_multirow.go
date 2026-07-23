@@ -33,46 +33,46 @@ func (f *UnnestFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 
 	array := args[0]
 	if array == nil {
-		// 返回带有unnest标记的空结果
+		// Returns an empty result marked with unnest
 		return []any{
 			map[string]any{
 				UnnestObjectMarker: true,
-				UnnestEmptyMarker:  true, // 标记这是空unnest结果
+				UnnestEmptyMarker:  true, // Mark this as an empty unnest result
 			},
 		}, nil
 	}
 
-	// 使用反射检查是否为数组或切片
+	// Use reflection to check whether the array is a slice
 	v := reflect.ValueOf(array)
 	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
 		return nil, fmt.Errorf("unnest requires an array or slice, got %T", array)
 	}
 
-	// 如果数组为空，返回带标记的空数组
+	// If the array is empty, it returns an empty array with a mark
 	if v.Len() == 0 {
-		// 返回带有unnest标记的空结果
+		// Returns an empty result marked with unnest
 		return []any{
 			map[string]any{
 				UnnestObjectMarker: true,
-				UnnestEmptyMarker:  true, // 标记这是空unnest结果
+				UnnestEmptyMarker:  true, // Mark this as an empty unnest result
 			},
 		}, nil
 	}
 
-	// 转换为 []any，所有元素都标记为unnest结果
+	// Convert to []any, and all elements are marked as unnest results
 	result := make([]any, v.Len())
 	for i := 0; i < v.Len(); i++ {
 		elem := v.Index(i).Interface()
 
-		// 如果数组元素是对象（map），则展开为列
+		// If the array element is an object (map), expand it into a column
 		if elemMap, ok := elem.(map[string]any); ok {
-			// 对于对象，我们返回一个特殊的结构来表示需要展开为列
+			// For objects, we return a special structure to indicate that the columns need to be expanded
 			result[i] = map[string]any{
 				UnnestObjectMarker: true,
 				UnnestDataKey:      elemMap,
 			}
 		} else {
-			// 对于普通元素，也需要标记为unnest结果
+			// For ordinary elements, you also need to mark them as unnest results
 			result[i] = map[string]any{
 				UnnestObjectMarker: true,
 				UnnestDataKey:      elem,
@@ -93,7 +93,7 @@ func IsUnnestResult(value any) bool {
 		return false
 	}
 
-	// 检查数组中是否有任何unnest标记的元素
+	// Check if there are any unnest tagged elements in the array
 	for _, item := range slice {
 		if itemMap, ok := item.(map[string]any); ok {
 			if unnest, exists := itemMap[UnnestObjectMarker]; exists {
@@ -104,7 +104,7 @@ func IsUnnestResult(value any) bool {
 		}
 	}
 
-	// 如果没有找到unnest标记，则不是unnest结果
+	// If the unnest tag is not found, it is not the unnest result
 	return false
 }
 
@@ -120,12 +120,12 @@ func ProcessUnnestResult(value any) []map[string]any {
 			if unnest, exists := itemMap[UnnestObjectMarker]; exists {
 				if unnestBool, ok := unnest.(bool); ok && unnestBool {
 					if data, exists := itemMap[UnnestDataKey]; exists {
-						// 检查数据是否为对象（map）
+						// Check if the data is an object (map)
 						if dataMap, ok := data.(map[string]any); ok {
-							// 对象数据直接展开为列
+							// Expand object data directly into columns
 							rows = append(rows, dataMap)
 						} else {
-							// 普通数据使用默认字段名
+							// Ordinary data uses the default field name
 							row := map[string]any{
 								DefaultValueKey: data,
 							}
@@ -136,7 +136,7 @@ func ProcessUnnestResult(value any) []map[string]any {
 				}
 			}
 		}
-		// 对于非标记元素，创建一个包含单个值的行（向后兼容）
+		// For non-marked elements, create a row containing a single value (backward compatible)
 		row := map[string]any{
 			DefaultValueKey: item,
 		}
@@ -157,19 +157,19 @@ func ProcessUnnestResultWithFieldName(value any, fieldName string) []map[string]
 		if itemMap, ok := item.(map[string]any); ok {
 			if unnest, exists := itemMap[UnnestObjectMarker]; exists {
 				if unnestBool, ok := unnest.(bool); ok && unnestBool {
-					// 检查是否为空unnest结果
+					// Check if the result is empty
 					if itemMap[UnnestEmptyMarker] == true {
-						// 空unnest结果，返回空数组
+						// Empty unnest result returns an empty array
 						return []map[string]any{}
 					}
 
 					if data, exists := itemMap[UnnestDataKey]; exists {
-						// 检查数据是否为对象（map）
+						// Check if the data is an object (map)
 						if dataMap, ok := data.(map[string]any); ok {
-							// 对象数据直接展开为列
+							// Expand object data directly into columns
 							rows = append(rows, dataMap)
 						} else {
-							// 普通数据使用指定字段名
+							// Ordinary data uses specified field names
 							row := map[string]any{
 								fieldName: data,
 							}
@@ -180,7 +180,7 @@ func ProcessUnnestResultWithFieldName(value any, fieldName string) []map[string]
 				}
 			}
 		}
-		// 对于非标记元素，使用指定的字段名创建行（向后兼容）
+		// For non-marked elements, create rows using specified field names (backward compatible)
 		row := map[string]any{
 			fieldName: item,
 		}

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestParseStateTTL: STATETTL='24h' 解析到 WindowConfig.CountStateTTL。
+// TestParseStateTTL: STATETTL='24h' Resolves to WindowConfig.CountStateTTL.
 func TestParseStateTTL(t *testing.T) {
 	config, _, err := Parse("SELECT deviceId, COUNT(*) FROM stream GROUP BY deviceId, CountingWindow(10) WITH(STATETTL='24h')")
 	require.NoError(t, err)
@@ -16,7 +16,7 @@ func TestParseStateTTL(t *testing.T) {
 	assert.Equal(t, 24*time.Hour, config.WindowConfig.CountStateTTL)
 }
 
-// TestParseStateTTL_DefaultZero: 无 STATETTL 时默认 0（禁用）。
+// TestParseStateTTL_DefaultZero: Defaults to 0 (disabled) when STATETTL is absent.
 func TestParseStateTTL_DefaultZero(t *testing.T) {
 	config, _, err := Parse("SELECT deviceId, COUNT(*) FROM stream GROUP BY deviceId, CountingWindow(10)")
 	require.NoError(t, err)

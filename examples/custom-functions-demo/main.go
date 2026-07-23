@@ -18,46 +18,46 @@ func main() {
 	fmt.Println("🚀 StreamSQL 自定义函数完整演示")
 	fmt.Println("=======================================")
 
-	// 注册各种类型的自定义函数
+	// Register various types of custom functions
 	registerCustomFunctions()
 
-	// 演示自定义函数在SQL中的使用
+	// Demonstrating the use of custom functions in SQL
 	demonstrateCustomFunctions()
 
-	// 展示函数管理功能
+	// Showcase function management features
 	demonstrateFunctionManagement()
 
 	fmt.Println("\n✅ 演示完成！")
 }
 
-// 注册各种类型的自定义函数
+// Register various types of custom functions
 func registerCustomFunctions() {
 	fmt.Println("\n📋 注册自定义函数...")
 
-	// 1. 注册数学函数
+	// 1. Register for mathematical functions
 	registerMathFunctions()
 
-	// 2. 注册字符串函数
+	// 2. Register the string function
 	registerStringFunctions()
 
-	// 3. 注册转换函数
+	// 3. Register the conversion function
 	registerConversionFunctions()
 
-	// 4. 注册时间日期函数
+	// 4. Registration time and date function
 	registerDateTimeFunctions()
 
-	// 5. 注册聚合函数
+	// 5. Register the aggregation function
 	registerAggregateFunctions()
 
-	// 6. 注册分析函数
+	// 6. Register the analysis function
 	registerAnalyticalFunctions()
 
 	fmt.Println("✅ 所有自定义函数注册完成")
 }
 
-// 注册数学函数
+// Register the math function
 func registerMathFunctions() {
-	// 距离计算函数
+	// Distance calculation function
 	err := functions.RegisterCustomFunction(
 		"distance",
 		functions.TypeMath,
@@ -76,7 +76,7 @@ func registerMathFunctions() {
 	)
 	checkError("注册distance函数", err)
 
-	// 华氏度转摄氏度函数
+	// Fahrenheit to Celsius function
 	err = functions.RegisterCustomFunction(
 		"fahrenheit_to_celsius",
 		functions.TypeMath,
@@ -91,7 +91,7 @@ func registerMathFunctions() {
 	)
 	checkError("注册fahrenheit_to_celsius函数", err)
 
-	// 圆面积计算函数
+	// Circle area calculation function
 	err = functions.RegisterCustomFunction(
 		"circle_area",
 		functions.TypeMath,
@@ -112,9 +112,9 @@ func registerMathFunctions() {
 	fmt.Println("  ✓ 数学函数: distance, fahrenheit_to_celsius, circle_area")
 }
 
-// 注册字符串函数
+// Register string functions
 func registerStringFunctions() {
-	// JSON提取函数
+	// JSON extraction function
 	err := functions.RegisterCustomFunction(
 		"json_extract",
 		functions.TypeString,
@@ -141,7 +141,7 @@ func registerStringFunctions() {
 	)
 	checkError("注册json_extract函数", err)
 
-	// 字符串反转函数
+	// String inversion function
 	err = functions.RegisterCustomFunction(
 		"reverse_string",
 		functions.TypeString,
@@ -161,7 +161,7 @@ func registerStringFunctions() {
 	)
 	checkError("注册reverse_string函数", err)
 
-	// 字符串重复函数
+	// String repeat function
 	err = functions.RegisterCustomFunction(
 		"repeat_string",
 		functions.TypeString,
@@ -190,9 +190,9 @@ func registerStringFunctions() {
 	fmt.Println("  ✓ 字符串函数: json_extract, reverse_string, repeat_string")
 }
 
-// 注册转换函数
+// Register the conversion function
 func registerConversionFunctions() {
-	// IP地址转整数函数
+	// IP address conversion function to integer
 	err := functions.RegisterCustomFunction(
 		"ip_to_int",
 		functions.TypeConversion,
@@ -217,7 +217,7 @@ func registerConversionFunctions() {
 	)
 	checkError("注册ip_to_int函数", err)
 
-	// 字节大小格式化函数
+	// Byte size formatting function
 	err = functions.RegisterCustomFunction(
 		"format_bytes",
 		functions.TypeConversion,
@@ -242,9 +242,9 @@ func registerConversionFunctions() {
 	fmt.Println("  ✓ 转换函数: ip_to_int, format_bytes")
 }
 
-// 注册时间日期函数
+// Register the time-date function
 func registerDateTimeFunctions() {
-	// 时间格式化函数
+	// Time formatting function
 	err := functions.RegisterCustomFunction(
 		"date_format",
 		functions.TypeDateTime,
@@ -272,7 +272,7 @@ func registerDateTimeFunctions() {
 	)
 	checkError("注册date_format函数", err)
 
-	// 时间差计算函数
+	// Time difference calculation function
 	err = functions.RegisterCustomFunction(
 		"time_diff",
 		functions.TypeDateTime,
@@ -293,17 +293,17 @@ func registerDateTimeFunctions() {
 	fmt.Println("  ✓ 时间日期函数: date_format, time_diff")
 }
 
-// 注册聚合函数
+// Register the aggregation function
 func registerAggregateFunctions() {
-	// 注册几何平均数聚合函数到functions模块
+	// Register the geometric mean aggregation function into the functions module
 	functions.Register(NewGeometricMeanFunction())
 	functions.RegisterAggregatorAdapter("geometric_mean")
 
-	// 注册众数聚合函数到functions模块
+	// Register the mode aggregation function into the functions module
 	functions.Register(NewModeFunction())
 	functions.RegisterAggregatorAdapter("mode_agg")
 
-	// 保留原有的aggregator注册用于兼容性
+	// Keep the original aggregator registration for compatibility
 	aggregator.Register("geometric_mean", func() aggregator.AggregatorFunction {
 		return &GeometricMeanAggregator{}
 	})
@@ -314,9 +314,9 @@ func registerAggregateFunctions() {
 	fmt.Println("  ✓ 聚合函数: geometric_mean, mode_agg")
 }
 
-// 注册分析函数
+// Register the analysis function
 func registerAnalyticalFunctions() {
-	// 移动平均函数
+	// Moving average function
 	err := functions.RegisterCustomFunction(
 		"moving_avg",
 		functions.TypeAnalytical,
@@ -324,14 +324,14 @@ func registerAnalyticalFunctions() {
 		"计算移动平均值",
 		2, 2,
 		func(ctx *functions.FunctionContext, args []any) (any, error) {
-			// 这个函数需要状态管理，实际实现会比较复杂
-			// 这里只是一个示例
+			// This function requires state management, so its implementation is quite complex
+			// Here is just an example
 			current := cast.ToFloat64(args[0])
 
 			window := cast.ToInt64(args[1])
 
-			// 简化实现：直接返回当前值
-			// 实际实现需要维护历史数据窗口
+			// Simplified implementation: Returns the current value directly
+			// Actual implementation requires maintaining the historical data window
 			_ = window
 			return current, nil
 		},
@@ -341,7 +341,7 @@ func registerAnalyticalFunctions() {
 	fmt.Println("  ✓ 分析函数: moving_avg")
 }
 
-// 几何平均数聚合函数
+// Geometric mean aggregation function
 type GeometricMeanFunction struct {
 	*functions.BaseFunction
 	product float64
@@ -365,7 +365,7 @@ func (f *GeometricMeanFunction) Validate(args []any) error {
 }
 
 func (f *GeometricMeanFunction) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
-	// 批量执行模式
+	// Batch execution mode
 	product := 1.0
 	for _, arg := range args {
 		val := cast.ToFloat64(arg)
@@ -379,7 +379,7 @@ func (f *GeometricMeanFunction) Execute(ctx *functions.FunctionContext, args []a
 	return math.Pow(product, 1.0/float64(len(args))), nil
 }
 
-// 实现AggregatorFunction接口以支持增量计算
+// Implement the AggregatorFunction interface to support incremental computation
 func (f *GeometricMeanFunction) New() functions.AggregatorFunction {
 	return &GeometricMeanFunction{
 		BaseFunction: f.BaseFunction,
@@ -416,7 +416,7 @@ func (f *GeometricMeanFunction) Clone() functions.AggregatorFunction {
 	}
 }
 
-// 几何平均数聚合器（保留用于兼容性）
+// Geometric Mean Aggregator (reserved for compatibility)
 type GeometricMeanAggregator struct {
 	values []float64
 }
@@ -446,7 +446,7 @@ func (g *GeometricMeanAggregator) Result() any {
 	return math.Pow(product, 1.0/float64(len(g.values)))
 }
 
-// 众数聚合函数
+// Complex number aggregation function
 type ModeFunction struct {
 	*functions.BaseFunction
 	counts map[string]int
@@ -470,7 +470,7 @@ func (f *ModeFunction) Validate(args []any) error {
 }
 
 func (f *ModeFunction) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
-	// 批量执行模式
+	// Batch execution mode
 	counts := make(map[string]int)
 	for _, arg := range args {
 		key := fmt.Sprintf("%v", arg)
@@ -492,7 +492,7 @@ func (f *ModeFunction) Execute(ctx *functions.FunctionContext, args []any) (any,
 	return mode, nil
 }
 
-// 实现AggregatorFunction接口以支持增量计算
+// Implement the AggregatorFunction interface to support incremental computation
 func (f *ModeFunction) New() functions.AggregatorFunction {
 	return &ModeFunction{
 		BaseFunction: f.BaseFunction,
@@ -536,7 +536,7 @@ func (f *ModeFunction) Clone() functions.AggregatorFunction {
 	return clone
 }
 
-// 众数聚合器（保留用于兼容性）
+// Mode aggregator (reserved for compatibility)
 type ModeAggregator struct {
 	counts map[string]int
 }
@@ -568,7 +568,7 @@ func (m *ModeAggregator) Result() any {
 	return mode
 }
 
-// 演示自定义函数在SQL中的使用
+// Demonstrating the use of custom functions in SQL
 func demonstrateCustomFunctions() {
 	fmt.Println("\n🎯 演示自定义函数在SQL中的使用")
 	fmt.Println("================================")
@@ -576,16 +576,16 @@ func demonstrateCustomFunctions() {
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 测试数学函数
+	// Test mathematical functions
 	testMathFunctions(ssql)
 
-	// 测试字符串函数
+	// Test string function
 	testStringFunctions(ssql)
 
-	// 测试转换函数
+	// Test the conversion function
 	testConversionFunctions(ssql)
 
-	// 测试聚合函数
+	// Test the aggregation function
 	testAggregateFunctions(ssql)
 }
 
@@ -608,23 +608,23 @@ func testMathFunctions(ssql *streamsql.Streamsql) {
 		return
 	}
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
 		{
 			"device":      "sensor1",
-			"temperature": 68.0, // 华氏度
+			"temperature": 68.0, // The degree of the Fahrenheit degree
 			"radius":      5.0,
-			"x1":          0.0, "y1": 0.0, "x2": 3.0, "y2": 4.0, // 距离=5
+			"x1":          0.0, "y1": 0.0, "x2": 3.0, "y2": 4.0, // Distance = 5
 		},
 		{
 			"device":      "sensor1",
-			"temperature": 86.0, // 华氏度
+			"temperature": 86.0, // The degree of the Fahrenheit degree
 			"radius":      10.0,
-			"x1":          0.0, "y1": 0.0, "x2": 6.0, "y2": 8.0, // 距离=10
+			"x1":          0.0, "y1": 0.0, "x2": 6.0, "y2": 8.0, // Distance = 10
 		},
 	}
 
-	// 添加结果监听器
+	// Add a result listener
 	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 数学函数结果: %v\n", result)
 	})
@@ -658,7 +658,7 @@ func testStringFunctions(ssql *streamsql.Streamsql) {
 		return
 	}
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
 		{
 			"device":   "sensor1",
@@ -701,7 +701,7 @@ func testConversionFunctions(ssql *streamsql.Streamsql) {
 		return
 	}
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
 		{
 			"device":       "server1",
@@ -745,7 +745,7 @@ func testAggregateFunctions(ssql *streamsql.Streamsql) {
 		return
 	}
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
 		{"device": "sensor1", "value": 2.0, "category": "A"},
 		{"device": "sensor1", "value": 8.0, "category": "A"},
@@ -768,16 +768,16 @@ func testAggregateFunctions(ssql *streamsql.Streamsql) {
 	fmt.Println("  ✅ 聚合函数测试完成")
 }
 
-// 展示函数管理功能
+// Showcase function management features
 func demonstrateFunctionManagement() {
 	fmt.Println("\n🔧 演示函数管理功能")
 	fmt.Println("====================")
 
-	// 列出所有函数
+	// List all functions
 	fmt.Println("\n📋 所有已注册函数:")
 	allFunctions := functions.ListAll()
 
-	// 按类型分组显示
+	// Displayed by type
 	typeMap := make(map[functions.FunctionType][]functions.Function)
 	for _, fn := range allFunctions {
 		fnType := fn.GetType()
@@ -791,13 +791,13 @@ func demonstrateFunctionManagement() {
 		}
 	}
 
-	// 演示函数查找
+	// Demonstration of function search
 	fmt.Println("\n🔍 函数查找示例:")
 	if fn, exists := functions.Get("fahrenheit_to_celsius"); exists {
 		fmt.Printf("  ✓ 找到函数: %s (%s)\n", fn.GetName(), fn.GetDescription())
 	}
 
-	// 演示按类型获取函数
+	// Demonstration of obtaining functions by type
 	fmt.Println("\n📊 数学函数列表:")
 	mathFunctions := functions.GetByType(functions.TypeMath)
 	for _, fn := range mathFunctions {
@@ -811,7 +811,7 @@ func demonstrateFunctionManagement() {
 	}
 }
 
-// 辅助函数
+// Auxiliary function
 func checkError(operation string, err error) {
 	if err != nil {
 		fmt.Printf("❌ %s失败: %v\n", operation, err)

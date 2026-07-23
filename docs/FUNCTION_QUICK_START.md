@@ -1,14 +1,14 @@
-# StreamSQL 自定义函数快速入门
+# StreamSQL Quick Start with Custom Functions
 
-## 🚀 概述
+## 🚀 Overview
 
-StreamSQL 提供了强大的自定义函数系统，让你可以轻松扩展框架功能。本指南将帮你快速上手，创建和使用自定义函数。
+StreamSQL offers a powerful custom function system, allowing you to easily extend the framework's functionality. This guide will help you get started quickly by creating and using custom functions.
 
-## 📋 快速开始
+## 📋 Get Started Quickly
 
-### 1. 注册简单函数
+### 1. Register simple functions
 
-最简单的方式是使用 `RegisterCustomFunction` 方法：
+The simplest way is to use the `RegisterCustomFunction` method:
 
 ```go
 import (
@@ -16,38 +16,38 @@ import (
     "github.com/rulego/streamsql/utils/cast"
 )
 
-// 注册一个平方函数
+// Register a square function
 err := functions.RegisterCustomFunction(
-    "square",                    // 函数名
-    functions.TypeMath,          // 函数类型
-    "数学函数",                   // 分类
-    "计算数值的平方",             // 描述
-    1,                          // 最少参数数量
-    1,                          // 最多参数数量
+    "square",                    // Function name
+    functions.TypeMath,          // Function type
+    "数学函数",                   // Classification
+    "计算数值的平方",             // Description
+    1,                          // Minimum number of parameters
+    1,                          // Maximum number of parameters
     func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-        // 参数转换
+        // Parameter conversion
         val, err := cast.ToFloat64E(args[0])
         if err != nil {
             return nil, err
         }
-        // 业务逻辑
+        // Business logic
         return val * val, nil
     },
 )
 ```
 
-### 2. 在SQL中使用
+### 2. Used in SQL
 
 ```sql
 SELECT device, square(value) as squared_value FROM stream
 ```
 
-## 🎯 函数类型
+## 🎯 Function type
 
-### 数学函数 (TypeMath)
+### Mathematical Functions (TypeMath)
 
 ```go
-// 距离计算函数
+// Distance calculation function
 functions.RegisterCustomFunction(
     "distance",
     functions.TypeMath,
@@ -64,14 +64,14 @@ functions.RegisterCustomFunction(
     },
 )
 
-// SQL使用
+// SQL use
 // SELECT device, distance(lat1, lon1, lat2, lon2) as dist FROM stream
 ```
 
-### 字符串函数 (TypeString)
+### String Function (TypeString)
 
 ```go
-// 字符串反转函数
+// String inversion function
 functions.RegisterCustomFunction(
     "reverse",
     functions.TypeString,
@@ -93,14 +93,14 @@ functions.RegisterCustomFunction(
     },
 )
 
-// SQL使用
+// SQL use
 // SELECT device, reverse(device_name) as reversed_name FROM stream
 ```
 
-### 转换函数 (TypeConversion)
+### Transformation Function (TypeConversion)
 
 ```go
-// IP地址转整数
+// IP address to integer
 functions.RegisterCustomFunction(
     "ip_to_int",
     functions.TypeConversion,
@@ -122,14 +122,14 @@ functions.RegisterCustomFunction(
     },
 )
 
-// SQL使用
+// SQL use
 // SELECT device, ip_to_int(client_ip) as ip_num FROM stream
 ```
 
-### 时间日期函数 (TypeDateTime)
+### Time-Date Function (TypeDateTime)
 
 ```go
-// 时间格式化函数
+// Time formatting function
 functions.RegisterCustomFunction(
     "format_time",
     functions.TypeDateTime,
@@ -152,23 +152,23 @@ functions.RegisterCustomFunction(
     },
 )
 
-// SQL使用
+// SQL use
 // SELECT device, format_time(timestamp, '2006-01-02 15:04:05') as formatted_time FROM stream
 ```
 
-## 🏗️ 复杂函数实现
+## 🏗️ Implementation of complex functions
 
-对于复杂函数，建议使用结构体方式：
+For complex functions, it is recommended to use structs:
 
 ```go
-// 1. 定义函数结构
+// 1. Define the function structure
 type StatefulFunction struct {
     *functions.BaseFunction
     counter int64
     mutex   sync.Mutex
 }
 
-// 2. 构造函数
+// 2. Constructor
 func NewStatefulFunction() *StatefulFunction {
     return &StatefulFunction{
         BaseFunction: functions.NewBaseFunction(
@@ -182,12 +182,12 @@ func NewStatefulFunction() *StatefulFunction {
     }
 }
 
-// 3. 验证参数（可选）
+// 3. Verification parameters (optional)
 func (f *StatefulFunction) Validate(args []interface{}) error {
     return f.ValidateArgCount(args)
 }
 
-// 4. 执行函数
+// 4. Execute the function
 func (f *StatefulFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
     f.mutex.Lock()
     defer f.mutex.Unlock()
@@ -196,15 +196,15 @@ func (f *StatefulFunction) Execute(ctx *functions.FunctionContext, args []interf
     return f.counter, nil
 }
 
-// 5. 注册函数
+// 5. Register functions
 func init() {
     functions.Register(NewStatefulFunction())
 }
 ```
 
-## 📊 聚合函数
+## 📊 Aggregation Function
 
-聚合函数实现 `AggregatorFunction` 接口（`New`/`Add`/`Result`/`Reset`/`Clone`），用 `functions.Register` 注册一处即可——适配器自动接通，无需 `aggregator.Register`。
+The aggregator function implements `AggregatorFunction` interfaces (`New` / `Add` / `Result` / `Reset` / `Clone`), registering one place with `functions. Register` — adapters automatically connect without `aggregator. Register`.
 
 ```go
 import (
@@ -214,7 +214,7 @@ import (
     "github.com/rulego/streamsql/utils/cast"
 )
 
-// GeometricMean 完整实现 AggregatorFunction
+// GeometricMean Fully implement AggregatorFunction
 type GeometricMean struct {
     *functions.BaseFunction
     values []float64
@@ -227,7 +227,7 @@ func NewGeometricMean() *GeometricMean {
 
 func (f *GeometricMean) Validate(args []any) error                            { return f.ValidateArgCount(args) }
 func (f *GeometricMean) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
-    return nil, nil // 聚合走 Add/Result，Execute 仅满足接口
+    return nil, nil // Aggregation follows Add/Result, Execute only meets interface requirements
 }
 func (f *GeometricMean) New() functions.AggregatorFunction { return &GeometricMean{BaseFunction: f.BaseFunction} }
 func (f *GeometricMean) Add(value any) {
@@ -256,46 +256,46 @@ func init() {
     functions.Register(NewGeometricMean())
 }
 
-// SQL使用
+// SQL use
 // SELECT device, geometric_mean(value) AS geo_mean FROM stream GROUP BY device
 ```
 
-## 🔧 函数管理
+## 🔧 Function Management
 
-### 查看注册的函数
+### Check the registered functions
 
 ```go
-// 列出所有函数
+// List all functions
 allFunctions := functions.ListAll()
 for name, fn := range allFunctions {
     fmt.Printf("函数: %s (%s) - %s\n", name, fn.GetType(), fn.GetDescription())
 }
 
-// 按类型查看
+// View by type
 mathFunctions := functions.GetByType(functions.TypeMath)
 for _, fn := range mathFunctions {
     fmt.Printf("数学函数: %s\n", fn.GetName())
 }
 
-// 查找特定函数
+// Find a specific function
 if fn, exists := functions.Get("square"); exists {
     fmt.Printf("找到函数: %s\n", fn.GetDescription())
 }
 ```
 
-### 注销函数
+### Cancel Function
 
 ```go
-// 注销函数
+// Cancel function
 success := functions.Unregister("my_function")
 if success {
     fmt.Println("函数注销成功")
 }
 ```
 
-## 🎯 完整示例
+## 🎯 Complete Example
 
-### 创建温度转换函数
+### Creating a temperature conversion function
 
 ```go
 package main
@@ -308,14 +308,14 @@ import (
 )
 
 func main() {
-    // 1. 注册自定义函数
+    // 1. Register custom functions
     registerCustomFunctions()
     
-    // 2. 创建StreamSQL实例
+    // 2. Create StreamSQL instance
     ssql := streamsql.New()
     defer ssql.Stop()
     
-    // 3. 执行SQL
+    // 3. Execute SQL
     sql := `
         SELECT 
             device,
@@ -329,12 +329,12 @@ func main() {
         panic(err)
     }
     
-    // 4. 添加结果监听
+    // 4. Add result monitoring
     ssql.Stream().AddSink(func(result interface{}) {
         fmt.Printf("结果: %v\n", result)
     })
     
-    // 5. 添加数据
+    // 5. Add data
     ssql.AddData(map[string]interface{}{
         "device": "thermometer1",
         "temperature": 25.0,
@@ -344,7 +344,7 @@ func main() {
 }
 
 func registerCustomFunctions() {
-    // 摄氏度转华氏度
+    // Celsius degrees are converted to Fahrenheit degrees
     functions.RegisterCustomFunction(
         "celsius_to_fahrenheit",
         functions.TypeMath,
@@ -360,7 +360,7 @@ func registerCustomFunctions() {
         },
     )
     
-    // 温度格式化
+    // Temperature formatting
     functions.RegisterCustomFunction(
         "format_temperature",
         functions.TypeString,
@@ -384,24 +384,24 @@ func registerCustomFunctions() {
 }
 ```
 
-## 🚨 最佳实践
+## 🚨 Best Practices
 
-### 1. 错误处理
+### 1. Error handling
 
 ```go
 func (f *MyFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-    // 参数数量检查
+    // Parameter quantity check
     if len(args) == 0 {
         return nil, fmt.Errorf("至少需要1个参数")
     }
     
-    // 类型转换
+    // Type conversion
     val, err := cast.ToFloat64E(args[0])
     if err != nil {
         return nil, fmt.Errorf("参数类型错误: %v", err)
     }
     
-    // 业务逻辑验证
+    // Business logic validation
     if val < 0 {
         return nil, fmt.Errorf("参数必须为非负数")
     }
@@ -410,7 +410,7 @@ func (f *MyFunction) Execute(ctx *functions.FunctionContext, args []interface{})
 }
 ```
 
-### 2. 性能优化
+### 2. Performance optimization
 
 ```go
 type CachedFunction struct {
@@ -422,7 +422,7 @@ type CachedFunction struct {
 func (f *CachedFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
     key := fmt.Sprintf("%v", args)
     
-    // 检查缓存
+    // Check the cache
     f.mutex.RLock()
     if result, exists := f.cache[key]; exists {
         f.mutex.RUnlock()
@@ -430,10 +430,10 @@ func (f *CachedFunction) Execute(ctx *functions.FunctionContext, args []interfac
     }
     f.mutex.RUnlock()
     
-    // 计算结果
+    // Calculation results
     result := f.calculate(args)
     
-    // 缓存结果
+    // Cache the results
     f.mutex.Lock()
     f.cache[key] = result
     f.mutex.Unlock()
@@ -442,7 +442,7 @@ func (f *CachedFunction) Execute(ctx *functions.FunctionContext, args []interfac
 }
 ```
 
-### 3. 线程安全
+### 3. Thread safety
 
 ```go
 type ThreadSafeFunction struct {
@@ -455,18 +455,18 @@ func (f *ThreadSafeFunction) Execute(ctx *functions.FunctionContext, args []inte
     f.mutex.Lock()
     defer f.mutex.Unlock()
     
-    // 安全地修改状态
+    // Safely modify the state
     f.state["counter"] = f.state["counter"].(int) + 1
     
     return f.state["counter"], nil
 }
 ```
 
-## 📝 测试你的函数
+## 📝 Test your function
 
 ```go
 func TestMyCustomFunction(t *testing.T) {
-    // 注册函数
+    // Register the function
     err := functions.RegisterCustomFunction("test_func", functions.TypeMath, "测试", "测试函数", 1, 1,
         func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
             val, err := cast.ToFloat64E(args[0])
@@ -475,7 +475,7 @@ func TestMyCustomFunction(t *testing.T) {
     assert.NoError(t, err)
     defer functions.Unregister("test_func")
     
-    // 获取并测试函数
+    // Get and test the function
     fn, exists := functions.Get("test_func")
     assert.True(t, exists)
     
@@ -487,4 +487,4 @@ func TestMyCustomFunction(t *testing.T) {
 }
 ```
 
-通过这个快速入门指南，你已经掌握了StreamSQL自定义函数的基本用法。现在可以开始创建自己的函数来扩展框架功能！ 
+With this quick start guide, you have mastered the basic usage of StreamSQL custom functions. Now you can start creating your own functions to expand the framework's capabilities! 

@@ -98,8 +98,8 @@ func (sf *StreamFactory) createStreamWithUnifiedConfig(config types.Config) (*St
 		return nil, err
 	}
 
-	// CEP 模式：构造期编译并实例化引擎。fail-fast（编译错误在 Execute 即暴露），
-	// 且引擎在 Start 派生 goroutine 前就绪，消除原懒初始化对 s.cep 的并发读。
+	// CEP Pattern: Builds and instantiates the engine. fail-fast (compilation errors are exposed during execute),
+	// The engine is ready before Start derivings goroutines, eliminating the original lazy initialization concurrent read to s.cep.
 	if config.Mode == types.ExecCEP && config.MatchRecognize != nil {
 		if err := cep.Validate(config.MatchRecognize); err != nil {
 			return nil, fmt.Errorf("MATCH_RECOGNIZE invalid: %w", err)

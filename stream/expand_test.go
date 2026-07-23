@@ -24,9 +24,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestExpandDataChannelRespectsMaxBufferSize 校验 expandDataChannel 读取
-// PerformanceConfig 的 GrowthFactor/MinIncrement/TriggerThreshold 并以 MaxBufferSize
-// 为硬上限，避免无界扩容 OOM（此前这些配置是声明了却不接通的死配置）。
+// TestExpandDataChannelRespectsMaxBufferSize Verification expandDataChannel read
+// PerformanceConfig's GrowthFactor/MinIncrement/TriggerThreshold and MaxBufferSize
+// This is a hard upper limit to avoid boundless expansion OOM (previously, these configurations were dead configurations that declared but did not connect).
 func TestExpandDataChannelRespectsMaxBufferSize(t *testing.T) {
 	s := &Stream{
 		dataChan: make(chan map[string]any, 100),

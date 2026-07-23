@@ -126,7 +126,7 @@ func (f *AvgFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return sum / float64(count), nil
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (f *AvgFunction) New() AggregatorFunction {
 	return &AvgFunction{
 		BaseFunction: f.BaseFunction,
@@ -187,7 +187,7 @@ func (f *MinFunction) Validate(args []any) error {
 }
 
 func (f *MinFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 检查是否有nil参数
+	// Check if there are nil parameters
 	for _, arg := range args {
 		if arg == nil {
 			return nil, nil
@@ -268,7 +268,7 @@ func (f *MaxFunction) Validate(args []any) error {
 }
 
 func (f *MaxFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 检查是否有nil参数
+	// Check if there are nil parameters
 	for _, arg := range args {
 		if arg == nil {
 			return nil, nil
@@ -330,7 +330,7 @@ func (f *MaxFunction) Clone() AggregatorFunction {
 	}
 }
 
-// CountFunction 计数函数
+// CountFunction
 type CountFunction struct {
 	*BaseFunction
 	count int
@@ -356,7 +356,7 @@ func (f *CountFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return int64(count), nil
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (f *CountFunction) New() AggregatorFunction {
 	return &CountFunction{
 		BaseFunction: f.BaseFunction,
@@ -365,7 +365,7 @@ func (f *CountFunction) New() AggregatorFunction {
 }
 
 func (f *CountFunction) Add(value any) {
-	// 增强的Add方法：忽略NULL值
+	// Enhanced Add method: ignores NULL values
 	if value != nil {
 		f.count++
 	}
@@ -386,12 +386,12 @@ func (f *CountFunction) Clone() AggregatorFunction {
 	}
 }
 
-// StdDevFunction 标准差函数（韦尔福德算法实现）
+// StdDevFunction Standard Deviation Function (implemented by the Welford algorithm)
 type StdDevFunction struct {
 	*BaseFunction
 	count int
 	mean  float64
-	m2    float64 // 平方差的累计值
+	m2    float64 // The cumulative value of the difference of squares
 }
 
 func NewStdDevFunction() *StdDevFunction {
@@ -405,7 +405,7 @@ func (f *StdDevFunction) Validate(args []any) error {
 }
 
 func (f *StdDevFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 批量执行模式，回退到传统算法
+	// Batch execution mode reverts to traditional algorithms
 	sum := 0.0
 	count := 0
 	for _, arg := range args {
@@ -431,7 +431,7 @@ func (f *StdDevFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 	return math.Sqrt(variance / float64(count)), nil
 }
 
-// 实现AggregatorFunction接口 - 韦尔福德算法
+// Implementing the AggregatorFunction interface - Wilford's algorithm
 func (f *StdDevFunction) New() AggregatorFunction {
 	return &StdDevFunction{
 		BaseFunction: f.BaseFunction,
@@ -476,7 +476,7 @@ func (f *StdDevFunction) Clone() AggregatorFunction {
 	}
 }
 
-// MedianFunction 中位数函数
+// MedianFunction median function
 type MedianFunction struct {
 	*BaseFunction
 }
@@ -508,7 +508,7 @@ func (f *MedianFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 	return values[mid], nil
 }
 
-// PercentileFunction 百分位数函数
+// PercentileFunction: Percentile function
 type PercentileFunction struct {
 	*BaseFunction
 }
@@ -553,7 +553,7 @@ func (f *PercentileFunction) Execute(ctx *FunctionContext, args []any) (any, err
 	return values[index], nil
 }
 
-// CollectFunction 收集函数 - 获取当前窗口所有消息的列值组成的数组
+// CollectFunction - An array composed of column values for all messages in the current window
 type CollectFunction struct {
 	*BaseFunction
 	values []any
@@ -571,13 +571,13 @@ func (f *CollectFunction) Validate(args []any) error {
 }
 
 func (f *CollectFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 直接返回所有参数组成的数组
+	// Directly returns an array composed of all parameters
 	result := make([]any, len(args))
 	copy(result, args)
 	return result, nil
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (f *CollectFunction) New() AggregatorFunction {
 	return &CollectFunction{
 		BaseFunction: f.BaseFunction,
@@ -608,7 +608,7 @@ func (f *CollectFunction) Clone() AggregatorFunction {
 	return newFunc
 }
 
-// FirstValueFunction 首个值函数 - 返回组中第一行的值
+// FirstValueFunction - Returns the value of the first row in the group
 type FirstValueFunction struct {
 	*BaseFunction
 	firstValue any
@@ -634,11 +634,11 @@ func (f *FirstValueFunction) Execute(ctx *FunctionContext, args []any) (any, err
 	if len(args) == 0 {
 		return nil, fmt.Errorf("function %s requires at least one argument", f.GetName())
 	}
-	// 返回第一个值
+	// Return the first value
 	return args[0], nil
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (f *FirstValueFunction) New() AggregatorFunction {
 	return &FirstValueFunction{
 		BaseFunction: f.BaseFunction,
@@ -671,7 +671,7 @@ func (f *FirstValueFunction) Clone() AggregatorFunction {
 	}
 }
 
-// LastValueFunction 最后值函数 - 返回组中最后一行的值
+// LastValueFunction - Returns the value of the last row in the group
 type LastValueFunction struct {
 	*BaseFunction
 	lastValue any
@@ -695,11 +695,11 @@ func (f *LastValueFunction) Execute(ctx *FunctionContext, args []any) (any, erro
 	if len(args) == 0 {
 		return nil, fmt.Errorf("function %s requires at least one argument", f.GetName())
 	}
-	// 返回最后一个值
+	// Return the last value
 	return args[len(args)-1], nil
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (f *LastValueFunction) New() AggregatorFunction {
 	return &LastValueFunction{
 		BaseFunction: f.BaseFunction,
@@ -726,7 +726,7 @@ func (f *LastValueFunction) Clone() AggregatorFunction {
 	}
 }
 
-// MergeAggFunction 合并聚合函数 - 将组中的值合并为单个值
+// MergeAggFunction Merge Aggregator - Merge values from a group into a single value
 type MergeAggFunction struct {
 	*BaseFunction
 	values []any
@@ -748,7 +748,7 @@ func (f *MergeAggFunction) Execute(ctx *FunctionContext, args []any) (any, error
 		return nil, nil
 	}
 
-	// 尝试合并为字符串
+	// Try merging into a string
 	var result strings.Builder
 	for i, arg := range args {
 		if i > 0 {
@@ -759,7 +759,7 @@ func (f *MergeAggFunction) Execute(ctx *FunctionContext, args []any) (any, error
 	return result.String(), nil
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (f *MergeAggFunction) New() AggregatorFunction {
 	return &MergeAggFunction{
 		BaseFunction: f.BaseFunction,
@@ -776,7 +776,7 @@ func (f *MergeAggFunction) Result() any {
 		return nil
 	}
 
-	// 尝试合并为字符串
+	// Try merging into a string
 	var result strings.Builder
 	for i, arg := range f.values {
 		if i > 0 {
@@ -800,7 +800,7 @@ func (f *MergeAggFunction) Clone() AggregatorFunction {
 	return newFunc
 }
 
-// StdDevSFunction 样本标准差函数（韦尔福德算法实现）
+// StdDevSFunction Sample Standard Deviation Function (Implemented by the Welford Algorithm)
 type StdDevSFunction struct {
 	*BaseFunction
 	count int
@@ -819,7 +819,7 @@ func (f *StdDevSFunction) Validate(args []any) error {
 }
 
 func (f *StdDevSFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 批量执行模式
+	// Batch execution mode
 	sum := 0.0
 	count := 0
 	for _, arg := range args {
@@ -845,7 +845,7 @@ func (f *StdDevSFunction) Execute(ctx *FunctionContext, args []any) (any, error)
 	return math.Sqrt(variance / float64(count-1)), nil
 }
 
-// 实现AggregatorFunction接口 - 韦尔福德算法
+// Implementing the AggregatorFunction interface - Wilford's algorithm
 func (f *StdDevSFunction) New() AggregatorFunction {
 	return &StdDevSFunction{
 		BaseFunction: f.BaseFunction,
@@ -890,7 +890,7 @@ func (f *StdDevSFunction) Clone() AggregatorFunction {
 	}
 }
 
-// DeduplicateFunction 去重函数
+// DeduplicateFunction
 type DeduplicateFunction struct {
 	*BaseFunction
 }
@@ -920,7 +920,7 @@ func (f *DeduplicateFunction) Execute(ctx *FunctionContext, args []any) (any, er
 	return result, nil
 }
 
-// VarFunction 总体方差函数（韦尔福德算法实现）
+// VarFunction (Implemented by the Wellford Algorithm)
 type VarFunction struct {
 	*BaseFunction
 	count int
@@ -939,7 +939,7 @@ func (f *VarFunction) Validate(args []any) error {
 }
 
 func (f *VarFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 批量执行模式
+	// Batch execution mode
 	sum := 0.0
 	count := 0
 	for _, arg := range args {
@@ -965,7 +965,7 @@ func (f *VarFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return variance / float64(count), nil
 }
 
-// 实现AggregatorFunction接口 - 韦尔福德算法
+// Implementing the AggregatorFunction interface - Wilford's algorithm
 func (f *VarFunction) New() AggregatorFunction {
 	return &VarFunction{
 		BaseFunction: f.BaseFunction,
@@ -1009,7 +1009,7 @@ func (f *VarFunction) Clone() AggregatorFunction {
 	}
 }
 
-// VarSFunction 样本方差函数（韦尔福德算法实现）
+// VarSFunction sample variance function (implemented by Welford's algorithm)
 type VarSFunction struct {
 	*BaseFunction
 	count int
@@ -1028,7 +1028,7 @@ func (f *VarSFunction) Validate(args []any) error {
 }
 
 func (f *VarSFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 批量执行模式
+	// Batch execution mode
 	sum := 0.0
 	count := 0
 	for _, arg := range args {
@@ -1054,7 +1054,7 @@ func (f *VarSFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return variance / float64(count-1), nil
 }
 
-// 实现AggregatorFunction接口 - 韦尔福德算法
+// Implementing the AggregatorFunction interface - Wilford's algorithm
 func (f *VarSFunction) New() AggregatorFunction {
 	return &VarSFunction{
 		BaseFunction: f.BaseFunction,
@@ -1098,7 +1098,7 @@ func (f *VarSFunction) Clone() AggregatorFunction {
 	}
 }
 
-// 为StdDevFunction添加AggregatorFunction接口实现
+// Adds the AggregatorFunction interface implementation to StdDevFunction
 type StdDevAggregatorFunction struct {
 	*BaseFunction
 	values []float64
@@ -1137,14 +1137,14 @@ func (f *StdDevAggregatorFunction) Result() any {
 		return 0.0
 	}
 
-	// 计算平均值
+	// Calculate the average
 	sum := 0.0
 	for _, v := range f.values {
 		sum += v
 	}
 	mean := sum / float64(len(f.values))
 
-	// 计算方差
+	// Calculate variance
 	variance := 0.0
 	for _, v := range f.values {
 		variance += math.Pow(v-mean, 2)
@@ -1166,7 +1166,7 @@ func (f *StdDevAggregatorFunction) Clone() AggregatorFunction {
 	return clone
 }
 
-// 为MedianFunction添加AggregatorFunction接口实现
+// Adds the AggregatorFunction interface implementation to MedianFunction
 type MedianAggregatorFunction struct {
 	*BaseFunction
 	values []float64
@@ -1229,7 +1229,7 @@ func (f *MedianAggregatorFunction) Clone() AggregatorFunction {
 	return clone
 }
 
-// 为PercentileFunction添加AggregatorFunction接口实现
+// Adds an AggregatorFunction interface implementation to PercentileFunction
 type PercentileAggregatorFunction struct {
 	*BaseFunction
 	values []float64
@@ -1240,7 +1240,7 @@ func NewPercentileAggregatorFunction() *PercentileAggregatorFunction {
 	return &PercentileAggregatorFunction{
 		BaseFunction: NewBaseFunction("percentile", TypeAggregation, "聚合函数", "计算数值百分位数", 2, 2),
 		values:       make([]float64, 0),
-		p:            0.95, // 默认95%分位数
+		p:            0.95, // Default: 95% percentile
 	}
 }
 
@@ -1296,9 +1296,9 @@ func (f *PercentileAggregatorFunction) Clone() AggregatorFunction {
 	return clone
 }
 
-// Init 实现 ParameterizedFunction：从 SQL 第二参数取分位 p。
-// percentile(field, p) 中 p∈[0,1] 为第二参数（args[1]），field 的数据经 Add 累积。
-// 未实现本接口时，窗口聚合走 CreateParameterizedAggregator 的兜底分支 New()，p 退化为默认 0.95。
+// Init implements ParameterizedFunction: takes the quantile p from the SQL second argument.
+// In percentile(field, p), p∈[0,1] is the second parameter (args[1]), and the field data is accumulated by adding.
+// When this interface is not implemented, window aggregation uses the backend branch New() of CreateParameterizedAggregator, and p degenerates to the default 0.95.
 func (f *PercentileAggregatorFunction) Init(args []any) error {
 	if len(args) < 2 {
 		return fmt.Errorf("percentile requires (field, p); got %v", args)
@@ -1319,7 +1319,7 @@ func (f *PercentileAggregatorFunction) Init(args []any) error {
 	return nil
 }
 
-// 为CollectFunction添加AggregatorFunction接口实现
+// Adds the AggregatorFunction interface implementation to CollectFunction
 type CollectAggregatorFunction struct {
 	*BaseFunction
 	values []any
@@ -1368,7 +1368,7 @@ func (f *CollectAggregatorFunction) Clone() AggregatorFunction {
 	return clone
 }
 
-// 为LastValueFunction添加AggregatorFunction接口实现
+// Adds the AggregatorFunction interface implementation to LastValueFunction
 type LastValueAggregatorFunction struct {
 	*BaseFunction
 	lastValue any
@@ -1413,7 +1413,7 @@ func (f *LastValueAggregatorFunction) Clone() AggregatorFunction {
 	}
 }
 
-// 为MergeAggFunction添加AggregatorFunction接口实现
+// Adds the AggregatorFunction interface implementation for MergeAggFunction
 type MergeAggAggregatorFunction struct {
 	*BaseFunction
 	values []any
@@ -1473,7 +1473,7 @@ func (f *MergeAggAggregatorFunction) Clone() AggregatorFunction {
 	return clone
 }
 
-// 为StdDevSFunction添加AggregatorFunction接口实现
+// Adds the AggregatorFunction interface implementation for StdDevSFunction
 type StdDevSAggregatorFunction struct {
 	*BaseFunction
 	values []float64
@@ -1514,19 +1514,19 @@ func (f *StdDevSAggregatorFunction) Result() any {
 		return 0.0
 	}
 
-	// 计算平均值
+	// Calculate the average
 	sum := 0.0
 	for _, v := range f.values {
 		sum += v
 	}
 	mean := sum / float64(len(f.values))
 
-	// 计算样本方差
+	// Calculate sample variance
 	variance := 0.0
 	for _, v := range f.values {
 		variance += math.Pow(v-mean, 2)
 	}
-	variance = variance / float64(len(f.values)-1) // 样本标准差使用n-1
+	variance = variance / float64(len(f.values)-1) // The sample standard deviation is used as n-1
 
 	return math.Sqrt(variance)
 }
@@ -1544,7 +1544,7 @@ func (f *StdDevSAggregatorFunction) Clone() AggregatorFunction {
 	return clone
 }
 
-// 为DeduplicateFunction添加AggregatorFunction接口实现
+// Adds the AggregatorFunction interface implementation to DeduplicateFunction
 type DeduplicateAggregatorFunction struct {
 	*BaseFunction
 	seen   map[string]bool
@@ -1605,7 +1605,7 @@ func (f *DeduplicateAggregatorFunction) Clone() AggregatorFunction {
 	return clone
 }
 
-// 为VarFunction添加AggregatorFunction接口实现
+// Adds the AggregatorFunction interface implementation to VarFunction
 type VarAggregatorFunction struct {
 	*BaseFunction
 	values []float64
@@ -1646,19 +1646,19 @@ func (f *VarAggregatorFunction) Result() any {
 		return 0.0
 	}
 
-	// 计算平均值
+	// Calculate the average
 	sum := 0.0
 	for _, v := range f.values {
 		sum += v
 	}
 	mean := sum / float64(len(f.values))
 
-	// 计算总体方差
+	// Calculate the population variance
 	variance := 0.0
 	for _, v := range f.values {
 		variance += math.Pow(v-mean, 2)
 	}
-	variance = variance / float64(len(f.values)) // 总体方差使用n
+	variance = variance / float64(len(f.values)) // The population variance is expressed using n
 
 	return variance
 }
@@ -1676,7 +1676,7 @@ func (f *VarAggregatorFunction) Clone() AggregatorFunction {
 	return clone
 }
 
-// 为VarSFunction添加AggregatorFunction接口实现
+// Adds the AggregatorFunction interface implementation for VarSFunction
 type VarSAggregatorFunction struct {
 	*BaseFunction
 	values []float64
@@ -1717,19 +1717,19 @@ func (f *VarSAggregatorFunction) Result() any {
 		return 0.0
 	}
 
-	// 计算平均值
+	// Calculate the average
 	sum := 0.0
 	for _, v := range f.values {
 		sum += v
 	}
 	mean := sum / float64(len(f.values))
 
-	// 计算样本方差
+	// Calculate sample variance
 	variance := 0.0
 	for _, v := range f.values {
 		variance += math.Pow(v-mean, 2)
 	}
-	variance = variance / float64(len(f.values)-1) // 样本方差使用n-1
+	variance = variance / float64(len(f.values)-1) // Sample variance is used in n-1
 
 	return variance
 }

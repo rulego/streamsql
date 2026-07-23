@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestStream_StartSinkWorkerPool 测试启动Sink工作池
+// TestStream_StartSinkWorkerPool Test the startup of the Sink working pool
 func TestStream_StartSinkWorkerPool(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -40,34 +40,34 @@ func TestStream_StartSinkWorkerPool(t *testing.T) {
 		}
 	}()
 
-	// 测试默认工作池大小
-	stream.startSinkWorkerPool(0)     // 传入0应该使用默认值
-	time.Sleep(10 * time.Millisecond) // 等待工作池启动
+	// Test the default working pool size
+	stream.startSinkWorkerPool(0)     // Passing in 0 should use the default value
+	time.Sleep(10 * time.Millisecond) // Wait for the work pool to start
 
-	// 测试自定义工作池大小
+	// Test the size of the custom working pool
 	stream.startSinkWorkerPool(4)
 	time.Sleep(10 * time.Millisecond)
 
-	// 验证工作池可以接收任务
+	// The validation work pool can receive tasks
 	var taskExecuted int32
 	task := func() {
 		atomic.StoreInt32(&taskExecuted, 1)
 	}
 
-	// 发送任务到工作池
+	// Send tasks to the work pool
 	select {
 	case stream.sinkWorkerPool <- task:
-		// 任务成功发送
+		// Mission successfully sent
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Failed to send task to worker pool")
 	}
 
-	// 等待任务执行
+	// Waiting for the task to be executed
 	time.Sleep(50 * time.Millisecond)
 	assert.True(t, atomic.LoadInt32(&taskExecuted) == 1)
 }
 
-// TestStream_SinkWorkerPool_ErrorRecovery 测试Sink工作池错误恢复
+// TestStream_SinkWorkerPool_ErrorRecovery Test Sink working pool error recovery
 func TestStream_SinkWorkerPool_ErrorRecovery(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -83,40 +83,40 @@ func TestStream_SinkWorkerPool_ErrorRecovery(t *testing.T) {
 	stream.startSinkWorkerPool(2)
 	time.Sleep(10 * time.Millisecond)
 
-	// 创建会panic的任务
+	// Create tasks that can cause panic
 	panicTask := func() {
 		panic("test panic")
 	}
 
-	// 创建正常任务
+	// Create normal tasks
 	var normalTaskExecuted int32
 	normalTask := func() {
 		atomic.StoreInt32(&normalTaskExecuted, 1)
 	}
 
-	// 发送panic任务
+	// Send a panic task
 	select {
 	case stream.sinkWorkerPool <- panicTask:
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Failed to send panic task")
 	}
 
-	// 等待panic处理
+	// Waiting for panic to be handled
 	time.Sleep(50 * time.Millisecond)
 
-	// 发送正常任务，验证工作池仍然可用
+	// Sending normal tasks, the verification work pool remains available
 	select {
 	case stream.sinkWorkerPool <- normalTask:
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Failed to send normal task after panic")
 	}
 
-	// 等待正常任务执行
+	// Wait for normal tasks to be executed
 	time.Sleep(50 * time.Millisecond)
 	assert.True(t, atomic.LoadInt32(&normalTaskExecuted) == 1)
 }
 
-// TestStream_SinkWorkerPool_Concurrent 测试Sink工作池并发处理
+// TestStream_SinkWorkerPool_Concurrent Test the concurrency of the Sink working pool
 func TestStream_SinkWorkerPool_Concurrent(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -135,14 +135,14 @@ func TestStream_SinkWorkerPool_Concurrent(t *testing.T) {
 	var executedCount int64
 	var wg sync.WaitGroup
 
-	// 发送多个任务
+	// Send multiple tasks
 	taskCount := 20
 	for i := 0; i < taskCount; i++ {
 		wg.Add(1)
 		task := func() {
 			defer wg.Done()
 			atomic.AddInt64(&executedCount, 1)
-			time.Sleep(10 * time.Millisecond) // 模拟处理时间
+			time.Sleep(10 * time.Millisecond) // Simulated processing time
 		}
 
 		select {
@@ -152,14 +152,14 @@ func TestStream_SinkWorkerPool_Concurrent(t *testing.T) {
 		}
 	}
 
-	// 等待所有任务完成
+	// Wait for all tasks to be completed
 	wg.Wait()
 
-	// 验证所有任务都被执行
+	// Verify that all tasks are being executed
 	assert.Equal(t, int64(taskCount), atomic.LoadInt64(&executedCount))
 }
 
-// TestStream_SinkWorkerPool_Shutdown 测试Sink工作池关闭
+// TestStream_SinkWorkerPool_Shutdown Test the Sink working pool to be closed
 func TestStream_SinkWorkerPool_Shutdown(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -170,7 +170,7 @@ func TestStream_SinkWorkerPool_Shutdown(t *testing.T) {
 	stream.startSinkWorkerPool(2)
 	time.Sleep(10 * time.Millisecond)
 
-	// 发送一个任务
+	// Send a task
 	var taskExecuted int32
 	task := func() {
 		atomic.StoreInt32(&taskExecuted, 1)
@@ -182,41 +182,41 @@ func TestStream_SinkWorkerPool_Shutdown(t *testing.T) {
 		t.Fatal("Failed to send task")
 	}
 
-	// 等待任务执行
+	// Waiting for the task to be executed
 	time.Sleep(50 * time.Millisecond)
 	assert.True(t, atomic.LoadInt32(&taskExecuted) == 1)
 
-	// 关闭stream
+	// Close the stream
 	func() {
 		if stream != nil {
 			close(stream.done)
 		}
 	}()
 
-	// 等待工作协程退出
+	// Wait for the work coroutine to exit
 	time.Sleep(100 * time.Millisecond)
 
-	// 验证工作池在关闭后仍然可以接收任务（通道本身没有关闭）
-	// 但是没有工作协程处理这些任务
+	// The validation work pool can still receive tasks after closure (the channel itself is not closed).
+	// But no working coroutine handles these tasks
 	var newTaskExecuted int32
 	newTask := func() {
 		atomic.StoreInt32(&newTaskExecuted, 1)
 	}
 
-	// 发送任务应该成功（通道未关闭），但任务不会被执行
+	// The sending task should succeed (the channel is not closed), but the task will not be executed
 	select {
 	case stream.sinkWorkerPool <- newTask:
-		// 任务发送成功，但不会被执行因为工作协程已退出
+		// The task was sent successfully, but it would not be executed because the work coroutine had exited
 	case <-time.After(50 * time.Millisecond):
 		t.Fatal("Should be able to send task to channel")
 	}
 
-	// 等待一段时间，验证任务没有被执行
+	// After waiting for a while, the verification task was not executed
 	time.Sleep(100 * time.Millisecond)
 	assert.False(t, atomic.LoadInt32(&newTaskExecuted) == 1, "Task should not be executed after workers shutdown")
 }
 
-// TestStream_SinkWorkerPool_WorkerCount 测试不同工作池大小
+// TestStream_SinkWorkerPool_WorkerCount Test different working pool sizes
 func TestStream_SinkWorkerPool_WorkerCount(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -245,7 +245,7 @@ func TestStream_SinkWorkerPool_WorkerCount(t *testing.T) {
 			stream.startSinkWorkerPool(tt.workerCount)
 			time.Sleep(20 * time.Millisecond)
 
-			// 验证工作池可以处理任务
+			// The verification work pool can handle tasks
 			var taskExecuted int32
 			task := func() {
 				atomic.StoreInt32(&taskExecuted, 1)

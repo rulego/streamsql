@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestTokenizeWithArrayAccess 测试包含数组访问的分词
+// TestTokenizeWithArrayAccess tests the segmentation of array access
 func TestTokenizeWithArrayAccess(t *testing.T) {
 	tests := []struct {
 		name     string

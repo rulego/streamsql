@@ -24,10 +24,10 @@ func (f *IfNullFunction) Validate(args []any) error {
 
 func (f *IfNullFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if args[0] == nil {
-		// 当第一个参数为nil时，返回第二个参数
-		// 如果第二个参数是数字0，确保返回float64类型以保持一致性
+		// When the first argument is nil, the second parameter is returned
+		// If the second parameter is 0, make sure to return float64 type to maintain consistency
 		if args[1] != nil {
-			// 尝试转换为float64以保持数值类型一致性
+			// Try converting to float64 to maintain consistency between numeric types
 			if val, ok := args[1].(int); ok && val == 0 {
 				return 0.0, nil
 			}
@@ -116,7 +116,7 @@ func (f *GreatestFunction) Execute(ctx *FunctionContext, args []any) (any, error
 			return nil, nil
 		}
 
-		// 尝试转换为数字进行比较
+		// Try to convert them into numbers for comparison
 		maxVal, err1 := cast.ToFloat64E(max)
 		currVal, err2 := cast.ToFloat64E(args[i])
 
@@ -125,7 +125,7 @@ func (f *GreatestFunction) Execute(ctx *FunctionContext, args []any) (any, error
 				max = args[i]
 			}
 		} else {
-			// 如果不能转换为数字，则按字符串比较
+			// If it cannot be converted to a number, it is compared by string
 			maxStr := fmt.Sprintf("%v", max)
 			currStr := fmt.Sprintf("%v", args[i])
 			if currStr > maxStr {
@@ -136,7 +136,7 @@ func (f *GreatestFunction) Execute(ctx *FunctionContext, args []any) (any, error
 	return max, nil
 }
 
-// LeastFunction 返回最小值
+// LeastFunction returns the minimum value
 type LeastFunction struct {
 	*BaseFunction
 }
@@ -166,7 +166,7 @@ func (f *LeastFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 			return nil, nil
 		}
 
-		// 尝试转换为数字进行比较
+		// Try to convert them into numbers for comparison
 		minVal, err1 := cast.ToFloat64E(min)
 		currVal, err2 := cast.ToFloat64E(args[i])
 
@@ -175,7 +175,7 @@ func (f *LeastFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 				min = args[i]
 			}
 		} else {
-			// 如果不能转换为数字，则按字符串比较
+			// If it cannot be converted to a number, it is compared by string
 			minStr := fmt.Sprintf("%v", min)
 			currStr := fmt.Sprintf("%v", args[i])
 			if currStr < minStr {
@@ -186,7 +186,7 @@ func (f *LeastFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return min, nil
 }
 
-// CaseWhenFunction CASE WHEN表达式
+// CaseWhenFunction CASE WHEN expression
 type CaseWhenFunction struct {
 	*BaseFunction
 }
@@ -202,16 +202,16 @@ func (f *CaseWhenFunction) Validate(args []any) error {
 		return fmt.Errorf("case_when requires at least 2 arguments")
 	}
 
-	// 参数必须是偶数个（条件-值对）或奇数个（最后一个是默认值）
+	// Parameters must be an even number (condition-value pair) or an odd number (the last one is the default)
 	if len(args)%2 == 0 {
-		// 偶数个参数，必须都是条件-值对
+		// Even parameters must all be conditional-value pairs
 		for i := 0; i < len(args); i += 2 {
-			// 条件应该是布尔值或可以转换为布尔值的表达式
+			// The condition should be a boolean value or an expression that can be converted to a boolean value
 		}
 	} else {
-		// 奇数个参数，最后一个是默认值
+		// Odd parameters, with the last one being the default value
 		for i := 0; i < len(args)-1; i += 2 {
-			// 条件应该是布尔值或可以转换为布尔值的表达式
+			// The condition should be a boolean value or an expression that can be converted to a boolean value
 		}
 	}
 
@@ -223,15 +223,15 @@ func (f *CaseWhenFunction) Execute(ctx *FunctionContext, args []any) (any, error
 		return nil, err
 	}
 
-	// 处理条件-值对
+	// Handle condition-value pairs
 	for i := 0; i < len(args)-1; i += 2 {
 		condition := args[i]
 		value := args[i+1]
 
-		// 将条件转换为布尔值
+		// Convert the condition into a boolean value
 		condBool, err := cast.ToBoolE(condition)
 		if err != nil {
-			// 如果无法转换为布尔值，检查是否为非零/非空值
+			// If it cannot be converted to a boolean value, check whether it is non-zero/non-null
 			if condition == nil {
 				condBool = false
 			} else {
@@ -255,11 +255,11 @@ func (f *CaseWhenFunction) Execute(ctx *FunctionContext, args []any) (any, error
 		}
 	}
 
-	// 如果没有条件匹配，返回默认值（如果有）
+	// If no conditional match exists, returns the default value (if any)
 	if len(args)%2 == 1 {
 		return args[len(args)-1], nil
 	}
 
-	// 没有默认值，返回 nil
+	// No default value, returns nil
 	return nil, nil
 }

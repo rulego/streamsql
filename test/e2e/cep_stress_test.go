@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// CEP 压力测试（streamsql 全链路层）：MATCH_RECOGNIZE 经 Emit→async→CEP→sink 在持续负载下的
-// 稳定性——sweeper 不泄漏、分区 LRU 回收、无 panic。与 stress_test.go 同构（Create/Stop 循环、
-// 持续负载堆稳定、分区驱逐），但 CEP 必须用 Emit（async，EmitSync 拒绝 MATCH_RECOGNIZE），
-// 故用 sync sink 计数做 drain 同步点：PATTERN(A) 每事件 1 匹配，wantMatches=事件数。
-// WITHIN '1h' 让 sweeper 启动（测其经 stream.Stop 正确 join）。本地普通模式跑（-race 由 CI/Linux 回归）。
+// CEP stress testing (streamsql full-link layer): MATCH_RECOGNIZE → emit→ sink under continuous load via CEP→
+// Stability—no sweeper leakage, partitioned LRU recovery, no panic. Isomorphic with stress_test.go (Create/Stop loop,
+// Continuous load heap stability, partition eviction), but CEP must use Emit (async, EmitSync denies MATCH_RECOGNIZE),
+// Therefore, use sync sink counts to create drain synchronization points: PATTERN(A) matches 1 per event, wantMatches = number of events.
+// WITHIN '1h' Start the sweeper (test its stream.Stop join correctly). Local normal mode runs (-race reverted from CI/Linux).
 
 const cepStressSQL = `SELECT * FROM stream
 	MATCH_RECOGNIZE (
@@ -25,10 +25,10 @@ const cepStressSQL = `SELECT * FROM stream
 		WITHIN '1h'
 	)`
 
-// drainCepMatches 分批灌 rows（async Emit），每批等 sync sink 计数追上再灌下一批（背压）。
-// 裸连灌会撑满 dataChan 触发 Emit 丢弃（非阻塞满则丢，WARN "Data channel is full"），
-// 导致 wantMatches 永远到不了 → 超时。背压让 Emit 速率跟随 processor，channel 不满不丢；
-// PATTERN(A) 每事件 1 匹配，sink 计数即已处理事件数。
+// drainCepMatches loads rows (async emit) in batches, and after each batch the sync sink count catches up, the next batch (back pressure) is added.
+// Continuous bare loading will fill dataChan to trigger emit discard (if not full, discard it, WARN "Data channel is full"),
+// This caused wantMatches to never reach → timeout. Backpressure causes Emit rates to follow the processor, so channels are not lost when not satisfied;
+// PATTERN(A) matches 1 event per event, and the sink count is the number of processed events.
 func drainCepMatches(t testing.TB, s *streamsql.Streamsql, rows []map[string]any) time.Duration {
 	t.Helper()
 	var got int64
@@ -43,12 +43,12 @@ func drainCepMatches(t testing.TB, s *streamsql.Streamsql, rows []map[string]any
 		for j := i; j < end; j++ {
 			s.Emit(rows[j])
 		}
-		// 等本批匹配产出（processor 处理完入队的）再灌下一批。
+		// Wait for the current batch to match output (processor processing and join the queue) before loading the next batch.
 		target := int64(end)
 		dl := time.Now().Add(120 * time.Second)
 		for atomic.LoadInt64(&got) < target {
 			if time.Now().After(dl) {
-				t.Fatalf("drain 背压超时：got=%d want=%d", atomic.LoadInt64(&got), target)
+				t.Fatalf("drain Backpressure timeout: got = %d want = %d", atomic.LoadInt64(&got), target)
 			}
 			runtime.Gosched()
 		}
@@ -56,11 +56,11 @@ func drainCepMatches(t testing.TB, s *streamsql.Streamsql, rows []map[string]any
 	return time.Since(start)
 }
 
-// --- 1. Create/Stop 循环无 goroutine 泄漏 ---
+// --- 1. Create/Stop loop without goroutine leakage ---
 
-// 30 轮 New→Execute（WITHIN 触发 sweeper）→Emit→Stop。每轮 Stop 应回收 sweeper goroutine +
-// 数据处理 goroutine，NumGoroutine 回到基线。捕获「sweeper 未被 stream.Stop join」型泄漏：
-// 每轮残留 k → 末值 base+cycles*k。
+// 30 rounds New→Execute (WITHIN triggers sweeper) →Emit→Stop. Each round of Stop should reclaim sweeper goroutine +
+// Data processing goroutine, NumGoroutine returns to baseline. Capturing the "sweeper not stream.Stop join" type leak:
+// Each round retains k → final value base+cycles * k.
 func TestStressCEP_NoGoroutineLeak_CreateStop(t *testing.T) {
 	runtime.GC()
 	base := runtime.NumGoroutine()
@@ -77,7 +77,7 @@ func TestStressCEP_NoGoroutineLeak_CreateStop(t *testing.T) {
 		s.Stop()
 	}
 
-	// Stop 为 grace join，给余量等残留协程退出后采样。
+	// Stop is grace join, which samples residual coroutines such as margins after exiting.
 	deadline := time.Now().Add(3 * time.Second)
 	var final int
 	for {
@@ -96,16 +96,16 @@ func TestStressCEP_NoGoroutineLeak_CreateStop(t *testing.T) {
 	t.Logf("goroutine: base=%d final=%d (cycles=%d)", base, final, cycles)
 }
 
-// --- 2. 持续负载堆稳定 ---
+// --- 2. Continuous load stack stability---
 
-// 单实例持续 10 万事件（50 分区）：堆增量受控、全程无 panic。堆增量若随事件数线性增长，
-// 疑为 partition/输出 map 等状态留存型泄漏。
+// Single instance sustains 100,000 events (50 partitions): heap increment is controlled with no panic throughout. If the pile increment grows linearly with the number of events,
+// Suspected to be state-retained leaks such as partition/output map.
 func TestStressCEP_SustainedLoad_HeapStable(t *testing.T) {
 	s := streamsql.New(streamsql.WithBufferSizes(4096, 1024, 256))
 	require.NoError(t, s.Execute(cepStressSQL))
 	defer s.Stop()
 
-	// 预热（触发分区/sweeper 初始化），再取基线。
+	// Preheat (trigger partition/sweeper initialization), then take the baseline.
 	drainCepMatches(t, s, []map[string]any{{"deviceId": 0, "ts": 0, "v": 60.0}})
 	runtime.GC()
 	var ms runtime.MemStats
@@ -123,18 +123,18 @@ func TestStressCEP_SustainedLoad_HeapStable(t *testing.T) {
 	runtime.ReadMemStats(&ms)
 	heapEnd := ms.HeapAlloc
 
-	t.Logf("持续负载: %d 事件 / %v = %.0f ops/sec", events, dur, float64(events)/dur.Seconds())
-	t.Logf("堆: %.2fMB → %.2fMB (delta %.2fMB)",
+	t.Logf("Continuous load: %d events / %v = %.0f ops/sec", events, dur, float64(events)/dur.Seconds())
+	t.Logf("Dui: %.2fMB → %.2fMB (delta %.2fMB)",
 		float64(heapStart)/1e6, float64(heapEnd)/1e6, float64(int64(heapEnd)-int64(heapStart))/1e6)
 	require.Less(t, float64(int64(heapEnd)-int64(heapStart)), 100.0*1e6,
 		"堆增量过大，疑为状态留存型泄漏：delta=%.2fMB",
 		float64(int64(heapEnd)-int64(heapStart))/1e6)
 }
 
-// --- 3. 分区 LRU 驱逐不泄漏 ---
+// --- 3. Partitioned LRU Expulsion Without Leakage ---
 
-// 5 万个不同分区（远超默认上限 maxPartitions=10000），每分区一条。LRU 驱逐在持续负载下不应
-// 泄漏、不应 panic。驻留若随总分区数线性增长即为驱逐失效。
+// 50,000 different partitions (far exceeding the default limit maxPartitions=10,000), one per partition. LRU destroyers should not be used under continuous load
+// Leaks should not be panicked. If the residency increases linearly with the total number of partitions, it is considered a deportation failure.
 func TestStressCEP_PartitionEviction_NoLeak(t *testing.T) {
 	s := streamsql.New(streamsql.WithBufferSizes(4096, 1024, 256))
 	require.NoError(t, s.Execute(cepStressSQL))
@@ -156,10 +156,10 @@ func TestStressCEP_PartitionEviction_NoLeak(t *testing.T) {
 	runtime.ReadMemStats(&ms)
 	heapEnd := ms.HeapAlloc
 
-	t.Logf("淘汰负载: %d 分区 / %v = %.0f ops/sec", distinct, dur, float64(distinct)/dur.Seconds())
-	t.Logf("堆: %.2fMB → %.2fMB (delta %.2fMB)",
+	t.Logf("Elimination load: %d partition / %v = %.0f ops/sec", distinct, dur, float64(distinct)/dur.Seconds())
+	t.Logf("Dui: %.2fMB → %.2fMB (delta %.2fMB)",
 		float64(heapStart)/1e6, float64(heapEnd)/1e6, float64(int64(heapEnd)-int64(heapStart))/1e6)
-	// 驱逐应把旧分区回收，驻留仅近 LRU 上限个；驻留若随总分区数线性增长即为驱逐失效。
+	// Expulsion should reclaim old partitions, and only reside near the LRU limit; If the residency increases linearly with the total number of partitions, it is considered a deportation failure.
 	require.Less(t, float64(int64(heapEnd)-int64(heapStart)), 150.0*1e6,
 		"堆随分区数线性增长，疑为 LRU 驱逐未回收：delta=%.2fMB",
 		float64(int64(heapEnd)-int64(heapStart))/1e6)

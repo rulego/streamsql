@@ -59,7 +59,7 @@ type Streamsql struct {
 	schemaValidator *schema.Schema
 	schemaDropped   int64
 
-	// 分析函数 PARTITION 分区数上限（≤0 用默认）。由 WithAnalyticMaxPartitions 设置。
+	// The PARTITION analysis function sets the maximum number of partitions (≤0 is the default). Configured by WithAnalyticMaxPartitions.
 	analyticMaxPartitions int
 }
 
@@ -156,7 +156,7 @@ func (s *Streamsql) Execute(sql string) error {
 	// Inject the per-instance logger into the stream pipeline.
 	config.Logger = s.log
 
-	// 分析函数分区上限（≤0 时引擎用默认值）。
+	// Upper limit of the parser function partition (the engine uses the default value when ≤0).
 	config.AnalyticMaxPartitions = s.analyticMaxPartitions
 
 	// Create stream processor based on performance mode

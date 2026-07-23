@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// testCase 定义测试用例结构
+// testCase defines the test case structure
 type testCase struct {
 	name        string
 	sql         string
@@ -21,10 +21,10 @@ type testCase struct {
 	validator   func(t *testing.T, results []map[string]any)
 }
 
-// executeTestCase 执行单个测试用例的通用逻辑
+// executeTestCase executes the general logic for a single test case
 func executeTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCase) {
 	t.Run(tc.name, func(t *testing.T) {
-		// 为每个测试用例创建新的Streamsql实例
+		// Create a new StreamSQL instance for each test case
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
@@ -32,7 +32,7 @@ func executeTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCase) {
 		assert.Nil(t, err)
 		strm := ssql.Stream()
 
-		// 创建结果接收通道和互斥锁保护并发访问
+		// Create result receiving channels and mutex protection for concurrent access
 		resultChan := make(chan any, 10)
 		var results []map[string]any
 		var resultsMutex sync.Mutex
@@ -41,19 +41,19 @@ func executeTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCase) {
 			select {
 			case resultChan <- result:
 			default:
-				// 通道满时丢弃结果，避免阻塞
+				// Discard results when the channel is full, avoiding blockage
 			}
 		})
 
-		// 添加测试数据
+		// Add test data
 		for _, data := range tc.testData {
 			strm.Emit(data)
 		}
 
-		// 等待数据处理
+		// Waiting for data processing
 		time.Sleep(200 * time.Millisecond)
 
-		// 收集所有结果
+		// Collect all the results
 		timeout := time.After(2 * time.Second)
 		for {
 			resultsMutex.Lock()
@@ -79,24 +79,24 @@ func executeTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCase) {
 		}
 
 	checkResults:
-		// 验证结果长度（使用互斥锁保护）
+		// Verification result length (using mutex protection)
 		resultsMutex.Lock()
 		finalResults := make([]map[string]any, len(results))
 		copy(finalResults, results)
 		resultsMutex.Unlock()
 
 		assert.Equal(t, tc.expectedLen, len(finalResults))
-		// 执行自定义验证
+		// Perform custom validation
 		if tc.validator != nil {
 			tc.validator(t, finalResults)
 		}
 	})
 }
 
-// executeAggregationTestCase 执行聚合函数测试用例的通用逻辑
+// executeAggregationTestCase executes the general logic for aggregation function test cases
 func executeAggregationTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCase) {
 	t.Run(tc.name, func(t *testing.T) {
-		// 为每个测试用例创建新的Streamsql实例
+		// Create a new StreamSQL instance for each test case
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
@@ -104,42 +104,42 @@ func executeAggregationTestCase(t *testing.T, ssql *streamsql.Streamsql, tc test
 		assert.Nil(t, err)
 		strm := ssql.Stream()
 
-		// 创建结果接收通道
+		// Create a result receiving channel
 		resultChan := make(chan any, 10)
 		strm.AddSink(func(result []map[string]any) {
 			select {
 			case resultChan <- result:
 			default:
-				// 通道满时丢弃结果，避免阻塞
+				// Discard results when the channel is full, avoiding blockage
 			}
 		})
 
-		// 添加测试数据
+		// Add test data
 		for _, data := range tc.testData {
 			strm.Emit(data)
 		}
 
-		// 等待窗口触发
+		// Wait for the window to trigger
 		time.Sleep(1 * time.Second)
 		strm.Window.Trigger()
 		time.Sleep(500 * time.Millisecond)
 
-		// 验证结果
+		// Verify the results
 		select {
 		case result := <-resultChan:
 			if tc.validator != nil {
 				tc.validator(t, result.([]map[string]any))
 			}
 		case <-time.After(3 * time.Second):
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 	})
 }
 
-// executeFunctionTestCase 执行函数测试用例的通用逻辑
+// executeFunctionTestCase executes the general logic of the function test case
 func executeFunctionTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCase) {
 	t.Run(tc.name, func(t *testing.T) {
-		// 为每个测试用例创建新的Streamsql实例
+		// Create a new StreamSQL instance for each test case
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
@@ -147,55 +147,55 @@ func executeFunctionTestCase(t *testing.T, ssql *streamsql.Streamsql, tc testCas
 		assert.Nil(t, err)
 		strm := ssql.Stream()
 
-		// 创建结果接收通道
+		// Create a result receiving channel
 		resultChan := make(chan any, 10)
 		strm.AddSink(func(result []map[string]any) {
 			select {
 			case resultChan <- result:
 			default:
-				// 通道满时丢弃结果，避免阻塞
+				// Discard results when the channel is full, avoiding blockage
 			}
 		})
 
-		// 添加测试数据
+		// Add test data
 		for _, data := range tc.testData {
 			strm.Emit(data)
 		}
 
 		time.Sleep(200 * time.Millisecond)
 
-		// 验证结果
+		// Verify the results
 		select {
 		case result := <-resultChan:
 			if tc.validator != nil {
 				tc.validator(t, result.([]map[string]any))
 			}
 		case <-time.After(2 * time.Second):
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 	})
 }
 
-// 本文件测试串行执行（不加 t.Parallel）：向全局 function registry 注册自定义函数（func01/func02/get_type 等），
-// 与 custom_functions 等存在重名注册，并行会导致 "already registered" 冲突。
+// This file tests serial execution (without t.Parallel): registers custom functions (func01/func02/get_type, etc.) with the global function registry,
+// There are duplicate registrations with custom_functions and others, and parallelism will cause a "already registered" conflict.
 
-// TestQuotedIdentifiersAndStringLiterals 测试反引号标识符和字符串常量支持
+// TestQuotedIdentifiersAndStringLiterals tests backquoted identifiers and string constant support
 func TestQuotedIdentifiersAndStringLiterals(t *testing.T) {
-	// 注册测试函数（因为有测试用例使用自定义函数）
+	// Register test functions (because there are test cases using custom functions)
 	registerTestFunctions(t)
 	defer unregisterTestFunctions()
 
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 通用测试数据
+	// General test data
 	standardTestData := []map[string]any{
 		{"deviceId": "sensor001", "deviceType": "temperature"},
 		{"deviceId": "device002", "deviceType": "humidity"},
 		{"deviceId": "sensor003", "deviceType": "pressure"},
 	}
 
-	// 定义测试用例
+	// Define test cases
 	testCases := []testCase{
 		{
 			name:        "反引号标识符支持",
@@ -267,25 +267,25 @@ func TestQuotedIdentifiersAndStringLiterals(t *testing.T) {
 		},
 	}
 
-	// 执行所有测试用例
+	// Execute all test cases
 	for _, tc := range testCases {
 		executeTestCase(t, ssql, tc)
 	}
 }
 
-// TestStringConstantExpressions 测试字符串常量表达式
+// TestStringConstantExpressions tests string constant expressions
 func TestStringConstantExpressions(t *testing.T) {
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 通用测试数据
+	// General test data
 	testData := []map[string]any{
 		{"deviceId": "sensor001", "deviceType": "temperature"},
 		{"deviceId": "device002", "deviceType": "humidity"},
 		{"deviceId": "sensor003", "deviceType": "pressure"},
 	}
 
-	// 字符串常量验证函数
+	// String constant verification function
 	stringConstantValidator := func(expectedValue string) func(t *testing.T, results []map[string]any) {
 		return func(t *testing.T, results []map[string]any) {
 			for _, result := range results {
@@ -313,28 +313,28 @@ func TestStringConstantExpressions(t *testing.T) {
 		},
 	}
 
-	// 执行所有测试用例
+	// Execute all test cases
 	for _, tc := range testCases {
 		executeTestCase(t, ssql, tc)
 	}
 }
 
-// TestAggregationWithQuotedIdentifiers 测试聚合函数与反引号标识符的结合使用
+// TestAggregationWithQuotedIdentifiers tests the combination of aggregation functions and backquoted identifiers
 func TestAggregationWithQuotedIdentifiers(t *testing.T) {
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 聚合测试数据
+	// Aggregate test data
 	aggregationTestData := []map[string]any{
 		{"deviceId": "sensor001", "temperature": 25.5},
 		{"deviceId": "sensor001", "temperature": 26.0},
 		{"deviceId": "sensor002", "temperature": 30.0},
 	}
 
-	// 聚合结果验证函数
+	// Aggregate result verification function
 	aggregationValidator := func(t *testing.T, results []map[string]any) {
 		resultSlice := results
-		assert.Len(t, resultSlice, 2) // 应该有两个设备的聚合结果
+		assert.Len(t, resultSlice, 2) // There should be an aggregated result of two devices
 
 		for _, item := range resultSlice {
 			if item["deviceId"] == "sensor001" {
@@ -356,15 +356,15 @@ func TestAggregationWithQuotedIdentifiers(t *testing.T) {
 		},
 	}
 
-	// 执行所有聚合测试用例
+	// Execute all aggregated test cases
 	for _, tc := range testCases {
 		executeAggregationTestCase(t, ssql, tc)
 	}
 }
 
-// TestCustomFunctionWithQuotedIdentifiers 测试自定义函数与反引号标识符和字符串常量的参数传递
+// TestCustomFunctionWithQuotedIdentifiers Tests the parameter passing between the custom function and the backquote identifier and string constants
 func TestCustomFunctionWithQuotedIdentifiers(t *testing.T) {
-	// 注册测试函数
+	// Register the test function
 	registerTestFunctions(t)
 	defer unregisterTestFunctions()
 
@@ -414,15 +414,15 @@ func TestCustomFunctionWithQuotedIdentifiers(t *testing.T) {
 		},
 	}
 
-	// 执行所有函数测试用例
+	// Execute all function test cases
 	for _, tc := range testCases {
 		executeFunctionTestCase(t, ssql, tc)
 	}
 }
 
-// registerTestFunctions 注册测试用的自定义函数
+// registerTestFunctions: A custom function used for registering tests
 func registerTestFunctions(t *testing.T) {
-	// 注册测试函数：接收字段值并返回其平方
+	// Register test function: Receives field values and returns their square
 	err := functions.RegisterCustomFunction(
 		"func01",
 		functions.TypeMath,
@@ -436,7 +436,7 @@ func registerTestFunctions(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
-	// 注册测试函数：接收字符串并返回其长度
+	// Register test function: Receive the string and return its length
 	err = functions.RegisterCustomFunction(
 		"func02",
 		functions.TypeString,
@@ -450,7 +450,7 @@ func registerTestFunctions(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
-	// 注册测试函数：接收参数并返回其类型信息
+	// Register test function: Receives parameters and returns their type information
 	err = functions.RegisterCustomFunction(
 		"get_type",
 		functions.TypeCustom,
@@ -464,7 +464,7 @@ func registerTestFunctions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// unregisterTestFunctions 注销测试用的自定义函数
+// unregisterTestFunctions: A custom function used to log out of testing
 func unregisterTestFunctions() {
 	functions.Unregister("func01")
 	functions.Unregister("func02")

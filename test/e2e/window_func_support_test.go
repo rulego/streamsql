@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestWindowHavingSustainedDetection 验证主流写法：窗口聚合全部事件，HAVING 拦 dip。
-// 全 >5 的窗口通过 HAVING；含 dip(<5) 的窗口被 HAVING 拦住无输出。
-// 注意：streamsql 的 HAVING 引用 SELECT 别名（mn），不复述聚合函数。
+// TestWindowHavingSustainedDetection verifies the mainstream approach: aggregate all events in the window, HAVING to block dip.
+// All >5 windows are HAVING; Window containing dip(<5) is blocked by HAVING and has no output.
+// Note: HAVING in streamsql references the SELECT alias (mn) and does not restate the aggregation function.
 func TestWindowHavingSustainedDetection(t *testing.T) {
 	t.Parallel()
 
-	// 窗口全 >5 → 通过 HAVING，输出 mn=9。
+	// The window is >5 → HAVING, output mn=9.
 	s1 := streamsql.New()
 	require.NoError(t, s1.Execute(`SELECT min(v) AS mn FROM stream GROUP BY CountingWindow(3) HAVING mn > 5`))
 	ch1 := make(chan []map[string]any, 4)
@@ -28,11 +28,11 @@ func TestWindowHavingSustainedDetection(t *testing.T) {
 		require.Len(t, rows, 1)
 		assert.Equal(t, 9.0, rows[0]["mn"])
 	case <-time.After(5 * time.Second):
-		t.Fatal("timeout: 全 >5 的窗口应通过 HAVING")
+		t.Fatal("timeout: The windows of the >5 should pass through HAVING")
 	}
 	s1.Stop()
 
-	// 窗口含 dip → 被 HAVING 拦住，不应输出含数值的结果。
+	// If the window contains dip → is blocked by HAVING and should not output a result containing the value.
 	s2 := streamsql.New()
 	require.NoError(t, s2.Execute(`SELECT min(v) AS mn FROM stream GROUP BY CountingWindow(3) HAVING mn > 5`))
 	ch2 := make(chan []map[string]any, 4)
@@ -44,16 +44,16 @@ func TestWindowHavingSustainedDetection(t *testing.T) {
 	case rows := <-ch2:
 		for _, r := range rows {
 			if mn, ok := r["mn"]; ok && mn != nil {
-				t.Fatalf("含 dip 的窗口应被 HAVING 拦住，却收到 mn=%v", mn)
+				t.Fatalf("A window containing dip should be blocked by HAVING, but receives mn=%v", mn)
 			}
 		}
 	case <-time.After(500 * time.Millisecond):
-		// 期望：无输出（HAVING 拦住了 dip 窗口）。
+		// Expectation: No output (HAVING blocks the dip window).
 	}
 	s2.Stop()
 }
 
-// TestWindowOverRejected：GROUP BY 窗口上的 OVER(...) 一律拒绝，引导用 HAVING。
+// TestWindowOverRejected: OVER on the GROUP BY window is always rejected, and HAVING is used for guidance.
 func TestWindowOverRejected(t *testing.T) {
 	t.Parallel()
 	for _, sql := range []string{
@@ -68,9 +68,9 @@ func TestWindowOverRejected(t *testing.T) {
 	}
 }
 
-// TestPerRowWindowFunctionsRejectedAtExecute：row_number()/lead() 已从注册表移除，
-// 引用须在 Execute 期（解析报未知函数）失败，而非静默返回 nil 或崩数据路径。
-// 回归"注册但未接线"的半成品。
+// TestPerRowWindowFunctionsRejectedAtExecute:row_number()/lead() has been removed from the registry,
+// References must fail during the Execute period (when parsing unknown functions), rather than silently returning nil or crashing data paths.
+// Returning to the "registered but unwired" half-finished product.
 func TestPerRowWindowFunctionsRejectedAtExecute(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

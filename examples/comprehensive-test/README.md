@@ -1,92 +1,92 @@
-# StreamSQL 综合测试演示
+# StreamSQL Comprehensive test demonstration
 
-这个示例提供了一个统一的入口来测试和验证StreamSQL的各种功能特性。
+This example provides a unified entry point to test and validate various functional features of StreamSQL.
 
-## 功能覆盖
+## Feature Override
 
-### 1. 基础数据过滤
-- 简单的WHERE条件过滤
-- 实时数据流处理
-- 结果回调处理
+### 1. Basic data filtering
+- Simple WHERE conditional filtering
+- Real-time data stream processing
+- Result callback processing
 
-### 2. 聚合分析
-- 滚动窗口聚合（TumblingWindow）
-- 多种聚合函数：AVG、COUNT、MAX、MIN
-- 按字段分组
+### 2. Aggregate analysis
+- Scrolling window aggregation (TumblingWindow)
+- Multiple aggregate functions: AVG, COUNT, MAX, MIN
+- Grouping by field
 
-### 3. 滑动窗口
-- 滑动窗口分析（SlidingWindow）
-- 窗口大小和滑动间隔配置
-- 连续数据流处理
+### 3. Sliding window
+- Sliding window analysis (SlidingWindow)
+- Window size and sliding spacing configuration
+- Continuous data stream processing
 
-### 4. 嵌套字段访问
-- 多层嵌套对象访问
-- 复杂数据结构处理
-- 嵌套字段条件过滤
+### 4. Nested field access
+- Multi-layer nested object access
+- Handling complex data structures
+- Nested field conditional filtering
 
-### 5. 自定义函数
-- 数学函数（square、circle_area）
-- 转换函数（f_to_c）
-- 函数注册和使用
+### 5. Custom functions
+- Mathematical functions (square, circle_area)
+- Transformation Function (f_to_c)
+- Function registration and usage
 
-### 6. 复杂查询
-- 多种功能组合使用
-- 嵌套字段 + 自定义函数 + 聚合
-- 复杂业务场景模拟
+### 6. Complex queries
+- Multiple feature combinations
+- Nested fields + custom functions + aggregation
+- Complex business scenario simulation
 
-## 运行方式
+## Operating Mode
 
 ```bash
 cd examples\comprehensive-test
 go run main.go
 ```
 
-## 预期输出
+## Expected Output
 
-程序会依次执行6个测试场景，每个场景都会输出相应的结果：
+The program will sequentially execute six test scenarios, each producing corresponding results:
 
-1. **基础过滤测试**：显示温度大于25度的设备告警
-2. **聚合分析测试**：显示每个设备的温度统计信息
-3. **滑动窗口测试**：显示滑动窗口内的温度分析
-4. **嵌套字段测试**：显示复杂数据结构的字段提取
-5. **自定义函数测试**：显示自定义函数的计算结果
-6. **复杂查询测试**：显示综合功能的查询结果
+1. **Basic Filtration Test**: Displays alarms for equipment with temperatures above 25°C
+2. **Aggregate Analysis Test**: Displays temperature statistics for each device
+3. **Sliding Window Test**: Displays temperature analysis inside the sliding window
+4. **Nested Field Testing**: Displays field extraction for complex data structures
+5. **Custom Function Test**: Displays the calculation results of the custom function
+6. **Complex Query Test**: Displays query results for comprehensive functions
 
-## 测试数据
+## Test Data
 
-- **传感器数据**：包含设备ID、温度、湿度等信息
-- **嵌套结构**：设备信息、位置信息、传感器数据的多层嵌套
-- **随机数据**：使用随机数生成模拟真实的传感器数据流
+- **Sensor Data**: Contains information such as device ID, temperature, humidity, etc
+- **Nested Structure**: Multi-layer nesting of device information, location information, and sensor data
+- **Random Data**: Generates simulated real sensor data streams using random numbers
 
-## 自定义函数说明
+## Custom function description
 
 ### square(x)
-- **功能**：计算数值的平方
-- **参数**：数值
-- **返回**：平方值
+- **Function**: Calculate the square of a value
+- **Parameter**: Numeric value
+- **Returns**: squared value
 
 ### f_to_c(fahrenheit)
-- **功能**：华氏度转摄氏度
-- **参数**：华氏度温度值
-- **返回**：摄氏度温度值
-- **公式**：(F - 32) × 5/9
+- **Function**: Fahrenheit to Celsius
+- **Parameter**: Fahrenheit temperature value
+- **Return**: Celsius temperature value
+- **Formula**:(F - 32) × 5/9
 
 ### circle_area(radius)
-- **功能**：计算圆的面积
-- **参数**：半径
-- **返回**：圆的面积
-- **公式**：π × r²
+- **Function**: Calculate the area of a circle
+- **Parameter**: Radius
+- **Return**: Area of the circle
+- **Formula**: π × r²
 
-## 注意事项
+## Notes
 
-1. **窗口触发**：聚合查询需要等待窗口时间到达或手动触发
-2. **数据格式**：确保输入数据格式正确，特别是嵌套字段的结构
-3. **函数注册**：自定义函数需要在使用前注册
-4. **资源清理**：使用defer确保StreamSQL实例正确关闭
+1. **Window Trigger**: Aggregated queries need to wait for window time to arrive or to trigger manually
+2. **Data Format**: Ensure the input data format is correct, especially the structure of nested fields
+3. **Function Registration**: Custom functions need to be registered before use
+4. **Resource Cleanup**: Use defer to ensure the StreamSQL instance closes correctly
 
-## 扩展建议
+## Extended Suggestions
 
-- 可以添加更多的自定义函数
-- 可以测试更复杂的窗口配置
-- 可以添加错误处理和异常数据测试
-- 可以集成性能测试和压力测试
+- More custom functions can be added
+- More complex window configurations can be tested
+- Error handling and anomaly data testing can be added
+- Performance testing and stress testing can be integrated

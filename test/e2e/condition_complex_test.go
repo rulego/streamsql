@@ -22,7 +22,7 @@ import (
 	"github.com/rulego/streamsql"
 )
 
-// TestComplexConditions 测试复杂条件和组合条件的支持
+// TestComplexConditions Tests support for complex and combined conditions
 func TestComplexConditions(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -148,13 +148,13 @@ func TestComplexConditions(t *testing.T) {
 				t.Fatalf("Execute() failed: %v", err)
 			}
 
-			// 使用EmitSync进行同步测试
+			// Synchronization testing was conducted using EmitSync
 			result, err := ssql.EmitSync(tt.data)
 			if err != nil {
 				t.Fatalf("EmitSync() failed: %v", err)
 			}
 
-			// 检查结果是否符合预期
+			// Check whether the results meet expectations
 			if tt.expectMatch {
 				if result == nil {
 					t.Errorf("Expected match but got nil result. %s", tt.description)
@@ -165,13 +165,13 @@ func TestComplexConditions(t *testing.T) {
 				}
 			}
 
-			// 清理资源
+			// Release resources
 			ssql.Stop()
 		})
 	}
 }
 
-// TestComplexConditionsWithLike 测试LIKE条件与其他条件的组合
+// TestComplexConditionsWithLike tests the combination of LIKE conditions and other conditions
 func TestComplexConditionsWithLike(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -228,7 +228,7 @@ func TestComplexConditionsWithLike(t *testing.T) {
 	}
 }
 
-// TestComplexConditionsWithNullChecks 测试NULL检查与其他条件的组合
+// TestComplexConditionsWithNullChecks Tests NULL checks combined with other conditions
 func TestComplexConditionsWithNullChecks(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -242,7 +242,7 @@ func TestComplexConditionsWithNullChecks(t *testing.T) {
 			sql:  "SELECT * FROM stream WHERE description IS NULL AND temperature > 20",
 			data: map[string]any{
 				"temperature": 25.0,
-				// description字段缺失，应该被视为null
+				// The description field is missing and should be considered null
 			},
 			expectMatch: true,
 		},
@@ -251,7 +251,7 @@ func TestComplexConditionsWithNullChecks(t *testing.T) {
 			sql:  "SELECT * FROM stream WHERE description IS NOT NULL OR temperature > 30",
 			data: map[string]any{
 				"temperature": 35.0,
-				// description字段缺失，但temperature条件满足
+				// The description field is missing, but the temperature condition is satisfied
 			},
 			expectMatch: true,
 		},

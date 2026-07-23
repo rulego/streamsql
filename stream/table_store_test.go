@@ -4,13 +4,13 @@ import (
 	"testing"
 )
 
-// JOIN 键必须按 SQL 数值语义归一：JSON 流解码出的 float64 与类型化维度表的 int 同值
-// 必须匹配，否则 INNER JOIN 静默丢行；同时 string/bool/nil 不得误匹配。
+// The JOIN key must be unified by SQL numeric semantics: the float64 decoded by the JSON stream corresponds to the int value of the typed dimension table
+// Must match; otherwise, INNER JOIN silently drops lines; At the same time, string/bool/nil must not be mismatched.
 func TestEncodeKey_NumericNormalization(t *testing.T) {
 	cases := []struct {
 		name string
 		a, b any
-		want bool // 期望二者编码是否相等
+		want bool // Expect the two codes to be equal
 	}{
 		{"int vs float64 same value", int(1), float64(1), true},
 		{"int vs int64 same value", int(1), int64(1), true},
@@ -31,14 +31,14 @@ func TestEncodeKey_NumericNormalization(t *testing.T) {
 				c.name, c.a, c.a, encodeKey(c.a), c.b, c.b, encodeKey(c.b), c.want)
 		}
 	}
-	// 复合键：各分量分别归一
+	// Composite bond: Each component is unified separately
 	if encodeKey([]any{int(1), "a"}) != encodeKey([]any{float64(1), "a"}) {
 		t.Error("composite key: int/float64 segment should normalize")
 	}
 }
 
 func mathNegZero() float64 {
-	// 返回 -0.0，验证它与 0.0 归一到同一 key。
+	// Return -0.0 to verify that it is normalized to the same key as 0.0.
 	var neg float64
 	return -neg
 }

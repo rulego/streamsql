@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestOverflowStrategies 测试不同的缓冲区溢出策略
+// TestOverflowStrategies tests different buffer overflow strategies
 func TestOverflowStrategies(t *testing.T) {
 	t.Run("CountingWindow_StrategyBlock_Timeout", func(t *testing.T) {
-		// 配置：窗口大小1（每1条数据触发一次），输出缓冲1，阻塞策略，超时100ms
+		// Configuration: window size 1 (triggered once per data entry), output buffer 1, blocking policy, timeout 100ms
 		config := types.WindowConfig{
 			Type:   "CountingWindow",
 			Params: []any{1}, // Threshold = 1
@@ -24,7 +24,7 @@ func TestOverflowStrategies(t *testing.T) {
 				OverflowConfig: types.OverflowConfig{
 					Strategy:      types.OverflowStrategyBlock,
 					BlockTimeout:  100 * time.Millisecond,
-					AllowDataLoss: true, // 允许丢弃统计
+					AllowDataLoss: true, // Allow discard statistics
 				},
 			},
 		}
@@ -34,47 +34,47 @@ func TestOverflowStrategies(t *testing.T) {
 		win.Start()
 		defer win.Stop()
 
-		// 1. 发送第1条数据，触发窗口，填充 outputChan (容量1)
+		// 1. Send the first data entry, trigger the window, and fill outputChan (capacity 1)
 		win.Add(map[string]any{"id": 1})
 
-		// 等待处理
+		// Waiting for processing
 		time.Sleep(50 * time.Millisecond)
 		stats := win.GetStats()
 		assert.Equal(t, int64(1), stats["sentCount"])
-		assert.Equal(t, int64(1), stats["bufferUsed"]) // 应该还在缓冲区中，因为没人读
+		assert.Equal(t, int64(1), stats["bufferUsed"]) // It should still be in the buffer zone because no one is reading it
 
-		// 2. 发送第2条数据，触发窗口
-		// 此时 outputChan 已满，sendResult 应该阻塞 100ms 然后超时丢弃
+		// 2. Send the second data entry to trigger the window
+		// At this point, outputChan is full, and sendResult should block 100ms before being discarded after timeout
 		win.Add(map[string]any{"id": 2})
 
-		// 等待超时 (100ms) + 处理时间
+		// Wait timeout (100ms) + processing time
 		time.Sleep(200 * time.Millisecond)
 
 		stats = win.GetStats()
-		// 第1条仍在缓冲区（因为没人读）
-		// 第2条因为阻塞超时被丢弃
+		// Article 1 is still in the buffer zone (because no one reads it)
+		// Article 2 is discarded due to blocked timeout
 		assert.Equal(t, int64(1), stats["bufferUsed"])
 		assert.Equal(t, int64(1), stats["droppedCount"])
 
-		// 3. 读取缓冲区中的数据，腾出空间
+		// 3. Read data from the buffer to free up space
 		select {
 		case <-win.OutputChan():
-			// 读出第1条
+			// Read out the first item
 		default:
 			t.Fatal("expected data in output channel")
 		}
 
-		// 4. 发送第3条数据
+		// 4. Send data for item 3
 		win.Add(map[string]any{"id": 3})
 		time.Sleep(50 * time.Millisecond)
 
 		stats = win.GetStats()
-		assert.Equal(t, int64(2), stats["sentCount"])    // 第1条和第3条发送成功
-		assert.Equal(t, int64(1), stats["droppedCount"]) // 第2条丢弃
+		assert.Equal(t, int64(2), stats["sentCount"])    // Items 1 and 3 were successfully sent
+		assert.Equal(t, int64(1), stats["droppedCount"]) // Article 2: Discard
 	})
 
 	t.Run("SessionWindow_StrategyBlock_Timeout", func(t *testing.T) {
-		// 配置：会话超时50ms，输出缓冲1，阻塞策略，超时50ms
+		// Configuration: Session timeout 50ms, output buffer 1, blocking policy, timeout 50ms
 		config := types.WindowConfig{
 			Type:   "SessionWindow",
 			Params: []any{"50ms"},
@@ -95,22 +95,22 @@ func TestOverflowStrategies(t *testing.T) {
 		win.Start()
 		defer win.Stop()
 
-		// 1. 发送数据，开始一个 session
+		// 1. Send data and start a session
 		win.Add(map[string]any{"id": 1})
 
-		// 2. 等待 session 超时 (50ms) + 检查周期 (timeout/2 = 25ms)
-		// 确保 session 被触发并发送到 outputChan
+		// 2. Wait for session timeout (50ms) + check cycle (timeout/2 = 25ms)
+		// Ensure the session is triggered and sent to outputChan
 		time.Sleep(100 * time.Millisecond)
 
 		stats := win.GetStats()
 		assert.Equal(t, int64(1), stats["sentCount"])
 		assert.Equal(t, int64(1), stats["bufferUsed"])
 
-		// 3. 发送数据开始第二个 session (因为上一个已经结束)
+		// 3. Send data to start the second session (because the previous session has already ended)
 		win.Add(map[string]any{"id": 2})
 
-		// 4. 等待 session 超时
-		// 此时 outputChan 已满，应该阻塞并丢弃
+		// 4. Wait for session timeout
+		// At this point, outputChan is full, so it should be blocked and discarded
 		time.Sleep(150 * time.Millisecond)
 
 		stats = win.GetStats()
@@ -119,7 +119,7 @@ func TestOverflowStrategies(t *testing.T) {
 	})
 
 	t.Run("CountingWindow_StrategyDrop", func(t *testing.T) {
-		// 配置：窗口大小1，输出缓冲1，丢弃策略
+		// Configuration: window size 1, output buffer 1, discard policy
 		config := types.WindowConfig{
 			Type:   "CountingWindow",
 			Params: []any{1},
@@ -138,19 +138,19 @@ func TestOverflowStrategies(t *testing.T) {
 		win.Start()
 		defer win.Stop()
 
-		// 1. 发送第1条数据，填充 outputChan
+		// 1. Send the first data entry and fill in outputChan
 		win.Add(map[string]any{"id": 1})
 		time.Sleep(50 * time.Millisecond)
 
-		// 2. 发送第2条数据
-		// outputChan 已满，StrategyDrop 会尝试丢弃旧数据（outputChan头部）来放入新数据
+		// 2. Send the second data
+		// outputChan is full, and StrategyDrop will try to discard the old data (outputChan header) to add new data
 		win.Add(map[string]any{"id": 2})
 		time.Sleep(50 * time.Millisecond)
 
 		stats := win.GetStats()
 		assert.Equal(t, int64(2), stats["sentCount"])
 
-		// 验证现在缓冲区里是第2条数据
+		// Verify that the buffer now contains data number 2
 		select {
 		case data := <-win.OutputChan():
 			assert.Len(t, data, 1)
@@ -161,7 +161,7 @@ func TestOverflowStrategies(t *testing.T) {
 	})
 
 	t.Run("TumblingWindow_StrategyBlock_Timeout", func(t *testing.T) {
-		// 配置：窗口大小50ms，输出缓冲1，阻塞策略，超时50ms
+		// Configuration: window size 50ms, output buffer 1, blocking policy, timeout 50ms
 		config := types.WindowConfig{
 			Type:   "TumblingWindow",
 			Params: []any{"50ms"},
@@ -182,23 +182,23 @@ func TestOverflowStrategies(t *testing.T) {
 		win.Start()
 		defer win.Stop()
 
-		// 1. 发送数据触发第1个窗口
+		// 1. Send data to trigger the first window
 		win.Add(map[string]any{"id": 1})
-		// 等待窗口触发 (50ms)
+		// Wait for window to trigger (50ms)
 		time.Sleep(100 * time.Millisecond)
 
 		stats := win.GetStats()
 		assert.Equal(t, int64(1), stats["sentCount"])
 		assert.Equal(t, int64(1), stats["bufferUsed"])
 
-		// 2. 发送数据触发第2个窗口
-		// 由于没有读取 outputChan，第2个窗口触发时应该阻塞然后超时
+		// 2. Send data to trigger the second window
+		// Since outputChan was not read, the second window should be blocked and then timed out when triggered
 		win.Add(map[string]any{"id": 2})
-		// 等待窗口触发 (50ms) + 阻塞超时 (50ms)
+		// Wait window trigger (50ms) + block timeout (50ms)
 		time.Sleep(150 * time.Millisecond)
 
 		stats = win.GetStats()
-		assert.Equal(t, int64(1), stats["bufferUsed"])   // 仍然只有第1个窗口的数据
-		assert.Equal(t, int64(1), stats["droppedCount"]) // 第2个窗口结果被丢弃
+		assert.Equal(t, int64(1), stats["bufferUsed"])   // Still only data from window 1
+		assert.Equal(t, int64(1), stats["droppedCount"]) // The second window result is discarded
 	})
 }

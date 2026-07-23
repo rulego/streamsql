@@ -6,8 +6,8 @@ import (
 	streamsql "github.com/rulego/streamsql"
 )
 
-// BenchmarkMultiCallAnalytic 衡量同一表达式含 1/2/3 个分析调用的每行开销。
-// 走直连路径（EmitSync 同步求值），隔离多调用回代（applyCall×N + wrapper 一次）的成本。
+// BenchmarkMultiCallAnalytic measures the overhead per line for the same expression with 1/2/3 analysis calls.
+// Taking a direct connection path (EmitSync synchronous evaluation) isolates the cost of multiple calls (applyCall×N + wrapper in one go).
 func BenchmarkMultiCallAnalytic(b *testing.B) {
 	cases := []struct{ name, sql string }{
 		{"1call", `SELECT acc_sum(v) AS r FROM stream`},
@@ -32,9 +32,9 @@ func BenchmarkMultiCallAnalytic(b *testing.B) {
 	}
 }
 
-// BenchmarkGroupByKeyExpr 衡量 GROUP BY 裸列 vs 表达式分组键的每行开销（窗口路径）。
-// expr 子项触发 injectGroupKeyExprs 逐行对 hour(ts) 求 expr bridge；bare 不触发。
-// 两者差值即表达式分组键注入的开销。CountingWindow(1000) 压低触发频率，凸显逐行成本。
+// BenchmarkGroupByKeyExpr measures the overhead per row (window path) for GROUP BY bare columns vs. expression group keys.
+// The expr subterm triggers injectGroupKeyExprs to query the expr bridge line by line for hour(ts); Bare does not trigger.
+// The difference between the two is the overhead of injecting the expression block key. CountingWindow(1000) lowers trigger frequency, highlighting the cost of each line.
 func BenchmarkGroupByKeyExpr(b *testing.B) {
 	cases := []struct {
 		name, sql string
@@ -57,7 +57,7 @@ func BenchmarkGroupByKeyExpr(b *testing.B) {
 			if err := ssql.Execute(c.sql); err != nil {
 				b.Fatal(err)
 			}
-			ssql.AddSink(func(r []map[string]any) {}) // 丢弃窗口输出
+			ssql.AddSink(func(r []map[string]any) {}) // Discard window output
 			defer ssql.Stop()
 			b.ResetTimer()
 			b.ReportAllocs()

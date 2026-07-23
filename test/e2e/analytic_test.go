@@ -9,52 +9,52 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// D3：分析函数 alias 与普通列同名 → 编译期报错，不静默覆盖。
+// D3: Analysis function alias shares the same name as the regular column → Compile time error is not silently overridden.
 func TestAnalytic_AliasCollisionRejected(t *testing.T) {
 	ssql := streamsql.New()
 	err := ssql.Execute("SELECT temperature, lag(temperature) AS temperature FROM stream")
 	require.Error(t, err, "分析函数 alias 与普通列冲突应报错")
 	assert.Contains(t, err.Error(), "duplicate output column")
 
-	// 合法别名不受影响。
+	// Legal aliases are not affected.
 	ssql2 := streamsql.New()
 	require.NoError(t, ssql2.Execute("SELECT temperature, lag(temperature) AS prev_temp FROM stream"))
 	defer ssql2.Stop()
 }
 
-// D1：PARTITION BY 键按类型区分，int(1) 与 string("1") 不串台。
+// D1: PARTITION BY key distinguishes by type; int(1) and string("1") are not cross-connected.
 func TestAnalytic_PartitionKeyTypeSafe(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT lag(v) OVER (PARTITION BY k) AS prev FROM stream"))
 	defer ssql.Stop()
 
-	// k=1(int)：首事件 prev=nil
+	// k=1(int): first event prev=nil
 	r1, _ := ssql.EmitSync(map[string]any{"k": 1, "v": 100})
 	assert.Nil(t, r1["prev"])
 
-	// k="1"(string)：不同分区，prev 仍为 nil（若键冲突会拿到 100）
+	// k="1"(string): Different partitions, prev still nil (if key conflicts occur, it will get 100)
 	r2, _ := ssql.EmitSync(map[string]any{"k": "1", "v": 200})
 	assert.Nil(t, r2["prev"], `string "1" 不得与 int 1 共用分区`)
 
-	// 回到 k=1(int)：prev=100（int 分区状态保留）
+	// Return k=1(int):p rev=100 (int partition state retained)
 	r3, _ := ssql.EmitSync(map[string]any{"k": 1, "v": 300})
 	assert.Equal(t, 100, r3["prev"])
 }
 
-// changed_cols(prefix, ignoreNull, expr...) 多列动态输出。
-// 仅输出变化列，列名 = prefix + 原列名。
+// changed_cols(prefix, ignoreNull, expr...) multi-column dynamic output.
+// Only output variable columns, column name = prefix + original column name.
 func TestAnalytic_ChangedColsMultiColumn(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute(`SELECT changed_cols("c_", true, temperature, humidity) FROM stream`))
 	defer ssql.Stop()
 
-	// 首行：两列都视为变化。
+	// First row: Both columns are considered variants.
 	r1, _ := ssql.EmitSync(map[string]any{"temperature": 23, "humidity": 50})
 	require.NotNil(t, r1)
 	assert.Equal(t, 23, r1["c_temperature"])
 	assert.Equal(t, 50, r1["c_humidity"])
 
-	// 仅 humidity 变化。
+	// Only humidity changes.
 	r2, _ := ssql.EmitSync(map[string]any{"temperature": 23, "humidity": 55})
 	require.NotNil(t, r2)
 	_, hasTemp := r2["c_temperature"]
@@ -62,7 +62,7 @@ func TestAnalytic_ChangedColsMultiColumn(t *testing.T) {
 	assert.Equal(t, 55, r2["c_humidity"])
 }
 
-// changed_cols omitEmpty——无变化时抑制整行（changed_cols 为唯一输出）。
+// changed_cols omitEmpty—suppresses entire rows when unchanged (changed_cols is the unique output).
 func TestAnalytic_ChangedColsOmitEmpty(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute(`SELECT changed_cols("c_", true, temperature) FROM stream`))
@@ -72,7 +72,7 @@ func TestAnalytic_ChangedColsOmitEmpty(t *testing.T) {
 	require.NotNil(t, r1)
 	assert.Equal(t, 23, r1["c_temperature"])
 
-	// 未变化 → 整行抑制。
+	// Unchanged → Entire line suppression.
 	r2, _ := ssql.EmitSync(map[string]any{"temperature": 23})
 	assert.Nil(t, r2, "无变化应抑制整行（omitEmpty）")
 
@@ -81,7 +81,7 @@ func TestAnalytic_ChangedColsOmitEmpty(t *testing.T) {
 	assert.Equal(t, 25, r3["c_temperature"])
 }
 
-// changed_cols 配普通字段：普通字段总输出，changed_cols 仅变化列；不抑制整行。
+// changed_cols Assign regular fields: total output of regular fields, changed_cols only change columns; Do not suppress the entire line.
 func TestAnalytic_ChangedColsWithPlainField(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute(`SELECT ts, changed_cols("c_", true, temperature) FROM stream`))
@@ -91,7 +91,7 @@ func TestAnalytic_ChangedColsWithPlainField(t *testing.T) {
 	assert.Equal(t, 1, r1["ts"])
 	assert.Equal(t, 23, r1["c_temperature"])
 
-	// temperature 未变化，但 ts 仍输出（不抑制整行）。
+	// Temperature does not change, but ts is still output (does not suppress the entire line).
 	r2, _ := ssql.EmitSync(map[string]any{"ts": 2, "temperature": 23})
 	require.NotNil(t, r2)
 	assert.Equal(t, 2, r2["ts"])
@@ -99,23 +99,23 @@ func TestAnalytic_ChangedColsWithPlainField(t *testing.T) {
 	assert.False(t, hasC)
 }
 
-// changed_cols '*'：对整行各列检测变化。
+// changed_cols '*': Detects changes in each column of the entire row.
 func TestAnalytic_ChangedColsStar(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute(`SELECT changed_cols("d_", true, *) FROM stream`))
 	defer ssql.Stop()
 
-	// 首行：所有列视为变化。
+	// First row: all columns are treated as variables.
 	r1, _ := ssql.EmitSync(map[string]any{"a": 1, "b": 2})
 	require.NotNil(t, r1)
 	assert.Equal(t, 1, r1["d_a"])
 	assert.Equal(t, 2, r1["d_b"])
 
-	// 无变化 → 抑制。
+	// No change → inhibition.
 	r2, _ := ssql.EmitSync(map[string]any{"a": 1, "b": 2})
 	assert.Nil(t, r2)
 
-	// 仅 a 变化。
+	// Only a change.
 	r3, _ := ssql.EmitSync(map[string]any{"a": 9, "b": 2})
 	require.NotNil(t, r3)
 	assert.Equal(t, 9, r3["d_a"])
@@ -123,7 +123,7 @@ func TestAnalytic_ChangedColsStar(t *testing.T) {
 	assert.False(t, hasB, "b 未变化不应输出")
 }
 
-// had_changed '*'：任一列变化即为 true（CDC 任一变化检测）。
+// had_changed '*': Any change in the column is true (CDC detects any variation).
 func TestAnalytic_HadChangedStar(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute(`SELECT a FROM stream WHERE had_changed(true, *) == true`))
@@ -142,7 +142,7 @@ func TestAnalytic_HadChangedStar(t *testing.T) {
 	assert.Nil(t, r4, "再次无变化")
 }
 
-// B3：had_changed '*' 在行 schema 变化（列删除）时按列名正确检出变化。
+// B3: had_changed '*' Correctly detects changes by column name when the row schema changes (column deletions).
 func TestAnalytic_HadChangedStarSchemaDrift(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute(`SELECT a FROM stream WHERE had_changed(true, *) == true`))
@@ -151,16 +151,16 @@ func TestAnalytic_HadChangedStarSchemaDrift(t *testing.T) {
 	r1, _ := ssql.EmitSync(map[string]any{"a": 1, "b": 2, "c": 3})
 	require.NotNil(t, r1, "首行视为变化")
 
-	// 列 c 被删除 → 应检出变化（位置比较会漏检）。
+	// Column C deleted → should detect changes (position comparison may be missed).
 	r2, _ := ssql.EmitSync(map[string]any{"a": 1, "b": 2})
 	require.NotNil(t, r2, "列 c 删除应检出变化")
 
-	// 再来一条相同的 → 无变化。
+	// Another identical → with no change.
 	r3, _ := ssql.EmitSync(map[string]any{"a": 1, "b": 2})
 	assert.Nil(t, r3, "再次无变化")
 }
 
-// B13：并发 EmitSync 纯分析查询不应竞态/崩溃（-race 下验证）。
+// B13: Concurrent EmitSync pure analysis queries should not race or crash (verify under -race).
 func TestAnalytic_ConcurrentEmitSync(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT lag(v) OVER (PARTITION BY k) AS prev FROM stream"))

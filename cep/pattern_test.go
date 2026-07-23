@@ -6,7 +6,7 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
-// Compile 合法模式：返回非空 NFA（start/accept 非 nil）且无错误。
+// Compile valid mode: Returns non-null NFA (start/accept not nil) without errors.
 func TestCompile_ValidPatterns(t *testing.T) {
 	cases := []struct {
 		name string
@@ -38,7 +38,7 @@ func TestCompile_ValidPatterns(t *testing.T) {
 	}
 }
 
-// Compile 非法模式：明确报错。
+// Compile Illegal Mode: Explicitly reports errors.
 func TestCompile_InvalidPatterns(t *testing.T) {
 	cases := []struct {
 		name string
@@ -62,7 +62,7 @@ func TestCompile_InvalidPatterns(t *testing.T) {
 	}
 }
 
-// {0} 量词匹配空：应编译成功（空片段），NFA 仍可达 accept。
+// {0} Quantifier Match Null: The null segment should be compiled successfully, and the NFA can still reach accept.
 func TestCompile_ZeroQuantifier(t *testing.T) {
 	nfa, err := Compile(rep(lit("A"), 0, 0))
 	if err != nil {
@@ -73,7 +73,7 @@ func TestCompile_ZeroQuantifier(t *testing.T) {
 	}
 }
 
-// PERMUTE 多符号：编译成功（排列数为 N!，符号多时状态膨胀，这里仅验证 3 符号可编译）。
+// PERMUTE multi-symbol: compilation successful (permutation N!, states expand when there are many symbols; here only 3 symbols are verified).
 func TestCompile_PermuteThree(t *testing.T) {
 	node := &types.PatternNode{Kind: types.PatternPermute, Children: []*types.PatternNode{
 		lit("A"), lit("B"), lit("C"),
@@ -83,7 +83,7 @@ func TestCompile_PermuteThree(t *testing.T) {
 	}
 }
 
-// PERMUTE 超过 6 符号：阶乘级状态膨胀，编译期拒绝。
+// PERMUTE exceeds 6 symbols: factorial-level state expansion, compile time rejection.
 func TestCompile_PermuteLimit(t *testing.T) {
 	kids := make([]*types.PatternNode, 7)
 	for i := range kids {

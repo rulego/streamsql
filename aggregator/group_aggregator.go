@@ -17,8 +17,8 @@ import (
 // realistic field values.
 const nullGroupKeyMarker = "\x00NULL"
 
-// groupKeySep 分隔分组键各字段。\x1f（单元分隔符）在真实数据中极少出现，避免字段值含
-// 分隔符导致的键碰撞（曾用 "|"：含 "|" 的值会被还原阶段截断、多字段还会错位）。
+// groupKeySep separates the fields of the grouping key. \x1f (cell separator) rarely appears in real data to avoid field values containing
+// Key collisions caused by delimiters (previously used with "|": Values containing "|" will be truncated during the restore phase, and multiple fields will be misaligned).
 const groupKeySep = "\x1f"
 
 // Aggregator aggregator interface
@@ -43,7 +43,7 @@ type GroupAggregator struct {
 	groupFields       []string
 	aggregators       map[string]AggregatorFunction
 	groups            map[string]map[string]AggregatorFunction
-	groupKeyVals      map[string][]any // 每个 group key 对应的原始类型分组字段值，供 GetResults 还原（避免序列化丢类型）
+	groupKeyVals      map[string][]any // Each group key corresponds to the original type grouping field value, which GetResults restores (avoiding serialized type loss)
 	mu                sync.RWMutex
 	context           map[string]any
 	// Expression evaluators
@@ -152,9 +152,9 @@ func (ga *GroupAggregator) isNumericAggregator(aggType AggregateType) bool {
 	return false
 }
 
-// shouldAllowNullValues 判断聚合函数是否应该允许NULL值
+// shouldAllowNullValues determines whether the aggregator should allow NULL values
 func (ga *GroupAggregator) shouldAllowNullValues(aggType AggregateType) bool {
-	// FIRST_VALUE和LAST_VALUE函数应该允许NULL值，因为它们需要记录第一个/最后一个值，即使是NULL
+	// FIRST_VALUE and LAST_VALUE functions should allow NULL values because they need to record the first/last value, even if it is NULL
 	return aggType == FirstValue || aggType == LastValue
 }
 
@@ -162,7 +162,7 @@ func (ga *GroupAggregator) Add(data any) error {
 	ga.mu.Lock()
 	defer ga.mu.Unlock()
 
-	// 检查数据是否为nil
+	// Check if the data is nil
 	if data == nil {
 		return fmt.Errorf("data cannot be nil")
 	}
@@ -178,7 +178,7 @@ func (ga *GroupAggregator) Add(data any) error {
 		if v.Kind() == reflect.Ptr {
 			v = v.Elem()
 		}
-		// 检查是否为支持的数据类型
+		// Check if the data type is supported
 		if v.Kind() != reflect.Struct && v.Kind() != reflect.Map {
 			return fmt.Errorf("unsupported data type: %T, expected struct or map", data)
 		}
@@ -327,7 +327,7 @@ func (ga *GroupAggregator) Add(data any) error {
 					groupAgg.Add(numVal)
 				}
 			} else {
-				// 非数值跳过该字段，不中断整行 Add。
+				// Non-numeric values skip the field without interrupting the entire line of Add.
 				continue
 			}
 		} else {
@@ -346,7 +346,7 @@ func (ga *GroupAggregator) GetResults() ([]map[string]any, error) {
 	ga.mu.RLock()
 	defer ga.mu.RUnlock()
 
-	// 如果既没有分组字段又没有聚合字段，但有数据被添加过，返回一个空的结果行
+	// If there are no grouping fields or aggregate fields, but data has been added, return an empty result row
 	if len(ga.aggregationFields) == 0 && len(ga.groupFields) == 0 {
 		if len(ga.groups) > 0 {
 			return []map[string]any{{}}, nil
@@ -360,7 +360,7 @@ func (ga *GroupAggregator) GetResults() ([]map[string]any, error) {
 		keyVals := ga.groupKeyVals[key]
 		for i, field := range ga.groupFields {
 			if i < len(keyVals) {
-				group[field] = keyVals[i] // NULL 组此处即 nil
+				group[field] = keyVals[i] // The NULL group here is nil
 			}
 		}
 		for field, agg := range aggregators {

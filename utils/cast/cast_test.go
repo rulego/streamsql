@@ -109,7 +109,7 @@ func TestToBoolENumericTypes(t *testing.T) {
 	}
 }
 
-// TestConvertIntToTime 测试ConvertIntToTime函数
+// TestConvertIntToTime tests the ConvertIntToTime function
 func TestConvertIntToTime(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -121,7 +121,7 @@ func TestConvertIntToTime(t *testing.T) {
 		{"milliseconds", 1609459200000, time.Millisecond, time.Unix(0, 1609459200000*int64(time.Millisecond))},
 		{"microseconds", 1609459200000000, time.Microsecond, time.Unix(0, 1609459200000000*int64(time.Microsecond))},
 		{"nanoseconds", 1609459200000000000, time.Nanosecond, time.Unix(0, 1609459200000000000)},
-		{"default unit", 1609459200, time.Minute, time.Unix(1609459200, 0)}, // 默认按秒处理
+		{"default unit", 1609459200, time.Minute, time.Unix(1609459200, 0)}, // Default processing is done by second
 	}
 
 	for _, tt := range tests {
@@ -134,7 +134,7 @@ func TestConvertIntToTime(t *testing.T) {
 	}
 }
 
-// testStringer 实现fmt.Stringer接口
+// testStringer implements fmt.Stringer interface
 type testStringer struct {
 	value string
 }
@@ -143,10 +143,10 @@ func (ts testStringer) String() string {
 	return ts.value
 }
 
-// TestToStringEComplexTypes 测试ToStringE函数的复杂类型
+// TestToStringEComplexTypes tests complex types of the ToStringE function
 func TestToStringEComplexTypes(t *testing.T) {
 
-	// 测试map[any]any类型
+	// Test the map[any]any type
 	mapInterfaceInterface := map[any]any{
 		"key1": "value1",
 		123:    "value2",
@@ -169,7 +169,7 @@ func TestToStringEComplexTypes(t *testing.T) {
 				t.Errorf("ToStringE() error = %v, wantErr %v", err, tt.hasErr)
 			}
 			if !tt.hasErr {
-				// 对于JSON序列化的结果，由于map的顺序不确定，我们检查是否包含关键内容
+				// For the results of JSON serialization, since the map order is uncertain, we check whether it contains key content
 				if tt.name == "map[any]any" {
 					if len(got) == 0 || got[0] != '{' || got[len(got)-1] != '}' {
 						t.Errorf("ToStringE() = %v, expected JSON format", got)

@@ -68,7 +68,7 @@ func TestAlignTimeToWindow(t *testing.T) {
 	}
 }
 
-// TestAlignTime 测试 AlignTime 函数
+// TestAlignTime tests the AlignTime function
 func TestAlignTime(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -159,9 +159,9 @@ func TestAlignTime(t *testing.T) {
 	}
 }
 
-// TestAlignTimeEdgeCases 测试 AlignTime 函数的边界情况
+// TestAlignTimeEdgeCases tests the boundary state of the AlignTime function
 func TestAlignTimeEdgeCases(t *testing.T) {
-	// 测试零时间
+	// Test zero time
 	zeroTime := time.Time{}
 	result := AlignTime(zeroTime, time.Minute, true)
 	expected := zeroTime.Truncate(time.Minute)
@@ -169,7 +169,7 @@ func TestAlignTimeEdgeCases(t *testing.T) {
 		t.Errorf("AlignTime with zero time failed: expected %v, got %v", expected, result)
 	}
 
-	// 测试非常小的时间单位
+	// Testing is a very small unit of time
 	testTime := time.Date(2024, 1, 1, 12, 35, 45, 123456789, time.UTC)
 	result = AlignTime(testTime, time.Nanosecond, true)
 	expected = testTime.Truncate(time.Nanosecond)
@@ -177,24 +177,24 @@ func TestAlignTimeEdgeCases(t *testing.T) {
 		t.Errorf("AlignTime with nanosecond failed: expected %v, got %v", expected, result)
 	}
 
-	// 测试非常大的时间单位
-	result = AlignTime(testTime, 365*24*time.Hour, false) // 一年
+	// Testing is a very large unit of time
+	result = AlignTime(testTime, 365*24*time.Hour, false) // One year
 	expected = testTime.Truncate(365 * 24 * time.Hour)
 	if !result.Equal(expected) {
 		t.Errorf("AlignTime with year unit failed: expected %v, got %v", expected, result)
 	}
 }
 
-// TestAlignTimeToWindowEdgeCases 测试 AlignTimeToWindow 函数的边界情况
+// TestAlignTimeToWindowEdgeCases Tests the boundary status of the AlignTimeToWindow function
 func TestAlignTimeToWindowEdgeCases(t *testing.T) {
-	// 测试零时间
+	// Test zero time
 	zeroTime := time.Time{}
 	result := AlignTimeToWindow(zeroTime, time.Minute)
 	if !result.Equal(zeroTime) {
 		t.Errorf("AlignTimeToWindow with zero time failed: expected %v, got %v", zeroTime, result)
 	}
 
-	// 测试非常小的窗口大小
+	// Test with very small window sizes
 	testTime := time.Date(2024, 1, 1, 12, 35, 45, 123456789, time.UTC)
 	result = AlignTimeToWindow(testTime, time.Nanosecond)
 	expected := testTime.Add(time.Duration(-testTime.UnixNano() % int64(time.Nanosecond)))
@@ -202,7 +202,7 @@ func TestAlignTimeToWindowEdgeCases(t *testing.T) {
 		t.Errorf("AlignTimeToWindow with nanosecond failed: expected %v, got %v", expected, result)
 	}
 
-	// 测试窗口大小为1秒的情况
+	// Test window size with a size of 1 second
 	result = AlignTimeToWindow(testTime, time.Second)
 	expectedNano := testTime.UnixNano() - (testTime.UnixNano() % int64(time.Second))
 	expected = time.Unix(0, expectedNano)
@@ -211,16 +211,16 @@ func TestAlignTimeToWindowEdgeCases(t *testing.T) {
 	}
 }
 
-// TestTimeFunctionsConcurrency 测试时间函数的并发安全性
+// TestTimeFunctionsConcurrency: Tests the concurrency security of the time function
 func TestTimeFunctionsConcurrency(t *testing.T) {
 	testTime := time.Date(2024, 1, 1, 12, 35, 45, 123456789, time.UTC)
 
-	// 启动多个 goroutine 并发调用时间函数
+	// Start multiple goroutines to call the time function concurrently
 	done := make(chan bool, 20)
 	for i := 0; i < 20; i++ {
 		go func() {
 			for j := 0; j < 100; j++ {
-				// 测试 AlignTimeToWindow
+				// Test AlignTimeToWindow
 				result1 := AlignTimeToWindow(testTime, time.Minute)
 				expected1 := testTime.Add(time.Duration(-testTime.UnixNano() % int64(time.Minute)))
 				if !result1.Equal(expected1) {
@@ -228,7 +228,7 @@ func TestTimeFunctionsConcurrency(t *testing.T) {
 					return
 				}
 
-				// 测试 AlignTime
+				// Test AlignTime
 				result2 := AlignTime(testTime, time.Minute, true)
 				expected2 := testTime.Truncate(time.Minute).Add(time.Minute)
 				if !result2.Equal(expected2) {
@@ -240,7 +240,7 @@ func TestTimeFunctionsConcurrency(t *testing.T) {
 		}()
 	}
 
-	// 等待所有 goroutine 完成
+	// Wait for all goroutines to complete
 	for i := 0; i < 20; i++ {
 		<-done
 	}

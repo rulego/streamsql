@@ -77,7 +77,7 @@ func (f *WindowEndFunction) Execute(ctx *FunctionContext, args []any) (any, erro
 	return f.windowEnd, nil
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (f *WindowEndFunction) New() AggregatorFunction {
 	return &WindowEndFunction{
 		BaseFunction: f.BaseFunction,
@@ -85,7 +85,7 @@ func (f *WindowEndFunction) New() AggregatorFunction {
 }
 
 func (f *WindowEndFunction) Add(value any) {
-	// 窗口结束时间通常不需要累积计算
+	// The window end time usually does not need to be cumulatively calculated
 	f.windowEnd = value
 }
 
@@ -104,7 +104,7 @@ func (f *WindowEndFunction) Clone() AggregatorFunction {
 	}
 }
 
-// ExpressionFunction 表达式函数，用于处理自定义表达式
+// ExpressionFunction is used to handle custom expressions
 type ExpressionFunction struct {
 	*BaseFunction
 	values []any
@@ -122,14 +122,14 @@ func (f *ExpressionFunction) Validate(args []any) error {
 }
 
 func (f *ExpressionFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 表达式函数的具体实现由表达式引擎处理
+	// The specific implementation of expression functions is handled by the expression engine
 	if len(args) == 0 {
 		return nil, nil
 	}
 	return args[len(args)-1], nil
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (f *ExpressionFunction) New() AggregatorFunction {
 	return &ExpressionFunction{
 		BaseFunction: f.BaseFunction,
@@ -142,8 +142,8 @@ func (f *ExpressionFunction) Add(value any) {
 }
 
 func (f *ExpressionFunction) Result() any {
-	// 表达式聚合器的结果处理由表达式引擎处理
-	// 这里只返回最后一个计算结果
+	// The results of the expression aggregator are handled by the expression engine
+	// Here, only the last calculation result is returned
 	if len(f.values) == 0 {
 		return nil
 	}
@@ -163,7 +163,7 @@ func (f *ExpressionFunction) Clone() AggregatorFunction {
 	return clone
 }
 
-// ExpressionAggregatorFunction 表达式聚合器函数 - 用于处理非聚合函数在聚合查询中的情况
+// ExpressionAggregatorFunction Expression aggregator function - used to handle non-aggregated functions in aggregated queries
 type ExpressionAggregatorFunction struct {
 	*BaseFunction
 	lastResult any
@@ -181,14 +181,14 @@ func (f *ExpressionAggregatorFunction) Validate(args []any) error {
 }
 
 func (f *ExpressionAggregatorFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 对于表达式聚合器，直接返回最后一个值
+	// For expression aggregators, the last value is returned directly
 	if len(args) > 0 {
 		return args[len(args)-1], nil
 	}
 	return nil, nil
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (f *ExpressionAggregatorFunction) New() AggregatorFunction {
 	return &ExpressionAggregatorFunction{
 		BaseFunction: f.BaseFunction,
@@ -197,15 +197,15 @@ func (f *ExpressionAggregatorFunction) New() AggregatorFunction {
 }
 
 func (f *ExpressionAggregatorFunction) Add(value any) {
-	// 对于表达式聚合器，保存最后一个计算结果
-	// 表达式的计算结果应该是每个数据项的计算结果
+	// For the expression aggregator, save the last calculation result
+	// The calculation result of the expression should be the result of each data item
 	f.lastResult = value
 }
 
 func (f *ExpressionAggregatorFunction) Result() any {
-	// 对于表达式聚合器，返回最后一个计算结果
-	// 注意：对于字符串函数如CONCAT，每个数据项都会产生一个结果
-	// 在窗口聚合中，我们返回最后一个计算的结果
+	// For the expression aggregator, return the last calculation result
+	// Note: For string functions like CONCAT, each data item will produce a result
+	// In window aggregation, we return the result of the last calculation
 	return f.lastResult
 }
 
@@ -220,7 +220,7 @@ func (f *ExpressionAggregatorFunction) Clone() AggregatorFunction {
 	}
 }
 
-// NthValueFunction 返回窗口中第N个值
+// NthValueFunction returns the Nth value in the window
 type NthValueFunction struct {
 	*BaseFunction
 	values []any
@@ -231,7 +231,7 @@ func NewNthValueFunction() *NthValueFunction {
 	return &NthValueFunction{
 		BaseFunction: NewBaseFunction("nth_value", TypeWindow, "窗口函数", "返回窗口中第N个值", 2, 2),
 		values:       make([]any, 0),
-		n:            1, // 默认第1个值
+		n:            1, // Default is the first value
 	}
 }
 
@@ -240,7 +240,7 @@ func (f *NthValueFunction) Validate(args []any) error {
 		return err
 	}
 
-	// 验证N值
+	// Verify the value of N
 	n := 1
 	if nVal, ok := args[1].(int); ok {
 		n = nVal
@@ -254,7 +254,7 @@ func (f *NthValueFunction) Validate(args []any) error {
 		return fmt.Errorf("nth_value n must be positive, got %d", n)
 	}
 
-	// 设置n值
+	// Set the value of n
 	f.n = n
 
 	return nil
@@ -265,7 +265,7 @@ func (f *NthValueFunction) Execute(ctx *FunctionContext, args []any) (any, error
 		return nil, err
 	}
 
-	// 获取N值
+	// Obtain the value of N
 	n := 1
 	if nVal, ok := args[1].(int); ok {
 		n = nVal
@@ -279,7 +279,7 @@ func (f *NthValueFunction) Execute(ctx *FunctionContext, args []any) (any, error
 		return nil, fmt.Errorf("nth_value n must be positive, got %d", n)
 	}
 
-	// 返回第N个值（1-based索引）
+	// Returns the Nth value (1-based index)
 	if len(f.values) >= n {
 		return f.values[n-1], nil
 	}
@@ -287,12 +287,12 @@ func (f *NthValueFunction) Execute(ctx *FunctionContext, args []any) (any, error
 	return nil, nil
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (f *NthValueFunction) New() AggregatorFunction {
 	newInstance := &NthValueFunction{
 		BaseFunction: f.BaseFunction,
 		values:       make([]any, 0),
-		n:            f.n, // 保持n参数
+		n:            f.n, // Maintain n parameters
 	}
 
 	return newInstance
@@ -317,7 +317,7 @@ func (f *NthValueFunction) Clone() AggregatorFunction {
 	clone := &NthValueFunction{
 		BaseFunction: f.BaseFunction,
 		values:       make([]any, len(f.values)),
-		n:            f.n, // 保持n参数
+		n:            f.n, // Maintain n parameters
 	}
 	copy(clone.values, f.values)
 	return clone

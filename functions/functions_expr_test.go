@@ -13,21 +13,21 @@ func TestExprFunction(t *testing.T) {
 		},
 	}
 
-	// 测试Execute方法
+	// Test the Execute method
 	_, err := fn.Execute(ctx, []any{"x + y"})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
-	// 注意：这里的结果取决于表达式求值器的实现
-	// 我们主要测试函数调用是否成功
+	// Note: The result here depends on the implementation of the expression evaluator
+	// We mainly test whether the function call is successful
 
-	// 测试Validate方法
+	// Test the Validate method
 	err = fn.Validate([]any{"test"})
 	if err != nil {
 		t.Errorf("Validate error: %v", err)
 	}
 
-	// 测试参数数量验证
+	// Verification of test parameter quantities
 	err = fn.Validate([]any{})
 	if err == nil {
 		t.Errorf("Validate should fail for empty args")
@@ -41,34 +41,34 @@ func TestExprFunction(t *testing.T) {
 
 func TestExprFunctionEdgeCases(t *testing.T) {
 	fn := NewExprFunction()
-	// Validate参数数量不符
+	// The number of validate parameters does not match
 	if err := fn.Validate([]any{}); err == nil {
 		t.Error("ExprFunction.Validate should fail for empty args")
 	}
 	if err := fn.Validate([]any{"a", "b"}); err == nil {
 		t.Error("ExprFunction.Validate should fail for too many args")
 	}
-	// Execute空参数
+	// Execute empty parameters
 	_, err := fn.Execute(nil, []any{})
 	if err == nil {
 		t.Error("ExprFunction.Execute should fail for empty args")
 	}
 
-	// 测试非字符串参数（现在应该成功）
+	// Testing non-string parameters (should now succeed)
 	ctx := &FunctionContext{Data: map[string]any{}}
 	_, err = fn.Execute(ctx, []any{123})
 	if err != nil {
 		t.Errorf("ExprFunction.Execute should accept non-string argument: %v", err)
 	}
 
-	// 测试无效表达式
+	// Test for invalid expressions
 	_, err = fn.Execute(ctx, []any{"invalid expression +++"})
 	if err == nil {
 		t.Error("ExprFunction.Execute should fail for invalid expression")
 	}
 }
 
-// TestExprFunctionCreation 测试ExprFunction的创建和属性
+// TestExprFunctionCreation tests the creation and properties of ExprFunction
 func TestExprFunctionCreation(t *testing.T) {
 	fn := NewExprFunction()
 	if fn == nil {
@@ -109,7 +109,7 @@ func TestExprFunctionCreation(t *testing.T) {
 	}
 }
 
-// TestExprFunctionWithDifferentExpressions 测试不同类型的表达式
+// TestExprFunctionWithDifferentExpressions tests expressions of different types
 func TestExprFunctionWithDifferentExpressions(t *testing.T) {
 	fn := NewExprFunction()
 	ctx := &FunctionContext{
@@ -121,7 +121,7 @@ func TestExprFunctionWithDifferentExpressions(t *testing.T) {
 		},
 	}
 
-	// 测试数学表达式
+	// Test mathematical expressions
 	result, err := fn.Execute(ctx, []any{"x + y"})
 	if err != nil {
 		t.Errorf("Math expression failed: %v", err)
@@ -130,7 +130,7 @@ func TestExprFunctionWithDifferentExpressions(t *testing.T) {
 		t.Errorf("Expected 15, got %v", result)
 	}
 
-	// 测试比较表达式
+	// Test the comparison expression
 	result, err = fn.Execute(ctx, []any{"x > y"})
 	if err != nil {
 		t.Errorf("Comparison expression failed: %v", err)
@@ -139,7 +139,7 @@ func TestExprFunctionWithDifferentExpressions(t *testing.T) {
 		t.Errorf("Expected true, got %v", result)
 	}
 
-	// 测试字符串表达式
+	// Test string expressions
 	result, err = fn.Execute(ctx, []any{"name + ' Doe'"})
 	if err != nil {
 		t.Errorf("String expression failed: %v", err)
@@ -148,7 +148,7 @@ func TestExprFunctionWithDifferentExpressions(t *testing.T) {
 		t.Errorf("Expected 'John Doe', got %v", result)
 	}
 
-	// 测试布尔表达式
+	// Test the Boolean expression
 	result, err = fn.Execute(ctx, []any{"active && true"})
 	if err != nil {
 		t.Errorf("Boolean expression failed: %v", err)
@@ -157,7 +157,7 @@ func TestExprFunctionWithDifferentExpressions(t *testing.T) {
 		t.Errorf("Expected true, got %v", result)
 	}
 
-	// 测试复杂表达式
+	// Test complex expressions
 	result, err = fn.Execute(ctx, []any{"(x + y) * 2"})
 	if err != nil {
 		t.Errorf("Complex expression failed: %v", err)
@@ -167,7 +167,7 @@ func TestExprFunctionWithDifferentExpressions(t *testing.T) {
 	}
 }
 
-// TestExprFunctionWithFunctionCalls 测试函数调用表达式
+// TestExprFunctionWithFunctionCalls is a test function call expression
 func TestExprFunctionWithFunctionCalls(t *testing.T) {
 	fn := NewExprFunction()
 	ctx := &FunctionContext{
@@ -177,7 +177,7 @@ func TestExprFunctionWithFunctionCalls(t *testing.T) {
 		},
 	}
 
-	// 测试abs函数调用
+	// Testing the abs function call
 	result, err := fn.Execute(ctx, []any{"abs(-10)"})
 	if err != nil {
 		t.Errorf("Function call expression failed: %v", err)
@@ -186,7 +186,7 @@ func TestExprFunctionWithFunctionCalls(t *testing.T) {
 		t.Errorf("Expected 10, got %v", result)
 	}
 
-	// 测试length函数调用
+	// Test the length function call
 	result, err = fn.Execute(ctx, []any{"length(text)"})
 	if err != nil {
 		t.Errorf("Length function call failed: %v", err)
@@ -195,7 +195,7 @@ func TestExprFunctionWithFunctionCalls(t *testing.T) {
 		t.Errorf("Expected 11, got %v", result)
 	}
 
-	// 测试组合函数调用
+	// Test composer function calls
 	result, err = fn.Execute(ctx, []any{"abs(num) + length(text)"})
 	if err != nil {
 		t.Errorf("Combined function calls failed: %v", err)

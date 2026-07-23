@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestComprehensiveNestedFieldAccess 全面测试嵌套字段访问功能
+// TestComprehensiveNestedFieldAccess Comprehensive testing of nested field access functionality
 func TestComprehensiveNestedFieldAccess(t *testing.T) {
 	t.Parallel()
 	t.Run("多层嵌套字段访问", func(t *testing.T) {
@@ -21,7 +21,7 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 			}
 		}()
 
-		// 测试多层嵌套字段访问
+		// Test multi-layer nested field access
 		var rsql = "SELECT device.info.name as device_name, device.location.building as building, sensor.data.temperature as temp FROM stream"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err, "多层嵌套字段SQL应该能够执行")
@@ -30,15 +30,15 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 
 		strm := ssql.Stream()
 
-		// 创建结果接收通道
+		// Create a result receiving channel
 		resultChan := make(chan any, 10)
 
-		// 添加结果接收器
+		// Add a result receiver
 		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
-		// 添加带多层嵌套字段的测试数据
+		// Add test data with multi-layer nested fields
 		testData := map[string]any{
 			"device": map[string]any{
 				"info": map[string]any{
@@ -62,23 +62,23 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 			},
 		}
 
-		// 发送数据
+		// Send data
 		strm.Emit(testData)
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
 		select {
 		case result := <-resultChan:
-			// 验证结果
+			// Verify the results
 			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok, "结果应该是[]map[string]any类型")
 			require.Len(t, resultSlice, 1, "应该只有一条结果")
 
 			item := resultSlice[0]
 
-			// 检查各个嵌套字段的提取情况
+			// Check the extraction status of each nested field
 			deviceName, deviceNameExists := item["device_name"]
 			assert.True(t, deviceNameExists, "device.info.name字段应该存在")
 			assert.Equal(t, "温度传感器001", deviceName, "device.info.name应该被正确提取")
@@ -92,7 +92,7 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 			assert.Equal(t, 28.5, temp, "sensor.data.temperature应该被正确提取")
 
 		case <-ctx.Done():
-			t.Fatal("多层嵌套测试超时")
+			t.Fatal("Multi-layer nested test timeout")
 		}
 	})
 
@@ -104,7 +104,7 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 			}
 		}()
 
-		// 测试聚合查询中的嵌套字段
+		// Test nested fields in aggregated queries
 		var rsql = "SELECT device.type, AVG(sensor.temperature) as avg_temp, COUNT(*) as cnt FROM stream GROUP BY device.type, TumblingWindow('1s')"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err, "嵌套字段聚合SQL应该能够执行")
@@ -113,15 +113,15 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 
 		strm := ssql.Stream()
 
-		// 创建结果接收通道
+		// Create a result receiving channel
 		resultChan := make(chan any, 10)
 
-		// 添加结果回调
+		// Add result callbacks
 		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := []map[string]any{
 			{
 				"device": map[string]any{
@@ -152,29 +152,29 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 			},
 		}
 
-		// 添加数据
+		// Add data
 		for _, data := range testData {
 			strm.Emit(data)
 		}
 
-		// 等待窗口触发
+		// Wait for the window to trigger
 		time.Sleep(1200 * time.Millisecond)
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
 		select {
 		case result := <-resultChan:
-			// 验证聚合结果
+			// Verify the aggregated results
 			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok, "结果应该是[]map[string]any类型")
 
-			// 聚合查询可能返回空结果，这是正常的
+			// Aggregated queries may return empty results, which is normal
 			if len(resultSlice) > 0 {
-				// 如果有结果，验证结果结构
+				// If there are results, verify the structure of the results
 				for _, item := range resultSlice {
-					// 检查是否包含任何聚合字段
+					// Check for any aggregated fields
 					hasAnyField := false
 					if _, exists := item["type"]; exists {
 						hasAnyField = true
@@ -190,7 +190,7 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 			}
 
 		case <-ctx.Done():
-			t.Fatal("嵌套字段聚合查询测试超时")
+			t.Fatal("Nested field aggregation query test timeout")
 		}
 	})
 
@@ -202,7 +202,7 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 			}
 		}()
 
-		// 测试复杂的WHERE条件
+		// Test complex WHERE conditions
 		var rsql = "SELECT * FROM stream WHERE device.info.status = 'active' AND sensor.data.temperature > 25 AND device.location.building = 'A栋'"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err, "复杂嵌套字段WHERE SQL应该能够执行")
@@ -211,28 +211,28 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 
 		strm := ssql.Stream()
 
-		// 创建结果接收通道
+		// Create a result receiving channel
 		resultChan := make(chan any, 10)
 
-		// 添加结果接收器
+		// Add a result receiver
 		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
-		// 添加测试数据：一条满足所有条件，一条不满足
+		// Add test data: one meets all conditions, one does not
 		testData1 := map[string]any{
 			"device": map[string]any{
 				"info": map[string]any{
 					"name":   "传感器A",
-					"status": "active", // 满足条件
+					"status": "active", // Conditions are met
 				},
 				"location": map[string]any{
-					"building": "A栋", // 满足条件
+					"building": "A栋", // Conditions are met
 				},
 			},
 			"sensor": map[string]any{
 				"data": map[string]any{
-					"temperature": 30.0, // 满足条件 > 25
+					"temperature": 30.0, // Conditions met: > 25
 				},
 			},
 		}
@@ -241,24 +241,24 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 			"device": map[string]any{
 				"info": map[string]any{
 					"name":   "传感器B",
-					"status": "inactive", // 不满足条件
+					"status": "inactive", // The conditions are not met
 				},
 				"location": map[string]any{
-					"building": "B栋", // 不满足条件
+					"building": "B栋", // The conditions are not met
 				},
 			},
 			"sensor": map[string]any{
 				"data": map[string]any{
-					"temperature": 20.0, // 不满足条件 <= 25
+					"temperature": 20.0, // Conditions not met < = 25
 				},
 			},
 		}
 
-		// 发送数据
+		// Send data
 		strm.Emit(testData1)
 		strm.Emit(testData2)
 
-		// 等待结果
+		// Wait for the results
 		var results []any
 		timeout := time.After(3 * time.Second)
 		done := false
@@ -275,7 +275,7 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 			}
 		}
 
-		// 验证结果
+		// Verify the results
 		assert.Greater(t, len(results), 0, "复杂WHERE条件应该返回结果")
 
 		for _, result := range results {
@@ -283,7 +283,7 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 			require.True(t, ok, "结果应该是[]map[string]any类型")
 
 			for _, item := range resultSlice {
-				// 验证通过过滤的数据确实满足所有条件
+				// Verify that the filtered data truly meets all the conditions
 				device, deviceOk := item["device"].(map[string]any)
 				assert.True(t, deviceOk, "device字段应该存在且为map类型")
 
@@ -315,7 +315,7 @@ func TestComprehensiveNestedFieldAccess(t *testing.T) {
 	})
 }
 
-// TestArrayFieldAccess 测试数组字段访问功能
+// TestArrayFieldAccess test array field access feature
 func TestArrayFieldAccess(t *testing.T) {
 	t.Parallel()
 	t.Run("数组索引访问", func(t *testing.T) {
@@ -326,7 +326,7 @@ func TestArrayFieldAccess(t *testing.T) {
 			}
 		}()
 
-		// 测试数组索引访问
+		// Test array index access
 		var rsql = "SELECT items[0].name as first_item_name, items[1].id as second_item_id, values[2] as third_value FROM stream"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err, "数组索引访问SQL应该能够执行")
@@ -338,7 +338,7 @@ func TestArrayFieldAccess(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 测试数据
+		// Test data
 		testData := map[string]any{
 			"items": []any{
 				map[string]any{"name": "item1", "id": 101},
@@ -360,23 +360,23 @@ func TestArrayFieldAccess(t *testing.T) {
 
 			item := resultSlice[0]
 
-			// 验证 items[0].name
+			// Validate items[0].name
 			name, ok := item["first_item_name"]
 			assert.True(t, ok)
 			assert.Equal(t, "item1", name)
 
-			// 验证 items[1].id
+			// Verify items[1].id
 			id, ok := item["second_item_id"]
 			assert.True(t, ok)
 			assert.Equal(t, 102, id)
 
-			// 验证 values[2]
+			// Validating values[2]
 			val, ok := item["third_value"]
 			assert.True(t, ok)
 			assert.Equal(t, 30, val)
 
 		case <-ctx.Done():
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 	})
 
@@ -398,13 +398,13 @@ func TestArrayFieldAccess(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 匹配的数据
+		// Matching data
 		matchData := map[string]any{
 			"id":     "match",
 			"tags":   []any{"urgent", "work"},
 			"scores": []any{80, 95},
 		}
-		// 不匹配的数据
+		// Mismatched data
 		mismatchData := map[string]any{
 			"id":     "mismatch",
 			"tags":   []any{"normal", "home"},
@@ -424,7 +424,7 @@ func TestArrayFieldAccess(t *testing.T) {
 			require.Len(t, resultSlice, 1)
 			assert.Equal(t, "match", resultSlice[0]["id"])
 		case <-ctx.Done():
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 	})
 
@@ -436,7 +436,7 @@ func TestArrayFieldAccess(t *testing.T) {
 			}
 		}()
 
-		// 测试聚合查询中的嵌套数组字段
+		// Test nested array fields in aggregated queries
 		var rsql = "SELECT device.type, AVG(sensors[0].temperature) as avg_temp FROM stream GROUP BY device.type, TumblingWindow('1s')"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err, "嵌套数组聚合SQL应该能够执行")
@@ -475,7 +475,7 @@ func TestArrayFieldAccess(t *testing.T) {
 		case result := <-resultChan:
 			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok)
-			// 聚合结果可能为空，取决于窗口触发时机
+			// The aggregate result may be empty, depending on when the window is triggered
 			if len(resultSlice) > 0 {
 				item := resultSlice[0]
 				avgTemp, ok := item["avg_temp"].(float64)
@@ -483,7 +483,7 @@ func TestArrayFieldAccess(t *testing.T) {
 				assert.Equal(t, 25.0, avgTemp)
 			}
 		case <-ctx.Done():
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 	})
 }

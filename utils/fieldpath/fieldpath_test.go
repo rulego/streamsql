@@ -119,7 +119,7 @@ func TestParseFieldPath(t *testing.T) {
 }
 
 func TestGetNestedFieldComplex(t *testing.T) {
-	// 创建复杂的测试数据
+	// Creating complex test data
 	testData := map[string]any{
 		"users": []any{
 			map[string]any{
@@ -271,7 +271,7 @@ func TestSetNestedFieldComplex(t *testing.T) {
 		assert.True(t, found)
 		assert.Equal(t, "Bob", result)
 
-		// 确保原有数据仍然存在
+		// Ensure the original data still exists
 		id, found := GetNestedField(data, "user.id")
 		assert.True(t, found)
 		assert.Equal(t, 1, id)
@@ -346,10 +346,10 @@ func TestValidateFieldPath(t *testing.T) {
 		{"users[1].name", false},
 		{"config['database']", false},
 		{"matrix[0][1]", false},
-		{"data[abc]", true}, // 无效括号内容
-		{"data[", true},     // 未闭合括号
-		{"data]", false},    // 仅右括号不算错误（当作普通字段名）
-		{"", true},          // 空路径
+		{"data[abc]", true}, // Invalid parenthesis content
+		{"data[", true},     // Unclosed parentheses
+		{"data]", false},    // Only the right parenthesis is not considered an error (treated as a regular field name)
+		{"", true},          // Empty path
 	}
 
 	for _, tt := range tests {
@@ -410,7 +410,7 @@ func TestGetFieldPathDepth(t *testing.T) {
 	}
 }
 
-// TestGetAllReferencedFields 测试GetAllReferencedFields函数
+// TestGetAllReferencedFields tests the GetAllReferencedFields function
 func TestGetAllReferencedFields(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -452,13 +452,13 @@ func TestGetAllReferencedFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetAllReferencedFields(tt.fieldPaths)
-			// 由于返回的是map的keys，顺序可能不同，所以需要排序比较
+			// Since the returned keys are maps, the order may differ, so sorting and comparison are necessary
 			assert.ElementsMatch(t, tt.expected, result)
 		})
 	}
 }
 
-// TestFieldAccessError 测试FieldAccessError类型
+// TestFieldAccessError tests the type FieldAccessError
 func TestFieldAccessError(t *testing.T) {
 	err := &FieldAccessError{
 		Path:    "invalid.path[abc]",
@@ -469,7 +469,7 @@ func TestFieldAccessError(t *testing.T) {
 	assert.Equal(t, expected, err.Error())
 }
 
-// TestSetNestedFieldEdgeCases 测试SetNestedField函数的边缘情况
+// TestSetNestedFieldEdgeCases tests the edge conditions of the SetNestedField function
 func TestSetNestedFieldEdgeCases(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -489,7 +489,7 @@ func TestSetNestedFieldEdgeCases(t *testing.T) {
 			name:      "无效字段路径",
 			fieldPath: "field[abc]",
 			value:     "test",
-			hasError:  false, // 会fallback到简单设置
+			hasError:  false, // It will fall back to the simple settings
 		},
 	}
 
@@ -510,7 +510,7 @@ func TestSetNestedFieldEdgeCases(t *testing.T) {
 	}
 }
 
-// TestGetNestedFieldEdgeCases 测试GetNestedField函数的边缘情况
+// TestGetNestedFieldEdgeCases tests the edge conditions of the GetNestedField function
 func TestGetNestedFieldEdgeCases(t *testing.T) {
 	tests := []struct {
 		name      string

@@ -73,8 +73,8 @@ type FunctionRegistry struct {
 	mu         sync.RWMutex
 	functions  map[string]Function
 	categories map[FunctionType][]Function
-	// snapshot 缓存 ListAll 的结果；Register/Unregister 后置 nil 失效，按需重建。
-	// 函数集在 init 后基本稳定，避免每次 ListAll 都在全局锁下拷贝整张表。
+	// snapshot caches the results of ListAll; Post-NIL of Register/Unregister fails and is rebuilt on demand.
+	// The function set is basically stable after init, preventing ListAll from copying the entire table under a global lock every time.
 	snapshot map[string]Function
 }
 
@@ -90,7 +90,7 @@ func NewFunctionRegistry() *FunctionRegistry {
 }
 
 // Register registers a function
-// 注册函数及其别名到注册表中
+// Register functions and their aliases into the registry
 func (r *FunctionRegistry) Register(fn Function) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -103,7 +103,7 @@ func (r *FunctionRegistry) Register(fn Function) error {
 	name := strings.ToLower(fn.GetName())
 	aliases := fn.GetAliases()
 
-	// 先校验主名和所有别名都未占用,再统一写入,避免中途失败留下半注册状态。
+	// First, check that the primary name and all aliases are not occupying, then write everything together to avoid failure and leaving a semi-registered state.
 	if _, exists := r.functions[name]; exists {
 		return fmt.Errorf("function %s already registered", name)
 	}
@@ -114,14 +114,14 @@ func (r *FunctionRegistry) Register(fn Function) error {
 		}
 	}
 
-	// 全部校验通过后统一写入主名与别名
+	// After all checks are passed, the primary and alias are uniformly written to the primary and aliases
 	r.functions[name] = fn
 	for _, alias := range aliases {
 		r.functions[strings.ToLower(alias)] = fn
 	}
 
 	r.categories[fn.GetType()] = append(r.categories[fn.GetType()], fn)
-	r.snapshot = nil // 失效 ListAll 快照
+	r.snapshot = nil // Expired ListAll snapshot
 	// Register aggregator adapter
 	if fn.GetType() == TypeAggregation {
 		_ = RegisterAggregatorAdapter(fn.GetName())
@@ -147,7 +147,7 @@ func (r *FunctionRegistry) GetByType(fnType FunctionType) []Function {
 }
 
 // ListAll lists all registered functions
-// 返回缓存的只读快照（调用方不得修改）；Register/Unregister 后失效、惰性重建。
+// Returns a read-only snapshot from the cache (the caller cannot be modified); Failure and inert reconstruction after Register/Unregister.
 func (r *FunctionRegistry) ListAll() map[string]Function {
 	r.mu.RLock()
 	if r.snapshot != nil {
@@ -171,7 +171,7 @@ func (r *FunctionRegistry) ListAll() map[string]Function {
 }
 
 // Unregister removes a function
-// 从注册表中移除函数及其所有别名
+// Remove functions and all aliases from the registry
 func (r *FunctionRegistry) Unregister(name string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -182,10 +182,10 @@ func (r *FunctionRegistry) Unregister(name string) bool {
 		return false
 	}
 
-	// 删除主函数名
+	// Delete the main function name
 	delete(r.functions, strings.ToLower(fn.GetName()))
 
-	// 删除所有别名
+	// Delete all aliases
 	for _, alias := range fn.GetAliases() {
 		delete(r.functions, strings.ToLower(alias))
 	}
@@ -200,7 +200,7 @@ func (r *FunctionRegistry) Unregister(name string) bool {
 			}
 		}
 	}
-	r.snapshot = nil // 失效 ListAll 快照
+	r.snapshot = nil // Expired ListAll snapshot
 
 	return true
 }
@@ -243,8 +243,8 @@ func RegisterCustomFunction(name string, fnType FunctionType, category, descript
 	if name == "" {
 		return fmt.Errorf("function name cannot be empty")
 	}
-	// 聚合/分析函数需实现 AggregatorFunction / StatefulAnalytic 接口，closure 形式无法满足，
-	// 注册后只会静默失效；请改为实现对应接口后用 functions.Register 注册。
+	// The aggregation/analysis function requires implementing the AggregatorFunction / StatefulAnalytic interface; closure format cannot meet the requirements,
+	// After registration, it will only become silent and invalid; Please change it to implementing the corresponding interface and then use functions.Register.
 	if fnType == TypeAggregation || fnType == TypeAnalytical {
 		return fmt.Errorf("RegisterCustomFunction 不支持 %s 类型：聚合/分析函数请实现对应接口后用 Register 注册", fnType)
 	}
@@ -285,4 +285,4 @@ func (f *CustomFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 	return f.executor(ctx, args)
 }
 
-// 内置函数注册见 builtin.go 的 registerBuiltinFunctions（由 init.go 的 init() 调用）。
+// For built-in function registration, see registerBuiltinFunctions in builtin.go (called by init() in init.go).

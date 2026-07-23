@@ -1,52 +1,52 @@
-# StreamSQL Functions 模块扩展
+# StreamSQL Functions Module expansion
 
-## 概述
+## Overview
 
-本次扩展实现了统一的聚合函数和分析函数管理，简化了自定义函数的扩展过程。现在只需要在 `functions` 模块中实现函数，就可以自动在 `aggregator` 模块中使用。
+This extension implements unified management of aggregate and analysis functions, simplifying the extension process for custom functions. Now, you only need to implement the function in the `functions` module to automatically use it in the `aggregator` module.
 
-## 主要改进
+## Major improvements
 
-### 1. 统一的函数接口
+### 1. Unified function interface
 
-- **AggregatorFunction**: 支持增量计算的聚合函数接口
-- **AnalyticalFunction**: 支持状态管理的分析函数接口
-- **Function**: 基础函数接口
+- **AggregatorFunction**: Aggregate function interface supporting incremental computation
+- **AnalyticalFunction**: Interface for analysis functions supporting state management
+- **Function**: Basic function interface
 
-### 2. 自动适配器
+### 2. Automatic adapter
 
-- **AggregatorAdapter**: 将 functions 模块的聚合函数适配到 aggregator 模块
-- **AnalyticalAdapter**: 将 functions 模块的分析函数适配到 aggregator 模块
+- **AggregatorAdapter**: Adapt the aggregation function of the functions module to the aggregator module
+- **AnalyticalAdapter**: Adapt the analysis functions of the functions module to the aggregator module
 
-### 3. 简化的扩展流程
+### 3. Simplified expansion process
 
-现在添加自定义函数只需要：
-1. 在 functions 模块中实现函数
-2. 注册函数和适配器
-3. 无需修改 aggregator 模块
+Now, to add a custom function, you only need:
+1. Implement functions in the functions module
+2. Register functions and adapters
+3. No need to modify aggregator modules
 
-## 使用方法
+## How to use
 
-### 创建自定义聚合函数
+### Create a custom aggregate function
 
 ```go
-// 1. 定义函数结构
+// 1. Define the function structure
 type CustomSumFunction struct {
     *BaseFunction
     sum float64
 }
 
-// 2. 实现基础接口
+// 2. Implement basic interfaces
 func (f *CustomSumFunction) Execute(ctx *FunctionContext, args []interface{}) (interface{}, error) {
-    // 实现函数逻辑
+    // Implement functional logic
 }
 
-// 3. 实现AggregatorFunction接口
+// 3. Implement AggregatorFunction interfaces
 func (f *CustomSumFunction) New() AggregatorFunction {
     return &CustomSumFunction{BaseFunction: f.BaseFunction}
 }
 
 func (f *CustomSumFunction) Add(value interface{}) {
-    // 增量计算逻辑
+    // Incremental calculation logic
 }
 
 func (f *CustomSumFunction) Result() interface{} {
@@ -61,26 +61,26 @@ func (f *CustomSumFunction) Clone() AggregatorFunction {
     return &CustomSumFunction{BaseFunction: f.BaseFunction, sum: f.sum}
 }
 
-// 4. 注册函数（TypeAggregation 自动接通聚合适配器，无需手动 RegisterAggregatorAdapter）
+// 4. Register Function (TypeAggregation Automatically connect the aggregation adapter, no manual RegisterAggregatorAdapter required)
 func init() {
     Register(NewCustomSumFunction())
 }
 ```
 
-### 创建自定义分析函数
+### Create a custom analysis function
 
 ```go
-// 1. 定义函数结构（分析函数本身无可变状态，跨行状态放在下面的 State 里）
+// 1. Define the function structure (analyze that the function itself has no mutable state; the interline state is placed in the State below)
 type CustomAnalyticalFunction struct {
     *BaseFunction
 }
 
-// 2. 实现基础接口（Execute 标量路径禁用：分析函数需跨行状态，由状态机求值）
+// 2. Implement basic interfaces (Execute Scalar path disabled: analysis functions must cross lines and be evaluated by state machines)
 func (f *CustomAnalyticalFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
     return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER", f.GetName())
 }
 
-// 3. 实现 StatefulAnalytic：NewState 返回一份独立状态，引擎为每个 PARTITION 各持一份
+// 3. Implement StatefulAnalytic: NewState returns a single independent state, with the engine holding one copy for each PARTITION
 func (f *CustomAnalyticalFunction) NewState() AnalyticState {
     return &customAnalyticalState{}
 }
@@ -89,7 +89,7 @@ type customAnalyticalState struct {
     prev any
 }
 
-// Apply 每条事件调用：用当前行参数更新状态，返回当前结果（这里返回上一行的值，即 lag 语义）
+// Apply Each event call: Update the status with the current line parameter and return the current result (here returns the value of the previous line, i.e., lag semantics)
 func (s *customAnalyticalState) Apply(args []any) any {
     cur := args[0]
     result := s.prev
@@ -99,16 +99,16 @@ func (s *customAnalyticalState) Apply(args []any) any {
 
 func (s *customAnalyticalState) Reset() { s.prev = nil }
 
-// 4. 注册函数（分析函数 Register 即可，无需 RegisterAnalyticalAdapter）
+// 4. Register functions (analyze function Register, no need to RegisterAnalyticalAdapter)
 func init() {
     Register(NewCustomAnalyticalFunction())
 }
 ```
 
-### 使用简化的注册方式
+### Use a simplified registration method
 
 ```go
-// 注册简单的自定义函数
+// Register simple custom functions
 RegisterCustomFunction("double", TypeAggregation, "数学函数", "将值乘以2", 1, 1,
     func(ctx *FunctionContext, args []interface{}) (interface{}, error) {
         val, err := cast.ToFloat64E(args[0])
@@ -119,34 +119,34 @@ RegisterCustomFunction("double", TypeAggregation, "数学函数", "将值乘以2
     })
 ```
 
-## 内置函数
+## Built-in functions
 
-### 聚合函数
-- `sum`: 求和
-- `avg`: 平均值
-- `min`: 最小值
-- `max`: 最大值
-- `count`: 计数
-- `stddev`: 标准差
-- `median`: 中位数
-- `percentile`: 百分位数
-- `collect`: 收集所有值
-- `last_value`: 最后一个值
-- `merge_agg`: 合并聚合
-- `stddevs`: 样本标准差
-- `deduplicate`: 去重
-- `var`: 总体方差
-- `vars`: 样本方差
+### Aggregate Function
+- `sum`: Seek harmony
+- `avg`: Average
+- `min`: Minimum value
+- `max`: Maximum value
+- `count`: Count
+- `stddev`: Standard deviation
+- `median`: Median
+- `percentile`: percentile
+- `collect`: Collect all values
+- `last_value`: The last value
+- `merge_agg`: Merge and aggregate
+- `stddevs`: Standard deviation of the sample
+- `deduplicate`: Reduce deduplication
+- `var`: Population variance
+- `vars`: Sample variance
 
-### 分析函数
-- `lag`: 滞后函数
-- `latest`: 最新值
-- `changed_col`: 变化列
-- `had_changed`: 是否变化
+### Analyze the function
+- `lag`: The lag function
+- `latest`: Latest value
+- `changed_col`: Change column
+- `had_changed`: Whether it changes
 
-## 自定义函数示例
+## Custom function example
 
-参考 `custom_example.go` 文件中的示例：
-- `CustomProductFunction`: 乘积聚合函数
-- `CustomGeometricMeanFunction`: 几何平均聚合函数
-- `CustomMovingAverageFunction`: 移动平均分析函数
+Refer to the example from the `custom_example.go` file:
+- `CustomProductFunction`: Product aggregation function
+- `CustomGeometricMeanFunction`: Geometric mean aggregation function
+- `CustomMovingAverageFunction`: Moving average analysis function

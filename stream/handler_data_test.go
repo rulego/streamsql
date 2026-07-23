@@ -102,7 +102,7 @@ func TestStream_SafeSendToDataChan_Concurrent(t *testing.T) {
 		for {
 			select {
 			case <-stream.dataChan:
-				// 消费数据
+				// Consumption data
 			case <-time.After(100 * time.Millisecond):
 				return
 			}
@@ -113,7 +113,7 @@ func TestStream_SafeSendToDataChan_Concurrent(t *testing.T) {
 	successCount := int64(0)
 	var mu sync.Mutex
 
-	// 启动多个生产者协程
+	// Initiate multiple producer coroutines
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(id int) {
@@ -133,15 +133,15 @@ func TestStream_SafeSendToDataChan_Concurrent(t *testing.T) {
 	}
 
 	wg.Wait()
-	time.Sleep(50 * time.Millisecond) // 等待处理完成
+	time.Sleep(50 * time.Millisecond) // Wait for processing to complete
 
-	// 验证至少有一些数据成功发送
+	// Verify that at least some data was successfully sent
 	mu.Lock()
 	assert.Greater(t, successCount, int64(0))
 	mu.Unlock()
 }
 
-// TestStream_DataChanMutex 测试数据通道互斥锁
+// TestStream_DataChanMutex Test data channel mutex
 func TestStream_SafeSendToDataChan(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -156,7 +156,7 @@ func TestStream_SafeSendToDataChan(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	// 测试并发读取
+	// Testing concurrent reads
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func() {
@@ -168,7 +168,7 @@ func TestStream_SafeSendToDataChan(t *testing.T) {
 		}()
 	}
 
-	// 测试并发发送
+	// Test concurrent sending
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func(id int) {
@@ -186,7 +186,7 @@ func TestStream_SafeSendToDataChan(t *testing.T) {
 	wg.Wait()
 }
 
-// TestStream_DataHandling_EdgeCases 测试数据处理边界情况
+// TestStream_DataHandling_EdgeCases Test data processing boundary conditions
 func TestStream_SafeSendToDataChan_EdgeCases(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -204,18 +204,18 @@ func TestStream_SafeSendToDataChan_EdgeCases(t *testing.T) {
 		}
 	}()
 
-	// 测试空数据
+	// Test empty data
 	emptyData := map[string]any{}
 	success := stream.safeSendToDataChan(emptyData)
 	assert.True(t, success)
 
-	// 清空通道
+	// Cleared the passage
 	select {
 	case <-stream.dataChan:
 	default:
 	}
 
-	// 测试nil值
+	// Test the nil value
 	nilData := map[string]any{"key": nil}
 	success = stream.safeSendToDataChan(nilData)
 	assert.True(t, success)

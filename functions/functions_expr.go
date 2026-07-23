@@ -6,7 +6,7 @@ import (
 	"github.com/rulego/streamsql/utils/cast"
 )
 
-// ExprFunction expr函数，用于在SQL中执行表达式
+// ExprFunction is an expr function used to execute expressions in SQL
 type ExprFunction struct {
 	*BaseFunction
 }
@@ -26,13 +26,13 @@ func (f *ExprFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 		return nil, fmt.Errorf("expr function requires exactly 1 argument")
 	}
 
-	// 获取表达式字符串
+	// Get the expression string
 	expressionStr, err := cast.ToStringE(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("expr function argument must be a string: %v", err)
 	}
 
-	// 使用 ExprBridge 执行表达式
+	// Executing expressions using ExprBridge
 	bridge := GetExprBridge()
 	result, err := bridge.EvaluateExpression(expressionStr, ctx.Data)
 	if err != nil {

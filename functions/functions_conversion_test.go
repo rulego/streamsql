@@ -13,7 +13,7 @@ func TestNewConversionFunctions(t *testing.T) {
 		want     any
 		wantErr  bool
 	}{
-		// convert_tz 函数测试
+		// convert_tz Function Testing
 		{
 			name:     "convert_tz with time.Time",
 			funcName: "convert_tz",
@@ -40,7 +40,7 @@ func TestNewConversionFunctions(t *testing.T) {
 			wantErr:  true,
 		},
 
-		// to_seconds 函数测试
+		// to_seconds Function testing
 		{
 			name:     "to_seconds with time.Time",
 			funcName: "to_seconds",
@@ -69,7 +69,7 @@ func TestNewConversionFunctions(t *testing.T) {
 			want:     int64(1672531200),
 			wantErr:  false,
 		},
-		// chr 函数测试
+		// chr function test
 		{
 			name:     "chr valid ASCII code",
 			funcName: "chr",
@@ -97,7 +97,7 @@ func TestNewConversionFunctions(t *testing.T) {
 			wantErr:  true,
 		},
 
-		// trunc 函数测试
+		// trunc function test
 		{
 			name:     "trunc positive number",
 			funcName: "trunc",
@@ -106,7 +106,7 @@ func TestNewConversionFunctions(t *testing.T) {
 			wantErr:  false,
 		},
 
-		// url_encode 函数测试
+		// url_encode Function testing
 		{
 			name:     "url_encode basic",
 			funcName: "url_encode",
@@ -135,7 +135,7 @@ func TestNewConversionFunctions(t *testing.T) {
 			wantErr:  true,
 		},
 
-		// url_decode 函数测试
+		// url_decode Function testing
 		{
 			name:     "url_decode basic",
 			funcName: "url_decode",
@@ -223,16 +223,16 @@ func TestNewConversionFunctions(t *testing.T) {
 			}
 
 			if !tt.wantErr {
-				// 对于时间类型，需要特殊处理比较
+				// For time types, special treatment and comparison are needed
 				if tt.funcName == "convert_tz" {
 					if resultTime, ok := result.(time.Time); ok {
 						if wantTime, ok := tt.want.(time.Time); ok {
-							// 比较时间戳而不是直接比较时间对象
+							// Compare timestamps rather than directly comparing time objects
 							if resultTime.Unix() != wantTime.Unix() {
 								t.Errorf("Execute() = %v, want %v", result, tt.want)
 							}
 						} else {
-							// 如果期望值不是时间类型，只检查结果是否为时间类型
+							// If the expected value is not of the time type, only check whether the result is of the time type
 							if resultTime.IsZero() {
 								t.Errorf("Execute() returned zero time")
 							}

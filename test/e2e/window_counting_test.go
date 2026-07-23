@@ -68,7 +68,7 @@ func TestSQLCountingWindow_GroupedCounting_MixedDevices(t *testing.T) {
 	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
-				// channel 已关闭，忽略错误
+				// channel is closed, ignoring errors
 			}
 		}()
 		ch <- results
@@ -114,7 +114,7 @@ func TestSQLCountingWindow_MultiKeyGroupedCounting(t *testing.T) {
 	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
-				// channel 已关闭，忽略错误
+				// channel is closed, ignoring errors
 			}
 		}()
 		ch <- results

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSelectStarWithExpressionFields 测试SELECT *与表达式字段的组合
+// TestSelectStarWithExpressionFields tests the combination of SELECT * and expression fields
 func TestSelectStarWithExpressionFields(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -64,7 +64,7 @@ func TestSelectStarWithExpressionFields(t *testing.T) {
 			},
 			expectedFields: map[string]any{
 				"name":   "ALICE",
-				"age":    60.0, // 表达式结果
+				"age":    60.0, // Expression result
 				"status": "active",
 			},
 		},
@@ -97,7 +97,7 @@ func TestSelectStarWithExpressionFields(t *testing.T) {
 			require.NoError(t, err)
 			defer stream.Stop()
 
-			// 收集结果
+			// Collect the results
 			var mu sync.Mutex
 			var results []any
 			stream.AddSink(func(result []map[string]any) {
@@ -109,10 +109,10 @@ func TestSelectStarWithExpressionFields(t *testing.T) {
 			stream.Start()
 			stream.Emit(tt.testData)
 
-			// 等待处理完成
+			// Wait for processing to complete
 			time.Sleep(100 * time.Millisecond)
 
-			// 验证结果
+			// Verify the results
 			mu.Lock()
 			defer mu.Unlock()
 
@@ -123,7 +123,7 @@ func TestSelectStarWithExpressionFields(t *testing.T) {
 				actual, exists := resultData[field]
 				assert.True(t, exists, "Field %s should exist", field)
 				if expected != nil {
-					// 处理数值类型的比较
+					// Handle numerical types comparison
 					if expectedFloat, ok := expected.(float64); ok {
 						if actualFloat, ok := actual.(float64); ok {
 							assert.InEpsilon(t, expectedFloat, actualFloat, 0.0001)
@@ -141,7 +141,7 @@ func TestSelectStarWithExpressionFields(t *testing.T) {
 	}
 }
 
-// TestFieldProcessor 测试字段处理器
+// TestFieldProcessor Tests field processors
 func TestFieldProcessor(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -222,14 +222,14 @@ func TestFieldProcessor(t *testing.T) {
 			require.Len(t, results, 1)
 			resultData := results[0].([]map[string]any)[0]
 
-			// 验证期望的字段都存在
+			// The fields to verify the desired existence are present
 			for field, expected := range tt.expected {
 				actual, exists := resultData[field]
 				assert.True(t, exists, "Field %s should exist", field)
 				assert.Equal(t, expected, actual, "Field %s value mismatch", field)
 			}
 
-			// 如果不是 "*"，验证没有额外的字段
+			// If it is not "*", there are no extra fields for validation
 			if len(tt.simpleFields) == 1 && tt.simpleFields[0] != "*" {
 				assert.Len(t, resultData, len(tt.expected), "Should only have expected fields")
 			}
@@ -237,7 +237,7 @@ func TestFieldProcessor(t *testing.T) {
 	}
 }
 
-// TestExpressionEvaluation 测试表达式计算
+// TestExpressionEvaluation Calculates test expressions
 func TestExpressionEvaluation(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -317,7 +317,7 @@ func TestExpressionEvaluation(t *testing.T) {
 			actual, exists := resultData["result"]
 			assert.True(t, exists, "Result field should exist")
 
-			// 处理数值类型的比较
+			// Handle numerical types comparison
 			if expectedFloat, ok := tt.expected.(float64); ok {
 				if actualFloat, ok := actual.(float64); ok {
 					assert.InEpsilon(t, expectedFloat, actualFloat, 0.0001)

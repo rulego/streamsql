@@ -12,29 +12,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLikeOperatorInSQL 测试LIKE语法功能
+// TestLikeOperatorInSQL tests the LIKE syntax functionality
 func TestLikeOperatorInSQL(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 测试场景1：基本LIKE模式匹配 - 前缀匹配
+	// Test Scenario 1: Basic LIKE pattern matching - prefix matching
 	t.Run("前缀匹配(prefix%)", func(t *testing.T) {
-		// 测试使用LIKE进行前缀匹配
+		// The test uses LIKE for prefix matching
 		var rsql = "SELECT deviceId, deviceType FROM stream WHERE deviceId LIKE 'sensor%'"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
 		strm := ssql.Stream()
 
-		// 创建结果接收通道
+		// Create a result receiving channel
 		resultChan := make(chan any, 10)
 
-		// 添加结果回调
+		// Add result callbacks
 		strm.AddSink(func(result []map[string]any) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := []map[string]any{
 			{"deviceId": "sensor001", "deviceType": "temperature"},
 			{"deviceId": "device002", "deviceType": "humidity"},
@@ -42,12 +42,12 @@ func TestLikeOperatorInSQL(t *testing.T) {
 			{"deviceId": "pump004", "deviceType": "actuator"},
 		}
 
-		// 添加数据
+		// Add data
 		for _, data := range testData {
 			strm.Emit(data)
 		}
 
-		// 等待并收集结果
+		// Wait and collect results
 		var results []any
 		timeout := time.After(2 * time.Second)
 		done := false
@@ -61,10 +61,10 @@ func TestLikeOperatorInSQL(t *testing.T) {
 			}
 		}
 
-		// 验证结果：应该只有sensor001和sensor003匹配
+		// Verification result: Only sensor001 and sensor003 should match
 		assert.GreaterOrEqual(t, len(results), 1, "应该收到至少一个匹配结果")
 
-		// 验证结果中只包含以"sensor"开头的设备
+		// Only devices starting with "sensor" are included in the verification results
 		for _, result := range results {
 			resultSlice, ok := result.([]map[string]any)
 			require.True(t, ok, "结果应该是[]map[string]any类型")
@@ -77,7 +77,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 	})
 
-	// 测试场景2：后缀匹配
+	// Test Scenario 2: Suffix matching
 	t.Run("后缀匹配(%suffix)", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
@@ -103,7 +103,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待结果
+		// Wait for the results
 		var results []any
 		timeout := time.After(2 * time.Second)
 		done := false
@@ -117,7 +117,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 			}
 		}
 
-		// 验证结果：应该只有以"error"结尾的状态
+		// Verification result: It should only be a state ending with "error"
 		assert.GreaterOrEqual(t, len(results), 1, "应该收到至少一个匹配结果")
 
 		for _, result := range results {
@@ -132,7 +132,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 	})
 
-	// 测试场景3：包含匹配
+	// Test Scenario 3: Inclusion Matching
 	t.Run("包含匹配(%substring%)", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
@@ -158,7 +158,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待结果
+		// Wait for the results
 		var results []any
 		timeout := time.After(2 * time.Second)
 		done := false
@@ -172,7 +172,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 			}
 		}
 
-		// 验证结果：应该只有包含"alert"的消息
+		// Verification result: There should only be messages containing "alert"
 		assert.GreaterOrEqual(t, len(results), 1, "应该收到至少一个匹配结果")
 
 		for _, result := range results {
@@ -187,7 +187,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 	})
 
-	// 测试场景4：单字符通配符
+	// Test scenario 4: Single-character wildcard
 	t.Run("单字符通配符(_)", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
@@ -213,7 +213,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待结果
+		// Wait for the results
 		var results []any
 		timeout := time.After(2 * time.Second)
 		done := false
@@ -227,12 +227,12 @@ func TestLikeOperatorInSQL(t *testing.T) {
 			}
 		}
 
-		// 验证结果：应该只有E_0_模式的代码（E101, E202不匹配E_0_，只有E305也不完全匹配）
-		// 实际上，根据模式E_0_，应该匹配如E101, E202等，让我们调整测试数据
+		// Verification result: There should only be code with E_0_ pattern (E101, E202 do not match E_0_, only E305 does not match perfectly)
+		// In fact, based on the E_0_ of the model, matches like E101, E202, etc. should be matched to adjust the test data
 		assert.GreaterOrEqual(t, len(results), 0, "根据通配符模式可能有匹配结果")
 	})
 
-	// 测试场景5：复杂模式
+	// Test scenario 5: Complex mode
 	t.Run("复杂LIKE模式", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
@@ -258,7 +258,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待结果
+		// Wait for the results
 		var results []any
 		timeout := time.After(2 * time.Second)
 		done := false
@@ -272,7 +272,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 			}
 		}
 
-		// 验证结果：应该只有.log文件
+		// Verification result: There should only be.log files
 		assert.GreaterOrEqual(t, len(results), 1, "应该收到至少一个匹配结果")
 
 		for _, result := range results {
@@ -287,7 +287,7 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		}
 	})
 
-	// 测试场景6：在聚合查询中使用LIKE
+	// Test scenario 6: Using LIKE in aggregated queries
 	t.Run("聚合查询中的LIKE", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
@@ -314,11 +314,11 @@ func TestLikeOperatorInSQL(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待聚合
+		// Waiting for the convergence
 		time.Sleep(500 * time.Millisecond)
 		strm.Window.Trigger()
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -327,14 +327,14 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		case actual = <-resultChan:
 			cancel()
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到聚合结果")
+			t.Fatal("The test timed out, and no aggregated results were received")
 		}
 
-		// 验证聚合结果
+		// Verify the aggregated results
 		resultSlice, ok := actual.([]map[string]any)
 		require.True(t, ok, "结果应该是[]map[string]any类型")
 
-		// 应该有两种设备类型：temperature(2个sensor), humidity(1个sensor)
+		// There should be two types of devices: temperature (2 sensors), humidity (1 sensor)
 		assert.GreaterOrEqual(t, len(resultSlice), 1, "应该有至少一种设备类型的聚合结果")
 
 		for _, result := range resultSlice {
@@ -343,13 +343,13 @@ func TestLikeOperatorInSQL(t *testing.T) {
 			assert.True(t, ok, "device_count应该是float64类型")
 			assert.Greater(t, count, 0.0, "设备数量应该大于0")
 
-			// 验证设备类型
+			// Verify the type of equipment
 			assert.True(t, deviceType == "temperature" || deviceType == "humidity",
 				fmt.Sprintf("设备类型 %s 应该是temperature或humidity", deviceType))
 		}
 	})
 
-	// 测试场景7：HAVING子句中的LIKE
+	// Test Scenario 7: LIKE in HAVING clause
 	t.Run("HAVING子句中的LIKE", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
@@ -375,11 +375,11 @@ func TestLikeOperatorInSQL(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待聚合
+		// Waiting for the convergence
 		time.Sleep(500 * time.Millisecond)
 		strm.Window.Trigger()
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -388,14 +388,14 @@ func TestLikeOperatorInSQL(t *testing.T) {
 		case actual = <-resultChan:
 			cancel()
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到HAVING+LIKE结果")
+			t.Fatal("The test timed out and HAVING+LIKE result was not received")
 		}
 
-		// 验证HAVING + LIKE结果
+		// Verify HAVING + LIKE results
 		resultSlice, ok := actual.([]map[string]any)
 		require.True(t, ok, "结果应该是[]map[string]any类型")
 
-		// 应该只有包含"temp"的设备类型
+		// There should only be devices containing "temp"
 		for _, result := range resultSlice {
 			deviceType, _ := result["deviceType"].(string)
 			assert.True(t, strings.Contains(deviceType, "temp"),
@@ -408,15 +408,15 @@ func TestLikeOperatorInSQL(t *testing.T) {
 	})
 }
 
-// TestLikeFunctionEquivalence 测试LIKE语法与现有字符串函数的等价性
+// TestLikeFunctionEquivalence tests the equivalence of LIKE syntax with existing string functions
 func TestLikeFunctionEquivalence(t *testing.T) {
 	t.Parallel()
-	// 简化测试，重点验证LIKE功能已经正常工作
+	// Simplified testing, focusing on verifying that the LIKE function is working properly
 	t.Run("LIKE语法工作正常验证", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 使用LIKE的查询
+		// Use LIKE queries to query
 		var likeSQL = "SELECT deviceId FROM stream WHERE deviceId LIKE 'sensor%'"
 		err := ssql.Execute(likeSQL)
 		assert.Nil(t, err)
@@ -426,19 +426,19 @@ func TestLikeFunctionEquivalence(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 测试数据
+		// Test data
 		testData := []map[string]any{
 			{"deviceId": "sensor001"},
 			{"deviceId": "device002"},
 			{"deviceId": "sensor003"},
 		}
 
-		// 添加数据
+		// Add data
 		for _, data := range testData {
 			ssql.Stream().Emit(data)
 		}
 
-		// 收集结果
+		// Collect the results
 		timeout := time.After(2 * time.Second)
 		var results []any
 
@@ -451,10 +451,10 @@ func TestLikeFunctionEquivalence(t *testing.T) {
 			}
 		}
 
-		// 验证LIKE查询返回了预期的结果
+		// Validating the LIKE query returns the expected result
 		assert.Equal(t, 2, len(results), "LIKE查询应该返回2个匹配'sensor%'的结果")
 
-		// 验证返回的结果确实是以'sensor'开头的
+		// The result returned by verification indeed starts with 'sensor'
 		for i, result := range results {
 			resultSlice, ok := result.([]map[string]any)
 			assert.True(t, ok, fmt.Sprintf("结果%d应该是[]map[string]any类型", i))
@@ -470,41 +470,41 @@ func TestLikeFunctionEquivalence(t *testing.T) {
 	})
 }
 
-// TestLikePatternMatching 测试LIKE模式匹配算法的正确性
+// TestLikePatternMatching tests the correctness of the LIKE pattern matching algorithm
 func TestLikePatternMatching(t *testing.T) {
 	t.Parallel()
-	// 这些是单元测试，直接测试LIKE匹配函数
+	// These are unit tests, directly testing the LIKE matching function
 	tests := []struct {
 		text     string
 		pattern  string
 		expected bool
 		desc     string
 	}{
-		// 前缀匹配测试
+		// Prefix matching test
 		{"hello", "hello%", true, "精确前缀匹配"},
 		{"hello world", "hello%", true, "前缀匹配"},
 		{"hi there", "hello%", false, "前缀不匹配"},
 		{"", "%", true, "空字符串匹配任意模式"},
 
-		// 后缀匹配测试
+		// Suffix matching test
 		{"test.log", "%.log", true, "后缀匹配"},
 		{"test.txt", "%.log", false, "后缀不匹配"},
 
-		// 包含匹配测试
+		// Includes matching tests
 		{"hello world test", "%world%", true, "包含匹配"},
 		{"hello test", "%world%", false, "不包含"},
 
-		// 单字符通配符测试
+		// Single-character wildcard test
 		{"abc", "a_c", true, "单字符通配符匹配"},
 		{"aXc", "a_c", true, "单字符通配符匹配任意字符"},
 		{"abbc", "a_c", false, "单字符通配符不匹配多个字符"},
 
-		// 复杂模式测试
+		// Complex mode testing
 		{"file123.log", "file___.log", true, "多个单字符通配符"},
 		{"file12.log", "file___.log", false, "字符数不匹配"},
 		{"prefix_test_suffix", "prefix%suffix", true, "前后缀组合"},
 
-		// 边界情况测试
+		// Boundary condition testing
 		{"", "", true, "空模式匹配空字符串"},
 		{"abc", "", false, "非空字符串不匹配空模式"},
 		{"", "abc", false, "空字符串不匹配非空模式"},
@@ -513,12 +513,12 @@ func TestLikePatternMatching(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			// 直接使用内部函数进行测试
-			// 注意：这里我们需要通过SQL查询来测试，因为匹配函数是内部的
+			// Testing is done directly using internal functions
+			// Note: Here, we need to test using SQL queries because the matching function is internal
 			ssql := streamsql.New()
 			defer ssql.Stop()
 
-			// 构造SQL查询
+			// Construct SQL queries
 			rsql := fmt.Sprintf("SELECT value FROM stream WHERE value LIKE '%s'", test.pattern)
 			err := ssql.Execute(rsql)
 			assert.Nil(t, err)
@@ -528,11 +528,11 @@ func TestLikePatternMatching(t *testing.T) {
 				resultChan <- result
 			})
 
-			// 添加测试数据
+			// Add test data
 			testData := map[string]any{"value": test.text}
 			ssql.Stream().Emit(testData)
 
-			// 等待结果
+			// Wait for the results
 			timeout := time.After(1 * time.Second)
 			var hasResult bool
 
