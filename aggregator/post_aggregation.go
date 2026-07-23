@@ -33,14 +33,14 @@ var (
 
 // PostAggregationExpression represents an expression that needs to be evaluated after aggregation
 type PostAggregationExpression struct {
-	OutputField       string                    // 输出字段名
-	Expression        string                    // 表达式模板，如 "__first_value_0__ - __last_value_1__"
-	RequiredAggFields []string                  // 依赖的聚合字段，如 ["__first_value_0__", "__last_value_1__"]
-	OriginalExpr      string                    // 原始表达式，用于调试
-	processor         *PostAggregationProcessor // 处理器引用
+	OutputField       string                    // Output field name
+	Expression        string                    // Expression templates, such as "__first_value_0__ - __last_value_1__"
+	RequiredAggFields []string                  // Dependent aggregated fields, such as ["__first_value_0__", "__last_value_1__"]
+	OriginalExpr      string                    // Original expression, used for debugging
+	processor         *PostAggregationProcessor // Processor reference
 }
 
-// Evaluate 评估后聚合表达式
+// Evaluate the post-aggregated expression
 func (pae *PostAggregationExpression) Evaluate(data map[string]any) (any, error) {
 	if pae == nil {
 		return nil, fmt.Errorf("post-aggregation expression is nil")
@@ -199,36 +199,36 @@ func (p *PostAggregationProcessor) unwrapNestedSlices(value any) any {
 
 // ParseComplexAggregationExpression parses expressions containing multiple aggregation functions
 // Returns the list of required aggregation fields and the expression template
-// 该函数将包含聚合函数的复杂表达式分解为：
-// 1. 后聚合表达式模板（聚合函数被占位符替换）
-// 2. 需要预先计算的聚合字段信息列表
-// 3. 错误信息（如果解析失败）
+// This function decomposes complex expressions containing aggregate functions as:
+// 1. Post-aggregation expression template (aggregator replaced by placeholders)
+// 2. A list of aggregated field information that needs to be precomputed
+// 3. Error messages (if parsing fails)
 //
-// 示例：
+// Example:
 //
-//	输入: "SUM(price) + AVG(quantity) * 2"
-//	输出: 表达式模板 "__SUM_123__ + __AVG_456__ * 2"
-//	      聚合字段 [{FieldName: "__SUM_123__", FunctionName: "SUM", Arguments: ["price"]}, ...]
+//	Input: "SUM(price) + AVG(quantity) * 2"
+//	Output: Expression template "__SUM_123__ + __AVG_456__ * 2"
+//	      Aggregated field [{FieldName: "__SUM_123__", FunctionName: "SUM", Arguments: ["price"]},...]
 func ParseComplexAggregationExpression(expr string) (aggFields []AggregationFieldInfo, exprTemplate string, err error) {
 	exprTemplate = expr
 
-	// 使用递归方法解析嵌套函数调用
+	// Parse nested function calls using recursive methods
 	aggFields, exprTemplate = parseNestedFunctions(expr, make([]AggregationFieldInfo, 0))
 
 	return aggFields, exprTemplate, nil
 }
 
-// parseNestedFunctions 递归解析嵌套函数调用
+// parseNestedFunctions recursively parse nested function calls
 func parseNestedFunctions(expr string, aggFields []AggregationFieldInfo) ([]AggregationFieldInfo, string) {
 	return parseNestedFunctionsWithDepth(expr, aggFields, 0)
 }
 
-// findFunctionCalls 查找表达式中的所有函数调用
+// findFunctionCalls Finds all function calls in an expression
 func findFunctionCalls(expr string) [][]int {
 	return funcCallRegex.FindAllStringSubmatchIndex(expr, -1)
 }
 
-// generatePlaceholder 为函数调用生成唯一占位符
+// generatePlaceholder generates a unique placeholder for the function call
 func generatePlaceholder(funcName, fullFuncCall string) string {
 	callHash := uint32(0)
 	for i := 0; i < len(fullFuncCall); i++ {
@@ -237,7 +237,7 @@ func generatePlaceholder(funcName, fullFuncCall string) string {
 	return PlaceholderPrefix + funcName + "_" + strconv.FormatUint(uint64(callHash), 10) + PlaceholderSuffix
 }
 
-// parseNestedFunctionsWithDepth 递归解析嵌套函数调用，支持深度控制
+// parseNestedFunctionsWithDepth recursively parses nested function calls, supporting depth control
 func parseNestedFunctionsWithDepth(expr string, aggFields []AggregationFieldInfo, depth int) ([]AggregationFieldInfo, string) {
 	if depth > MaxExpressionDepth {
 		return aggFields, expr
@@ -249,7 +249,7 @@ func parseNestedFunctionsWithDepth(expr string, aggFields []AggregationFieldInfo
 		return aggFields, expr
 	}
 
-	// 从右到左处理，避免索引偏移问题
+	// Handle from right to left to avoid index offset issues
 	for i := len(matches) - 1; i >= 0; i-- {
 		match := matches[i]
 		funcStart := match[0]
@@ -303,15 +303,15 @@ func parseNestedFunctionsWithDepth(expr string, aggFields []AggregationFieldInfo
 	return aggFields, expr
 }
 
-// isTopLevelAggregationFunction 检查表达式是否是顶层的单一聚合函数调用
+// isTopLevelAggregationFunction checks whether the expression is a single aggregation function call at the top level
 func isTopLevelAggregationFunction(expr string) bool {
-	// 提取最外层的函数名
+	// Extract the outermost function name
 	funcName := extractOutermostFunctionName(expr)
 	if funcName == "" {
 		return false
 	}
 
-	// 检查是否是聚合函数
+	// Check if it is an aggregate function
 	if fn, exists := functions.Get(funcName); exists {
 		switch fn.GetType() {
 		case functions.TypeAggregation, functions.TypeAnalytical, functions.TypeWindow:
@@ -321,20 +321,20 @@ func isTopLevelAggregationFunction(expr string) bool {
 	return false
 }
 
-// extractOutermostFunctionName 提取最外层的函数名
+// extractOutermostFunctionName Extracts the outermost function name
 func extractOutermostFunctionName(expr string) string {
 	expr = strings.TrimSpace(expr)
 
-	// 查找第一个左括号
+	// Find the first left parenthesis
 	parenIndex := strings.Index(expr, "(")
 	if parenIndex == -1 {
 		return ""
 	}
 
-	// 提取函数名
+	// Extract the function name
 	funcName := strings.TrimSpace(expr[:parenIndex])
 
-	// 检查函数名是否有效（只包含字母、数字、下划线）
+	// Check if the function name is valid (only letters, numbers, and underscores)
 	for _, char := range funcName {
 		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
 			(char >= '0' && char <= '9') || char == '_') {
@@ -345,7 +345,7 @@ func extractOutermostFunctionName(expr string) string {
 	return funcName
 }
 
-// findMatchingParen 找到匹配的右括号
+// findMatchingParen finds the right bracket of the match
 func findMatchingParen(s string, start int) int {
 	if start >= len(s) || s[start] != '(' {
 		return -1
@@ -363,16 +363,16 @@ func findMatchingParen(s string, start int) int {
 			}
 		}
 	}
-	return -1 // 未找到匹配的右括号
+	return -1 // No matching right bracket found
 }
 
 // AggregationFieldInfo holds information about an aggregation function in an expression
 type AggregationFieldInfo struct {
-	FuncName    string        // 函数名，如 "first_value"
-	InputField  string        // 输入字段，如 "displayNum"
-	Placeholder string        // 占位符，如 "__first_value_0__"
-	AggType     AggregateType // 聚合类型
-	FullCall    string        // 完整函数调用，如 "NTH_VALUE(value, 2)"
+	FuncName    string        // Function name, such as "first_value"
+	InputField  string        // Input fields, such as "displayNum"
+	Placeholder string        // Placeholders, such as "__first_value_0__"
+	AggType     AggregateType // Types of aggregation
+	FullCall    string        // Full function calls, such as "NTH_VALUE(value, 2)"
 }
 
 // Enhanced GroupAggregator with post-aggregation support
@@ -613,7 +613,7 @@ func (ega *EnhancedGroupAggregator) GetResults() ([]map[string]any, error) {
 }
 
 // createParameterizedAggregator creates aggregator with parameters for complex functions
-// 使用新的接口方法替代硬编码实现
+// New interface methods replace hard-coded implementations
 func (ega *EnhancedGroupAggregator) createParameterizedAggregator(field AggregationFieldInfo) AggregatorFunction {
 	// Parse function call to extract parameters
 	args, err := ega.parseFunctionCall(field.FullCall)

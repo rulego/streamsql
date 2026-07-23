@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFunctionIntegrationNonAggregation 测试非聚合函数在SQL中的集成
+// TestFunctionIntegrationNonAggregation tests the integration of non-aggregation functions in SQL
 func TestFunctionIntegrationNonAggregation(t *testing.T) {
 	t.Parallel()
 	t.Run("MathFunctions", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 测试多个数学函数：abs, sqrt, round
+		// Test multiple mathematical functions: abs, sqrt, round
 		rsql := "SELECT device, abs(temperature) as abs_temp, sqrt(humidity) as sqrt_humidity, round(temperature) as rounded_temp FROM stream"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
@@ -29,7 +29,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := map[string]any{
 			"device":      "test-device",
 			"temperature": -25.5,
@@ -37,7 +37,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		}
 		strm.Emit(testData)
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -49,14 +49,14 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 
 			item := resultSlice[0]
 			assert.Equal(t, "test-device", item["device"])
-			// 验证 abs(-25.5) = 25.5
+			// Verify abs(-25.5) = 25.5
 			assert.InEpsilon(t, 25.5, item["abs_temp"], 0.001)
-			// 验证 sqrt(64) = 8
+			// Validation sqrt(64) = 8
 			assert.InEpsilon(t, 8.0, item["sqrt_humidity"], 0.001)
-			// 验证 round(-25.5) = -26
+			// Verify round(-25.5) = -26
 			assert.InEpsilon(t, -26.0, item["rounded_temp"], 0.001)
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -64,7 +64,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 测试字符串函数：upper, lower, concat, length
+		// Test string functions: upper, lower, concat, length
 		rsql := "SELECT upper(device) as upper_device, lower(location) as lower_location, concat(device, '-', location) as combined, length(device) as device_len FROM stream"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
@@ -75,14 +75,14 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := map[string]any{
 			"device":   "sensor01",
 			"location": "ROOM_A",
 		}
 		strm.Emit(testData)
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -98,7 +98,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			assert.Equal(t, "sensor01-ROOM_A", item["combined"])
 			assert.Equal(t, 8, item["device_len"])
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -106,7 +106,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 测试转换函数：cast
+		// Test conversion function: cast
 		rsql := "SELECT device, cast(temperature, 'int') as temp_int, cast(humidity, 'string') as humidity_str FROM stream"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
@@ -117,7 +117,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := map[string]any{
 			"device":      "test-device",
 			"temperature": 25.7,
@@ -125,7 +125,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		}
 		strm.Emit(testData)
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -140,7 +140,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			assert.Equal(t, int(25), item["temp_int"])
 			assert.Equal(t, "65", item["humidity_str"])
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -148,7 +148,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 测试日期时间函数：now, year, month, day
+		// Test date time function: now, year, month, day
 		rsql := "SELECT device, now() as current_time, year(timestamp) as ts_year, month(timestamp) as ts_month FROM stream"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
@@ -159,7 +159,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		//testTime := time.Date(2025, 4, 15, 10, 30, 0, 0, time.UTC)
 		testData := map[string]any{
 			"device":    "test-device",
@@ -167,7 +167,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		}
 		strm.Emit(testData)
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -183,7 +183,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			assert.Equal(t, 2025, item["ts_year"])
 			assert.Equal(t, 8, item["ts_month"])
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -191,7 +191,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 测试JSON函数：json_extract, json_valid
+		// Test JSON function: json_extract, json_valid
 		rsql := "SELECT device, json_extract(metadata, '$.type') as device_type, json_valid(metadata) as is_valid_json FROM stream"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
@@ -202,14 +202,14 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := map[string]any{
 			"device":   "test-device",
 			"metadata": `{"type": "temperature_sensor", "version": "1.0"}`,
 		}
 		strm.Emit(testData)
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -224,7 +224,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			assert.Equal(t, "temperature_sensor", item["device_type"])
 			assert.Equal(t, true, item["is_valid_json"])
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -267,7 +267,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			assert.Equal(t, "test-device-map", item["device"])
 			assert.Equal(t, "red", item["device_color"])
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -314,7 +314,7 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			assert.Equal(t, "tag1", item["first_tag"])
 			assert.Equal(t, "Alice", item["first_user_name"])
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -370,19 +370,19 @@ func TestFunctionIntegrationNonAggregation(t *testing.T) {
 			assert.Equal(t, float64(2), item["tag_count"])
 			assert.Equal(t, float64(30), item["total_value"])
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 }
 
-// TestFunctionIntegrationAggregation 测试聚合函数在SQL中的集成
+// TestFunctionIntegrationAggregation: Integrate the test aggregation function in SQL
 func TestFunctionIntegrationAggregation(t *testing.T) {
 	t.Parallel()
 	t.Run("BasicAggregationFunctions", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 测试基本聚合函数：sum, avg, min, max, count
+		// Test basic aggregate functions: sum, avg, min, max, count
 		rsql := "SELECT device, sum(temperature) as total_temp, avg(temperature) as avg_temp, min(temperature) as min_temp, max(temperature) as max_temp, count(temperature) as temp_count FROM stream GROUP BY device, TumblingWindow('1s')"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
@@ -393,7 +393,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 20.0},
 			{"device": "sensor1", "temperature": 25.0},
@@ -406,11 +406,11 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待窗口初始化
+		// Wait for the window to initialize
 		time.Sleep(1 * time.Second)
 		strm.Window.Trigger()
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -420,7 +420,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 			require.True(t, ok)
 			assert.Len(t, resultSlice, 2)
 
-			// 验证sensor1的聚合结果
+			// Verify the aggregation results of sensor1
 			for _, item := range resultSlice {
 				device := item["device"].(string)
 				if device == "sensor1" {
@@ -438,7 +438,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 				}
 			}
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -446,7 +446,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 测试统计聚合函数：stddev, median, percentile
+		// Test statistical aggregate functions: stddev, median, percentile
 		rsql := "SELECT device, stddev(temperature) as temp_stddev, median(temperature) as temp_median FROM stream GROUP BY device, TumblingWindow('1s')"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
@@ -457,7 +457,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 10.0},
 			{"device": "sensor1", "temperature": 20.0},
@@ -470,11 +470,11 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待窗口初始化
+		// Wait for the window to initialize
 		time.Sleep(1 * time.Second)
 		strm.Window.Trigger()
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -486,12 +486,12 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 
 			item := resultSlice[0]
 			assert.Equal(t, "sensor1", item["device"])
-			// 标准差应该约为15.81
+			// The standard deviation should be about 15.81
 			assert.InEpsilon(t, 15.81, item["temp_stddev"].(float64), 0.1)
-			// 中位数应该为30.0
+			// The median should be 30.0
 			assert.InEpsilon(t, 30.0, item["temp_median"].(float64), 0.001)
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -499,7 +499,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 测试集合聚合函数：collect, first_value, last_value
+		// Test the aggregate functions of the set: collect, first_value, last_value
 		rsql := "SELECT device, collect(temperature) as temp_array, first_value(temperature) as first_temp, last_value(temperature) as last_temp FROM stream GROUP BY device, TumblingWindow('1s')"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
@@ -510,7 +510,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 20.0},
 			{"device": "sensor1", "temperature": 25.0},
@@ -521,11 +521,11 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待窗口初始化
+		// Wait for the window to initialize
 		time.Sleep(1 * time.Second)
 		strm.Window.Trigger()
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -538,7 +538,7 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 			item := resultSlice[0]
 			assert.Equal(t, "sensor1", item["device"])
 
-			// 验证collect函数返回的数组
+			// Verify the array returned by the collect function
 			tempArray, ok := item["temp_array"].([]any)
 			assert.True(t, ok)
 			assert.Len(t, tempArray, 3)
@@ -546,23 +546,23 @@ func TestFunctionIntegrationAggregation(t *testing.T) {
 			assert.Contains(t, tempArray, 25.0)
 			assert.Contains(t, tempArray, 30.0)
 
-			// 验证first_value和last_value
+			// Verify first_value and last_value
 			assert.Equal(t, 20.0, item["first_temp"])
 			assert.Equal(t, 30.0, item["last_temp"])
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 }
 
-// TestFunctionIntegrationMixed 测试混合函数场景
+// TestFunctionIntegrationMixed tests the mixed function scenario
 func TestFunctionIntegrationMixed(t *testing.T) {
 	t.Parallel()
 	t.Run("AggregationWithNonAggregationFunctions", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 测试聚合函数与非聚合函数混合使用
+		// Test a mix of aggregate and non-aggregate functions
 		rsql := "SELECT device, upper(device) as device_upper, avg(temperature) as avg_temp, round(avg(temperature), 2) as rounded_avg FROM stream GROUP BY device, TumblingWindow('1s')"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
@@ -573,7 +573,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 20.567},
 			{"device": "sensor1", "temperature": 25.234},
@@ -584,11 +584,11 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待窗口初始化
+		// Wait for the window to initialize
 		time.Sleep(1 * time.Second)
 		strm.Window.Trigger()
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -603,19 +603,19 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 			assert.Equal(t, "sensor1", item["device"])
 			assert.Equal(t, "SENSOR1", item["device_upper"])
 
-			// 验证平均值
+			// Verify the average
 			if avgTemp, exists := item["avg_temp"]; exists && avgTemp != nil {
 				assert.InEpsilon(t, 25.308, avgTemp.(float64), 0.001)
 			} else {
 				t.Errorf("avg_temp is missing or nil: %v", avgTemp)
 			}
 
-			// 验证四舍五入的平均值
+			// Verify the rounded average
 			if roundedAvg, exists := item["rounded_avg"]; exists {
 				if roundedAvg == nil {
 					t.Errorf("rounded_avg exists but is nil - this indicates the round(avg()) expression failed")
 				} else if val, ok := roundedAvg.(float64); ok {
-					// 验证结果在合理范围内
+					// The verification results are within a reasonable range
 					assert.True(t, val >= 25.0 && val <= 25.5, "rounded_avg should be between 25.0 and 25.5, got %v", val)
 				} else {
 					t.Errorf("rounded_avg is not a float64: %v (type: %T)", roundedAvg, roundedAvg)
@@ -624,7 +624,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 				t.Errorf("rounded_avg field is missing from result")
 			}
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -632,7 +632,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 测试嵌套函数调用
+		// Test nested function calls
 		rsql := "SELECT device, upper(concat(device, '_', cast(round(temperature, 0), 'string'))) as device_temp_label FROM stream"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
@@ -643,14 +643,14 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := map[string]any{
 			"device":      "sensor1",
 			"temperature": 25.7,
 		}
 		strm.Emit(testData)
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -665,7 +665,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 			// round(25.7, 0) = 26, cast(26, 'string') = "26", concat("sensor1", "_", "26") = "sensor1_26", upper("sensor1_26") = "SENSOR1_26"
 			assert.Equal(t, "SENSOR1_26", item["device_temp_label"])
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -673,7 +673,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 测试窗口函数与聚合函数结合
+		// The test window function is combined with the aggregation function
 		rsql := "SELECT device, avg(temperature) as avg_temp, window_start() as start_time, window_end() as end_time FROM stream GROUP BY device, TumblingWindow('1s')"
 		err := ssql.Execute(rsql)
 		assert.Nil(t, err)
@@ -684,7 +684,7 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 20.0},
 			{"device": "sensor1", "temperature": 30.0},
@@ -694,11 +694,11 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待窗口初始化
+		// Wait for the window to initialize
 		time.Sleep(1 * time.Second)
 		strm.Window.Trigger()
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -714,20 +714,20 @@ func TestFunctionIntegrationMixed(t *testing.T) {
 			assert.NotNil(t, item["start_time"])
 			assert.NotNil(t, item["end_time"])
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 }
 
-// TestNestedFunctionSupport 测试嵌套函数支持
+// TestNestedFunctionSupport tests nested function support
 func TestNestedFunctionSupport(t *testing.T) {
 	t.Parallel()
 	t.Run("NormalFunctionNestingAggregation", func(t *testing.T) {
-		// 测试普通函数嵌套聚合函数：round(avg(temperature), 2)
+		// Test ordinary functions nested aggregate functions: round(avg(temperature, 2)
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 执行包含 round(avg(temperature), 2) 的查询
+		// Execute queries containing round(avg(temperature, 2).
 		query := "SELECT device, round(avg(temperature), 2) as rounded_avg FROM stream GROUP BY device, TumblingWindow('1s')"
 		err := ssql.Execute(query)
 		assert.Nil(t, err)
@@ -738,7 +738,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 20.567},
 			{"device": "sensor1", "temperature": 25.234},
@@ -749,11 +749,11 @@ func TestNestedFunctionSupport(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待窗口初始化
+		// Wait for the window to initialize
 		time.Sleep(1 * time.Second)
 		strm.Window.Trigger()
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -766,12 +766,12 @@ func TestNestedFunctionSupport(t *testing.T) {
 			item := resultSlice[0]
 			assert.Equal(t, "sensor1", item["device"])
 
-			// 验证四舍五入的平均值
+			// Verify the rounded average
 			if roundedAvg, exists := item["rounded_avg"]; exists {
 				if roundedAvg == nil {
 					t.Errorf("rounded_avg exists but is nil - this indicates the round(avg()) expression failed")
 				} else if val, ok := roundedAvg.(float64); ok {
-					// 平均值应该是 (20.567 + 25.234 + 30.123) / 3 = 25.308
+					// The average should be (20.567 + 25.234 + 30.123) / 3 = 25.308
 					// round(25.308, 2) = 25.31
 					assert.InEpsilon(t, 25.31, val, 0.01)
 				} else {
@@ -781,16 +781,16 @@ func TestNestedFunctionSupport(t *testing.T) {
 				t.Errorf("rounded_avg field is missing from result")
 			}
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
 	t.Run("AggregationNestingNormalFunction", func(t *testing.T) {
-		// 测试聚合函数嵌套普通函数：avg(round(temperature, 2))
+		// Test the nested common function of the aggregate function: avg(round(temperature, 2))
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 执行包含 avg(round(temperature, 2)) 的查询
+		// Execute queries containing avg(round(temperature, 2)).
 		query := "SELECT device, avg(round(temperature, 2)) as avg_rounded FROM stream GROUP BY device, TumblingWindow('1s')"
 
 		err := ssql.Execute(query)
@@ -802,7 +802,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		testData := []map[string]any{
 			{"device": "sensor1", "temperature": 20.567}, // round(20.567, 2) = 20.57
 			{"device": "sensor1", "temperature": 25.234}, // round(25.234, 2) = 25.23
@@ -813,11 +813,11 @@ func TestNestedFunctionSupport(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待窗口初始化
+		// Wait for the window to initialize
 		time.Sleep(1 * time.Second)
 		strm.Window.Trigger()
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -831,12 +831,12 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 			assert.Equal(t, "sensor1", item["device"])
 
-			// 验证聚合函数嵌套普通函数的结果
+			// Verify the result of the aggregation function nesting ordinary functions
 			if avgRounded, exists := item["avg_rounded"]; exists {
 				if avgRounded == nil {
 					t.Errorf("avg_rounded exists but is nil - this indicates the avg(round()) expression failed")
 				} else if val, ok := avgRounded.(float64); ok {
-					// 期望值：avg(20.57, 25.23, 30.12) = (20.57 + 25.23 + 30.12) / 3 = 25.31
+					// Expected value: avg(20.57, 25.23, 30.12) = (20.57 + 25.23 + 30.12) / 3 = 25.31
 					assert.InEpsilon(t, 25.31, val, 0.01)
 				} else {
 					t.Errorf("avg_rounded is not a float64: %v (type: %T)", avgRounded, avgRounded)
@@ -845,16 +845,16 @@ func TestNestedFunctionSupport(t *testing.T) {
 				t.Errorf("avg_rounded field is missing from result")
 			}
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
 	t.Run("ComplexNestedFunctions", func(t *testing.T) {
-		// 测试更复杂的嵌套函数：round(avg(abs(temperature)), 1)
+		// Testing more complex nested functions: round(avg(abs(temperature)), 1)
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 执行包含 round(avg(abs(temperature)), 1) 的查询
+		// Execute a query containing round(avg(abs(temperature)), 1).
 		query := "SELECT device, round(avg(abs(temperature)), 1) as complex_result FROM stream GROUP BY device, TumblingWindow('1s')"
 		err := ssql.Execute(query)
 		assert.Nil(t, err)
@@ -865,7 +865,7 @@ func TestNestedFunctionSupport(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据（包含负数）
+		// Add test data (including negative numbers)
 		testData := []map[string]any{
 			{"device": "sensor1", "temperature": -20.567}, // abs(-20.567) = 20.567
 			{"device": "sensor1", "temperature": 25.234},  // abs(25.234) = 25.234
@@ -876,11 +876,11 @@ func TestNestedFunctionSupport(t *testing.T) {
 			strm.Emit(data)
 		}
 
-		// 等待窗口初始化
+		// Wait for the window to initialize
 		time.Sleep(1 * time.Second)
 		strm.Window.Trigger()
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
@@ -894,12 +894,12 @@ func TestNestedFunctionSupport(t *testing.T) {
 
 			assert.Equal(t, "sensor1", item["device"])
 
-			// 验证复杂嵌套函数的结果
+			// Verify the results of complex nested functions
 			if complexResult, exists := item["complex_result"]; exists {
 				if complexResult == nil {
 					t.Errorf("complex_result exists but is nil - this indicates the round(avg(abs())) expression failed")
 				} else if val, ok := complexResult.(float64); ok {
-					// 期望值：avg(20.567, 25.234, 30.123) = 25.308, round(25.308, 1) = 25.3
+					// Expected value: avg(20.567, 25.234, 30.123) = 25.308, round(25.308, 1) = 25.3
 					assert.InEpsilon(t, 25.3, val, 0.01)
 				} else {
 					t.Errorf("complex_result is not a float64: %v (type: %T)", complexResult, complexResult)
@@ -908,18 +908,18 @@ func TestNestedFunctionSupport(t *testing.T) {
 				t.Errorf("complex_result field is missing from result")
 			}
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 }
 
-// TestNestedFunctionExecutionOrder 测试嵌套函数的执行顺序和不同类型函数的组合
+// TestNestedFunctionExecutionOrder tests the execution order of nested functions and combinations of functions of different types
 func TestNestedFunctionExecutionOrder(t *testing.T) {
 	t.Parallel()
 
-	// 测试1: 字符串函数嵌套数学函数
+	// Test 1: String functions nested mathematical functions
 	t.Run("StringFunctionNestingMathFunction", func(t *testing.T) {
-		// 测试 upper(concat("temp_", round(temperature, 1)))
+		// Test upper(concat("temp_", round(temperature, 1)))
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
@@ -933,10 +933,10 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		strm.Emit(map[string]any{"device": "sensor1", "temperature": 25.67})
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -948,16 +948,16 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 			item := resultSlice[0]
 
-			// 验证执行顺序：round(25.67, 1) -> 25.7, concat('temp_', '25.7') -> 'temp_25.7', upper('temp_25.7') -> 'TEMP_25.7'
+			// Verification execution order: round(25.67, 1) -> 25.7, concat('temp_', '25.7') -> 'temp_25.7', upper('temp_25.7') -> 'TEMP_25.7'
 			assert.Equal(t, "TEMP_25.7", item["formatted_temp"])
 		case <-ctx.Done():
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 	})
 
-	// 测试2: 数学函数嵌套字符串函数
+	// Test 2: Mathematical Functions Nested String Functions
 	t.Run("MathFunctionNestingStringFunction", func(t *testing.T) {
-		// 测试 round(len(upper(device)), 0)
+		// Test round(len(upper(device)), 0)
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
@@ -972,10 +972,10 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		strm.Emit(map[string]any{"device": "sensor1"})
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -987,16 +987,16 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 			item := resultSlice[0]
 
-			// 验证执行顺序：upper('sensor1') -> 'SENSOR1', len('SENSOR1') -> 7, round(7, 0) -> 7
+			// Verification execution sequence: upper('sensor1') -> 'SENSOR1', len('SENSOR1') - > 7, round(7, 0) - > 7
 			assert.Equal(t, float64(7), item["device_length"])
 		case <-ctx.Done():
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 	})
 
-	// 测试3: 多层嵌套函数（3层）
+	// Test 3: Multi-layer nested functions (3 layers)
 	t.Run("ThreeLevelNestedFunctions", func(t *testing.T) {
-		// 测试 abs(round(sqrt(temperature), 2))
+		// Test abs(round(sqrt(temperature, 2))
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
@@ -1011,10 +1011,10 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		strm.Emit(map[string]any{"device": "sensor1", "temperature": 16.0})
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -1025,52 +1025,52 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			assert.Len(t, resultSlice, 1)
 
 			item := resultSlice[0]
-			// 验证执行顺序：sqrt(16) -> 4, round(4, 2) -> 4.00, abs(4.00) -> 4.00
+			// Verification execution order: sqrt(16) - > 4, round(4, 2) - > 4.00, abs(4.00) -> 4.00
 			assert.Equal(t, float64(4), item["processed_temp"])
 		case <-ctx.Done():
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 	})
 
-	// 测试6: 复杂的聚合函数嵌套 - 应该报错
+	// Test 6: Complex nested aggregation functions – Should cause errors
 	t.Run("ComplexAggregationNesting", func(t *testing.T) {
-		// 测试 max(round(avg(temperature), 1)) - 这是嵌套聚合函数，应该报错
+		// Test max(round(avg(temperature, 1)) - This is a nested aggregation function and should throw an error
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
 		query := "SELECT device, max(round(avg(temperature), 1)) as max_rounded_avg FROM stream GROUP BY device, TumblingWindow('1s')"
 		err := ssql.Execute(query)
-		// 应该返回嵌套聚合函数错误
+		// A nested aggregation function error should be returned
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "aggregate function calls cannot be nested")
 	})
 
-	// 测试7: 其他类型的嵌套聚合函数检测
+	// Test 7: Other types of nested aggregation function checks
 	t.Run("NestedAggregationDetection", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 测试 sum(count(*)) - 聚合函数嵌套聚合函数
+		// Test sum(count(*)) - Nested aggregator functions
 		query1 := "SELECT sum(count(*)) as nested_agg FROM stream GROUP BY device, TumblingWindow('1s')"
 		err1 := ssql.Execute(query1)
 		assert.NotNil(t, err1)
 		assert.Contains(t, err1.Error(), "aggregate function calls cannot be nested")
 
-		// 测试 avg(min(temperature)) - 聚合函数嵌套聚合函数
+		// Testing avg(min(temperature)) - Nested aggregation functions
 		query2 := "SELECT avg(min(temperature)) as nested_agg FROM stream GROUP BY device, TumblingWindow('1s')"
 		err2 := ssql.Execute(query2)
 		assert.NotNil(t, err2)
 		assert.Contains(t, err2.Error(), "aggregate function calls cannot be nested")
 
-		// 测试 round(avg(temperature), 1) - 正常函数嵌套聚合函数，应该正常
+		// Test round(avg(temperature), 1) - normal function nested aggregation function should be normal
 		query3 := "SELECT round(avg(temperature), 1) as normal_nesting FROM stream GROUP BY device, TumblingWindow('1s')"
 		err3 := ssql.Execute(query3)
-		assert.Nil(t, err3) // 这种嵌套应该是允许的
+		assert.Nil(t, err3) // This nesting should be allowed
 	})
 
-	// 测试7: 日期时间函数嵌套
+	// Test 7: Nested date-time function
 	t.Run("DateTimeFunctionNesting", func(t *testing.T) {
-		// 测试 year(date_add(created_at, 1, 'years'))
+		// Test year(date_add(created_at, 1, 'years'))
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
@@ -1084,10 +1084,10 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据
+		// Add test data
 		strm.Emit(map[string]any{"device": "sensor1", "created_at": "2023-12-25 15:30:45"})
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -1099,16 +1099,16 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 			item := resultSlice[0]
 
-			// 验证执行顺序：date_add('2023-12-25 15:30:45', 1, 'years') -> '2024-12-25 15:30:45', year('2024-12-25 15:30:45') -> 2024
+			// Verification execution sequence: date_add ('2023-12-25 15:30:45', 1, 'years') -> '2024-12-25 15:30:45', year('2024-12-25 15:30:45') - > 2024
 			assert.Equal(t, 2024, item["next_year"])
 		case <-ctx.Done():
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 	})
 
-	// 测试8: 错误的嵌套函数执行顺序
+	// Test 8: Incorrect execution order of nested functions
 	t.Run("ErrorHandlingInNestedFunctions", func(t *testing.T) {
-		// 测试 sqrt(len(invalid_field)) - 应该处理错误
+		// Test sqrt(len(invalid_field)) - should handle errors
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
@@ -1122,10 +1122,10 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 添加测试数据（不包含invalid_field）
+		// Add test data (excluding invalid_field)
 		strm.Emit(map[string]any{"device": "sensor1", "temperature": 25.0})
 
-		// 等待结果
+		// Wait for the results
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -1137,21 +1137,21 @@ func TestNestedFunctionExecutionOrder(t *testing.T) {
 
 			item := resultSlice[0]
 
-			// 验证错误处理：invalid_field不存在，应该返回nil或默认值
+			// Validation error handling: invalid_field does not exist, it should return nil or the default value
 			_, exists := item["error_result"]
 			assert.True(t, exists)
 		case <-ctx.Done():
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 	})
 }
 
-// flattenUnnestRows 将可能包含 unnest 结果的批次结果展开为多行，便于断言
-// 兼容两种形态：
-// 1) 当前实现：返回单行，其中 alias 字段为 []any（需要在测试侧展开）
-// 2) 未来实现：引擎直接返回多行（此时原样返回）
+// flattenUnnestRows expands batch results that may contain unnest results into multiple rows for easier assertions
+// Compatible with two forms:
+// 1) Current implementation: returns a single line, where the alias field is []any (needs to be expanded on the test side)
+// 2) Future implementation: The engine returns multiple lines directly (at this point, it returns as is).
 func flattenUnnestRows(result []map[string]any, alias string) []map[string]any {
-	// 如果已经是多行，直接返回
+	// If there are already multiple lines, just return directly
 	if len(result) > 1 {
 		return result
 	}
@@ -1159,26 +1159,26 @@ func flattenUnnestRows(result []map[string]any, alias string) []map[string]any {
 		return result
 	}
 
-	// 形如：[{ alias: []any{...} , ...}]
+	// Forms: [{ alias: []any{...},...}]
 	if v, ok := result[0][alias]; ok {
 		if functions.IsUnnestResult(v) {
-			// 使用ProcessUnnestResultWithFieldName保留字段名，并合并其他字段
+			// Use ProcessUnnestResultWithFieldName to reserve field names and merge other fields
 			expandedRows := functions.ProcessUnnestResultWithFieldName(v, alias)
 			if len(expandedRows) == 0 {
 				return result
 			}
 
-			// 将其他字段合并到每一行中
+			// Merge other fields into each row
 			results := make([]map[string]any, len(expandedRows))
 			for i, unnestRow := range expandedRows {
 				newRow := make(map[string]any, len(result[0])+len(unnestRow))
-				// 复制原始行的其他字段（除了unnest字段）
+				// Copy other fields of the original row (except the unnest field)
 				for k, v := range result[0] {
 					if k != alias {
 						newRow[k] = v
 					}
 				}
-				// 添加unnest展开的字段
+				// Add the field expanded by unnest
 				for k, v := range unnestRow {
 					newRow[k] = v
 				}
@@ -1191,11 +1191,11 @@ func flattenUnnestRows(result []map[string]any, alias string) []map[string]any {
 	return result
 }
 
-// TestUnnestFunctionIntegration 验证 unnest(array) 是否按预期将数组展开为多行
-// 该用例集成到完整 SQL 执行路径：
-// - 语法: unnest(array)
-// - 描述: 将数组展开为多行
-// - 示例: SELECT unnest(tags) as tag FROM stream
+// TestUnnestFunctionIntegration verifies whether unnest(array) is expanding the array into multiple rows as expected
+// This use case is integrated into the full SQL execution path:
+// - Syntax: unnest(array)
+// - Description: Expand the array into multiple rows
+// - Example: SELECT unnest(tags) as tag FROM stream
 func TestUnnestFunctionIntegration(t *testing.T) {
 	t.Parallel()
 	t.Run("PrimitiveArray", func(t *testing.T) {
@@ -1212,7 +1212,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 输入为普通字符串数组
+		// Input as a regular string array
 		input := map[string]any{
 			"tags": []string{"a", "b", "c"},
 		}
@@ -1225,14 +1225,14 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 		case raw := <-resultChan:
 			batch, ok := raw.([]map[string]any)
 			require.True(t, ok)
-			// 按两种形态规范化为多行
+			// Standardized into multi-row forms according to these two forms
 			rows := flattenUnnestRows(batch, "tag")
 			require.Len(t, rows, 3)
 
 			expected := []string{"a", "b", "c"}
 			for i, exp := range expected {
 				row := rows[i]
-				// 兼容两种字段命名：引擎直接展开可能使用别名(tag)，函数侧展开为默认字段(value)
+				// Compatible with two types of field names: Engine direct expansion may use alias (tags), function-side expansion uses default fields (values)
 				var got any
 				if v, ok := row["tag"]; ok {
 					got = v
@@ -1244,7 +1244,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 				assert.Equal(t, exp, got)
 			}
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -1252,7 +1252,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 
-		// 测试组合列：SELECT id,unnest(tags) as tag FROM events
+		// Test the combination column: SELECT id, unnest(tags) as tag FROM events
 		sql := "SELECT id, unnest(tags) as tag FROM stream"
 		err := ssql.Execute(sql)
 		require.NoError(t, err)
@@ -1263,7 +1263,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 输入包含id字段和tags数组
+		// Enter an array containing id fields and tags
 		input := map[string]any{
 			"id":   100,
 			"tags": []string{"a", "b", "c"},
@@ -1277,19 +1277,19 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 		case raw := <-resultChan:
 			batch, ok := raw.([]map[string]any)
 			require.True(t, ok)
-			// 展开unnest结果
+			// Unnest results
 			rows := flattenUnnestRows(batch, "tag")
 			require.Len(t, rows, 3)
 
-			// 验证每行都包含id字段和tag字段
+			// Verify that each row contains id and tag fields
 			expectedTags := []string{"a", "b", "c"}
 			for i, expectedTag := range expectedTags {
 				row := rows[i]
 
-				// 验证id字段保持不变
+				// The verification id field remains unchanged
 				assert.Equal(t, 100, row["id"], "row %d should have id=100", i)
 
-				// 验证tag字段
+				// Verify the tag field
 				var gotTag any
 				if v, ok := row["tag"]; ok {
 					gotTag = v
@@ -1301,7 +1301,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 				assert.Equal(t, expectedTag, gotTag, "row %d should have tag=%s", i, expectedTag)
 			}
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 	t.Run("ObjectArray", func(t *testing.T) {
@@ -1318,7 +1318,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 输入为对象数组
+		// Input as an array of objects
 		input := map[string]any{
 			"props": []map[string]any{
 				{"k": "x", "v": 1},
@@ -1338,13 +1338,13 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 			rows := flattenUnnestRows(batch, "prop")
 			require.Len(t, rows, 2)
 
-			// 校验每一行包含对象内的字段
+			// Verify that each row contains fields within the object
 			assert.Equal(t, "x", firstOf(rows[0], "k", "prop", "k"))
 			assert.Equal(t, 1, firstOf(rows[0], "v", "prop", "v"))
 			assert.Equal(t, "y", firstOf(rows[1], "k", "prop", "k"))
 			assert.Equal(t, 2, firstOf(rows[1], "v", "prop", "v"))
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -1362,7 +1362,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 			resultChan <- result
 		})
 
-		// 空数组
+		// Empty array
 		input := map[string]any{
 			"tags": []string{},
 		}
@@ -1379,7 +1379,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 			rows := flattenUnnestRows(batch, "tag")
 			assert.Len(t, rows, 0)
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 
@@ -1397,7 +1397,7 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 			resultChan <- result
 		})
 
-		// nil 值
+		// nil value
 		input := map[string]any{
 			"tags": nil,
 		}
@@ -1414,13 +1414,13 @@ func TestUnnestFunctionIntegration(t *testing.T) {
 			rows := flattenUnnestRows(batch, "tag")
 			assert.Len(t, rows, 0)
 		case <-ctx.Done():
-			t.Fatal("测试超时，未收到结果")
+			t.Fatal("The test timed out and no results were received")
 		}
 	})
 }
 
-// firstOf 辅助从行中读取字段值，兼容 prop 为对象的形态
-// 优先按 top-level 字段取值，若不存在则尝试从嵌套对象（如 prop[k]）获取
+// firstOf assists in reading field values from rows, compatible with prop as an object
+// Prioritize values by top-level field; if none exist, try to obtain them from nested objects (such as prop[k]).
 func firstOf(row map[string]any, topLevelKey string, nestedObjKey string, nestedField string) any {
 	if v, ok := row[topLevelKey]; ok {
 		return v

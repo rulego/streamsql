@@ -1,10 +1,10 @@
 module github.com/rulego/streamsql
 
-go 1.18
+go 1.26.5
 
 require (
 	github.com/expr-lang/expr v1.17.8
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 )
 
 require (

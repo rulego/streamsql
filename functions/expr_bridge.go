@@ -13,9 +13,9 @@ import (
 	"github.com/rulego/streamsql/utils/cast"
 )
 
-// exprLangBuiltinNames 是 expr-lang/expr 自带、且与 StreamSQL 函数不冲突的内置函数名，
-// 作为单一事实源供 ResolveFunction / IsExprLangFunction / GetFunctionInfo 共用。
-// concat 等与 StreamSQL 同名的函数不列入（StreamSQL 注册优先）。
+// exprLangBuiltinNames are built-in function names in expr-lang/expr that do not conflict with StreamSQL functions.
+// Serves as a single source of fact shared by ResolveFunction / IsExprLangFunction / GetFunctionInfo.
+// Functions with the same name as StreamSQL, such as concat, are not included (StreamSQL registration takes priority).
 var exprLangBuiltinNames = []string{
 	"abs", "ceil", "floor", "round", "max", "min",
 	"trim", "upper", "lower", "split", "replace", "indexOf", "hasPrefix", "hasSuffix",
@@ -170,7 +170,7 @@ func (bridge *ExprBridge) preprocessCached(expression string) string {
 	return result
 }
 
-// CompileExpressionWithStreamSQLFunctions 编译表达式，包含StreamSQL函数
+// CompileExpressionWithStreamSQLFunctions compiled expression, including the StreamSQL function
 func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression string, dataType any) (*vm.Program, error) {
 	// Cache compiled programs by expression source. A program is reusable while
 	// the env type is unchanged, so the entry stores the reflect.Type it was
@@ -188,11 +188,11 @@ func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression str
 		expr.Env(dataType),
 	}
 
-	// 添加StreamSQL函数
+	// Add the StreamSQL function
 	streamSQLOptions := bridge.RegisterStreamSQLFunctionsToExpr()
 	options = append(options, streamSQLOptions...)
 
-	// 添加LIKE相关的自定义函数（只需要like_match，其他是内置操作符）
+	// Add custom functions related to LIKE (only like_match; others are built-in operators)
 	options = append(options,
 		expr.Function("like_match", func(params ...any) (any, error) {
 			if len(params) != 2 {
@@ -207,10 +207,10 @@ func (bridge *ExprBridge) CompileExpressionWithStreamSQLFunctions(expression str
 		}),
 	)
 
-	// 启用一些有用的expr功能
+	// Enable some useful expr features
 	options = append(options,
-		expr.AllowUndefinedVariables(), // 允许未定义变量
-		// 移除 expr.AsBool() 以允许返回任意类型的值
+		expr.AllowUndefinedVariables(), // Allows undefined variables
+		// Remove expr.AsBool() to allow returns of values of any type
 	)
 
 	program, err := expr.Compile(expression, options...)
@@ -228,12 +228,12 @@ type progCacheEntry struct {
 	prog *vm.Program
 }
 
-// EvaluateExpression 评估表达式，自动选择最合适的引擎
+// EvaluateExpression evaluates expressions and automatically selects the most suitable engine
 func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]any) (any, error) {
-	// 预处理（反引号 / LIKE / IS NULL）：仅依赖表达式文本，按输入表达式缓存。
+	// Preprocessing (backquotes / LIKE / IS NULL): relies solely on expression text, cached by input expression.
 	expression = bridge.preprocessCached(expression)
 
-	// 检查是否包含字符串拼接模式
+	// Check whether string concatenation mode is included
 	if bridge.isStringConcatenationExpression(expression, data) {
 		result, err := bridge.evaluateStringConcatenation(expression, data)
 		if err == nil {
@@ -241,9 +241,9 @@ func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]
 		}
 	}
 
-	// expr() 在运行期对当行数据求值动态子表达式。编译路径把 StreamSQL 函数烘焙进
-	// program 时，闭包的 ctx.Data 只携带函数包装、不含行数据，因此 expr() 必须走
-	// env 路径（其闭包捕获真实 data）。其余表达式走快速编译路径。
+	// expr() evaluates dynamic subexpressions for the current row during runtime. The compilation path bakes the StreamSQL function into the compilation path
+	// program, the closure's ctx.Data only carries function wrappers and does not include row data, so expr() must be used
+	// env path (whose closure captures the real data). The remaining expressions follow a fast compilation path.
 	if !bridge.usesExprFunction(expression) {
 		program, err := bridge.CompileExpressionWithStreamSQLFunctions(expression, data)
 		if err == nil {
@@ -259,15 +259,15 @@ func (bridge *ExprBridge) EvaluateExpression(expression string, data map[string]
 		}
 	}
 
-	// env 路径：expr() 的正确路径，也是编译失败时的回退。
+	// env path: The correct path to expr(), and also the fallback when compilation fails.
 	env := bridge.CreateEnhancedExprEnvironment(data)
 	result, err := expr.Eval(expression, env)
 	if err != nil {
-		// 检查是否是函数调用，如果是则不要回退到数值表达式处理
+		// Check whether it is a function call; if so, do not revert to numeric expression processing
 		if bridge.isFunctionCall(expression) {
 			return nil, fmt.Errorf("failed to evaluate function call '%s': %v", expression, err)
 		}
-		// 如果expr失败，回退到自定义expr系统（仅限数值计算）
+		// If expr fails, it falls back to a custom expr system (only numerical calculations).
 		return bridge.fallbackToCustomExpr(expression, data)
 	}
 
@@ -286,26 +286,26 @@ func (bridge *ExprBridge) usesExprFunction(expression string) bool {
 	return exprCallPattern.MatchString(expression)
 }
 
-// isStringConcatenationExpression 检查是否是字符串拼接表达式
+// isStringConcatenationExpression checks whether it is a string concatenation expression
 func (bridge *ExprBridge) isStringConcatenationExpression(expression string, data map[string]any) bool {
-	// 如果表达式包含 + 操作符
+	// If the expression contains the + operator
 	if !strings.Contains(expression, "+") {
 		return false
 	}
 
-	// 分析表达式中的操作数
+	// Analyze operands in the expression
 	parts := strings.Split(expression, "+")
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 
-		// 如果包含字符串字面量（用引号包围）
+		// If string literals are included (enclosed in quotes)
 		if (strings.HasPrefix(part, "'") && strings.HasSuffix(part, "'")) ||
 			(strings.HasPrefix(part, "\"") && strings.HasSuffix(part, "\"")) ||
 			part == "_" {
 			return true
 		}
 
-		// 如果是字段引用，检查字段值是否为字符串
+		// If it is a field reference, check whether the field value is a string
 		if value, exists := data[part]; exists {
 			if _, isString := value.(string); isString {
 				return true
@@ -316,15 +316,15 @@ func (bridge *ExprBridge) isStringConcatenationExpression(expression string, dat
 	return false
 }
 
-// fallbackToCustomExpr 回退到自定义表达式系统
+// fallbackToCustomExpr falls back to the custom expression system
 func (bridge *ExprBridge) fallbackToCustomExpr(expression string, data map[string]any) (any, error) {
-	// 尝试处理字符串拼接表达式
+	// Try handling string concatenation expressions
 	result, err := bridge.evaluateStringConcatenation(expression, data)
 	if err == nil {
 		return result, nil
 	}
 
-	// 如果不是字符串拼接，尝试简单的数值表达式
+	// If it's not string concatenation, try simple numeric expressions
 	numResult, err := bridge.evaluateSimpleNumericExpression(expression, data)
 	if err == nil {
 		return numResult, nil
@@ -333,22 +333,22 @@ func (bridge *ExprBridge) fallbackToCustomExpr(expression string, data map[strin
 	return nil, fmt.Errorf("unable to evaluate expression: %s, string concat error: %v, numeric error: %v", expression, err, err)
 }
 
-// evaluateStringConcatenation 处理字符串拼接表达式
+// evaluateStringConcatenation handles string concatenation expressions
 func (bridge *ExprBridge) evaluateStringConcatenation(expression string, data map[string]any) (any, error) {
-	// 检查是否是字符串拼接表达式 (包含 + 和字符串字面量)
+	// Check if it is a string concatenation expression (including + and string literals)
 	if !strings.Contains(expression, "+") {
 		return nil, fmt.Errorf("not a concatenation expression")
 	}
 
-	// 简单的字符串拼接解析器
-	// 支持格式: field1 + 'literal' + field2 或 field1 + "_" + field2
+	// A simple string concatenation parser
+	// Supported formats: field1 + 'literal' + field2 or field1 + "_" + field2
 	parts := strings.Split(expression, "+")
 	var result strings.Builder
 
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 
-		// 处理字符串字面量 (用单引号包围)
+		// Handling string literals (enclosed in single quotes)
 		if strings.HasPrefix(part, "'") && strings.HasSuffix(part, "'") {
 			literal := strings.Trim(part, "'")
 			result.WriteString(literal)
@@ -356,10 +356,10 @@ func (bridge *ExprBridge) evaluateStringConcatenation(expression string, data ma
 			literal := strings.Trim(part, "\"")
 			result.WriteString(literal)
 		} else if part == "_" {
-			// 处理下划线字面量
+			// Handle underlined literal quantities
 			result.WriteString("_")
 		} else {
-			// 处理字段引用
+			// Processing field references
 			if value, exists := data[part]; exists {
 				strValue := cast.ToString(value)
 				result.WriteString(strValue)
@@ -372,21 +372,21 @@ func (bridge *ExprBridge) evaluateStringConcatenation(expression string, data ma
 	return result.String(), nil
 }
 
-// evaluateSimpleNumericExpression 处理简单的数值表达式
+// evaluateSimpleNumericExpression handles simple numerical expressions
 func (bridge *ExprBridge) evaluateSimpleNumericExpression(expression string, data map[string]any) (any, error) {
 	expression = strings.TrimSpace(expression)
 
-	// 处理简单的字段引用
+	// Handle simple field references
 	if value, exists := data[expression]; exists {
 		return value, nil
 	}
 
-	// 处理数字字面量
+	// Handle numerical literal quantities
 	if num, err := strconv.ParseFloat(expression, 64); err == nil {
 		return num, nil
 	}
 
-	// 处理简单的数学运算 (例如: field * 2, field + 5)
+	// Handling simple mathematical operations (e.g., field * 2, field + 5)
 	for _, op := range []string{"+", "-", "*", "/"} {
 		if strings.Contains(expression, op) {
 			parts := strings.Split(expression, op)
@@ -394,7 +394,7 @@ func (bridge *ExprBridge) evaluateSimpleNumericExpression(expression string, dat
 				left := strings.TrimSpace(parts[0])
 				right := strings.TrimSpace(parts[1])
 
-				// 获取左值
+				// Obtain the lvalue
 				var leftVal float64
 				if val, exists := data[left]; exists {
 					if f, err := bridge.toFloat64(val); err == nil {
@@ -405,10 +405,10 @@ func (bridge *ExprBridge) evaluateSimpleNumericExpression(expression string, dat
 				} else if f, err := strconv.ParseFloat(left, 64); err == nil {
 					leftVal = f
 				} else {
-					continue // 尝试下一个操作符
+					continue // Try the next operator
 				}
 
-				// 获取右值
+				// Get an rvalue
 				var rightVal float64
 				if val, exists := data[right]; exists {
 					if f, err := bridge.toFloat64(val); err == nil {
@@ -419,10 +419,10 @@ func (bridge *ExprBridge) evaluateSimpleNumericExpression(expression string, dat
 				} else if f, err := strconv.ParseFloat(right, 64); err == nil {
 					rightVal = f
 				} else {
-					continue // 尝试下一个操作符
+					continue // Try the next operator
 				}
 
-				// 执行运算
+				// Perform the calculation
 				switch op {
 				case "+":
 					return leftVal + rightVal, nil
@@ -443,45 +443,45 @@ func (bridge *ExprBridge) evaluateSimpleNumericExpression(expression string, dat
 	return nil, fmt.Errorf("unsupported expression: %s", expression)
 }
 
-// ContainsLikeOperator 检查表达式是否包含LIKE操作符
+// ContainsLikeOperator checks whether the expression contains the LIKE operator
 func (bridge *ExprBridge) ContainsLikeOperator(expression string) bool {
-	// 简单检查是否包含LIKE关键字
+	// A simple check to see if the LIKE keyword is included
 	upperExpr := strings.ToUpper(expression)
 	return strings.Contains(upperExpr, " LIKE ")
 }
 
-// ContainsIsNullOperator 检查表达式是否包含IS NULL或IS NOT NULL操作符
+// ContainsIsNullOperator checks whether the expression contains the IS NULL or IS NOT NULL operator
 func (bridge *ExprBridge) ContainsIsNullOperator(expression string) bool {
 	upperExpr := strings.ToUpper(expression)
 	return strings.Contains(upperExpr, " IS NULL") || strings.Contains(upperExpr, " IS NOT NULL")
 }
 
-// isFunctionCall 检查表达式是否是函数调用
+// isFunctionCall checks whether the expression is a function call
 func (bridge *ExprBridge) isFunctionCall(expression string) bool {
-	// 如果是CASE表达式，则不是函数调用
+	// If it is a CASE expression, it is not a function call
 	trimmed := strings.TrimSpace(expression)
 	upperTrimmed := strings.ToUpper(trimmed)
 	if strings.HasPrefix(upperTrimmed, "CASE ") || strings.HasPrefix(upperTrimmed, "CASE\t") || strings.HasPrefix(upperTrimmed, "CASE\n") {
 		return false
 	}
 
-	// 检查是否符合简单函数调用模式: function_name(args)
-	// 函数调用应该以标识符开始，后跟括号
+	// Check if it matches the simple function call pattern: function_name(args)
+	// Function calls should start with an identifier, followed by parentheses
 	if !strings.Contains(expression, "(") || !strings.Contains(expression, ")") {
 		return false
 	}
 
-	// 检查是否以标识符开始（函数名）
+	// Check if it starts with an identifier (function name)
 	for i, r := range trimmed {
 		if i == 0 {
 			if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_') {
 				return false
 			}
 		} else if r == '(' {
-			// 找到了开括号，说明这可能是函数调用
+			// Finding the open parentheses means this may be a function call
 			return true
 		} else if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
-			// 遇到了非标识符字符且不是开括号，说明不是简单函数调用
+			// If you encounter a non-identifier character that is not in open parentheses, it means it is not a simple function call
 			return false
 		}
 	}
@@ -489,150 +489,150 @@ func (bridge *ExprBridge) isFunctionCall(expression string) bool {
 	return false
 }
 
-// PreprocessLikeExpression 预处理LIKE表达式，转换为expr-lang可理解的函数调用
+// PreprocessLikeExpression: Preprocesses the LIKE expression, converting it into a function call understandable by expr-lang
 func (bridge *ExprBridge) PreprocessLikeExpression(expression string) (string, error) {
-	// 使用正则表达式匹配LIKE模式
-	// 匹配: field LIKE 'pattern' 或 `field` LIKE 'pattern' (允许空模式)
-	// 支持反引号标识符和普通标识符
+	// Use regular expressions to match the LIKE pattern
+	// Match: `field` LIKE 'pattern' or 'field' LIKE 'pattern' (allow null mode)
+	// Supports backquote identifiers and standard identifiers
 	likePattern := `((?:` + "`" + `[^` + "`" + `]+` + "`" + `|\w+)(?:\.(?:` + "`" + `[^` + "`" + `]+` + "`" + `|\w+))*)\s+LIKE\s+'([^']*)'`
 	re, err := regexp.Compile(likePattern)
 	if err != nil {
 		return expression, err
 	}
 
-	// 替换所有LIKE表达式
+	// Replace all LIKE expressions
 	result := re.ReplaceAllStringFunc(expression, func(match string) string {
 		submatches := re.FindStringSubmatch(match)
 		if len(submatches) != 3 {
-			return match // 保持原样
+			return match // Keep it as is
 		}
 
 		field := submatches[1]
 		pattern := submatches[2]
 
-		// 处理反引号标识符，去除反引号
+		// Handle backquote identifiers and remove backquotes
 		if len(field) >= 2 && field[0] == '`' && field[len(field)-1] == '`' {
-			field = field[1 : len(field)-1] // 去掉反引号
+			field = field[1 : len(field)-1] // Remove the quotation marks
 		}
 
-		// 将LIKE模式转换为相应的函数调用
+		// Convert the LIKE pattern into the corresponding function call
 		return bridge.convertLikeToFunction(field, pattern)
 	})
 
 	return result, nil
 }
 
-// PreprocessIsNullExpression 预处理IS NULL和IS NOT NULL表达式，转换为expr-lang可理解的表达式
+// PreprocessIsNullExpression preprocesses IS NULL and IS NOT NULL expressions, converting them into expressions understandable by expr-lang
 func (bridge *ExprBridge) PreprocessIsNullExpression(expression string) (string, error) {
-	// 匹配复杂表达式的 IS NOT NULL 模式 (如函数调用)
+	// Matching complex expressions in IS NOT NULL pattern (such as function calls)
 	complexNotNullPattern := `([A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\))\s+IS\s+NOT\s+NULL`
 	reComplexNotNull, err := regexp.Compile(complexNotNullPattern)
 	if err != nil {
 		return expression, err
 	}
 
-	// 先处理复杂表达式的IS NOT NULL
+	// First, handle the complex expression IS NOT NULL
 	result := reComplexNotNull.ReplaceAllString(expression, "is_not_null($1)")
 
-	// 匹配复杂表达式的 IS NULL 模式
+	// Matches the IS NULL pattern for complex expressions
 	complexNullPattern := `([A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\))\s+IS\s+NULL`
 	reComplexNull, err := regexp.Compile(complexNullPattern)
 	if err != nil {
 		return result, err
 	}
 
-	// 处理复杂表达式的IS NULL
+	// Handles complex expressions with IS NULL
 	result = reComplexNull.ReplaceAllString(result, "is_null($1)")
 
-	// 匹配简单字段的 IS NOT NULL 模式 (必须在复杂表达式之后处理)
+	// Matching simple fields in IS NOT NULL pattern (must be processed after complex expressions)
 	isNotNullPattern := `(\w+(?:\.\w+)*)\s+IS\s+NOT\s+NULL`
 	reNotNull, err := regexp.Compile(isNotNullPattern)
 	if err != nil {
 		return result, err
 	}
 
-	// 替换简单字段的IS NOT NULL
+	// Replace the simple field IS NOT NULL
 	result = reNotNull.ReplaceAllString(result, "$1 != nil")
 
-	// 匹配简单字段的 IS NULL 模式
+	// Matches the IS NULL pattern for simple fields
 	isNullPattern := `(\w+(?:\.\w+)*)\s+IS\s+NULL`
 	reNull, err := regexp.Compile(isNullPattern)
 	if err != nil {
 		return result, err
 	}
 
-	// 再替换简单字段的IS NULL
+	// Then replace the simple field IS NULL
 	result = reNull.ReplaceAllString(result, "$1 == nil")
 
 	return result, nil
 }
 
-// ContainsBacktickIdentifiers 检查表达式是否包含反引号标识符
+// ContainsBacktickIdentifiers Check if the expression contains backtick identifiers
 func (bridge *ExprBridge) ContainsBacktickIdentifiers(expression string) bool {
 	return strings.Contains(expression, "`")
 }
 
-// PreprocessBacktickIdentifiers 预处理反引号标识符，去除反引号
+// PreprocessBacktickIdentifiers Preprocesses backquote identifiers and removes backquotes
 func (bridge *ExprBridge) PreprocessBacktickIdentifiers(expression string) (string, error) {
-	// 使用正则表达式匹配反引号标识符
-	// 匹配: `identifier` 或 `nested.field`
+	// Use regular expressions to match backquote identifiers
+	// Match: `identifier` or `nested.field`
 	backtickPattern := "`([^`]+)`"
 	re, err := regexp.Compile(backtickPattern)
 	if err != nil {
 		return expression, err
 	}
 
-	// 替换所有反引号标识符，去除反引号
+	// Replace all backquote identifiers and remove backquotes
 	result := re.ReplaceAllString(expression, "$1")
 	return result, nil
 }
 
-// convertLikeToFunction 将LIKE模式转换为expr-lang操作符
+// convertLikeToFunction converts LIKE mode to the expr-lang operator
 func (bridge *ExprBridge) convertLikeToFunction(field, pattern string) string {
-	// 处理空模式
+	// Handle the null mode
 	if pattern == "" {
 		return fmt.Sprintf("%s == ''", field)
 	}
 
-	// 含 _ 或内部 % 的模式必须走完整匹配器，startsWith/endsWith/contains
-	// 快速路径会把这些通配符当作字面量处理。
+	// Patterns containing _ or internal % must use the full matcher, startsWith/endsWith/contains
+	// Fastpaths treat these wildcards as literals.
 	core := strings.Trim(pattern, "%")
 	if core != "" && (strings.Contains(core, "_") || strings.Contains(core, "%")) {
 		return fmt.Sprintf("like_match(%s, '%s')", field, pattern)
 	}
 
-	// 分析模式类型
+	// Analyze the types of patterns
 	if strings.HasPrefix(pattern, "%") && strings.HasSuffix(pattern, "%") && len(pattern) > 1 {
-		// %pattern% -> contains操作符（但不是单独的%）
+		// %pattern% -> contains operator (but not a standalone %)
 		inner := strings.Trim(pattern, "%")
 		if inner == "" {
-			// %% 表示匹配任何字符串
+			// %% means matches any string
 			return "true"
 		}
 		return fmt.Sprintf("%s contains '%s'", field, inner)
 	} else if strings.HasPrefix(pattern, "%") && len(pattern) > 1 {
-		// %pattern -> endsWith操作符
+		// %pattern -> endsWith operator
 		suffix := strings.TrimPrefix(pattern, "%")
 		return fmt.Sprintf("%s endsWith '%s'", field, suffix)
 	} else if strings.HasSuffix(pattern, "%") && len(pattern) > 1 {
-		// pattern% -> startsWith操作符
+		// pattern% -> startsWith operator
 		prefix := strings.TrimSuffix(pattern, "%")
 		return fmt.Sprintf("%s startsWith '%s'", field, prefix)
 	} else if pattern == "%" {
-		// 单独的%匹配任何字符串
+		// A single % matches any string
 		return "true"
 	} else if strings.Contains(pattern, "%") || strings.Contains(pattern, "_") {
-		// 复杂模式（如prefix%suffix）或包含单字符通配符，使用自定义的like_match函数
+		// Complex patterns (such as prefix%suffix) or those containing single-character wildcards use custom like_match functions
 		return fmt.Sprintf("like_match(%s, '%s')", field, pattern)
 	} else {
-		// 精确匹配
+		// Precise matching
 		return fmt.Sprintf("%s == '%s'", field, pattern)
 	}
 }
 
-// matchesLikePattern 实现LIKE模式匹配
-// 支持%（匹配任意字符序列）和_（匹配单个字符）。
-// 采用经典双指针回溯算法，最坏 O(n*m)，对抗性模式不会指数膨胀。
+// matchesLikePattern to achieve LIKE pattern matching
+// Supports % (matches any character sequence) and _ (matches a single character).
+// Using the classic double-pointer backtracking algorithm, the worst case is O(n*m), and the adversarial mode does not exponentially inflate.
 func (bridge *ExprBridge) matchesLikePattern(text, pattern string) bool {
 	ti, pi := 0, 0
 	starIdx, matchIdx := -1, 0
@@ -658,7 +658,7 @@ func (bridge *ExprBridge) matchesLikePattern(text, pattern string) bool {
 	return pi == len(pattern)
 }
 
-// toFloat64 将值转换为float64
+// toFloat64 converts the value to float64
 func (bridge *ExprBridge) toFloat64(val any) (float64, error) {
 	switch v := val.(type) {
 	case float64:
@@ -678,16 +678,16 @@ func (bridge *ExprBridge) toFloat64(val any) (float64, error) {
 	}
 }
 
-// GetFunctionInfo 获取函数信息，统一两个系统的函数
+// GetFunctionInfo retrieves function information to unify the functions of the two systems
 func (bridge *ExprBridge) GetFunctionInfo() map[string]any {
 	bridge.mutex.RLock()
 	defer bridge.mutex.RUnlock()
 
 	info := make(map[string]any)
 
-	// StreamSQL函数信息 - 动态获取所有当前注册的函数
+	// StreamSQL Function Information - Dynamically retrieves all currently registered functions
 	streamSQLFuncs := make(map[string]any)
-	allFunctions := ListAll() // 动态获取所有注册的函数
+	allFunctions := ListAll() // Dynamically retrieves all registered functions
 	for name, fn := range allFunctions {
 		streamSQLFuncs[name] = map[string]any{
 			"name":        fn.GetName(),
@@ -699,9 +699,9 @@ func (bridge *ExprBridge) GetFunctionInfo() map[string]any {
 	}
 	info["streamsql"] = streamSQLFuncs
 
-	// expr-lang/expr内置函数（列出主要的）
+	// expr-lang/expr built-in functions (main ones listed)
 	exprBuiltins := map[string]any{
-		// 数学函数
+		// Mathematical functions
 		"abs":   map[string]any{"category": "math", "description": "absolute value", "source": "expr-lang"},
 		"ceil":  map[string]any{"category": "math", "description": "ceiling", "source": "expr-lang"},
 		"floor": map[string]any{"category": "math", "description": "floor", "source": "expr-lang"},
@@ -709,7 +709,7 @@ func (bridge *ExprBridge) GetFunctionInfo() map[string]any {
 		"max":   map[string]any{"category": "math", "description": "maximum", "source": "expr-lang"},
 		"min":   map[string]any{"category": "math", "description": "minimum", "source": "expr-lang"},
 
-		// 字符串函数
+		// String function
 		"trim":      map[string]any{"category": "string", "description": "trim whitespace", "source": "expr-lang"},
 		"upper":     map[string]any{"category": "string", "description": "to uppercase", "source": "expr-lang"},
 		"lower":     map[string]any{"category": "string", "description": "to lowercase", "source": "expr-lang"},
@@ -719,7 +719,7 @@ func (bridge *ExprBridge) GetFunctionInfo() map[string]any {
 		"hasPrefix": map[string]any{"category": "string", "description": "check prefix", "source": "expr-lang"},
 		"hasSuffix": map[string]any{"category": "string", "description": "check suffix", "source": "expr-lang"},
 
-		// 数组/集合函数
+		// Array/set functions
 		"all":     map[string]any{"category": "array", "description": "all elements satisfy", "source": "expr-lang"},
 		"any":     map[string]any{"category": "array", "description": "any element satisfies", "source": "expr-lang"},
 		"filter":  map[string]any{"category": "array", "description": "filter elements", "source": "expr-lang"},
@@ -728,22 +728,22 @@ func (bridge *ExprBridge) GetFunctionInfo() map[string]any {
 		"count":   map[string]any{"category": "array", "description": "count elements", "source": "expr-lang"},
 		"flatten": map[string]any{"category": "array", "description": "flatten array", "source": "expr-lang"},
 
-		// 时间函数
+		// Time function
 		"now":      map[string]any{"category": "datetime", "description": "current time", "source": "expr-lang"},
 		"duration": map[string]any{"category": "datetime", "description": "parse duration", "source": "expr-lang"},
 		"date":     map[string]any{"category": "datetime", "description": "parse date", "source": "expr-lang"},
 
-		// 类型转换
+		// Type conversion
 		"int":    map[string]any{"category": "conversion", "description": "to integer", "source": "expr-lang"},
 		"float":  map[string]any{"category": "conversion", "description": "to float", "source": "expr-lang"},
 		"string": map[string]any{"category": "conversion", "description": "to string", "source": "expr-lang"},
 		"type":   map[string]any{"category": "conversion", "description": "get type", "source": "expr-lang"},
 
-		// JSON处理
+		// JSON processing
 		"toJSON":   map[string]any{"category": "json", "description": "to JSON", "source": "expr-lang"},
 		"fromJSON": map[string]any{"category": "json", "description": "from JSON", "source": "expr-lang"},
 
-		// Base64编码
+		// Base64 encoding
 		"toBase64":   map[string]any{"category": "encoding", "description": "to Base64", "source": "expr-lang"},
 		"fromBase64": map[string]any{"category": "encoding", "description": "from Base64", "source": "expr-lang"},
 	}
@@ -752,21 +752,21 @@ func (bridge *ExprBridge) GetFunctionInfo() map[string]any {
 	return info
 }
 
-// ResolveFunction 解析函数调用，优先使用StreamSQL函数
+// ResolveFunction parsing function calls, preferably using the StreamSQL function
 func (bridge *ExprBridge) ResolveFunction(name string) (any, bool, string) {
 	bridge.mutex.RLock()
 	defer bridge.mutex.RUnlock()
 
-	// 进行大小写不敏感的查找
+	// Perform case-insensitive searches
 	lowerName := strings.ToLower(name)
 
-	// 首先检查StreamSQL函数（优先级更高） - 动态获取
+	// First, check the StreamSQL function (higher priority) - Dynamic Acquisition
 	allFunctions := ListAll()
 	if fn, exists := allFunctions[lowerName]; exists {
 		return fn, true, "streamsql"
 	}
 
-	// 然后检查是否是expr-lang内置函数
+	// Then check whether it is a built-in expr-lang function
 	for _, b := range exprLangBuiltinNames {
 		if strings.ToLower(b) == lowerName {
 			return nil, true, "expr-lang"
@@ -776,7 +776,7 @@ func (bridge *ExprBridge) ResolveFunction(name string) (any, bool, string) {
 	return nil, false, ""
 }
 
-// IsExprLangFunction 检查函数名是否是expr-lang内置函数
+// IsExprLangFunction checks whether the function name is an expr-lang built-in function
 func (bridge *ExprBridge) IsExprLangFunction(name string) bool {
 	for _, b := range exprLangBuiltinNames {
 		if b == name {
@@ -786,13 +786,13 @@ func (bridge *ExprBridge) IsExprLangFunction(name string) bool {
 	return false
 }
 
-// 全局桥接器实例
+// Global Bridge Example
 var globalBridge *ExprBridge
 var globalBridgeMutex sync.RWMutex
 
-// GetExprBridge 获取全局桥接器实例
+// GetExprBridge retrieves the global bridge instance
 func GetExprBridge() *ExprBridge {
-	// 首先使用读锁检查是否已初始化
+	// First, use a lock read to check if initialization has been completed
 	globalBridgeMutex.RLock()
 	if globalBridge != nil {
 		defer globalBridgeMutex.RUnlock()
@@ -800,23 +800,23 @@ func GetExprBridge() *ExprBridge {
 	}
 	globalBridgeMutex.RUnlock()
 
-	// 使用写锁进行初始化
+	// Initialization is performed using write locks
 	globalBridgeMutex.Lock()
 	defer globalBridgeMutex.Unlock()
 
-	// 双重检查模式，防止并发初始化
+	// Dual-check mode prevents concurrent initialization
 	if globalBridge == nil {
 		globalBridge = NewExprBridge()
 	}
 	return globalBridge
 }
 
-// 便捷函数：直接评估表达式
+// Convenience function: Directly evaluates expressions
 func EvaluateWithBridge(expression string, data map[string]any) (any, error) {
 	return GetExprBridge().EvaluateExpression(expression, data)
 }
 
-// 便捷函数：获取所有可用函数信息
+// Convenient functions: Get information on all available functions
 func GetAllAvailableFunctions() map[string]any {
 	return GetExprBridge().GetFunctionInfo()
 }

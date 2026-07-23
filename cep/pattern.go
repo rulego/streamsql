@@ -6,8 +6,8 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
-// Compile 把模式树编译为 NFA（Thompson 构造）。组合式节点：序列/选择/分组/PERMUTE/量词。
-// PatternExclusion（{- -}，absence）暂不支持，返回明确错误。
+// Compile compiles the pattern tree into an NFA (Thompson construct). Composable nodes: sequence/selection/grouping/PERMUTE/quantifier.
+// PatternExclusion({- -}, absence) is not supported at this time and returns a definite error.
 func Compile(node *types.PatternNode) (*NFA, error) {
 	if node == nil {
 		return nil, fmt.Errorf("MATCH_RECOGNIZE requires a PATTERN")
@@ -46,7 +46,7 @@ func compileNode(n *types.PatternNode) (*frag, error) {
 		}
 		return f, nil
 	case types.PatternGroup:
-		// Group 透明：编译其内部序列。量词由外层 Repetition 处理。
+		// Group transparency: compiles its internal sequence. Quantifiers are processed by the outer Repetition.
 		if len(n.Children) == 0 {
 			return newEpsFrag(), nil
 		}
@@ -81,8 +81,8 @@ func compileNode(n *types.PatternNode) (*frag, error) {
 	return nil, fmt.Errorf("unknown pattern node kind %d", n.Kind)
 }
 
-// compileRepeat 展开量词为显式 NFA：{n}=n 份；{n,}=n 份 + 星；{n,m}=n 份 + (m-n) 份可选；
-// 每份重新编译子节点（独立状态），避免回环打结。
+// compileRepeat expands the quantifier to explicit NFA: {n} = n parts; {n,} = n parts + stars; {n,m} = n parts + (m-n) parts optional;
+// Each copy is recompiled to recompile child nodes (independent state) to avoid looping knots.
 func compileRepeat(child *types.PatternNode, q *types.Quantifier) (*frag, error) {
 	if q.Min < 0 {
 		return nil, fmt.Errorf("quantifier min must be >= 0")
@@ -126,23 +126,23 @@ func compileRepeat(child *types.PatternNode, q *types.Quantifier) (*frag, error)
 		}
 	}
 	if f == nil {
-		return newEpsFrag(), nil // {0}：匹配空
+		return newEpsFrag(), nil // {0}: Match empty
 	}
 	return f, nil
 }
 
-// compilePermute 把 PERMUTE(A,B,...) 编译为所有排列的交替（任一顺序匹配）。
+// compilePermute compiles PERMUTE(A, B,...) into all permutations (any order match).
 func compilePermute(children []*types.PatternNode) (*frag, error) {
 	if len(children) == 0 {
 		return newEpsFrag(), nil
 	}
-	// 排列数为 N!，符号过多会导致 NFA 状态阶乘级膨胀，设上限保护。
+	// If the number of permutations is N!, too many symbols will cause the NFA state to expand exponentially, so limit protection is set.
 	if len(children) > 6 {
 		return nil, fmt.Errorf("PERMUTE supports at most 6 symbols (got %d): factorial state blow-up", len(children))
 	}
 	var result *frag
 	for _, perm := range permutations(len(children)) {
-		// 每个排列独立状态：按索引顺序重新编译子节点。
+		// Each permutation has its own independent state: Recompile child nodes in index order.
 		var f *frag
 		for _, idx := range perm {
 			cf, err := compileNode(children[idx])
@@ -164,7 +164,7 @@ func compilePermute(children []*types.PatternNode) (*frag, error) {
 	return result, nil
 }
 
-// permutations 返回 [0,n) 的所有排列索引。
+// permutations returns all permutation indexes for [0,n).
 func permutations(n int) [][]int {
 	if n == 0 {
 		return [][]int{{}}

@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSQLSessionWindow_ProcessingTime 测试处理时间的会话窗口
-// 验证不使用 WITH 子句时，会话窗口基于处理时间（系统时钟）工作
+// TestSQLSessionWindow_ProcessingTime Session window for testing processing time
+// When verification does not use the WITH clause, the session window operates based on processing time (system clock).
 func TestSQLSessionWindow_ProcessingTime(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
@@ -30,23 +30,23 @@ func TestSQLSessionWindow_ProcessingTime(t *testing.T) {
 	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
-				// channel 已关闭，忽略错误
+				// channel is closed, ignoring errors
 			}
 		}()
 		ch <- results
 	})
 
-	// 使用处理时间：发送数据，不包含时间戳字段
-	// 会话窗口基于数据到达的处理时间（系统时钟）来划分会话
+	// Use processing time: Send data without timestamp fields
+	// The session window divides sessions based on the processing time (system clock) of data arrival
 	for i := 0; i < 5; i++ {
 		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"temperature": float64(i),
 		})
-		time.Sleep(50 * time.Millisecond) // 数据间隔小于会话超时时间（300ms），属于同一会话
+		time.Sleep(50 * time.Millisecond) // If the data interval is less than the session timeout (300ms), it belongs to the same session
 	}
 
-	// 等待会话超时（处理时间会话窗口基于系统时钟触发）
+	// Waiting for session timeout (processing time session window triggered by system clock)
 	time.Sleep(600 * time.Millisecond)
 
 	select {
@@ -55,9 +55,9 @@ func TestSQLSessionWindow_ProcessingTime(t *testing.T) {
 		row := res[0]
 		assert.Equal(t, "sensor001", row["deviceId"])
 		assert.Equal(t, float64(5), row["cnt"])
-		t.Logf("处理时间会话窗口成功触发，数据量: %.0f", row["cnt"])
+		t.Logf("Processing time session window successfully triggered, data volume: %.0f", row["cnt"])
 	case <-time.After(2 * time.Second):
-		t.Fatal("处理时间会话窗口应该触发")
+		t.Fatal("The processing time session window should be triggered")
 	}
 }
 
@@ -79,7 +79,7 @@ func TestSQLSessionWindow_GroupedSession_MixedDevices(t *testing.T) {
 	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
-				// channel 已关闭，忽略错误
+				// channel is closed, ignoring errors
 			}
 		}()
 		ch <- results
@@ -137,7 +137,7 @@ func TestSQLSessionWindow_MultiKeyGroupedSession(t *testing.T) {
 	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
-				// channel 已关闭，忽略错误
+				// channel is closed, ignoring errors
 			}
 		}()
 		ch <- results
@@ -210,7 +210,7 @@ func TestSQLSessionWindow_MultiKeyGroupedSession(t *testing.T) {
 	assert.Equal(t, 33.0, got["B|R2"].max)
 }
 
-// TestSQLSessionWindow_EventTimeWithWithClause 测试使用 WITH 子句指定事件时间的会话窗口
+// TestSQLSessionWindow_EventTimeWithWithClause Test session windows that use the WITH clause to specify event time
 func TestSQLSessionWindow_EventTimeWithWithClause(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
@@ -230,33 +230,33 @@ func TestSQLSessionWindow_EventTimeWithWithClause(t *testing.T) {
 	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
-				// channel 已关闭，忽略错误
+				// channel is closed, ignoring errors
 			}
 		}()
 		ch <- results
 	})
 
-	// 使用事件时间：发送带有事件时间戳的数据
-	baseTime := time.Now().UnixMilli() - 5000 // 5秒前作为基准时间
+	// Using event time: Send data with event timestamps
+	baseTime := time.Now().UnixMilli() - 5000 // 5 seconds ago as the reference time
 	for i := 0; i < 5; i++ {
-		eventTime := baseTime + int64(i*50) // 每50ms一条数据
+		eventTime := baseTime + int64(i*50) // One data sheet every 50ms
 		ssql.Emit(map[string]any{
 			"deviceId":  "sensor001",
-			"eventTime": eventTime, // 事件时间字段
+			"eventTime": eventTime, // Event time field
 		})
-		time.Sleep(20 * time.Millisecond) // 处理时间间隔较小
+		time.Sleep(20 * time.Millisecond) // Processing time intervals are smaller
 	}
 
-	// 发送一个事件时间超过会话结束时间的数据，推进watermark
-	// 会话结束时间 = baseTime + 200 + 300 = baseTime + 500
-	// 需要发送事件时间 > baseTime + 500 + maxOutOfOrderness(200) = baseTime + 700 的数据
-	// 使用不同的设备ID，避免影响当前会话的计数
+	// Send data on an event that lasts longer than the session ends, and push the watermark
+	// Session end time = baseTime + 200 + 300 = baseTime + 500
+	// The event time > baseTime + 500 + maxOutOfOrderness(200) = baseTime + 700 data is required
+	// Use different device IDs to avoid affecting the count of the current session
 	ssql.Emit(map[string]any{
-		"deviceId":  "sensor002",     // 使用不同的设备ID，不影响sensor001的会话
-		"eventTime": baseTime + 2000, // 推进watermark
+		"deviceId":  "sensor002",     // Using different device IDs does not affect sensor001's session
+		"eventTime": baseTime + 2000, // Push the watermark
 	})
 
-	// 等待会话超时（事件时间会话窗口基于watermark触发）
+	// Waiting for session timeout (event time session window triggered by watermark)
 	time.Sleep(1 * time.Second)
 
 	select {
@@ -265,13 +265,13 @@ func TestSQLSessionWindow_EventTimeWithWithClause(t *testing.T) {
 		row := res[0]
 		assert.Equal(t, "sensor001", row["deviceId"])
 		assert.Equal(t, float64(5), row["cnt"])
-		t.Logf("事件时间会话窗口成功触发，数据量: %.0f", row["cnt"])
+		t.Logf("Event time session window successfully triggered, data amount: %.0f", row["cnt"])
 	case <-time.After(2 * time.Second):
-		t.Fatal("事件时间会话窗口应该触发")
+		t.Fatal("The event time session window should be triggered")
 	}
 }
 
-// TestSQLSessionWindow_ProcessingTimeWithoutWithClause 测试不使用 WITH 子句时默认使用处理时间
+// TestSQLSessionWindow_ProcessingTimeWithoutWithClause When testing without the WITH clause, processing time is used by default
 func TestSQLSessionWindow_ProcessingTimeWithoutWithClause(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
@@ -290,13 +290,13 @@ func TestSQLSessionWindow_ProcessingTimeWithoutWithClause(t *testing.T) {
 	ssql.AddSink(func(results []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
-				// channel 已关闭，忽略错误
+				// channel is closed, ignoring errors
 			}
 		}()
 		ch <- results
 	})
 
-	// 不使用事件时间字段，应该使用处理时间
+	// Do not use the event time field; the processing time should be used
 	for i := 0; i < 5; i++ {
 		ssql.Emit(map[string]any{
 			"deviceId": "sensor001",
@@ -304,7 +304,7 @@ func TestSQLSessionWindow_ProcessingTimeWithoutWithClause(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	// 等待会话超时（处理时间会话窗口基于系统时钟）
+	// Waiting for session timeout (processing time session window based on system clock)
 	time.Sleep(600 * time.Millisecond)
 
 	select {
@@ -313,13 +313,13 @@ func TestSQLSessionWindow_ProcessingTimeWithoutWithClause(t *testing.T) {
 		row := res[0]
 		assert.Equal(t, "sensor001", row["deviceId"])
 		assert.Equal(t, float64(5), row["cnt"])
-		t.Logf("处理时间会话窗口成功触发，数据量: %.0f", row["cnt"])
+		t.Logf("Processing time session window successfully triggered, data volume: %.0f", row["cnt"])
 	case <-time.After(2 * time.Second):
-		t.Fatal("处理时间会话窗口应该触发")
+		t.Fatal("The processing time session window should be triggered")
 	}
 }
 
-// TestSQLSessionWindow_EventTimeWindowAlignment 测试事件时间会话窗口
+// TestSQLSessionWindow_EventTimeWindowAlignment Test event time session window
 func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
@@ -349,15 +349,15 @@ func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 		}
 	})
 
-	// 使用事件时间：发送数据，验证会话窗口基于事件时间触发
+	// Using event time: Send data and validate session windows triggered based on event time
 	baseTime := time.Now().UnixMilli() - 5000
 	sessionTimeoutMs := int64(500)
 
-	// 第一阶段：发送连续的数据（事件时间间隔小于sessionTimeout）
-	// 这些数据应该属于同一个会话
-	t.Log("第一阶段：发送连续数据（同一会话）")
+	// Phase One: Send continuous data (event interval less than sessionTimeout)
+	// These data should belong to the same session
+	t.Log("Phase One: Sending Continuous Data (Same Session)")
 	for i := 0; i < 5; i++ {
-		eventTime := baseTime + int64(i*100) // 每100ms一条，小于500ms超时
+		eventTime := baseTime + int64(i*100) // One piece every 100ms, timeout less than 500ms
 		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
 			"eventTime":   eventTime,
@@ -366,13 +366,13 @@ func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	// 等待一段时间，让watermark推进
-	// 第一个会话的结束时间 = baseTime + 400 + 500 = baseTime + 900
-	// 需要发送事件时间 > baseTime + 900 + maxOutOfOrderness(200) = baseTime + 1100 的数据
-	// 才能让 watermark >= baseTime + 900，触发第一个会话
+	// Wait a while and let Watermark advance
+	// End time of the first session = baseTime + 400 + 500 = baseTime + 900
+	// Send event time > baseTime + 900 + maxOutOfOrderness(200) = baseTime + 1100 data
+	// Only then can watermark > = baseTime + 900 trigger the first session
 	time.Sleep(500 * time.Millisecond)
 
-	// 发送数据推进watermark
+	// Send data to advance the watermark
 	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   baseTime + int64(1500),
@@ -380,17 +380,17 @@ func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 	})
 	time.Sleep(500 * time.Millisecond)
 
-	// 第二阶段：发送间隔较大的数据（事件时间间隔大于sessionTimeout）
-	// 这应该触发新会话
-	t.Log("第二阶段：发送间隔较大的数据（新会话）")
-	eventTime := baseTime + int64(2000) // 间隔2秒，大于500ms超时
+	// Stage Two: Send data with longer intervals (event intervals greater than sessionTimeout)
+	// This should trigger a new session
+	t.Log("Phase Two: Sending Data with Longer Intervals (New Sessions)")
+	eventTime := baseTime + int64(2000) // 2-second interval, with a timeout greater than 500ms
 	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   eventTime,
 		"temperature": 100.0,
 	})
 
-	// 继续发送连续数据（第二个会话）
+	// Continue sending continuous data (second session)
 	for i := 0; i < 3; i++ {
 		eventTime := baseTime + int64(2000+i*100)
 		ssql.Emit(map[string]any{
@@ -401,17 +401,17 @@ func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	// 推进watermark，触发会话
-	// 会话结束时间 = baseTime + 400 + 500 = baseTime + 900
-	// 需要发送事件时间 > baseTime + 900 + maxOutOfOrderness(200) = baseTime + 1100 的数据
-	// 才能让 watermark >= baseTime + 900
+	// Push the watermark to trigger a session
+	// Session end time = baseTime + 400 + 500 = baseTime + 900
+	// Send event time > baseTime + 900 + maxOutOfOrderness(200) = baseTime + 1100 data
+	// Only then can watermark > = baseTime + 900
 	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   baseTime + int64(5000),
 		"temperature": 200.0,
 	})
 
-	// 继续发送更多数据，确保watermark推进
+	// Keep sending more data to ensure Watermark advances
 	for i := 0; i < 5; i++ {
 		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
@@ -421,14 +421,14 @@ func TestSQLSessionWindow_EventTimeWindowAlignment(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	// 等待会话触发（watermark更新间隔200ms，需要等待足够时间）
+	// Wait for session trigger (watermark update interval 200ms, requires sufficient time)
 	time.Sleep(3 * time.Second)
 
 	timeout := time.After(3 * time.Second)
 	for {
 		select {
 		case <-ch:
-			// 继续收集结果
+			// Continue collecting results
 		case <-timeout:
 			goto END
 		}
@@ -442,13 +442,13 @@ END:
 	windowResultsMu.Unlock()
 
 	if windowResultsLen == 0 {
-		t.Log("⚠ 会话窗口未触发，可能watermark未推进到足够位置")
-		t.Log("提示：会话窗口需要在 watermark >= session_end 时触发")
-		t.Log("会话结束时间 = 最后一个数据时间 + 超时时间")
+		t.Log("⚠ If the session window is not triggered, it may watermark not advanced to a sufficient position")
+		t.Log("Note: The session window needs to be triggered when watermark > = session_end")
+		t.Log("Session end time = last data time + timeout timeout")
 	}
 	require.Greater(t, windowResultsLen, 0, "应该至少触发一个会话窗口")
 
-	// 验证会话窗口
+	// Validate the session window
 	for i, window := range windowResultsCopy {
 		if len(window) > 0 {
 			row := window[0]
@@ -456,10 +456,10 @@ END:
 			end := row["end"].(int64)
 			cnt := row["cnt"].(float64)
 
-			// 验证会话窗口有数据
+			// Verify that the session window has data
 			assert.Greater(t, cnt, 0.0, "会话窗口 %d 应该包含数据", i+1)
 
-			// 验证会话窗口的时间范围合理
+			// Verify that the time range of the session window is reasonable
 			assert.Greater(t, end, start, "会话窗口 %d 的结束时间应该大于开始时间", i+1)
 
 			startMs := start / int64(time.Millisecond)
@@ -469,14 +469,14 @@ END:
 			assert.GreaterOrEqual(t, sessionDurationMs, sessionTimeoutMs,
 				"会话窗口 %d 的持续时间应该至少等于会话超时时间", i+1)
 
-			t.Logf("会话窗口 %d: [%d, %d), cnt=%.0f, duration=%dms", i+1, startMs, endMs, cnt, sessionDurationMs)
+			t.Logf("Session window %d: [%d, %d), cnt=%.0f, duration=%dms", i+1, startMs, endMs, cnt, sessionDurationMs)
 		}
 	}
 
-	t.Logf("总共触发了 %d 个会话窗口", windowResultsLen)
+	t.Logf("A total of %d session windows were triggered", windowResultsLen)
 }
 
-// TestSQLSessionWindow_WatermarkTriggerTiming 测试会话窗口Watermark触发时机
+// TestSQLSessionWindow_WatermarkTriggerTiming Test the timing of triggering the session window Watermark
 func TestSQLSessionWindow_WatermarkTriggerTiming(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
@@ -510,12 +510,12 @@ func TestSQLSessionWindow_WatermarkTriggerTiming(t *testing.T) {
 	maxOutOfOrdernessMs := int64(200)
 	sessionTimeoutMs := int64(500)
 
-	// 发送数据，创建会话
-	// 第一个数据：baseTime
-	// 后续数据：baseTime + 100, baseTime + 200, baseTime + 300, baseTime + 400
-	// 会话结束时间应该是 baseTime + 400 + 500 = baseTime + 900
-	// 当watermark >= baseTime + 900时，会话应该触发
-	t.Log("发送数据创建会话")
+	// Send data and create sessions
+	// The first data point: baseTime
+	// Subsequent data: baseTime +100, baseTime +200, baseTime +300, baseTime +400
+	// The session end time should be baseTime + 400 + 500 = baseTime + 900
+	// When watermark > = baseTime + 900, the session should be triggered
+	t.Log("Send data to create a session")
 	for i := 0; i < 5; i++ {
 		eventTime := baseTime + int64(i*100)
 		ssql.Emit(map[string]any{
@@ -526,31 +526,31 @@ func TestSQLSessionWindow_WatermarkTriggerTiming(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	// 计算会话结束时间
-	sessionEndTime := baseTime + int64(400) + sessionTimeoutMs // 最后一个数据时间 + 超时时间
+	// Calculate the end time of the session
+	sessionEndTime := baseTime + int64(400) + sessionTimeoutMs // Last data time + timeout
 
-	// 发送一个事件时间刚好等于sessionEndTime的数据
+	// Send data where the event time is exactly equal to sessionEndTime
 	// watermark = maxEventTime - maxOutOfOrderness = sessionEndTime - 200
-	// 此时 watermark < sessionEndTime，会话不应该触发
+	// At this time, the watermark < sessionEndTime, and the session should not be triggered
 	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   sessionEndTime,
 		"temperature": 100.0,
 	})
 
-	// 等待watermark更新
+	// Waiting for the watermark update
 	time.Sleep(500 * time.Millisecond)
 
-	// 发送一个事件时间超过sessionEndTime的数据，推进watermark
+	// Send data with an event time exceeding sessionEndTime, advancing the watermark
 	// watermark = maxEventTime - maxOutOfOrderness = (sessionEndTime + 500) - 200 = sessionEndTime + 300
-	// 此时 watermark >= sessionEndTime，会话应该触发
+	// At this point, watermark > = sessionEndTime, and the session should be triggered
 	ssql.Emit(map[string]any{
 		"deviceId":    "sensor001",
 		"eventTime":   sessionEndTime + 1000,
 		"temperature": 200.0,
 	})
 
-	// 继续发送更多数据，确保watermark推进
+	// Keep sending more data to ensure Watermark advances
 	for i := 0; i < 3; i++ {
 		ssql.Emit(map[string]any{
 			"deviceId":    "sensor001",
@@ -560,14 +560,14 @@ func TestSQLSessionWindow_WatermarkTriggerTiming(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	// 等待会话触发（watermark更新间隔200ms，需要等待足够时间）
+	// Wait for session trigger (watermark update interval 200ms, requires sufficient time)
 	time.Sleep(3 * time.Second)
 
 	timeout := time.After(3 * time.Second)
 	for {
 		select {
 		case <-ch:
-			// 继续收集结果
+			// Continue collecting results
 		case <-timeout:
 			goto END
 		}
@@ -581,13 +581,13 @@ END:
 	windowResultsMu.Unlock()
 
 	if windowResultsLen == 0 {
-		t.Log("⚠ 会话窗口未触发，可能watermark未推进到足够位置")
-		t.Log("提示：会话窗口需要在 watermark >= session_end 时触发")
-		t.Log("会话结束时间 = 最后一个数据时间 + 超时时间")
+		t.Log("⚠ If the session window is not triggered, it may watermark not advanced to a sufficient position")
+		t.Log("Note: The session window needs to be triggered when watermark > = session_end")
+		t.Log("Session end time = last data time + timeout timeout")
 	}
 	require.Greater(t, windowResultsLen, 0, "应该至少触发一个会话窗口")
 
-	// 验证会话窗口的触发时机
+	// Verify the timing of the session window trigger
 	if windowResultsLen > 0 {
 		firstWindow := windowResultsCopy[0]
 		if len(firstWindow) > 0 {
@@ -596,7 +596,7 @@ END:
 			end := row["end"].(int64)
 			cnt := row["cnt"].(float64)
 
-			// 验证会话窗口包含数据
+			// The validation session window contains data
 			assert.Greater(t, cnt, 0.0, "会话窗口应该包含数据")
 
 			startMs := start / int64(time.Millisecond)
@@ -606,14 +606,14 @@ END:
 			assert.GreaterOrEqual(t, sessionDurationMs, sessionTimeoutMs,
 				"会话窗口的持续时间应该至少等于会话超时时间")
 
-			t.Logf("✓ 会话窗口在watermark >= session_end时正确触发")
-			t.Logf("会话窗口: [%d, %d), cnt=%.0f, 触发时maxEventTime >= %d",
+			t.Logf("✓ The session window is correctly triggered when watermark > = session_end")
+			t.Logf("Session window: [%d, %d), cnt=%.0f, triggered maxEventTime >=%d",
 				start, end, cnt, end+maxOutOfOrdernessMs)
 		}
 	}
 }
 
-// TestSQLSessionWindow_IdleSourceMechanism 测试会话窗口的Idle Source机制
+// TestSQLSessionWindow_IdleSourceMechanism Test the Idle Source mechanism of the session window
 func TestSQLSessionWindow_IdleSourceMechanism(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
@@ -645,8 +645,8 @@ func TestSQLSessionWindow_IdleSourceMechanism(t *testing.T) {
 
 	baseTime := time.Now().UnixMilli() - 5000
 
-	// 发送数据，创建会话
-	t.Log("发送数据，创建会话")
+	// Send data and create sessions
+	t.Log("Send data and create sessions")
 	for i := 0; i < 5; i++ {
 		eventTime := baseTime + int64(i*100)
 		ssql.Emit(map[string]any{
@@ -657,16 +657,16 @@ func TestSQLSessionWindow_IdleSourceMechanism(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	// 停止发送数据，等待Idle Source机制触发
-	t.Log("停止发送数据，等待Idle Source机制触发（IdleTimeout=2s）")
+	// Stop sending data and wait for the Idle Source mechanism to trigger
+	t.Log("Stop sending data and wait for the Idle Source mechanism to trigger (IdleTimeout=2s)")
 	time.Sleep(3 * time.Second)
 
-	// 收集窗口结果
+	// Collect window results
 	timeout := time.After(3 * time.Second)
 	for {
 		select {
 		case <-ch:
-			// 继续收集结果
+			// Continue collecting results
 		case <-timeout:
 			goto END
 		}
@@ -682,14 +682,14 @@ END:
 	require.Greater(t, windowResultsLen, 0, "应该至少触发一个会话窗口（即使数据源空闲）")
 
 	if windowResultsLen > 0 {
-		t.Logf("✓ 会话窗口Idle Source机制正常工作，触发了 %d 个会话", windowResultsLen)
+		t.Logf("✓ The Idle Source session window mechanism worked properly, triggering %d sessions", windowResultsLen)
 		for i, window := range windowResultsCopy {
 			if len(window) > 0 {
 				row := window[0]
 				start := row["start"].(int64)
 				end := row["end"].(int64)
 				cnt := row["cnt"].(float64)
-				t.Logf("会话 %d: [%d, %d), cnt=%.0f", i+1, start, end, cnt)
+				t.Logf("Conversation %d: [%d, %d), cnt=%.0f", i+1, start, end, cnt)
 			}
 		}
 	}

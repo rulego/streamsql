@@ -8,9 +8,9 @@ import (
 	"github.com/rulego/streamsql"
 )
 
-// TestTriggerWindow 验证 TriggerWindow 手动触发窗口立即输出（不等自然触发）。
-// TumblingWindow('5s') ProcessingTime：Trigger 提前触发当前窗口（不等满 5s）。
-// 注：CountingWindow.Trigger 为空实现（按 count 触发，设计如此），故用 TumblingWindow 验证。
+// TestTriggerWindow verifies TriggerWindow. Manually triggered window outputs immediately (not necessarily triggered naturally).
+// TumblingWindow('5s') ProcessingTime: Trigger Triggers the current window early (not until 5 seconds).
+// Note: CountingWindow.Trigger is an empty implementation (triggered by count, designed accordingly), so TumblingWindow is used for verification.
 func TestTriggerWindow(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()
@@ -52,7 +52,7 @@ func TestTriggerWindow(t *testing.T) {
 	}
 }
 
-// TestTriggerWindowNoWindow 验证非窗口（直接路径）查询调 TriggerWindow 不 panic（无窗口可触发）。
+// TestTriggerWindowNoWindow verifies a non-window (direct path) query calls TriggerWindow not panic (no window can be triggered).
 func TestTriggerWindowNoWindow(t *testing.T) {
 	t.Parallel()
 	ssql := streamsql.New()

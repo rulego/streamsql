@@ -9,8 +9,8 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
-// cepRunner 是 Stream 持有的 CEP 引擎适配器：把分区键算好喂给 cep.Engine，
-// 输出行直发 sink/metrics。分区键构造复用分析函数的 typeKey/resolvePartitionField。
+// cepRunner is a CEP engine adapter owned by Stream: it calculates partition keys and feeds them to cep.Engine,
+// Output lines are sent directly to sink/metrics. The partition key constructs the typeKey/resolvePartitionField of the reuse analysis function.
 type cepRunner struct {
 	engine      *cep.Engine
 	partitionBy []string
@@ -24,11 +24,11 @@ func newCepRunner(spec *types.MatchRecognizeSpec, maxPartitions int, log logger.
 	if maxPartitions > 0 {
 		eng.SetMaxPartitions(maxPartitions)
 	}
-	eng.SetLogger(log) // per-engine 诊断日志器（避免包级共享）
+	eng.SetLogger(log) // per-engine diagnostic logger (to avoid packet-level sharing)
 	return &cepRunner{engine: eng, partitionBy: spec.PartitionBy}, nil
 }
 
-// partitionKey 按 PARTITION BY 字段拼接分区键（与 analyticFieldEngine.partitionKey 同构）。
+// partitionKey is concatenated by the PARTITION BY field (isomorphic to analyticFieldEngine.partitionKey).
 func (c *cepRunner) partitionKey(row map[string]any) string {
 	if len(c.partitionBy) == 0 {
 		return ""
@@ -46,8 +46,8 @@ func (c *cepRunner) partitionKey(row map[string]any) string {
 	return sb.String()
 }
 
-// Start 启动 CEP 引擎的 WITHIN 主动过期 sweeper。
+// Start the CEP engine's WITHIN active expired sweeper.
 func (c *cepRunner) Start() { c.engine.Start() }
 
-// Stop 停止 CEP 引擎并 join sweeper。
+// Stop: Stop the CEP engine and join the sweeper.
 func (c *cepRunner) Stop() { c.engine.Stop() }

@@ -2,10 +2,10 @@ package e2e
 
 import "testing"
 
-// 验证《模式识别》文档（rulego-doc/03.StreamSQL/15.模式识别.md + 31.案例集锦/07）的
-// 场景 SQL 可 Execute 且匹配数符合文档预期，防文档 SQL 与实现漂移。每场景对应文档一个子场景。
+// Verify the "Pattern Recognition" documentation (rulego-doc/03.StreamSQL/15.patternrecognition.md + 31. Case Collection/07).
+// Scenario SQL can be executed with matching numbers that meet document expectations, preventing document SQL and implementation drift. Each scenario corresponds to a sub-scenario in the document.
 
-// 场景 A：连续越限防抖 A{3}。
+// Scenario A: Continuous Over-limit Stabilization A{3}.
 func TestDocCEP_A_ConsecutiveThreshold(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -30,7 +30,7 @@ func TestDocCEP_A_ConsecutiveThreshold(t *testing.T) {
 	}
 }
 
-// 场景 B：升温后骤降 A+ B（符号限定字段 B.temp + 聚合 MAX(A.temp)）。
+// Scenario B: Sudden drop after heating A+ B (symbol constraint field B.temp + aggregation MAX (A.temp)).
 func TestDocCEP_B_RiseThenDrop(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -53,7 +53,7 @@ func TestDocCEP_B_RiseThenDrop(t *testing.T) {
 	}
 }
 
-// 场景 C：振动突发 A{5,}。
+// Scenario C: Vibration Burst A{5,}.
 func TestDocCEP_C_VibrationBurst(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -79,7 +79,7 @@ func TestDocCEP_C_VibrationBurst(t *testing.T) {
 	}
 }
 
-// 场景 D：开停机工作流——多字符符号名 Start/Running/Stop。
+// Scenario D: Start/Stop Workflow — Multi-character Symbol Name Start/Running/Stop.
 func TestDocCEP_D_StartRunningStop(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -102,7 +102,7 @@ func TestDocCEP_D_StartRunningStop(t *testing.T) {
 	}
 }
 
-// 场景 E：乱序鉴权 PERMUTE(Login, Auth)，两会话各一次 = 2。
+// Scenario E: Out-of-order authentication PERMUTE(Login, Auth), two sessions each = 2.
 func TestDocCEP_E_PermuteAuth(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -125,7 +125,7 @@ func TestDocCEP_E_PermuteAuth(t *testing.T) {
 	}
 }
 
-// 场景 F：时间约束——Alert 后 30s 内 Ack。dev-01 间隔 10s 匹配，dev-02 间隔 60s 超窗。
+// Scenario F: Time constraint—Ack within 30 seconds after the Alert. dev-01 matches every 10 seconds, dev-02 every 60 seconds for window overshoot.
 func TestDocCEP_F_WithinConfirm(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (

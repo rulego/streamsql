@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TestHashFunctions 测试哈希函数的基本功能
+// TestHashFunctions Tests the basic functions of hash functions
 func TestHashFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -70,7 +70,7 @@ func TestHashFunctions(t *testing.T) {
 	}
 }
 
-// TestHashFunctionValidation 测试哈希函数的参数验证
+// TestHashFunctionValidation: Validation of parameters for the test hash function
 func TestHashFunctionValidation(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -126,7 +126,7 @@ func TestHashFunctionValidation(t *testing.T) {
 	}
 }
 
-// TestHashFunctionErrors 测试哈希函数的错误处理
+// TestHashFunctionErrors tests the error handling of hash functions
 func TestHashFunctionErrors(t *testing.T) {
 	tests := []struct {
 		name     string

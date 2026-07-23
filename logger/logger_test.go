@@ -23,7 +23,7 @@ import (
 	"testing"
 )
 
-// TestLevel_String 测试日志级别的字符串表示
+// TestLevel_String String representation at the test log level
 func TestLevel_String(t *testing.T) {
 	tests := []struct {
 		level    Level
@@ -34,7 +34,7 @@ func TestLevel_String(t *testing.T) {
 		{WARN, "WARN"},
 		{ERROR, "ERROR"},
 		{OFF, "OFF"},
-		{Level(999), "UNKNOWN"}, // 测试未知级别
+		{Level(999), "UNKNOWN"}, // Testing unknown levels
 	}
 
 	for _, test := range tests {
@@ -44,7 +44,7 @@ func TestLevel_String(t *testing.T) {
 	}
 }
 
-// TestNewLogger 测试创建新的日志器
+// TestNewLogger tests the creation of a new logger
 func TestNewLogger(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(INFO, &buf)
@@ -53,7 +53,7 @@ func TestNewLogger(t *testing.T) {
 		t.Fatal("NewLogger() returned nil")
 	}
 
-	// 测试日志输出
+	// Test log output
 	logger.Info("test message")
 	output := buf.String()
 
@@ -66,7 +66,7 @@ func TestNewLogger(t *testing.T) {
 	}
 }
 
-// TestDefaultLogger_Debug 测试调试级别日志
+// TestDefaultLogger_Debug Test debug level logs
 func TestDefaultLogger_Debug(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(DEBUG, &buf)
@@ -83,7 +83,7 @@ func TestDefaultLogger_Debug(t *testing.T) {
 	}
 }
 
-// TestDefaultLogger_Info 测试信息级别日志
+// TestDefaultLogger_Info Test information level log
 func TestDefaultLogger_Info(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(INFO, &buf)
@@ -100,7 +100,7 @@ func TestDefaultLogger_Info(t *testing.T) {
 	}
 }
 
-// TestDefaultLogger_Warn 测试警告级别日志
+// TestDefaultLogger_Warn Test warning level logs
 func TestDefaultLogger_Warn(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(WARN, &buf)
@@ -117,7 +117,7 @@ func TestDefaultLogger_Warn(t *testing.T) {
 	}
 }
 
-// TestDefaultLogger_Error 测试错误级别日志
+// TestDefaultLogger_Error Test error level logs
 func TestDefaultLogger_Error(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(ERROR, &buf)
@@ -134,15 +134,15 @@ func TestDefaultLogger_Error(t *testing.T) {
 	}
 }
 
-// TestDefaultLogger_SetLevel 测试设置日志级别
+// TestDefaultLogger_SetLevel Test the log level
 func TestDefaultLogger_SetLevel(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(DEBUG, &buf)
 
-	// 设置为 ERROR 级别
+	// Set to ERROR level
 	logger.SetLevel(ERROR)
 
-	// 测试低级别日志不会输出
+	// Low-level test logs do not output
 	logger.Debug("debug message")
 	logger.Info("info message")
 	logger.Warn("warn message")
@@ -152,7 +152,7 @@ func TestDefaultLogger_SetLevel(t *testing.T) {
 		t.Errorf("Expected no output for lower level logs, got: %s", output)
 	}
 
-	// 测试 ERROR 级别日志会输出
+	// Test ERROR level logs will be output
 	buf.Reset()
 	logger.Error("error message")
 	output = buf.String()
@@ -162,7 +162,7 @@ func TestDefaultLogger_SetLevel(t *testing.T) {
 	}
 }
 
-// TestDefaultLogger_LevelFiltering 测试日志级别过滤
+// TestDefaultLogger_LevelFiltering Test log-level filtering
 func TestDefaultLogger_LevelFiltering(t *testing.T) {
 	tests := []struct {
 		loggerLevel  Level
@@ -192,7 +192,7 @@ func TestDefaultLogger_LevelFiltering(t *testing.T) {
 		var buf bytes.Buffer
 		logger := NewLogger(test.loggerLevel, &buf)
 
-		// 根据消息级别调用相应的日志方法
+		// Call the corresponding logging method according to the message level
 		switch test.messageLevel {
 		case DEBUG:
 			logger.Debug("test message")
@@ -214,7 +214,7 @@ func TestDefaultLogger_LevelFiltering(t *testing.T) {
 	}
 }
 
-// TestDefaultLogger_OFFLevel 测试 OFF 级别
+// TestDefaultLogger_OFFLevel Test OFF level
 func TestDefaultLogger_OFFLevel(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(OFF, &buf)
@@ -230,7 +230,7 @@ func TestDefaultLogger_OFFLevel(t *testing.T) {
 	}
 }
 
-// TestNewDiscardLogger 测试丢弃日志器
+// TestNewDiscardLogger tests the drop logger
 func TestNewDiscardLogger(t *testing.T) {
 	logger := NewDiscardLogger()
 
@@ -238,33 +238,33 @@ func TestNewDiscardLogger(t *testing.T) {
 		t.Fatal("NewDiscardLogger() returned nil")
 	}
 
-	// 测试所有方法都不会产生输出或错误
+	// Testing all methods does not produce output or errors
 	logger.Debug("debug message")
 	logger.Info("info message")
 	logger.Warn("warn message")
 	logger.Error("error message")
 	logger.SetLevel(DEBUG)
 
-	// 如果没有 panic，测试通过
+	// If there is no panic, the test passes
 }
 
-// TestGlobalLogger 测试全局日志器
+// TestGlobalLogger tests the global logger
 func TestGlobalLogger(t *testing.T) {
-	// 保存原始的全局日志器
+	// Preserves the original global logger
 	original := GetDefault()
 	defer SetDefault(original)
 
-	// 创建测试用的日志器
+	// Create a test logger
 	var buf bytes.Buffer
 	testLogger := NewLogger(DEBUG, &buf)
 	SetDefault(testLogger)
 
-	// 测试全局日志器是否被正确设置
+	// Test whether the global logger is set correctly
 	if GetDefault() != testLogger {
 		t.Error("Global logger was not set correctly")
 	}
 
-	// 测试全局日志方法
+	// Test the global logging method
 	Debug("global debug message")
 	Info("global info message")
 	Warn("global warn message")
@@ -286,7 +286,7 @@ func TestGlobalLogger(t *testing.T) {
 	}
 }
 
-// TestLogFormat 测试日志格式
+// TestLogFormat: Test log format
 func TestLogFormat(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(INFO, &buf)
@@ -294,23 +294,23 @@ func TestLogFormat(t *testing.T) {
 	logger.Info("test message")
 	output := buf.String()
 
-	// 检查时间戳格式 (YYYY-MM-DD HH:MM:SS.mmm)
+	// Check the timestamp format (YYYY-MM-DD HH:MM:SS.mmm)
 	if !strings.Contains(output, "[") || !strings.Contains(output, "]") {
 		t.Errorf("Expected timestamp format in brackets, got: %s", output)
 	}
 
-	// 检查日志级别格式
+	// Check the log-level format
 	if !strings.Contains(output, "[INFO]") {
 		t.Errorf("Expected [INFO] in output, got: %s", output)
 	}
 
-	// 检查消息内容
+	// Check the message content
 	if !strings.Contains(output, "test message") {
 		t.Errorf("Expected 'test message' in output, got: %s", output)
 	}
 }
 
-// TestLoggerWithStdout 测试使用标准输出的日志器
+// TestLoggerWithStdout tests loggers using standard output
 func TestLoggerWithStdout(t *testing.T) {
 	logger := NewLogger(INFO, os.Stdout)
 
@@ -318,11 +318,11 @@ func TestLoggerWithStdout(t *testing.T) {
 		t.Fatal("NewLogger() with os.Stdout returned nil")
 	}
 
-	// 这个测试主要确保不会 panic
+	// This test mainly ensures there is no panic
 	logger.Info("test message to stdout")
 }
 
-// TestLoggerWithStderr 测试使用标准错误的日志器
+// TestLoggerWithStderr tests using a standard error logger
 func TestLoggerWithStderr(t *testing.T) {
 	logger := NewLogger(ERROR, os.Stderr)
 
@@ -330,18 +330,18 @@ func TestLoggerWithStderr(t *testing.T) {
 		t.Fatal("NewLogger() with os.Stderr returned nil")
 	}
 
-	// 这个测试主要确保不会 panic
+	// This test mainly ensures there is no panic
 	logger.Error("test error message to stderr")
 }
 
-// TestConcurrentLogging 测试并发日志记录
+// TestConcurrentLogging tests concurrent logging
 func TestConcurrentLogging(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(INFO, &buf)
 
 	done := make(chan bool, 10)
 
-	// 启动多个 goroutine 并发写日志
+	// Start multiple goroutines and write logs
 	for i := 0; i < 10; i++ {
 		go func(id int) {
 			logger.Info("concurrent message from goroutine %d", id)
@@ -349,26 +349,26 @@ func TestConcurrentLogging(t *testing.T) {
 		}(i)
 	}
 
-	// 等待所有 goroutine 完成
+	// Wait for all goroutines to complete
 	for i := 0; i < 10; i++ {
 		<-done
 	}
 
 	output := buf.String()
 
-	// 检查是否有输出（具体内容可能因并发而乱序）
+	// Check for outputs (specific content may be disordered due to concurrency)
 	if len(output) == 0 {
 		t.Error("Expected some output from concurrent logging")
 	}
 
-	// 检查是否包含预期的消息数量
+	// Check whether the expected number of messages is included
 	messageCount := strings.Count(output, "concurrent message")
 	if messageCount != 10 {
 		t.Errorf("Expected 10 concurrent messages, got %d", messageCount)
 	}
 }
 
-// TestLoggerParameterFormatting 测试日志参数格式化
+// TestLoggerParameterFormatting: Formatting test log parameters
 func TestLoggerParameterFormatting(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(DEBUG, &buf)
@@ -396,7 +396,7 @@ func TestLoggerParameterFormatting(t *testing.T) {
 	}
 }
 
-// TestDefaultLoggerInitialization 测试默认日志器初始化
+// TestDefaultLoggerInitialization Tests default logger initialization
 func TestDefaultLoggerInitialization(t *testing.T) {
 	defaultLogger := GetDefault()
 
@@ -404,70 +404,70 @@ func TestDefaultLoggerInitialization(t *testing.T) {
 		t.Fatal("Default logger should not be nil")
 	}
 
-	// 测试默认日志器可以正常工作
+	// Test that the default logger works properly
 	defaultLogger.Info("test default logger")
 }
 
-// TestLoggerInternalLogMethod 测试内部 log 方法的 OFF 级别处理
+// TestLoggerInternalLogMethod tests the OFF level handling of internal log methods
 func TestLoggerInternalLogMethod(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(DEBUG, &buf).(*defaultLogger)
 
-	// 设置为 OFF 级别
+	// Set to OFF level
 	logger.SetLevel(OFF)
 
-	// 直接调用内部 log 方法
+	// Directly call the internal log method
 	logger.log(ERROR, "test message")
 
-	// 验证没有输出
+	// Verification has no output
 	output := buf.String()
 	if len(output) > 0 {
 		t.Errorf("Expected no output when level is OFF, got: %s", output)
 	}
 }
 
-// TestDiscardLoggerAllMethods 测试丢弃日志器的所有方法
+// TestDiscardLoggerAllMethods tests all methods for discarding loggers
 func TestDiscardLoggerAllMethods(t *testing.T) {
 	logger := NewDiscardLogger()
 
-	// 测试所有级别的日志方法
+	// Test logging methods at all levels
 	logger.Debug("debug %s", "test")
 	logger.Info("info %d", 123)
 	logger.Warn("warn %v", true)
 	logger.Error("error %s %d", "test", 456)
 
-	// 测试设置级别
+	// Test the level settings
 	logger.SetLevel(DEBUG)
 	logger.SetLevel(INFO)
 	logger.SetLevel(WARN)
 	logger.SetLevel(ERROR)
 	logger.SetLevel(OFF)
 
-	// 如果没有 panic 或错误，测试通过
+	// If there is no panic or error, the test passes
 }
 
-// TestLoggerWithNilArgs 测试使用 nil 参数的日志记录
+// TestLoggerWithNilArgs tests logging using nil parameters
 func TestLoggerWithNilArgs(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(DEBUG, &buf)
 
-	// 测试没有参数的情况
+	// Testing without parameters
 	logger.Info("message without args")
 	output := buf.String()
 	if !strings.Contains(output, "message without args") {
 		t.Errorf("Expected message in output, got: %s", output)
 	}
 
-	// 测试空参数列表
+	// Test null parameter list
 	buf.Reset()
-	logger.Info("message with empty args", []any{}...)
+	logger.Info("message with empty args")
 	output = buf.String()
 	if !strings.Contains(output, "message with empty args") {
 		t.Errorf("Expected message in output, got: %s", output)
 	}
 }
 
-// TestLoggerTimestampFormat 测试时间戳格式
+// TestLoggerTimestampFormat: Test the timestamp format
 func TestLoggerTimestampFormat(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(INFO, &buf)
@@ -475,50 +475,50 @@ func TestLoggerTimestampFormat(t *testing.T) {
 	logger.Info("timestamp test")
 	output := buf.String()
 
-	// 检查时间戳格式：[YYYY-MM-DD HH:MM:SS.mmm]
-	// 使用正则表达式验证时间戳格式
+	// Check timestamp format: [YYYY-MM-DD HH:MM:SS.mmm]
+	// Use regular expressions to verify the timestamp format
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	if len(lines) == 0 {
 		t.Fatal("No output lines found")
 	}
 
 	line := lines[0]
-	// 检查是否包含日期时间格式
+	// Check whether the date and time format is included
 	if !strings.Contains(line, "[") || !strings.Contains(line, "]") {
 		t.Errorf("Expected timestamp in brackets, got: %s", line)
 	}
 
-	// 检查是否包含年份（简单验证）
+	// Check if the year is included (simple verification)
 	if !strings.Contains(line, "2025") && !strings.Contains(line, "2024") && !strings.Contains(line, "2026") {
 		t.Errorf("Expected year in timestamp, got: %s", line)
 	}
 }
 
-// TestGlobalLoggerRestore 测试全局日志器的恢复
+// TestGlobalLoggerRestore tests the recovery of the global logger
 func TestGlobalLoggerRestore(t *testing.T) {
-	// 保存原始的全局日志器
+	// Preserves the original global logger
 	original := GetDefault()
 
-	// 创建新的测试日志器
+	// Create a new test logger
 	var buf bytes.Buffer
 	testLogger := NewLogger(ERROR, &buf)
 	SetDefault(testLogger)
 
-	// 验证设置成功
+	// Verify that the setup is successful
 	if GetDefault() != testLogger {
 		t.Error("Failed to set test logger")
 	}
 
-	// 恢复原始日志器
+	// Restore the original logger
 	SetDefault(original)
 
-	// 验证恢复成功
+	// Verification of successful recovery
 	if GetDefault() != original {
 		t.Error("Failed to restore original logger")
 	}
 }
 
-// TestLevelConstants 测试所有日志级别常量
+// TestLevelConstants tests all log-level constants
 func TestLevelConstants(t *testing.T) {
 	expectedLevels := map[Level]string{
 		DEBUG: "DEBUG",
@@ -534,7 +534,7 @@ func TestLevelConstants(t *testing.T) {
 		}
 	}
 
-	// 测试级别的数值
+	// Test level values
 	if DEBUG != 0 {
 		t.Errorf("DEBUG should be 0, got %d", DEBUG)
 	}

@@ -13,13 +13,13 @@ func TestSubstringMultibyte(t *testing.T) {
 		t.Fatal("substring not found")
 	}
 
-	// 你好世界 = runes [你 好 世 界]; substring(s, 1, 2) -> "好世".
+	// Hello World = runes [Hello World]; substring(s, 1, 2) -> "Good World".
 	got, err := fn.Execute(nil, []any{"你好世界", int64(1), int64(2)})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if got != "好世" {
-		t.Errorf("substring(你好世界,1,2) = %q, want %q", got, "好世")
+		t.Errorf("substring(Hello World, 1,2) = %q, want %q", got, "Age-loving")
 	}
 
 	// Two-arg form from the middle.
@@ -28,7 +28,7 @@ func TestSubstringMultibyte(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if got != "世界" {
-		t.Errorf("substring(你好世界,2) = %q, want %q", got, "世界")
+		t.Errorf("substring (Hello World, 2) = %q, want %q", got, "World")
 	}
 
 	// ASCII still works (rune count == byte count).

@@ -124,7 +124,7 @@ func (f *JsonExtractFunction) Execute(ctx *FunctionContext, args []any) (any, er
 	return val, nil
 }
 
-// JsonValidFunction 验证JSON格式是否有效
+// JsonValidFunction verifies whether the JSON format is valid
 type JsonValidFunction struct {
 	*BaseFunction
 }
@@ -150,7 +150,7 @@ func (f *JsonValidFunction) Execute(ctx *FunctionContext, args []any) (any, erro
 	return err == nil, nil
 }
 
-// JsonTypeFunction 返回JSON值的类型
+// JsonTypeFunction Returns the type of JSON value
 type JsonTypeFunction struct {
 	*BaseFunction
 }
@@ -195,7 +195,7 @@ func (f *JsonTypeFunction) Execute(ctx *FunctionContext, args []any) (any, error
 	}
 }
 
-// JsonLengthFunction 返回JSON数组或对象的长度
+// JsonLengthFunction Returns the length of a JSON array or object
 type JsonLengthFunction struct {
 	*BaseFunction
 }

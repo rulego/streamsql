@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDataProcessor_NewDataProcessor 测试数据处理器创建
+// TestDataProcessor_NewDataProcessor Test data processor creation
 func TestDataProcessor_Constructor(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -44,7 +44,7 @@ func TestDataProcessor_Constructor(t *testing.T) {
 	assert.Equal(t, stream, processor.stream)
 }
 
-// TestDataProcessor_InitializeAggregator 测试聚合器初始化
+// TestDataProcessor_InitializeAggregator Test aggregator initialization
 func TestDataProcessor_InitializeAggregator(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature", "humidity"},
@@ -73,7 +73,7 @@ func TestDataProcessor_InitializeAggregator(t *testing.T) {
 	assert.NotNil(t, stream.aggregator)
 }
 
-// TestDataProcessor_RegisterExpressionCalculator 测试表达式计算器注册
+// TestDataProcessor_RegisterExpressionCalculator Test expression Calculator registration
 func TestDataProcessor_RegisterExpressionCalculator(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature"},
@@ -104,11 +104,11 @@ func TestDataProcessor_RegisterExpressionCalculator(t *testing.T) {
 	processor := NewDataProcessor(stream)
 	processor.initializeAggregator()
 
-	// 验证表达式计算器已注册
+	// The verification expression calculator is registered
 	assert.NotNil(t, stream.aggregator)
 }
 
-// TestDataProcessor_EvaluateExpressionForAggregation 测试聚合表达式计算
+// TestDataProcessor_EvaluateExpressionForAggregation Test aggregate expression calculations
 func TestDataProcessor_EvaluateExpressionForAggregation(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -187,7 +187,7 @@ func TestDataProcessor_EvaluateExpressionForAggregation(t *testing.T) {
 	}
 }
 
-// TestDataProcessor_EvaluateNestedFieldExpression 测试嵌套字段表达式计算
+// TestDataProcessor_EvaluateNestedFieldExpression Test nested field expression calculations
 func TestDataProcessor_EvaluateNestedFieldExpression(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -262,7 +262,7 @@ func TestDataProcessor_EvaluateNestedFieldExpression(t *testing.T) {
 	}
 }
 
-// TestDataProcessor_EvaluateCaseExpression 测试CASE表达式计算
+// TestDataProcessor_EvaluateCaseExpression Test CASE expression calculations
 func TestDataProcessor_EvaluateCaseExpression(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -327,7 +327,7 @@ func TestDataProcessor_EvaluateCaseExpression(t *testing.T) {
 	}
 }
 
-// TestDataProcessor_FallbackExpressionEvaluation 测试回退表达式计算
+// TestDataProcessor_FallbackExpressionEvaluation Test the backback expression calculation
 func TestDataProcessor_FallbackExpressionEvaluation(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -392,7 +392,7 @@ func TestDataProcessor_FallbackExpressionEvaluation(t *testing.T) {
 	}
 }
 
-// TestDataProcessor_ExpressionWithNullValues 测试包含NULL值的表达式计算
+// TestDataProcessor_ExpressionWithNullValues Test the expression calculation containing NULL values
 func TestDataProcessor_ExpressionWithNullValues(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -407,7 +407,7 @@ func TestDataProcessor_ExpressionWithNullValues(t *testing.T) {
 
 	processor := NewDataProcessor(stream)
 
-	// 测试NULL值处理
+	// Test NULL value processing
 	data := map[string]any{
 		"value":    nil,
 		"nonNull":  10.0,
@@ -415,23 +415,23 @@ func TestDataProcessor_ExpressionWithNullValues(t *testing.T) {
 		"validStr": "test",
 	}
 
-	// 测试嵌套字段NULL值
+	// Test the NULL value of the nested field
 	result, err := processor.evaluateNestedFieldExpression("value + 5", data)
 	assert.NoError(t, err)
-	assert.Nil(t, result) // NULL + 5 应该返回 NULL
+	assert.Nil(t, result) // NULL + 5 should return NULL
 
-	// 测试CASE表达式NULL值
+	// Test the CASE expression NULL value
 	result, err = processor.evaluateCaseExpression("CASE WHEN value IS NULL THEN 'null_value' ELSE 'not_null' END", data)
 	assert.NoError(t, err)
 	assert.Equal(t, "null_value", result)
 
-	// 测试回退表达式NULL值
+	// Test the value of the NULL fallback expression
 	result, err = processor.fallbackExpressionEvaluation("nonNull * 2", data)
 	assert.NoError(t, err)
 	assert.Equal(t, 20.0, result)
 }
 
-// TestDataProcessor_ExpandUnnestResults 测试 expandUnnestResults 函数的各种情况
+// TestDataProcessor_ExpandUnnestResults Test various scenarios for the expandUnnestResults function
 func TestDataProcessor_ExpandUnnestResults(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -542,7 +542,7 @@ func TestDataProcessor_ExpandUnnestResults(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 创建测试用的 stream 和 processor
+			// Create the stream and processor for testing
 			config := types.Config{
 				SimpleFields: []string{"name", "age"},
 			}
@@ -554,15 +554,15 @@ func TestDataProcessor_ExpandUnnestResults(t *testing.T) {
 				}
 			}()
 
-			// 设置 hasUnnestFunction 标志
+			// Set the hasUnnestFunction flag
 			stream.hasUnnestFunction = tt.hasUnnestFunction
 
 			processor := NewDataProcessor(stream)
 
-			// 调用被测试的函数
+			// Call the function under test
 			result := processor.expandUnnestResults(tt.result, tt.originalData)
 
-			// 验证结果
+			// Verify the results
 			assert.Equal(t, tt.expected, result)
 		})
 	}

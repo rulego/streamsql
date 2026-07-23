@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestWindowSlotAggregation 测试窗口时间槽聚合
+// TestWindowSlotAggregation: Aggregation of test window time slots
 func TestWindowSlotAggregation(t *testing.T) {
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
@@ -35,7 +35,7 @@ func TestWindowSlotAggregation(t *testing.T) {
 
 	strm.Start()
 
-	// 使用固定时间戳的测试数据
+	// Test data using fixed timestamps
 	baseTime := time.Date(2025, 4, 7, 16, 46, 0, 0, time.UTC)
 	testData := []map[string]any{
 		map[string]any{"device": "aa", "temperature": 25.0, "humidity": 60, "ts": baseTime},
@@ -47,13 +47,13 @@ func TestWindowSlotAggregation(t *testing.T) {
 		strm.Emit(data)
 	}
 
-	// 捕获结果
+	// Capture the results
 	resultChan := make(chan any)
 	strm.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
-	// 等待窗口触发
+	// Wait for the window to trigger
 	time.Sleep(3 * time.Second)
 
 	select {
@@ -98,7 +98,7 @@ func TestWindowSlotAggregation(t *testing.T) {
 	}
 }
 
-// TestWindowTypes 测试不同类型的窗口
+// TestWindowTypes tests different types of windows
 func TestWindowTypes(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -168,7 +168,7 @@ func TestWindowTypes(t *testing.T) {
 	}
 }
 
-// TestAggregationTypes 测试不同的聚合类型
+// TestAggregationTypes tests different aggregation types
 func TestAggregationTypes(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -211,7 +211,7 @@ func TestAggregationTypes(t *testing.T) {
 
 			stream.Start()
 
-			// 发送测试数据
+			// Send test data
 			for _, value := range tt.testData {
 				data := map[string]any{
 					"group": "test",
@@ -220,7 +220,7 @@ func TestAggregationTypes(t *testing.T) {
 				stream.Emit(data)
 			}
 
-			// 等待窗口关闭
+			// Wait for the window to close
 			time.Sleep(700 * time.Millisecond)
 
 			select {

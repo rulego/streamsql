@@ -7,7 +7,7 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
-// 解析一条 MATCH_RECOGNIZE 查询，返回 config 与 spec（断言解析成功）。
+// Parse a MATCH_RECOGNIZE query, returning config and spec (asserting successful resolution).
 func mustParseMR(t *testing.T, sql string) (*types.Config, *types.MatchRecognizeSpec) {
 	t.Helper()
 	cfg, _, err := Parse(sql)
@@ -62,10 +62,10 @@ func TestMR_BasicStructure(t *testing.T) {
 
 func TestMR_PatternQuantifiers(t *testing.T) {
 	cases := []struct {
-		pat   string
-		kind  types.PatternKind
-		min   int
-		max   int
+		pat  string
+		kind types.PatternKind
+		min  int
+		max  int
 	}{
 		{`A{3}`, types.PatternRepetition, 3, 3},
 		{`A{2,}`, types.PatternRepetition, 2, -1},
@@ -156,7 +156,7 @@ func TestMR_WithinUnits(t *testing.T) {
 	}
 }
 
-// 错误路径：缺 PATTERN、缺 ORDER BY、与 GROUP BY 冲突（在 ToStreamConfig 期 fail-fast）。
+// Error path: missing PATTERN, missing ORDER BY, conflicting with GROUP BY (fail-fast during ToStreamConfig).
 func TestMR_Errors(t *testing.T) {
 	cases := []struct {
 		name string
@@ -176,8 +176,8 @@ func TestMR_Errors(t *testing.T) {
 	}
 }
 
-// 排除模式 {- -} 在 parser 层识别为 PatternExclusion（设计：parser 识别全语法），
-// 编译期由 cep.Validate 拒绝（见 cep 包测试）。
+// The exclusion pattern {- -} is recognized as PatternExclusion at the parser layer (design: parser recognition syntax is complete),
+// The compilation period is by cep.Validate rejects (see cep package testing).
 func TestMR_ExclusionParsed(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (ORDER BY ts PATTERN ({- A -}) DEFINE A AS v>0)`
 	_, mr := mustParseMR(t, sql)
@@ -186,4 +186,4 @@ func TestMR_ExclusionParsed(t *testing.T) {
 	}
 }
 
-// EmitSync 拒绝 CEP 查询的行为在 stream 层（见 e2e/cep_test 与 streamsql.EmitSync）。
+// EmitSync rejects CEP queries at the stream layer (see e2e/cep_test and streamsql.EmitSync).

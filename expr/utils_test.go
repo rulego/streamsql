@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestUnquoteString 测试字符串去引号
+// TestUnquoteString Removes quotes from the test string
 func TestUnquoteString(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -34,7 +34,7 @@ func TestUnquoteString(t *testing.T) {
 	}
 }
 
-// TestUnquoteBacktick 测试反引号去除
+// TestUnquoteBacktick tests for the removal of backquotes
 func TestUnquoteBacktick(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -59,7 +59,7 @@ func TestUnquoteBacktick(t *testing.T) {
 	}
 }
 
-// TestFormatError 测试错误格式化
+// TestFormatError test error formatting
 func TestFormatError(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -82,7 +82,7 @@ func TestFormatError(t *testing.T) {
 	}
 }
 
-// TestCopyNode 测试节点复制
+// TestCopyNode Copies test nodes
 func TestCopyNode(t *testing.T) {
 	tests := []struct {
 		name string
@@ -134,30 +134,30 @@ func TestCopyNode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			copied := copyNode(tt.node)
 
-			// 检查复制的节点不是同一个对象
+			// Check that the replicated node is not the same object
 			assert.NotSame(t, tt.node, copied, "复制的节点应该是不同的对象")
 
-			// 检查值是否相等
+			// Check if the values are equal
 			assertNodeEqual(t, tt.node, copied)
 
-			// 修改原节点，确保复制的节点不受影响
+			// Modify the original node to ensure the copied node is not affected
 			originalValue := tt.node.Value
 			tt.node.Value = "modified"
 			assert.NotEqual(t, tt.node.Value, copied.Value, "修改原节点不应该影响复制的节点")
 
-			// 恢复原值
+			// Restore the original value
 			tt.node.Value = originalValue
 		})
 	}
 }
 
-// TestCopyNode_Nil 测试空节点复制
+// TestCopyNode_Nil Test the null node copy
 func TestCopyNode_Nil(t *testing.T) {
 	result := copyNode(nil)
 	assert.Nil(t, result, "复制nil节点应该返回nil")
 }
 
-// TestGetNodeType 测试获取节点类型
+// TestGetNodeType Tests to get the node type
 func TestGetNodeType(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -183,7 +183,7 @@ func TestGetNodeType(t *testing.T) {
 	}
 }
 
-// TestGetNodeValue 测试获取节点值
+// TestGetNodeValue tests to obtain the node value
 func TestGetNodeValue(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -204,7 +204,7 @@ func TestGetNodeValue(t *testing.T) {
 	}
 }
 
-// TestSetNodeValue 测试设置节点值
+// TestSetNodeValue tests the node values
 func TestSetNodeValue(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -224,15 +224,15 @@ func TestSetNodeValue(t *testing.T) {
 	}
 }
 
-// TestSetNodeValue_Nil 测试设置空节点值
+// TestSetNodeValue_Nil Test setting of the null node value
 func TestSetNodeValue_Nil(t *testing.T) {
-	// 这应该不会panic
+	// This shouldn't be a panic
 	assert.NotPanics(t, func() {
 		setNodeValue(nil, "test")
 	}, "设置nil节点值不应该panic")
 }
 
-// TestIsArithmeticOperator 测试算术运算符判断
+// TestIsArithmeticOperator tests the arithmetic operator's judgment
 func TestIsArithmeticOperator(t *testing.T) {
 	tests := []struct {
 		operator string
@@ -261,7 +261,7 @@ func TestIsArithmeticOperator(t *testing.T) {
 	}
 }
 
-// TestIsLogicalOperator 测试逻辑运算符判断
+// TestIsLogicalOperator checks the logical operator
 func TestIsLogicalOperator(t *testing.T) {
 	tests := []struct {
 		operator string
@@ -287,7 +287,7 @@ func TestIsLogicalOperator(t *testing.T) {
 	}
 }
 
-// TestIsUnaryOperator 测试一元运算符判断
+// TestIsUnaryOperator tests the unary operator's check
 func TestIsUnaryOperator(t *testing.T) {
 	tests := []struct {
 		operator string
@@ -310,7 +310,7 @@ func TestIsUnaryOperator(t *testing.T) {
 	}
 }
 
-// TestIsKeyword 测试关键字判断
+// TestIsKeyword to determine the test keyword
 func TestIsKeyword(t *testing.T) {
 	tests := []struct {
 		word     string
@@ -329,12 +329,12 @@ func TestIsKeyword(t *testing.T) {
 		{"NULL", true},
 		{"TRUE", true},
 		{"FALSE", true},
-		// 大小写测试
+		// Case Test
 		{"case", true},
 		{"Case", true},
 		{"when", true},
 		{"and", true},
-		// 非关键字
+		// Non-keywords
 		{"field", false},
 		{"value", false},
 		{"123", false},
@@ -350,7 +350,7 @@ func TestIsKeyword(t *testing.T) {
 	}
 }
 
-// TestNormalizeIdentifier 测试标识符规范化
+// TestNormalizeIdentifier Standardizes the test identifier
 func TestNormalizeIdentifier(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -374,7 +374,7 @@ func TestNormalizeIdentifier(t *testing.T) {
 	}
 }
 
-// assertNodeEqual 断言两个表达式节点相等（测试辅助函数）
+// assertNodeEqual asserts that two expression nodes are equal (test auxiliary function)
 func assertNodeEqual(t *testing.T, expected, actual *ExprNode) {
 	if expected == nil && actual == nil {
 		return
@@ -390,21 +390,21 @@ func assertNodeEqual(t *testing.T, expected, actual *ExprNode) {
 		return
 	}
 
-	// 比较节点类型和值
+	// Compare node types and values
 	assert.Equal(t, expected.Type, actual.Type, "节点类型应该相等")
 	assert.Equal(t, expected.Value, actual.Value, "节点值应该相等")
 
-	// 递归比较左右子节点
+	// Recursively compare left and right child nodes
 	assertNodeEqual(t, expected.Left, actual.Left)
 	assertNodeEqual(t, expected.Right, actual.Right)
 
-	// 比较函数参数
+	// Compare function parameters
 	assert.Equal(t, len(expected.Args), len(actual.Args), "函数参数数量应该相等")
 	for i := range expected.Args {
 		assertNodeEqual(t, expected.Args[i], actual.Args[i])
 	}
 
-	// 比较CASE表达式
+	// Compare CASE expressions
 	if expected.CaseExpr == nil && actual.CaseExpr == nil {
 		return
 	}

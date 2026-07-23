@@ -36,7 +36,7 @@ func TestSlidingWindow(t *testing.T) {
 	})
 	sw.Start()
 
-	// 添加数据
+	// Add data
 	t_3 := TestDate{Ts: time.Date(2025, 4, 7, 16, 46, 56, 789000000, time.UTC), tag: "1"}
 	t_2 := TestDate{Ts: time.Date(2025, 4, 7, 16, 46, 57, 789000000, time.UTC), tag: "2"}
 	t_1 := TestDate{Ts: time.Date(2025, 4, 7, 16, 46, 58, 789000000, time.UTC), tag: "3"}
@@ -47,13 +47,13 @@ func TestSlidingWindow(t *testing.T) {
 	sw.Add(t_1)
 	sw.Add(t_0)
 
-	// 验证每个窗口的数据
-	// 处理时间窗口对齐到 epoch（slide 边界）：t_3=16:46:56.789 对齐到 16:46:56.000
-	// 窗口大小2秒，滑动步长1秒
-	// 第一个窗口: [16:46:56.000, 16:46:58.000)
-	// 第二个窗口: [16:46:57.000, 16:46:59.000)
-	// 第三个窗口: [16:46:58.000, 16:47:00.000)
-	// 第四个窗口: [16:46:59.000, 16:47:01.000)
+	// Verify data for each window
+	// Processing time window aligned to epoch(slide boundary):t_3=16:46:56.789 Aligned to 16:46:56.000
+	// Window size is 2 seconds, sliding step length is 1 second
+	// First window: [16:46:56.000, 16:46:58.000)
+	// Second window: [16:46:57.000, 16:46:59.000)
+	// Third window: [16:46:58.000, 16:47:00.000)
+	// Window 4: [16:46:59.000, 16:47:01.000)
 	alignedStart := alignWindowStart(t_3.Ts, sw.slide)
 	expected := []TestResult{
 		{size: 2, data: []TestDate{t_3, t_2}, start: alignedStart, end: alignedStart.Add(sw.size)},
@@ -61,10 +61,10 @@ func TestSlidingWindow(t *testing.T) {
 		{size: 2, data: []TestDate{t_1, t_0}, start: alignedStart.Add(2 * sw.slide), end: alignedStart.Add(2 * sw.slide).Add(sw.size)},
 		{size: 1, data: []TestDate{t_0}, start: alignedStart.Add(3 * sw.slide), end: alignedStart.Add(3 * sw.slide).Add(sw.size)},
 	}
-	// 等待一段时间，触发窗口
+	// Wait a while, then the window will be triggered
 	//time.Sleep(3 * time.Second)
 
-	// 检查结果
+	// Inspection results
 	// resultsChan := sw.OutputChan()
 	// results := make(chan []types.Row)
 	actual := make([]TestResult, 0)
@@ -92,10 +92,10 @@ func TestSlidingWindow(t *testing.T) {
 
 END:
 	assert.Equal(t, len(actual), len(expected))
-	// 预期结果：保留最近 2 秒内的数据
+	// Expected outcome: Data from the last 2 seconds is retained
 	for i, exp := range expected {
 		assert.Equal(t, actual[i].size, exp.size, "窗口 %d 的数据量应该匹配", i+1)
-		// 移除对齐后，窗口时间应该精确匹配（允许微小的纳秒级误差）
+		// After removing alignment, window times should match precisely (allowing for tiny nanosecond-level errors)
 		assert.WithinDuration(t, exp.start, actual[i].start, 100*time.Millisecond,
 			"窗口 %d 的开始时间应该匹配，预期: %v, 实际: %v", i+1, exp.start, actual[i].start)
 		assert.WithinDuration(t, exp.end, actual[i].end, 100*time.Millisecond,

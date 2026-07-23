@@ -1,8 +1,8 @@
-# StreamSQL 插件式自定义函数快速示例
+# StreamSQL Quick example of plugin-style custom functions
 
-## 🚀 5分钟上手插件式扩展
+## 🚀 Plug-in Expansion in Just 5 Minutes
 
-### 1️⃣ 注册自定义函数
+### 1️⃣ Register custom functions
 
 ```go
 package main
@@ -17,13 +17,13 @@ import (
 )
 
 func main() {
-    // 🔌 插件式注册 - 数据脱敏函数
+    // 🔌 Plug-in registration - Data anonymization function
     functions.RegisterCustomFunction(
-        "mask_email",           // 函数名
-        functions.TypeString,   // 函数类型
-        "数据脱敏",             // 分类
-        "邮箱地址脱敏",         // 描述
-        1, 1,                  // 参数数量
+        "mask_email",           // Function name
+        functions.TypeString,   // Function type
+        "数据脱敏",             // Classification
+        "邮箱地址脱敏",         // Description
+        1, 1,                  // Number of parameters
         func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
             email, _ := cast.ToStringE(args[0])
             parts := strings.Split(email, "@")
@@ -42,7 +42,7 @@ func main() {
         },
     )
     
-    // 🔌 插件式注册 - 业务计算函数  
+    // 🔌 Plug-in registration - business calculation function  
     functions.RegisterCustomFunction(
         "calculate_score",
         functions.TypeMath,
@@ -56,7 +56,7 @@ func main() {
         },
     )
     
-    // 🔌 插件式注册 - 状态转换函数
+    // 🔌 Plug-in registration - status transition function
     functions.RegisterCustomFunction(
         "format_status",
         functions.TypeConversion,
@@ -75,14 +75,14 @@ func main() {
 }
 ```
 
-### 2️⃣ 立即在SQL中使用
+### 2️⃣ Use it now in SQL
 
 ```go
 func demonstrateUsage() {
     ssql := streamsql.New()
     defer ssql.Stop()
     
-    // 🎯 直接在SQL中使用新注册的函数 - 无需修改任何核心代码！
+    // 🎯 Use newly registered functions directly in the SQL—no need to modify any core code!
     sql := `
         SELECT 
             user_id,
@@ -98,12 +98,12 @@ func demonstrateUsage() {
         panic(err)
     }
     
-    // 添加结果监听
+    // Add result monitoring
     ssql.Stream().AddSink(func(result interface{}) {
         fmt.Printf("处理结果: %v\n", result)
     })
     
-    // 添加测试数据
+    // Add test data
     testData := []map[string]interface{}{
         {
             "user_id":     "U001",
@@ -125,12 +125,12 @@ func demonstrateUsage() {
         ssql.AddData(data)
     }
     
-    // 等待结果
+    // Waiting for the results
     time.Sleep(6 * time.Second)
 }
 ```
 
-### 3️⃣ 运行结果
+### 3️⃣ Running results
 
 ```json
 {
@@ -141,30 +141,30 @@ func demonstrateUsage() {
 }
 ```
 
-## 🔥 核心优势
+## 🔥 Core Advantages
 
-### ✅ 完全插件式
-- **无需修改SQL解析器** - 新函数自动识别
-- **无需重启应用** - 运行时动态注册
-- **无需额外配置** - 注册后立即可用
+### ✅ Fully plug-in type
+- **No modification needed SQL parser** - New functions are automatically recognized
+- **No need to restart the app** - Runtime dynamic registration
+- **No additional configuration required** - Available immediately upon registration
 
-### ✅ 智能处理
-- **字符串函数** → 直接处理模式（低延迟）
-- **数学函数** → 窗口聚合模式（支持统计）
-- **转换函数** → 直接处理模式（实时转换）
+### ✅ Intelligent Processing
+- **String function** → Direct processing mode (low latency)
+- **Mathematical Functions** → Window Aggregation Mode (supports statistics)
+- **Conversion Function** → Direct Processing Mode (Real-Time Conversion)
 
-### ✅ 灵活管理
+### ✅ Flexible management
 ```go
-// 运行时管理
-fn, exists := functions.Get("mask_email")           // 查询函数
-mathFuncs := functions.GetByType(functions.TypeMath) // 按类型查询
-allFuncs := functions.ListAll()                     // 列出所有函数
-success := functions.Unregister("old_function")     // 注销函数
+// Runtime management
+fn, exists := functions.Get("mask_email")           // Query function
+mathFuncs := functions.GetByType(functions.TypeMath) // Search by type
+allFuncs := functions.ListAll()                     // List all functions
+success := functions.Unregister("old_function")     // Cancel function
 ```
 
-## 🎯 实际应用场景
+## 🎯 Practical Application Scenarios
 
-### 📊 数据脱敏
+### 📊 Data Anonymization
 ```sql
 SELECT 
     mask_email(email) as safe_email,
@@ -172,7 +172,7 @@ SELECT
 FROM user_stream
 ```
 
-### 💼 业务计算
+### 💼 Business Calculation
 ```sql
 SELECT 
     user_id,
@@ -182,7 +182,7 @@ FROM sales_stream
 GROUP BY user_id, TumblingWindow('1h')
 ```
 
-### 🔄 状态转换
+### 🔄 State transition
 ```sql
 SELECT 
     order_id,
@@ -191,9 +191,9 @@ SELECT
 FROM order_stream
 ```
 
-### 🌐 多语言支持
+### 🌐 Multilingual support
 ```go
-// 注册多语言函数
+// Register multilingual functions
 functions.RegisterCustomFunction("translate", functions.TypeString, ...,
     func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
         text := args[0].(string)
@@ -201,17 +201,17 @@ functions.RegisterCustomFunction("translate", functions.TypeString, ...,
         return translateService.Translate(text, lang), nil
     })
 
-// SQL中使用
+// SQL used
 // SELECT translate(message, 'zh-CN') as chinese_message FROM stream
 ```
 
-## 🏁 总结
+## 🏁 Summary
 
-StreamSQL 的插件式自定义函数系统让你能够：
+StreamSQL's plugin-style custom function system enables you to:
 
-1. **🔌 即插即用** - 注册函数后立即在SQL中使用
-2. **🚀 零停机扩展** - 运行时动态增加功能 
-3. **🎯 类型智能** - 根据函数类型自动选择最优处理模式
-4. **📈 无限可能** - 支持任意复杂的业务逻辑
+1. **🔌 Plug and Play** - Use the function immediately in the SQL after registering it
+2. **🚀 Zero-downtime expansion** - Dynamically adds functionality at runtime 
+3. **🎯 Type Intelligence** - Automatically selects the optimal processing mode based on function type
+4. **📈 Infinite Possibilities** - Supports arbitrarily complex business logic
 
-**真正实现了"写一个函数，SQL立即可用"的插件式体验！** ✨ 
+**truly delivers the plug-in experience of "write a function and use it immediately in SQL"!** ✨ 

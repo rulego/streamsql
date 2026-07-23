@@ -117,7 +117,7 @@ func (f *ArrayRemoveFunction) Execute(ctx *FunctionContext, args []any) (any, er
 		return nil, fmt.Errorf("array_remove requires array input")
 	}
 
-	result := make([]any, 0) // 初始化为空切片而不是nil切片
+	result := make([]any, 0) // Initialize as an empty slice instead of a nil slice
 	for i := 0; i < v.Len(); i++ {
 		elem := v.Index(i).Interface()
 		if !reflect.DeepEqual(elem, value) {
@@ -169,7 +169,7 @@ func (s *hashSafeSet) add(elem any) bool {
 	return true
 }
 
-// ArrayDistinctFunction 数组去重
+// ArrayDistinctFunction Array deduplication
 type ArrayDistinctFunction struct {
 	*BaseFunction
 }
@@ -204,7 +204,7 @@ func (f *ArrayDistinctFunction) Execute(ctx *FunctionContext, args []any) (any, 
 	return result, nil
 }
 
-// ArrayIntersectFunction 数组交集
+// ArrayIntersectFunction array intersection
 type ArrayIntersectFunction struct {
 	*BaseFunction
 }
@@ -233,13 +233,13 @@ func (f *ArrayIntersectFunction) Execute(ctx *FunctionContext, args []any) (any,
 		return nil, fmt.Errorf("array_intersect requires array input for second argument")
 	}
 
-	// 创建第二个数组的元素集合
+	// Create a second set of elements in the array
 	set2 := newHashSafeSet()
 	for i := 0; i < v2.Len(); i++ {
 		set2.add(v2.Index(i).Interface())
 	}
 
-	// 找交集
+	// Find a connection
 	seen := newHashSafeSet()
 	result := make([]any, 0)
 
@@ -252,7 +252,7 @@ func (f *ArrayIntersectFunction) Execute(ctx *FunctionContext, args []any) (any,
 	return result, nil
 }
 
-// ArrayUnionFunction 数组并集
+// ArrayUnionFunction array union
 type ArrayUnionFunction struct {
 	*BaseFunction
 }
@@ -284,7 +284,7 @@ func (f *ArrayUnionFunction) Execute(ctx *FunctionContext, args []any) (any, err
 	seen := newHashSafeSet()
 	result := make([]any, 0)
 
-	// 添加第一个数组的元素
+	// Add elements from the first array
 	for i := 0; i < v1.Len(); i++ {
 		elem := v1.Index(i).Interface()
 		if seen.add(elem) {
@@ -292,7 +292,7 @@ func (f *ArrayUnionFunction) Execute(ctx *FunctionContext, args []any) (any, err
 		}
 	}
 
-	// 添加第二个数组的元素
+	// Add elements from the second array
 	for i := 0; i < v2.Len(); i++ {
 		elem := v2.Index(i).Interface()
 		if seen.add(elem) {
@@ -302,7 +302,7 @@ func (f *ArrayUnionFunction) Execute(ctx *FunctionContext, args []any) (any, err
 	return result, nil
 }
 
-// ArrayExceptFunction 数组差集
+// ArrayExceptFunction array difference
 type ArrayExceptFunction struct {
 	*BaseFunction
 }
@@ -331,13 +331,13 @@ func (f *ArrayExceptFunction) Execute(ctx *FunctionContext, args []any) (any, er
 		return nil, fmt.Errorf("array_except requires array input for second argument")
 	}
 
-	// 创建第二个数组的元素集合
+	// Create a second set of elements in the array
 	set2 := newHashSafeSet()
 	for i := 0; i < v2.Len(); i++ {
 		set2.add(v2.Index(i).Interface())
 	}
 
-	// 找差集
+	// Finding the difference
 	seen := newHashSafeSet()
 	result := make([]any, 0)
 

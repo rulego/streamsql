@@ -7,14 +7,14 @@ import (
 	"github.com/rulego/streamsql"
 )
 
-// main 演示PrintTable方法的使用
+// main demonstrates the use of the PrintTable method
 func main() {
 	fmt.Println("=== StreamSQL PrintTable 示例 ===")
 
-	// 创建StreamSQL实例
+	// Create a StreamSQL instance
 	ssql := streamsql.New()
 
-	// 示例1: 聚合查询 - 按设备分组统计温度
+	// Example 1: Aggregated query - grouping temperature statistics by device
 	fmt.Println("\n示例1: 聚合查询结果")
 	err := ssql.Execute("SELECT device, AVG(temperature) as avg_temp, MAX(temperature) as max_temp FROM stream GROUP BY device, TumblingWindow('3s')")
 	if err != nil {
@@ -22,10 +22,10 @@ func main() {
 		return
 	}
 
-	// 使用PrintTable方法以表格形式输出结果
+	// Use the PrintTable method to output results in table format
 	ssql.PrintTable()
 
-	// 发送测试数据
+	// Send test data
 	testData := []map[string]any{
 		{"device": "sensor1", "temperature": 25.5, "timestamp": time.Now()},
 		{"device": "sensor1", "temperature": 26.0, "timestamp": time.Now()},
@@ -38,10 +38,10 @@ func main() {
 		ssql.Emit(data)
 	}
 
-	// 等待窗口触发
+	// Wait for the window to trigger
 	time.Sleep(4 * time.Second)
 
-	// 示例2: 非聚合查询
+	// Example 2: Non-aggregated queries
 	fmt.Println("\n示例2: 非聚合查询结果")
 	ssql2 := streamsql.New()
 	err = ssql2.Execute("SELECT device, temperature, temperature * 1.8 + 32 as fahrenheit FROM stream WHERE temperature > 24")
@@ -52,15 +52,15 @@ func main() {
 
 	ssql2.PrintTable()
 
-	// 发送测试数据
+	// Send test data
 	for _, data := range testData {
 		ssql2.Emit(data)
 	}
 
-	// 等待处理完成
+	// Wait for processing to complete
 	time.Sleep(1 * time.Second)
 
-	// 示例3: 对比原始Print方法
+	// Example 3: Compare with the original print method
 	fmt.Println("\n示例3: 原始Print方法输出对比")
 	ssql3 := streamsql.New()
 	err = ssql3.Execute("SELECT device, COUNT(*) as count FROM stream GROUP BY device, TumblingWindow('2s')")
@@ -72,7 +72,7 @@ func main() {
 	fmt.Println("原始PrintTable方法:")
 	ssql3.PrintTable()
 
-	// 发送数据
+	// Send data
 	for i := 0; i < 3; i++ {
 		ssql3.Emit(map[string]any{"device": "test_device", "value": i})
 	}

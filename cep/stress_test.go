@@ -9,9 +9,9 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
-// CEP 压力测试（引擎核心层，同步 Process）：直接调 engine.Process 绕过 streamsql async 通道，
-// 精确控制时序与堆采样。WITHIN sweeper 主动过期 + 吞吐 benchmark。
-// 本地普通模式跑（-race 由 CI/Linux 回归）。
+// CEP stress testing (engine core layer, synchronous process): directly tune the engine.Process bypasses the streamsql async channel,
+// Precise timing control and heap sampling. WITHIN sweeper active expiration + throughput benchmark.
+// Local normal mode running (-race reverts from CI/Linux).
 
 func readHeap() uint64 {
 	runtime.GC()
@@ -20,7 +20,7 @@ func readHeap() uint64 {
 	return ms.HeapAlloc
 }
 
-// countRuns 统计所有分区 p.runs 里的活跃部分匹配数（sweep 清理的对象）。同包可访问私有字段。
+// countRuns counts the number of matches for active parts in all partitions (p.runs (objects cleaned by sweep). The same packet can access private fields.
 func (e *Engine) countRuns() int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -31,16 +31,16 @@ func (e *Engine) countRuns() int {
 	return n
 }
 
-// --- WITHIN sweeper 主动过期 ---
+// --- WITHIN sweeper Actively expired ---
 
-// 空闲分区的超窗部分匹配必须被 sweeper 主动清（不能只靠下一事件被动清）。
-// 多分区每分区灌 1 个 A（A 等 B 死等，run 是未 complete 的中间态，驻留 p.runs 不进 pending）；
-// ts 用 epoch（UnixMilli）使 sweep 的 wall-clock 判定生效。Sleep > WITHIN + 多个 sweep 周期后，
-// 直接读 p.runs 计数断言 sweeper 已清空（精确，不依赖堆噪声）。
-// 若 sweeper 失效：空闲无新事件触发被动清，run 驻留，runsAfter == runsBefore。
+// The superwindow part of the free partition must be actively cleared by the sweeper (not passively cleared only from the next event).
+// Multi-partition fed one A per partition (A equals B dead, run is an incomplete intermediate state, residing p.runs does not enter pending);
+// ts uses epoch (UnixMilli) to make the wall-clock check for sweep valid. After Sleep > WITHIN + multiple sweep cycles,
+// Directly reading p.runs counts asserts that the sweeper has been emptied (precise, independent of heap noise).
+// If sweeper fails: Idle with no new events triggers passive clearing, run retention, runsAfter == runsBefore.
 func TestStressCEP_WithinSweeper_ActiveExpiry(t *testing.T) {
-	// B 恒假（v<0，灌的 v=60 永不满足）：run 匹配 A 后死等 B，进「等B」中间态（无 accept），
-	// 故走 survivors → p.runs，不进 completions/pending（pending 不由 sweep 清）。
+	// B is inherently false (v<0, the fed v=60 is never satisfied): run Wait for B after matching A, enter the intermediate state of 'waiting for B' (no accept),
+	// Therefore, follow survivors → p.runs, not completions/pending (pending is not cleared by sweep).
 	spec := &types.MatchRecognizeSpec{
 		Pattern:  seq(lit("A"), lit("B")),
 		Defines:  []types.MatchDefine{def("A", "v > 50"), def("B", "v < 0")},
@@ -55,8 +55,8 @@ func TestStressCEP_WithinSweeper_ActiveExpiry(t *testing.T) {
 	e.Start()
 	defer e.Stop()
 
-	// 每分区灌 1 个 A：seq(A,B) 下后续 A 会杀前一个等 B 的 run，故每分区仅留 1 run 驻留。
-	// 用多分区堆出大量驻留 run（每 run 是独立的等 B 中间态）。
+	// Install one A per partition: seq(A,B) will kill the previous run waiting for B, so only one run resides in each partition.
+	// Use multi-partition stacking to produce a large number of dwell runs (each run is an independent intermediate state equal to B).
 	const partitions = 3000
 	ts := time.Now().UnixMilli()
 	for p := 0; p < partitions; p++ {
@@ -66,25 +66,25 @@ func TestStressCEP_WithinSweeper_ActiveExpiry(t *testing.T) {
 	runsBefore := e.countRuns()
 	heap1 := readHeap()
 	if runsBefore == 0 {
-		t.Fatal("前置失败：灌 A 后无驻留 run，无法验证 sweeper")
+		t.Fatal("Pre-installation failure: No resident run after A installation, unable to verify sweeper")
 	}
 
-	// Sleep 远超 WITHIN（200ms）且覆盖多个 sweep 周期（sweepInterval≈100ms），
-	// 让 sweeper 主动扫并清空闲分区的超窗 run。
+	// Sleep far exceeds WITHIN (200ms) and covers multiple sweep cycles (sweepInterval ≈100ms),
+	// Allows the sweeper to actively sweep and clear the overwindow run of the free partition.
 	time.Sleep(700 * time.Millisecond)
 
 	runsAfter := e.countRuns()
 	heap2 := readHeap()
 
-	t.Logf("sweeper 主动过期: p.runs %d → %d；heap %.2fMB → %.2fMB",
+	t.Logf("sweeper Actively expired: p.runs %d → %d; heap %.2fMB → %.2fMB",
 		runsBefore, runsAfter, float64(heap1)/1e6, float64(heap2)/1e6)
-	// sweeper 生效：超窗 run 被主动清空（runsAfter 应为 0）。
+	// sweeper activates: the overwindow run is actively cleared (runsAfter should be 0).
 	if runsAfter != 0 {
-		t.Fatalf("sweeper 未主动清空闲分区超窗 run：p.runs %d → %d（应清空）", runsBefore, runsAfter)
+		t.Fatalf("sweeper Failure to proactively clear idle partitions and overrun windows run:p.runs %d → %d (should be cleared)", runsBefore, runsAfter)
 	}
 }
 
-// --- 吞吐 benchmark（同步 Process，测引擎真实吞吐，不受 async 通道影响）---
+// --- Throughput benchmark (synchronized process, tests the engine's true throughput, unaffected by async channels)---
 
 func benchCep(b *testing.B, spec *types.MatchRecognizeSpec, key func(i int) string, row func(i int) map[string]any) {
 	b.Helper()
@@ -100,7 +100,7 @@ func benchCep(b *testing.B, spec *types.MatchRecognizeSpec, key func(i int) stri
 	}
 }
 
-// 顺序模式 A B（最常见 CEP 路径）。
+// Sequential pattern A B (the most common CEP path).
 func BenchmarkCEP_Sequence(b *testing.B) {
 	benchCep(b, &types.MatchRecognizeSpec{
 		Pattern:  seq(lit("A"), lit("B")),
@@ -117,7 +117,7 @@ func BenchmarkCEP_Sequence(b *testing.B) {
 		})
 }
 
-// 星号贪婪 A* B（测 greedy/pending 选最长路径）。
+// Asterisk: Greedy A* B (for greedy/pending, choose the longest path).
 func BenchmarkCEP_Star(b *testing.B) {
 	benchCep(b, &types.MatchRecognizeSpec{
 		Pattern:  seq(rep(lit("A"), 0, -1), lit("B")),
@@ -134,18 +134,18 @@ func BenchmarkCEP_Star(b *testing.B) {
 		})
 }
 
-// 分区顺序模式（PARTITION BY + 分区键计算开销）。
+// Partition order mode (PARTITION BY + partition key calculates overhead).
 func BenchmarkCEP_Partitioned(b *testing.B) {
 	benchCep(b, &types.MatchRecognizeSpec{
-		Pattern:    seq(lit("A"), lit("B")),
-		Defines:    []types.MatchDefine{def("A", "v > 50"), def("B", "v < 50")},
-		OrderBy:    orderBy("ts"),
-		Measures:   []types.Measure{measure("MATCH_NUMBER()", "mn")},
+		Pattern:     seq(lit("A"), lit("B")),
+		Defines:     []types.MatchDefine{def("A", "v > 50"), def("B", "v < 50")},
+		OrderBy:     orderBy("ts"),
+		Measures:    []types.Measure{measure("MATCH_NUMBER()", "mn")},
 		PartitionBy: []string{"deviceId"},
 	}, func(i int) string { return "dev-" + strconv.Itoa(i%4) },
 		func(i int) map[string]any {
-			// v 按 (i/4)%2 交替：同分区事件 i, i+4, i+8… 的 v 才 A B 交替（若按 i%2，
-			// dev-0/2 区只来 A、dev-1/3 区只来 B → 零匹配 emit，测的是种子+死而非密集匹配）。
+			// v alternates by (i/4)%2: i, i+4, i+8 in the same partition... v alternates between A and B (if i%2,
+			// dev-0/2 only comes to A, dev-1/3 only B→ zero-match emit, tested for seed + death rather than dense matching).
 			v := 60.0
 			if (i/4)%2 == 1 {
 				v = 40.0

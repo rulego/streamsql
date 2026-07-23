@@ -147,7 +147,7 @@ func TestStress_MemoryAndThroughput(t *testing.T) {
 			perRowB := float64(peak.TotalAlloc-baseline.TotalAlloc) / float64(produced)
 
 			t.Logf("[%s] rows=%d producers=%d", sc.name, produced, producers)
-			t.Logf("  ingest throughput : %.0f rows/sec (%.1f万/s)", throughput, throughput/1e4)
+			t.Logf("ingest throughput: %.0f rows/sec (%.1f million per s)", throughput, throughput/1e4)
 			t.Logf("  peak heap         : %.1f MB", peakHeapMB)
 			t.Logf("  retained after GC : %.2f MB (delta vs baseline)", retainedMB)
 			t.Logf("  total alloc/row   : %.0f B", perRowB)

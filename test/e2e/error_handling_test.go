@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestStreamSQLErrorHandling 测试StreamSQL的错误处理机制
+// TestStreamSQLErrorHandling tests StreamSQL's error handling mechanism
 func TestStreamSQLErrorHandling(t *testing.T) {
 	t.Parallel()
 	t.Run("invalid SQL syntax", func(t *testing.T) {
@@ -26,7 +26,7 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 		err := ssql.Execute("FROM stream WHERE id > 1")
-		// 修改后的解析器会对缺少SELECT关键字进行严格检查
+		// The modified parser will strictly check for missing SELECT keywords
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "Expected SELECT")
 	})
@@ -71,14 +71,14 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 	t.Run("Emit without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
-		// 这不应该引发panic，但也不会有任何效果
+		// This shouldn't trigger panic, but it won't have any effect either
 		ssql.Emit(map[string]any{"id": 1})
 	})
 
 	t.Run("Stop without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
-		// 这不应该引发panic
+		// This should not trigger panic
 		ssql.Stop()
 	})
 
@@ -122,19 +122,19 @@ func TestStreamSQLErrorHandling(t *testing.T) {
 	t.Run("AddSink without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
-		// 这不应该引发panic
+		// This should not trigger panic
 		ssql.AddSink(func(results []map[string]any) {})
 	})
 
 	t.Run("PrintTable without Execute", func(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
-		// 这不应该引发panic
+		// This should not trigger panic
 		ssql.PrintTable()
 	})
 }
 
-// TestStreamSQLEdgeCases 测试边界条件和特殊情况
+// TestStreamSQLEdgeCases tests boundary conditions and special cases
 func TestStreamSQLEdgeCases(t *testing.T) {
 	t.Parallel()
 	t.Run("empty SQL string", func(t *testing.T) {
@@ -155,8 +155,8 @@ func TestStreamSQLEdgeCases(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 		err := ssql.Execute("-- This is a comment\nSELECT id FROM stream")
-		// 根据实际的SQL解析器行为，这可能成功或失败
-		// 这里我们只是确保不会panic
+		// Depending on the actual SQL parser behavior, this may succeed or fail
+		// Here, we just make sure there is no panic
 		_ = err
 	})
 
@@ -172,7 +172,7 @@ func TestStreamSQLEdgeCases(t *testing.T) {
 		}
 		longSQL += " FROM stream"
 		err := ssql.Execute(longSQL)
-		// 应该能够处理长SQL语句
+		// It should be able to handle long SQL statements
 		_ = err
 	})
 
@@ -182,7 +182,7 @@ func TestStreamSQLEdgeCases(t *testing.T) {
 		err1 := ssql.Execute("SELECT id FROM stream")
 		require.Nil(t, err1)
 
-		// 第二次Execute应该失败，因为已经执行过了
+		// The second execute should fail because it has already been executed
 		err2 := ssql.Execute("SELECT name FROM stream")
 		require.Error(t, err2)
 		require.Contains(t, err2.Error(), "Execute() has already been called")
@@ -196,7 +196,7 @@ func TestStreamSQLEdgeCases(t *testing.T) {
 
 		ssql.Stop()
 
-		// 停止后再次Execute应该失败，因为已经执行过了
+		// After stopping, execute should fail again because it has already been executed
 		err = ssql.Execute("SELECT name FROM stream")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Execute() has already been called")
@@ -230,20 +230,20 @@ func TestStreamSQLEdgeCases(t *testing.T) {
 			done <- true
 		}()
 
-		// 等待两个goroutine完成
+		// Wait for both goroutines to complete
 		<-done
 		<-done
 
-		// 验证只有一个成功，一个失败
+		// Validation is only one success, one failure
 		assert.Equal(t, int32(1), atomic.LoadInt32(&successCount))
 		assert.Equal(t, int32(1), atomic.LoadInt32(&errorCount))
 
-		// 确保最终有一个有效的stream
+		// Make sure you end up with an effective stream
 		require.NotNil(t, ssql.Stream())
 	})
 }
 
-// TestStreamSQLNilHandling 测试nil值处理
+// TestStreamSQLNilHandling tests nil value processing
 func TestStreamSQLNilHandling(t *testing.T) {
 	t.Parallel()
 	t.Run("emit nil map", func(t *testing.T) {
@@ -252,7 +252,7 @@ func TestStreamSQLNilHandling(t *testing.T) {
 		err := ssql.Execute("SELECT id FROM stream")
 		require.Nil(t, err)
 
-		// 发送nil数据不应该panic
+		// Sending nil data should not be panicked
 		ssql.Emit(nil)
 		ssql.Stop()
 	})
@@ -263,7 +263,7 @@ func TestStreamSQLNilHandling(t *testing.T) {
 		err := ssql.Execute("SELECT id, name FROM stream")
 		require.Nil(t, err)
 
-		// 发送包含nil值的数据
+		// Send data containing the nil value
 		ssql.Emit(map[string]any{
 			"id":   1,
 			"name": nil,
@@ -279,13 +279,13 @@ func TestStreamSQLNilHandling(t *testing.T) {
 
 		// EmitSync with nil data
 		_, err = ssql.EmitSync(nil)
-		// 根据实现，这可能返回错误或处理nil值
+		// Depending on the implementation, this may return errors or handle nil values
 		_ = err
 		ssql.Stop()
 	})
 }
 
-// TestStreamSQLComplexQueries 测试复杂查询
+// TestStreamSQLComplexQueries tests complex queries
 func TestStreamSQLComplexQueries(t *testing.T) {
 	t.Parallel()
 	t.Run("query with multiple fields", func(t *testing.T) {
@@ -330,7 +330,7 @@ func TestStreamSQLComplexQueries(t *testing.T) {
 		ssql := streamsql.New()
 		defer ssql.Stop()
 		err := ssql.Execute("SELECT id, value FROM stream GROUP BY TumblingWindow('5s')")
-		// 根据实际实现，这可能成功或失败
+		// Depending on the actual implementation, this may succeed or fail
 		_ = err
 		if err == nil {
 			ssql.Stop()
@@ -338,7 +338,7 @@ func TestStreamSQLComplexQueries(t *testing.T) {
 	})
 }
 
-// TestStreamSQLDataTypes 测试不同数据类型
+// TestStreamSQLDataTypes tests different data types
 func TestStreamSQLDataTypes(t *testing.T) {
 	t.Parallel()
 	t.Run("string data types", func(t *testing.T) {
@@ -418,7 +418,7 @@ func TestStreamSQLDataTypes(t *testing.T) {
 	})
 }
 
-// TestStreamSQLStressTest 压力测试
+// TestStreamSQLStressTest Stress testing
 func TestStreamSQLStressTest(t *testing.T) {
 	t.Parallel()
 	t.Run("high frequency emissions", func(t *testing.T) {
@@ -427,7 +427,7 @@ func TestStreamSQLStressTest(t *testing.T) {
 		err := ssql.Execute("SELECT id FROM stream")
 		require.Nil(t, err)
 
-		// 高频率发送数据
+		// Data is transmitted at high frequencies
 		for i := 0; i < 1000; i++ {
 			ssql.Emit(map[string]any{"id": i})
 		}
@@ -440,7 +440,7 @@ func TestStreamSQLStressTest(t *testing.T) {
 		err := ssql.Execute("SELECT data FROM stream")
 		require.Nil(t, err)
 
-		// 发送大数据负载
+		// Send large data loads
 		largeString := make([]byte, 10*1024) // 10KB
 		for i := range largeString {
 			largeString[i] = byte('A' + (i % 26))

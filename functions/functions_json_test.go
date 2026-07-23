@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// 测试JSON函数
+// Test the JSON function
 func TestJsonFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -263,7 +263,7 @@ func TestJsonFunctions(t *testing.T) {
 	}
 }
 
-// TestJsonFunctionValidation 测试JSON函数参数验证
+// TestJsonFunctionValidation: Validates the JSON function parameters
 func TestJsonFunctionValidation(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -342,7 +342,7 @@ func TestJsonFunctionValidation(t *testing.T) {
 	}
 }
 
-// TestJsonFunctionCreation 测试JSON函数创建
+// TestJsonFunctionCreation TestJsonFunctionCreation Creates JSON functions
 func TestJsonFunctionCreation(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -422,7 +422,7 @@ func TestJsonFunctionCreation(t *testing.T) {
 	}
 }
 
-// 辅助函数：比较结果
+// Auxiliary function: Compare results
 func compareResults(a, b any) bool {
 	if a == nil && b == nil {
 		return true
@@ -431,7 +431,7 @@ func compareResults(a, b any) bool {
 		return false
 	}
 
-	// 对于map类型的特殊处理
+	// Special handling for map types
 	if mapA, okA := a.(map[string]any); okA {
 		if mapB, okB := b.(map[string]any); okB {
 			if len(mapA) != len(mapB) {
@@ -446,7 +446,7 @@ func compareResults(a, b any) bool {
 		}
 	}
 
-	// 对于slice类型的特殊处理
+	// Special handling for slice types
 	if sliceA, okA := a.([]any); okA {
 		if sliceB, okB := b.([]any); okB {
 			if len(sliceA) != len(sliceB) {

@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TestConditionalFunctions 测试条件函数的基本功能
+// TestConditionalFunctions Tests the basic functions of conditional functions
 func TestConditionalFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -50,7 +50,7 @@ func TestConditionalFunctions(t *testing.T) {
 			expected: 1,
 		},
 
-		// case_when 函数测试
+		// case_when Function testing
 		{
 			name:     "case_when simple",
 			funcName: "case_when",
@@ -104,7 +104,7 @@ func TestConditionalFunctions(t *testing.T) {
 	}
 }
 
-// TestConditionalFunctionValidation 测试条件函数的参数验证
+// TestConditionalFunctionValidation: Parameter validation of the test conditional function
 func TestConditionalFunctionValidation(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -214,7 +214,7 @@ func TestConditionalFunctionValidation(t *testing.T) {
 	}
 }
 
-// TestConditionalFunctionEdgeCases 测试条件函数的边界情况
+// TestConditionalFunctionEdgeCases tests the boundary status of the condition function
 func TestConditionalFunctionEdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// CDC 场景2：各设备的电流变化后超过阈值（lag 在 WHERE + OVER PARTITION BY）。
-// 预期输出 ts5(d1,current=500) 与 ts8(d2,current=600)。
+// CDC Scenario 2: After the current changes in each device, the threshold is exceeded (lag at WHERE + OVER PARTITION BY).
+// Expected outputs ts5(d1, current=500) and ts8(d2, current=600).
 func TestAnalytic_CDC_LagInWhere_PartitionBy(t *testing.T) {
 	ssql := streamsql.New()
 	err := ssql.Execute("SELECT current, deviceId, ts FROM stream WHERE current > 300 AND lag(current) OVER (PARTITION BY deviceId) < 300")
@@ -42,7 +42,7 @@ func TestAnalytic_CDC_LagInWhere_PartitionBy(t *testing.T) {
 	assert.Equal(t, 2, outputs[1]["deviceId"])
 }
 
-// lag 在 SELECT（无 OVER）：返回前一个值，首行 nil。
+// lag in SELECT (no OVER): Returns the previous value, first line nil.
 func TestAnalytic_LagInSelect(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT lag(temperature) AS prev_temp FROM stream"))
@@ -61,7 +61,7 @@ func TestAnalytic_LagInSelect(t *testing.T) {
 	assert.Equal(t, 25, r3["prev_temp"])
 }
 
-// had_changed 在 WHERE：只输出变化的行（首次视为变化。
+// had_changed In WHERE: only the line with the change is output (initially considered a change).
 func TestAnalytic_HadChangedInWhere(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT ts, temperature FROM stream WHERE had_changed(true, temperature) == true"))
@@ -87,7 +87,7 @@ func TestAnalytic_HadChangedInWhere(t *testing.T) {
 	assert.Equal(t, 5, outs[2]["ts"])
 }
 
-// latest：返回最新非空值，nil 不更新状态。
+// latest: Returns the latest non-null value; nil does not update the status.
 func TestAnalytic_Latest(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT latest(temperature) AS lt FROM stream"))
@@ -99,12 +99,12 @@ func TestAnalytic_Latest(t *testing.T) {
 	r2, _ := ssql.EmitSync(map[string]any{"temperature": 25})
 	assert.Equal(t, 25, r2["lt"])
 
-	// nil 不更新状态，仍返回上次非空值 25
+	// nil does not update the status and still returns the last non-null value of 25
 	r3, _ := ssql.EmitSync(map[string]any{"temperature": nil})
 	assert.Equal(t, 25, r3["lt"])
 }
 
-// lag 无 OVER + 普通字段混选。
+// Lag: No OVER + Regular field mixed selection.
 func TestAnalytic_LagWithPlainField(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT temperature, lag(temperature) AS prev FROM stream"))
@@ -119,7 +119,7 @@ func TestAnalytic_LagWithPlainField(t *testing.T) {
 	assert.Equal(t, 10, r2["prev"])
 }
 
-// acc_sum：规则生命周期内累积求和。
+// acc_sum: Accumulate summation over the rule's lifecycle.
 func TestAnalytic_AccSum(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT acc_sum(value) AS total FROM stream"))
@@ -133,7 +133,7 @@ func TestAnalytic_AccSum(t *testing.T) {
 	assert.Equal(t, 60.0, r3["total"])
 }
 
-// acc_avg：累积平均值。
+// acc_avg: Cumulative average.
 func TestAnalytic_AccAvg(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT acc_avg(value) AS avg_v FROM stream"))
@@ -145,7 +145,7 @@ func TestAnalytic_AccAvg(t *testing.T) {
 	assert.Equal(t, 20.0, r3["avg_v"]) // (10+20+30)/3
 }
 
-// acc_max / acc_count：累积极值与计数。
+// acc_max / acc_count: Cumulative positive values and counts.
 func TestAnalytic_AccMaxCount(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT acc_max(value) AS mx, acc_count(value) AS cnt FROM stream"))
@@ -158,7 +158,7 @@ func TestAnalytic_AccMaxCount(t *testing.T) {
 	assert.Equal(t, int64(3), r3["cnt"])
 }
 
-// changed_col：变化时返回新值，未变化返回 nil。
+// changed_col: Returns a new value when it changes; returns nil when it does not change.
 func TestAnalytic_ChangedCol(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT changed_col(true, temperature) AS chg FROM stream"))
@@ -174,24 +174,24 @@ func TestAnalytic_ChangedCol(t *testing.T) {
 	assert.Equal(t, 25, r3["chg"])
 }
 
-// lag OVER WHEN：满足条件才更新状态，否则复用上次结果。
+// lag OVER WHEN: Updates status only when conditions are met; otherwise, the previous result is reused.
 func TestAnalytic_LagWithWhen(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT lag(value) OVER (WHEN value > 20) AS prev FROM stream"))
 	defer ssql.Stop()
 
-	// value=10 不满足 WHEN → lag 状态不更新，prev=nil
+	// value=10 does not meet the WHEN → lag status not updated, prev=nil
 	r1, _ := ssql.EmitSync(map[string]any{"value": 10})
 	assert.Nil(t, r1["prev"])
-	// value=25 满足 → 状态更新，但无前一个有效值，prev=nil
+	// value=25 meets → status update, but no previous valid value, prev=nil
 	r2, _ := ssql.EmitSync(map[string]any{"value": 25})
 	assert.Nil(t, r2["prev"])
-	// value=30 满足 → prev=上一次有效值 25
+	// value=30 satisfies → prev=last RMS value 25
 	r3, _ := ssql.EmitSync(map[string]any{"value": 30})
 	assert.Equal(t, 25, r3["prev"])
 }
 
-// lag 多偏移：lag(value, 2) 返回前 2 个值。
+// lag Multiple offsets: lag(value, 2) returns the first 2 values.
 func TestAnalytic_LagOffset(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT lag(value, 2) AS prev2 FROM stream"))
@@ -206,8 +206,8 @@ func TestAnalytic_LagOffset(t *testing.T) {
 	assert.Equal(t, 20, r4["prev2"])
 }
 
-// CDC 场景1：整流变化后超过阈值（无 PARTITION 的 lag 在 WHERE）。
-// 预期输出 ts2(400)、ts4(500)。
+// CDC Scenario 1: After rectification changes, the threshold is exceeded (lag without PARTITION is WHERE in WHERE).
+// Expected output ts2 (400), ts4 (500).
 func TestAnalytic_CDC_LagInWhere_NoPartition(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT concurrency, ts FROM stream WHERE concurrency > 300 AND lag(concurrency) <= 300"))
@@ -232,7 +232,7 @@ func TestAnalytic_CDC_LagInWhere_NoPartition(t *testing.T) {
 	assert.Equal(t, 500, outs[1]["concurrency"])
 }
 
-// A1：OVER WHEN 含嵌套函数调用（CDC S2 状态时长的解析，之前 parseOverWhen 截断）。
+// A1: OVER WHEN includes nested function calls (CDC S2 state duration resolution, previously parseOverWhen truncated).
 func TestAnalytic_LagOverWhenNestedFunc(t *testing.T) {
 	ssql := streamsql.New()
 	err := ssql.Execute("SELECT lag(status) OVER (WHEN had_changed(true, status)) AS prev_status FROM stream")
@@ -241,7 +241,7 @@ func TestAnalytic_LagOverWhenNestedFunc(t *testing.T) {
 	ssql.EmitSync(map[string]any{"status": 1})
 }
 
-// A2：had_changed(ignoreNull=true) 遇 nil 不覆盖基准。
+// A2: had_changed(ignoreNull=true) If nil does not cover the benchmark.
 func TestAnalytic_HadChangedIgnoreNull(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT had_changed(true, temperature) AS chg FROM stream"))
@@ -250,11 +250,11 @@ func TestAnalytic_HadChangedIgnoreNull(t *testing.T) {
 	r1, _ := ssql.EmitSync(map[string]any{"temperature": 23})
 	assert.Equal(t, true, r1["chg"], "首次视为变化")
 
-	// nil 不触发变化、不更新基准（基准仍为 23）
+	// NIL does not trigger changes or update the baseline (the baseline remains at 23)
 	r2, _ := ssql.EmitSync(map[string]any{"temperature": nil})
 	assert.Equal(t, false, r2["chg"])
 
-	// 与基准 23 相等 → 未变化（A2 修复前因基准被 nil 污染而误报 true）
+	// Equal to baseline 23 → unchanged (A2 false report due to NIL contamination before remediation of A2)
 	r3, _ := ssql.EmitSync(map[string]any{"temperature": 23})
 	assert.Equal(t, false, r3["chg"], "nil 后基准保留 23，23==23 未变化")
 
@@ -262,7 +262,7 @@ func TestAnalytic_HadChangedIgnoreNull(t *testing.T) {
 	assert.Equal(t, true, r4["chg"])
 }
 
-// A3：lag 第 4 参数 ignoreNull，nil 值跳过不存入历史。
+// A3: lag 4th parameter ignoreNull, nil value skips and is not stored in history.
 func TestAnalytic_LagIgnoreNull(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT lag(value, 1, -1, true) AS lg FROM stream"))
@@ -271,15 +271,15 @@ func TestAnalytic_LagIgnoreNull(t *testing.T) {
 	r1, _ := ssql.EmitSync(map[string]any{"value": 10})
 	assert.Equal(t, -1.0, r1["lg"], "首次无前值返回 default=-1")
 
-	// nil 被 ignoreNull 跳过，不进历史
+	// nil was skipped by ignoreNull and doesn't go into history
 	ssql.EmitSync(map[string]any{"value": nil})
 
-	// 上一个有效值是 10
+	// The previous valid value was 10
 	r3, _ := ssql.EmitSync(map[string]any{"value": 30})
 	assert.Equal(t, 10, r3["lg"])
 }
 
-// A4：acc_count 计数非数字列。
+// A4: acc_count Count non-numeric columns.
 func TestAnalytic_AccCountNonNumeric(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT acc_count(name) AS cnt FROM stream"))
@@ -291,7 +291,7 @@ func TestAnalytic_AccCountNonNumeric(t *testing.T) {
 	assert.Equal(t, int64(3), r3["cnt"], "acc_count 应计数非数字表达式结果")
 }
 
-// B2：WHEN 满足→不满足→满足，不满足时复用上次结果。
+// B2: WHEN the condition is met→ if not, → is satisfied; if not, the previous result is reused.
 func TestAnalytic_WhenTransition(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute("SELECT lag(value) OVER (WHEN value > 20) AS prev FROM stream"))

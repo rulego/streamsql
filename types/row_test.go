@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-// TestRow 测试 Row 结构体的基本功能
+// TestRow tests the basic functions of the Row structure
 func TestRow(t *testing.T) {
 	testTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	testData := map[string]any{
@@ -40,17 +40,17 @@ func TestRow(t *testing.T) {
 		Slot:      testSlot,
 	}
 
-	// 测试 GetTimestamp 方法
+	// Test the GetTimestamp method
 	if !row.GetTimestamp().Equal(testTime) {
 		t.Errorf("Expected timestamp %v, got %v", testTime, row.GetTimestamp())
 	}
 
-	// 测试 Timestamp 字段
+	// Test the Timestamp field
 	if !row.Timestamp.Equal(testTime) {
 		t.Errorf("Expected timestamp %v, got %v", testTime, row.Timestamp)
 	}
 
-	// 测试 Data 字段
+	// Test the Data field
 	if row.Data == nil {
 		t.Error("Expected Data to be non-nil")
 	}
@@ -72,7 +72,7 @@ func TestRow(t *testing.T) {
 		t.Errorf("Expected status 'active', got %v", dataMap["status"])
 	}
 
-	// 测试 Slot 字段
+	// Test the Slot field
 	if row.Slot == nil {
 		t.Error("Expected Slot to be non-nil")
 	}
@@ -86,7 +86,7 @@ func TestRow(t *testing.T) {
 	}
 }
 
-// TestRowWithNilData 测试 Row 结构体处理 nil 数据的情况
+// TestRowWithNilData tests how the Row structure handles nil data
 func TestRowWithNilData(t *testing.T) {
 	testTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
@@ -96,27 +96,27 @@ func TestRowWithNilData(t *testing.T) {
 		Slot:      nil,
 	}
 
-	// 测试 GetTimestamp 方法仍然正常工作
+	// Testing the GetTimestamp method still works fine
 	if !row.GetTimestamp().Equal(testTime) {
 		t.Errorf("Expected timestamp %v, got %v", testTime, row.GetTimestamp())
 	}
 
-	// 测试 nil 数据
+	// Test NIL data
 	if row.Data != nil {
 		t.Error("Expected Data to be nil")
 	}
 
-	// 测试 nil slot
+	// Test Nil Slot
 	if row.Slot != nil {
 		t.Error("Expected Slot to be nil")
 	}
 }
 
-// TestRowWithDifferentDataTypes 测试 Row 结构体处理不同数据类型的情况
+// TestRowWithDifferentDataTypes The test row structure handles different data types
 func TestRowWithDifferentDataTypes(t *testing.T) {
 	testTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
-	// 测试字符串数据
+	// Test string data
 	rowString := &Row{
 		Timestamp: testTime,
 		Data:      "test string data",
@@ -126,7 +126,7 @@ func TestRowWithDifferentDataTypes(t *testing.T) {
 		t.Errorf("Expected string data 'test string data', got %v", rowString.Data)
 	}
 
-	// 测试数字数据
+	// Test the digital data
 	rowNumber := &Row{
 		Timestamp: testTime,
 		Data:      42,
@@ -136,7 +136,7 @@ func TestRowWithDifferentDataTypes(t *testing.T) {
 		t.Errorf("Expected number data 42, got %v", rowNumber.Data)
 	}
 
-	// 测试布尔数据
+	// Test Boolean data
 	rowBool := &Row{
 		Timestamp: testTime,
 		Data:      true,
@@ -146,7 +146,7 @@ func TestRowWithDifferentDataTypes(t *testing.T) {
 		t.Errorf("Expected boolean data true, got %v", rowBool.Data)
 	}
 
-	// 测试切片数据
+	// Test slicing data
 	sliceData := []string{"item1", "item2", "item3"}
 	rowSlice := &Row{
 		Timestamp: testTime,
@@ -167,7 +167,7 @@ func TestRowWithDifferentDataTypes(t *testing.T) {
 	}
 }
 
-// TestRowEventInterface 测试 Row 实现 RowEvent 接口
+// TestRowEventInterface Implements the RowEvent interface for testing rows
 func TestRowEventInterface(t *testing.T) {
 	testTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
@@ -176,7 +176,7 @@ func TestRowEventInterface(t *testing.T) {
 		Data:      "test data",
 	}
 
-	// 验证 Row 实现了 RowEvent 接口
+	// Verify that the row implements the RowEvent interface
 	var rowEvent RowEvent = row
 
 	if !rowEvent.GetTimestamp().Equal(testTime) {
@@ -184,7 +184,7 @@ func TestRowEventInterface(t *testing.T) {
 	}
 }
 
-// TestRowZeroTime 测试 Row 结构体处理零时间的情况
+// TestRowZeroTime Tests how the Row structure handles zero time
 func TestRowZeroTime(t *testing.T) {
 	zeroTime := time.Time{}
 
@@ -202,7 +202,7 @@ func TestRowZeroTime(t *testing.T) {
 	}
 }
 
-// TestRowConcurrentAccess 测试 Row 结构体的并发访问
+// TestRowConcurrentAccess Concurrent access to the test row structure
 func TestRowConcurrentAccess(t *testing.T) {
 	testTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
@@ -211,7 +211,7 @@ func TestRowConcurrentAccess(t *testing.T) {
 		Data:      "test data",
 	}
 
-	// 启动多个 goroutine 并发访问 GetTimestamp 方法
+	// Launch multiple goroutines to concurrently access the GetTimestamp method
 	done := make(chan bool, 10)
 	for i := 0; i < 10; i++ {
 		go func() {
@@ -225,7 +225,7 @@ func TestRowConcurrentAccess(t *testing.T) {
 		}()
 	}
 
-	// 等待所有 goroutine 完成
+	// Wait for all goroutines to complete
 	for i := 0; i < 10; i++ {
 		<-done
 	}

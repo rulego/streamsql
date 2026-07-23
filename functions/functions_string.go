@@ -123,7 +123,7 @@ func (f *LowerFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return strings.ToLower(str), nil
 }
 
-// TrimFunction 去除首尾空格函数
+// TrimFunction removes spaces at the beginning and end
 type TrimFunction struct {
 	*BaseFunction
 }
@@ -146,7 +146,7 @@ func (f *TrimFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return strings.TrimSpace(str), nil
 }
 
-// FormatFunction 格式化函数
+// FormatFunction formatting function
 type FormatFunction struct {
 	*BaseFunction
 }
@@ -164,20 +164,20 @@ func (f *FormatFunction) Validate(args []any) error {
 func (f *FormatFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	value := args[0]
 
-	// 如果只有一个参数，转换为字符串
+	// If there is only one parameter, convert it to a string
 	if len(args) == 1 {
 		return cast.ToStringE(value)
 	}
 
-	// 如果有格式参数
+	// If there are format parameters,
 	pattern, err := cast.ToStringE(args[1])
 	if err != nil {
 		return nil, err
 	}
 
-	// 处理数值格式化
+	// Handle numerical formatting
 	if val, err := cast.ToFloat64E(value); err == nil {
-		// 简单的数值格式化支持
+		// Simple numerical formatting support
 		switch pattern {
 		case "0":
 			return fmt.Sprintf("%.0f", val), nil
@@ -188,7 +188,7 @@ func (f *FormatFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 		case "0.000":
 			return fmt.Sprintf("%.3f", val), nil
 		default:
-			// 尝试解析精度参数
+			// Try to analyze the accuracy parameters
 			if strings.Contains(pattern, ".") {
 				precision := len(strings.Split(pattern, ".")[1])
 				return fmt.Sprintf("%."+fmt.Sprintf("%d", precision)+"f", val), nil
@@ -197,17 +197,17 @@ func (f *FormatFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 		}
 	}
 
-	// 字符串格式化
+	// String formatting
 	str, err := cast.ToStringE(value)
 	if err != nil {
 		return nil, err
 	}
 
-	// 如果有第三个参数（locale），这里简化处理
+	// If there is a third parameter (locale), this simplifies the handling here
 	return str, nil
 }
 
-// EndswithFunction 检查字符串是否以指定后缀结尾
+// EndswithFunction checks whether the string ends with a specified suffix
 type EndswithFunction struct {
 	*BaseFunction
 }
@@ -234,7 +234,7 @@ func (f *EndswithFunction) Execute(ctx *FunctionContext, args []any) (any, error
 	return strings.HasSuffix(str, suffix), nil
 }
 
-// StartswithFunction 检查字符串是否以指定前缀开始
+// StartswithFunction checks whether the string starts with a specified prefix
 type StartswithFunction struct {
 	*BaseFunction
 }
@@ -261,7 +261,7 @@ func (f *StartswithFunction) Execute(ctx *FunctionContext, args []any) (any, err
 	return strings.HasPrefix(str, prefix), nil
 }
 
-// IndexofFunction 返回子字符串在字符串中的位置
+// IndexofFunction returns the position of the substring within the string
 type IndexofFunction struct {
 	*BaseFunction
 }
@@ -288,7 +288,7 @@ func (f *IndexofFunction) Execute(ctx *FunctionContext, args []any) (any, error)
 	return int64(strings.Index(str, substr)), nil
 }
 
-// SubstringFunction 提取子字符串。
+// SubstringFunction extracts substrings.
 //
 // Dialect note: positions are 0-based and a negative start counts from the end
 // (Go style), which DEVIATES from ANSI SQL / MySQL / PostgreSQL where
@@ -359,7 +359,7 @@ func substringByRune(str string, start, length int64, hasLength bool) (string, e
 	return string(runes[start:end]), nil
 }
 
-// ReplaceFunction 替换字符串中的内容
+// ReplaceFunction replaces the contents of the string
 type ReplaceFunction struct {
 	*BaseFunction
 }
@@ -390,7 +390,7 @@ func (f *ReplaceFunction) Execute(ctx *FunctionContext, args []any) (any, error)
 	return strings.ReplaceAll(str, old, new), nil
 }
 
-// SplitFunction 按分隔符分割字符串
+// SplitFunction Splits strings by separator
 type SplitFunction struct {
 	*BaseFunction
 }
@@ -417,7 +417,7 @@ func (f *SplitFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return strings.Split(str, delimiter), nil
 }
 
-// LpadFunction 左填充字符串
+// LpadFunction left fills the string
 type LpadFunction struct {
 	*BaseFunction
 }
@@ -463,7 +463,7 @@ func (f *LpadFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return padStr[:padLen] + str, nil
 }
 
-// RpadFunction 右填充字符串
+// RpadFunction to fill the right string
 type RpadFunction struct {
 	*BaseFunction
 }
@@ -509,7 +509,7 @@ func (f *RpadFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return str + padStr[:padLen], nil
 }
 
-// LtrimFunction 去除左侧空白字符
+// LtrimFunction removes the whitespace characters on the left
 type LtrimFunction struct {
 	*BaseFunction
 }
@@ -534,7 +534,7 @@ func (f *LtrimFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	}), nil
 }
 
-// RtrimFunction 去除右侧空白字符
+// RtrimFunction removes the whitespace character on the right
 type RtrimFunction struct {
 	*BaseFunction
 }
@@ -559,7 +559,7 @@ func (f *RtrimFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	}), nil
 }
 
-// RegexpMatchesFunction 正则表达式匹配
+// RegexpMatchesFunction Regular expression matching
 type RegexpMatchesFunction struct {
 	*BaseFunction
 }
@@ -591,7 +591,7 @@ func (f *RegexpMatchesFunction) Execute(ctx *FunctionContext, args []any) (any, 
 	return matched, nil
 }
 
-// RegexpReplaceFunction 正则表达式替换
+// RegexpReplaceFunction replaces regular expressions
 type RegexpReplaceFunction struct {
 	*BaseFunction
 }
@@ -627,7 +627,7 @@ func (f *RegexpReplaceFunction) Execute(ctx *FunctionContext, args []any) (any, 
 	return re.ReplaceAllString(str, replacement), nil
 }
 
-// RegexpSubstringFunction 正则表达式提取子字符串
+// RegexpSubstringFunction Extracts substrings from regular expressions
 type RegexpSubstringFunction struct {
 	*BaseFunction
 }

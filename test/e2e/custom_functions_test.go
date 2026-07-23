@@ -18,12 +18,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// 本文件测试串行执行（不加 t.Parallel）：向全局 function registry 注册自定义函数，
-// 跨测试/跨文件存在重名注册（square/distance/get_type 等），并行会导致 "already registered" 冲突。
+// This file tests serial execution (without t.Parallel): registering a custom function in the global function registry,
+// There are duplicate registrations across tests/files (square/distance/get_type, etc.), and parallelism will cause "already registered" conflicts.
 
-// TestCustomMathFunctions 测试自定义数学函数
+// TestCustomMathFunctions Test custom math functions
 func TestCustomMathFunctions(t *testing.T) {
-	// 注册平方函数
+	// Register the square function
 	err := functions.RegisterCustomFunction(
 		"square",
 		functions.TypeMath,
@@ -38,7 +38,7 @@ func TestCustomMathFunctions(t *testing.T) {
 	assert.NoError(t, err)
 	defer functions.Unregister("square")
 
-	// 注册距离计算函数
+	// Register the distance calculation function
 	err = functions.RegisterCustomFunction(
 		"distance",
 		functions.TypeMath,
@@ -58,7 +58,7 @@ func TestCustomMathFunctions(t *testing.T) {
 	assert.NoError(t, err)
 	defer functions.Unregister("distance")
 
-	// 测试在SQL中使用
+	// Testing is used in SQL
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -74,30 +74,30 @@ func TestCustomMathFunctions(t *testing.T) {
 	err = ssql.Execute(sql)
 	assert.NoError(t, err)
 
-	// 创建结果接收通道
+	// Create a result receiving channel
 	resultChan := make(chan any, 10)
 	ssql.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
-	// 添加测试数据
+	// Add test data
 	testData := map[string]any{
 		"device": "sensor1",
 		"value":  5.0,
 		"x1":     0.0,
 		"y1":     0.0,
 		"x2":     3.0,
-		"y2":     4.0, // 距离应该是5
+		"y2":     4.0, // The distance should be 5
 	}
 
 	ssql.Emit(testData)
 
-	// 等待窗口触发
+	// Wait for the window to trigger
 	time.Sleep(1 * time.Second)
 	ssql.TriggerWindow()
 	time.Sleep(500 * time.Millisecond)
 
-	// 验证结果
+	// Verify the results
 	select {
 	case result := <-resultChan:
 		resultSlice, ok := result.([]map[string]any)
@@ -109,13 +109,13 @@ func TestCustomMathFunctions(t *testing.T) {
 		assert.Equal(t, 25.0, item["squared_value"])      // 5^2 = 25
 		assert.Equal(t, 5.0, item["calculated_distance"]) // sqrt((3-0)^2 + (4-0)^2) = 5
 	case <-time.After(2 * time.Second):
-		t.Fatal("测试超时")
+		t.Fatal("Test timeout")
 	}
 }
 
-// TestCustomStringFunctions 测试自定义字符串函数
+// TestCustomStringFunctions Tests custom string functions
 func TestCustomStringFunctions(t *testing.T) {
-	// 注册字符串反转函数
+	// Register the string invert function
 	err := functions.RegisterCustomFunction(
 		"reverse_str",
 		functions.TypeString,
@@ -136,7 +136,7 @@ func TestCustomStringFunctions(t *testing.T) {
 	assert.NoError(t, err)
 	defer functions.Unregister("reverse_str")
 
-	// 注册JSON提取函数
+	// Register the JSON extraction function
 	err = functions.RegisterCustomFunction(
 		"json_get",
 		functions.TypeString,
@@ -164,7 +164,7 @@ func TestCustomStringFunctions(t *testing.T) {
 	assert.NoError(t, err)
 	defer functions.Unregister("json_get")
 
-	// 测试在SQL中使用
+	// Testing is used in SQL
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -179,13 +179,13 @@ func TestCustomStringFunctions(t *testing.T) {
 	err = ssql.Execute(sql)
 	assert.NoError(t, err)
 
-	// 创建结果接收通道
+	// Create a result receiving channel
 	resultChan := make(chan any, 10)
 	ssql.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
-	// 添加测试数据
+	// Add test data
 	testData := map[string]any{
 		"device":   "sensor1",
 		"metadata": `{"version":"1.0","type":"temperature"}`,
@@ -194,7 +194,7 @@ func TestCustomStringFunctions(t *testing.T) {
 	ssql.Emit(testData)
 	time.Sleep(200 * time.Millisecond)
 
-	// 验证结果
+	// Verify the results
 	select {
 	case result := <-resultChan:
 		resultSlice, ok := result.([]map[string]any)
@@ -203,16 +203,16 @@ func TestCustomStringFunctions(t *testing.T) {
 
 		item := resultSlice[0]
 		assert.Equal(t, "sensor1", item["device"])
-		assert.Equal(t, "1rosnes", item["reversed_device"]) // "sensor1" 反转
+		assert.Equal(t, "1rosnes", item["reversed_device"]) // "sensor1" reverses
 		assert.Equal(t, "1.0", item["version"])
 	case <-time.After(2 * time.Second):
-		t.Fatal("测试超时")
+		t.Fatal("Test timeout")
 	}
 }
 
-// TestCustomConversionFunctions 测试自定义转换函数
+// TestCustomConversionFunctions Test the custom conversion function
 func TestCustomConversionFunctions(t *testing.T) {
-	// 注册IP地址转换函数
+	// Register the IP address translation function
 	err := functions.RegisterCustomFunction(
 		"ip_to_num",
 		functions.TypeConversion,
@@ -238,7 +238,7 @@ func TestCustomConversionFunctions(t *testing.T) {
 	assert.NoError(t, err)
 	defer functions.Unregister("ip_to_num")
 
-	// 注册字节大小格式化函数
+	// Register byte size formatting function
 	err = functions.RegisterCustomFunction(
 		"format_bytes",
 		functions.TypeConversion,
@@ -261,10 +261,10 @@ func TestCustomConversionFunctions(t *testing.T) {
 	assert.NoError(t, err)
 	defer functions.Unregister("format_bytes")
 
-	// 测试函数直接调用
+	// The test function is called directly
 	ctx := &functions.FunctionContext{Data: make(map[string]any)}
 
-	// 测试IP转换
+	// Testing IP conversion
 	ipFunc, exists := functions.Get("ip_to_num")
 	assert.True(t, exists)
 
@@ -273,7 +273,7 @@ func TestCustomConversionFunctions(t *testing.T) {
 	expectedIP := int64(192)<<24 + int64(168)<<16 + int64(1)<<8 + int64(100)
 	assert.Equal(t, expectedIP, result)
 
-	// 测试字节格式化
+	// Test byte formatting
 	bytesFunc, exists := functions.Get("format_bytes")
 	assert.True(t, exists)
 
@@ -282,23 +282,23 @@ func TestCustomConversionFunctions(t *testing.T) {
 	assert.Equal(t, "1.00 GB", result)
 }
 
-// TestCustomAggregateFunctions 测试自定义聚合函数
+// TestCustomAggregateFunctions Test custom aggregate functions
 func TestCustomAggregateFunctions(t *testing.T) {
-	// 注册几何平均数聚合函数
+	// Register the geometric mean aggregation function
 	functions.Register(NewGeometricMeanFunction())
 	aggregator.Register("geometric_mean", func() aggregator.AggregatorFunction {
 		return &GeometricMeanAggregator{}
 	})
 	defer functions.Unregister("geometric_mean")
 
-	// 注册众数聚合函数
+	// Register the mode aggregation function
 	functions.Register(NewModeFunction())
 	aggregator.Register("mode_value", func() aggregator.AggregatorFunction {
 		return &ModeAggregator{}
 	})
 	defer functions.Unregister("mode_value")
 
-	// 测试在SQL中使用
+	// Testing is used in SQL
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -314,13 +314,13 @@ func TestCustomAggregateFunctions(t *testing.T) {
 	err := ssql.Execute(sql)
 	assert.NoError(t, err)
 
-	// 创建结果接收通道
+	// Create a result receiving channel
 	resultChan := make(chan any, 10)
 	ssql.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
 		{"device": "sensor1", "value": 2.0, "category": "A"},
 		{"device": "sensor1", "value": 8.0, "category": "A"},
@@ -336,7 +336,7 @@ func TestCustomAggregateFunctions(t *testing.T) {
 	ssql.TriggerWindow()
 	time.Sleep(500 * time.Millisecond)
 
-	// 验证结果
+	// Verify the results
 	select {
 	case result := <-resultChan:
 		resultSlice, ok := result.([]map[string]any)
@@ -346,21 +346,21 @@ func TestCustomAggregateFunctions(t *testing.T) {
 		item := resultSlice[0]
 		assert.Equal(t, "sensor1", item["device"])
 
-		// 几何平均数: (2 * 8 * 32 * 128) ^ (1/4) = 16
+		// Geometric mean: (2 * 8 * 32 * 128) ^ (1/4) = 16
 		geoMean, ok := item["geo_mean"].(float64)
 		assert.True(t, ok)
 		assert.InEpsilon(t, 16.0, geoMean, 0.01)
 
-		// 众数: A出现3次，B出现1次，所以众数是A
+		// Mode: A appears 3 times, B appears 1 time, so the mode is A
 		mode := item["most_common"]
 		assert.Equal(t, "A", mode)
 
 	case <-time.After(3 * time.Second):
-		t.Fatal("测试超时")
+		t.Fatal("Test timeout")
 	}
 }
 
-// GeometricMeanFunction 几何平均数函数
+// GeometricMeanFunction Geometric mean function
 type GeometricMeanFunction struct {
 	*functions.BaseFunction
 }
@@ -382,10 +382,10 @@ func (f *GeometricMeanFunction) Validate(args []any) error {
 }
 
 func (f *GeometricMeanFunction) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
-	return nil, nil // 实际逻辑在聚合器中
+	return nil, nil // The actual logic is in the aggregator
 }
 
-// GeometricMeanAggregator 几何平均数聚合器
+// GeometricMeanAggregator: Geometric mean aggregator
 type GeometricMeanAggregator struct {
 	values []float64
 }
@@ -413,7 +413,7 @@ func (g *GeometricMeanAggregator) Result() any {
 	return math.Pow(product, 1.0/float64(len(g.values)))
 }
 
-// ModeFunction 众数函数
+// ModeFunction mode function
 type ModeFunction struct {
 	*functions.BaseFunction
 }
@@ -435,10 +435,10 @@ func (f *ModeFunction) Validate(args []any) error {
 }
 
 func (f *ModeFunction) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
-	return nil, nil // 实际逻辑在聚合器中
+	return nil, nil // The actual logic is in the aggregator
 }
 
-// ModeAggregator 众数聚合器
+// ModeAggregator
 type ModeAggregator struct {
 	counts map[string]int
 }
@@ -470,9 +470,9 @@ func (m *ModeAggregator) Result() any {
 	return mode
 }
 
-// TestFunctionManagement 测试函数管理功能
+// TestFunctionManagement is a test function management feature
 func TestFunctionManagement(t *testing.T) {
-	// 注册测试函数
+	// Register the test function
 	err := functions.RegisterCustomFunction(
 		"test_func",
 		functions.TypeCustom,
@@ -485,17 +485,17 @@ func TestFunctionManagement(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
-	// 测试函数查找
+	// Test function search
 	fn, exists := functions.Get("test_func")
 	assert.True(t, exists)
 	assert.Equal(t, "test_func", fn.GetName())
 	assert.Equal(t, functions.TypeCustom, fn.GetType())
 
-	// 测试函数列表
+	// Test the function list
 	allFunctions := functions.ListAll()
 	assert.Contains(t, allFunctions, "test_func")
 
-	// 测试按类型获取
+	// Tests are obtained by type
 	customFunctions := functions.GetByType(functions.TypeCustom)
 	found := false
 	for _, f := range customFunctions {
@@ -506,18 +506,18 @@ func TestFunctionManagement(t *testing.T) {
 	}
 	assert.True(t, found)
 
-	// 测试函数注销
+	// Test function logout
 	success := functions.Unregister("test_func")
 	assert.True(t, success)
 
-	// 验证函数已被注销
+	// The validation function has been logged off
 	_, exists = functions.Get("test_func")
 	assert.False(t, exists)
 }
 
-// TestCustomFunctionWithAggregation 测试自定义函数与聚合函数结合使用
+// TestCustomFunctionWithAggregation Test custom functions are used together with aggregation functions
 func TestCustomFunctionWithAggregation(t *testing.T) {
-	// 注册温度转换函数
+	// Register the temperature conversion function
 	err := functions.RegisterCustomFunction(
 		"celsius_to_fahrenheit",
 		functions.TypeConversion,
@@ -533,7 +533,7 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 	assert.NoError(t, err)
 	defer functions.Unregister("celsius_to_fahrenheit")
 
-	// 测试在聚合SQL中使用
+	// Testing is used in aggregated SQL
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -549,13 +549,13 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 	err = ssql.Execute(sql)
 	assert.NoError(t, err)
 
-	// 创建结果接收通道
+	// Create a result receiving channel
 	resultChan := make(chan any, 10)
 	ssql.AddSink(func(result []map[string]any) {
 		resultChan <- result
 	})
 
-	// 添加测试数据（摄氏度）
+	// Add test data (Celsius)
 	testData := []map[string]any{
 		{"device": "thermometer", "temperature": 0.0},   // 32°F
 		{"device": "thermometer", "temperature": 100.0}, // 212°F
@@ -569,7 +569,7 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 	ssql.TriggerWindow()
 	time.Sleep(500 * time.Millisecond)
 
-	// 验证结果
+	// Verify the results
 	select {
 	case result := <-resultChan:
 		resultSlice, ok := result.([]map[string]any)
@@ -579,24 +579,24 @@ func TestCustomFunctionWithAggregation(t *testing.T) {
 		item := resultSlice[0]
 		assert.Equal(t, "thermometer", item["device"])
 
-		// 平均华氏度: (32 + 212) / 2 = 122
+		// Average Fahrenheit: (32 + 212) / 2 = 122
 		avgFahrenheit, ok := item["avg_fahrenheit"].(float64)
 		assert.True(t, ok)
 		assert.InEpsilon(t, 122.0, avgFahrenheit, 0.01)
 
-		// 最大华氏度: 212
+		// Maximum Fahrenheit: 212
 		maxFahrenheit, ok := item["max_fahrenheit"].(float64)
 		assert.True(t, ok)
 		assert.InEpsilon(t, 212.0, maxFahrenheit, 0.01)
 
 	case <-time.After(3 * time.Second):
-		t.Fatal("测试超时")
+		t.Fatal("Test timeout")
 	}
 }
 
-// TestDebugCustomFunctions 调试自定义函数问题
+// TestDebugCustomFunctions Debugging custom function issues
 func TestDebugCustomFunctions(t *testing.T) {
-	// 注册简单的平方函数
+	// Register simple square functions
 	err := functions.RegisterCustomFunction(
 		"square",
 		functions.TypeMath,
@@ -612,27 +612,27 @@ func TestDebugCustomFunctions(t *testing.T) {
 	assert.NoError(t, err)
 	defer functions.Unregister("square")
 
-	// 测试函数是否能被找到
+	// Test whether the function can be found
 	fn, exists := functions.Get("square")
 	assert.True(t, exists)
 	fmt.Printf("Function found: %s, type: %s\n", fn.GetName(), fn.GetType())
 
-	// 测试表达式解析
+	// Test expression analysis
 	expr, err := expr.NewExpression("square(value)")
 	assert.NoError(t, err)
 
-	// 获取表达式字段
+	// Get the expression field
 	fields := expr.GetFields()
 	fmt.Printf("Expression fields: %v\n", fields)
 
-	// 测试表达式计算
+	// Test expression calculation
 	data := map[string]any{"value": 5.0}
 	result, err := expr.Evaluate(data)
 	assert.NoError(t, err)
 	fmt.Printf("Expression result: %v\n", result)
 	assert.Equal(t, 25.0, result)
 
-	// 测试SQL解析
+	// Test SQL parsing
 	parser := rsql.NewParser("SELECT square(value) as squared FROM stream")
 	stmt, err := parser.Parse()
 	assert.NoError(t, err)
@@ -641,9 +641,9 @@ func TestDebugCustomFunctions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestDebugMultiParameterFunction 测试多参数自定义函数
+// TestDebugMultiParameterFunction is a custom multi-parameter test
 func TestDebugMultiParameterFunction(t *testing.T) {
-	// 注册距离计算函数
+	// Register the distance calculation function
 	err := functions.RegisterCustomFunction(
 		"distance",
 		functions.TypeMath,
@@ -664,11 +664,11 @@ func TestDebugMultiParameterFunction(t *testing.T) {
 	assert.NoError(t, err)
 	defer functions.Unregister("distance")
 
-	// 测试表达式解析
+	// Test expression analysis
 	expr, err := expr.NewExpression("distance(x1, y1, x2, y2)")
 	assert.NoError(t, err)
 
-	// 测试表达式计算
+	// Test expression calculation
 	data := map[string]any{
 		"x1": 0.0,
 		"y1": 0.0,
@@ -679,7 +679,7 @@ func TestDebugMultiParameterFunction(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 5.0, result)
 
-	// 测试SQL解析
+	// Test SQL parsing
 	parser := rsql.NewParser("SELECT AVG(distance(x1, y1, x2, y2)) as avg_distance FROM stream GROUP BY device, TumblingWindow('1s')")
 	stmt, err := parser.Parse()
 	assert.NoError(t, err)

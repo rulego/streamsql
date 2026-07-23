@@ -1,135 +1,135 @@
-# 函数验证功能
+# Function validation function
 
-## 概述
+## Overview
 
-StreamSQL 现在支持在解析阶段对函数进行验证，能够检测并报告未知函数的使用，提供更好的错误处理和用户体验。
+StreamSQL Now supports function validation during the parsing phase, detecting and reporting unknown function usage, providing better error handling and user experience.
 
-## 功能特性
+## Functional Features
 
-### 1. 函数存在性检查
+### 1. Function existence check
 
-在 SQL 解析过程中，系统会自动验证以下位置的函数调用：
-- SELECT 子句中的函数
-- WHERE 子句中的函数
-- HAVING 子句中的函数
+During SQL parsing, the system automatically validates function calls at the following locations:
+- SELECT Functions in clauses
+- WHERE Functions in clauses
+- HAVING Functions in clauses
 
-### 2. 支持的函数类型
+### 2. Supported function types
 
-验证器能够识别以下类型的函数：
-- **内置数学函数**: `abs`, `sqrt`, `sin`, `cos`, `tan`, `floor`, `ceil`, `round`, `log`, `log10`, `exp`, `pow`, `mod`
-- **注册的自定义函数**: 通过 `functions.Register()` 注册的函数
-- **expr-lang 函数**: 通过 expr-lang 桥接的函数
+Validators can recognize the following types of functions:
+- **Built-in mathematical functions**: `abs`, `sqrt`, `sin`, `cos`, `tan`, `floor`, `ceil`, `round`, `log`, `log10`, `exp`, `pow`, `mod`
+- **Registered Custom Function**: Function registered via `functions.Register()`
+- **expr-lang Function**: Functions bridged via expr-lang
 
-### 3. 错误类型
+### 3. Error types
 
-新增了专门的错误类型 `ErrorTypeUnknownFunction` 来标识未知函数错误。
+A dedicated error type `ErrorTypeUnknownFunction` has been added to identify unknown function errors.
 
-### 4. 智能建议
+### 4. Smart suggestions
 
-当检测到未知函数时，系统会提供有用的建议：
-- 常见拼写错误的纠正建议
-- 函数注册和使用的通用指导
+When an unknown function is detected, the system provides useful suggestions:
+- Suggestions for correcting common spelling mistakes
+- General guidance for function registration and usage
 
-## 使用示例
+## Usage Examples
 
-### 正确的函数使用
+### Correct Use of Functions
 
 ```go
-// 内置函数
+// Built-in functions
 ssql := streamsql.New()
 err := ssql.Execute("SELECT abs(temperature) FROM stream")
 // err == nil
 
-// 嵌套函数
+// Nested functions
 err = ssql.Execute("SELECT sqrt(abs(temperature)) FROM stream")
 // err == nil
 ```
 
-### 未知函数错误
+### Unknown function error
 
 ```go
 ssql := streamsql.New()
 err := ssql.Execute("SELECT unknown_func(temperature) FROM stream")
 // err != nil
-// err.Error() 包含 "Unknown function 'unknown_func'"
+// err.Error() contains "Unknown function 'unknown_func'"
 ```
 
-### 自定义函数注册
+### Custom function registration
 
 ```go
-// 注册自定义函数
+// Register custom functions
 functions.Register("custom_func", func(args ...interface{}) (interface{}, error) {
-    // 函数实现
+    // Function implementation
     return args[0], nil
 })
 
-// 现在可以使用自定义函数
+// Custom functions can now be used
 ssql := streamsql.New()
 err := ssql.Execute("SELECT custom_func(temperature) FROM stream")
 // err == nil
 ```
 
-## 错误处理
+## Error Handling
 
-### 错误信息格式
+### Error message format
 
-未知函数错误包含以下信息：
-- 错误类型: `ErrorTypeUnknownFunction`
-- 错误消息: 包含具体的未知函数名
-- 位置信息: 函数在 SQL 中的位置
-- 建议: 可能的解决方案
+Unknown function errors contain the following information:
+- Error type: `ErrorTypeUnknownFunction`
+- Error message: Contains the specific unknown function name
+- Position information: The position of the function in SQL
+- Suggestion: Possible solutions
 
-### 错误恢复
+### Error recovery
 
-函数验证错误是可恢复的，解析器会继续处理其他部分的 SQL，收集所有可能的错误。
+Function validation errors are recoverable, and the parser continues to process SQL in other parts, collecting all possible errors.
 
-## 实现细节
+## Implementation details
 
-### 核心组件
+### Core Components
 
-1. **FunctionValidator**: 主要的函数验证器
-   - `ValidateExpression()`: 验证表达式中的函数
-   - `extractFunctionCalls()`: 提取函数调用
-   - `isBuiltinFunction()`: 检查内置函数
-   - `isKeyword()`: 过滤 SQL 关键字
+1. **FunctionValidator**: The main function validator
+   - `ValidateExpression()`: Verify functions in the expression
+   - `extractFunctionCalls()`: Extract function calls
+   - `isBuiltinFunction()`: Check the built-in functions
+   - `isKeyword()`: Filter SQL keywords
 
-2. **错误类型扩展**:
-   - `ErrorTypeUnknownFunction`: 新的错误类型
-   - `CreateUnknownFunctionError()`: 创建未知函数错误
-   - `generateFunctionSuggestions()`: 生成建议
+2. **Error Type Extension**:
+   - `ErrorTypeUnknownFunction`: New error type
+   - `CreateUnknownFunctionError()`: Creates an unknown function error
+   - `generateFunctionSuggestions()`: Generate suggestions
 
-3. **解析器集成**:
-   - 在 `parseSelect()` 中验证 SELECT 字段
-   - 在 `parseWhere()` 中验证 WHERE 条件
-   - 在 `parseHaving()` 中验证 HAVING 条件
+3. **Parser Integration**:
+   - Validate the SELECT field in the `parseSelect()`
+   - Verify WHERE conditions in `parseWhere()`
+   - Verify HAVING conditions in `parseHaving()`
 
-### 正则表达式模式
+### Regular Expression Pattern
 
-函数调用检测使用正则表达式 `([a-zA-Z_][a-zA-Z0-9_]*)\s*\(` 来匹配：
-- 以字母或下划线开头的标识符
-- 后跟可选的空白字符
-- 然后是左括号
+Function call detection uses regular expressions `([a-zA-Z_][a-zA-Z0-9_]*)\s*\(` to match:
+- Identifiers starting with letters or underscores
+- Optional whitespace characters followed by the option
+- Then the left parenthesis
 
-### 关键字过滤
+### Keyword Filtering
 
-验证器会过滤掉 SQL 关键字，避免将 `CASE(...)` 或 `WHEN(...)` 误识别为函数调用。
+The validator filters out SQL keywords to prevent `CASE(.)` or `WHEN(.)` from being mistakenly identified as function calls.
 
-## 配置选项
+## Configuration options
 
-目前函数验证是默认启用的，无需额外配置。未来可能会添加以下配置选项：
-- 禁用函数验证
-- 自定义验证规则
-- 扩展内置函数列表
+Currently, function validation is enabled by default and requires no additional configuration. The following configuration options may be added in the future:
+- Disable function validation
+- Custom validation rules
+- Expand the built-in function list
 
-## 性能考虑
+## Performance considerations
 
-- 函数验证在解析阶段进行，不影响运行时性能
-- 正则表达式匹配针对表达式长度进行了优化
-- 错误收集使用高效的数据结构
+- Function verification is performed during the parsing phase and does not affect runtime performance
+- Regular expression matching has been optimized for expression length
+- Error collection using efficient data structures
 
-## 测试覆盖
+## Test coverage
 
-功能包含完整的测试覆盖：
-- 单元测试: `function_validator_test.go`
-- 集成测试: `streamsql_validation_test.go`
-- 错误处理测试: `error_test.go` 中的相关用例
+Features include comprehensive testing coverage:
+- Unit Test: `function_validator_test.go`
+- Integration Testing: `streamsql_validation_test.go`
+- Error handling testing: Relevant use cases in `error_test.go`

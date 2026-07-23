@@ -9,7 +9,7 @@ func TestUnnestFunction(t *testing.T) {
 	fn := NewUnnestFunction()
 	ctx := &FunctionContext{}
 
-	// 测试基本unnest功能
+	// Test basic unnest functionality
 	args := []any{[]any{"a", "b", "c"}}
 	result, err := fn.Execute(ctx, args)
 	if err != nil {
@@ -33,7 +33,7 @@ func TestUnnestFunction(t *testing.T) {
 		t.Errorf("UnnestFunction = %v, want %v", result, expected)
 	}
 
-	// 测试对象数组unnest
+	// The array of test objects is unnest
 	args = []any{
 		[]any{
 			map[string]any{"name": "Alice", "age": 25},
@@ -58,13 +58,13 @@ func TestUnnestFunction(t *testing.T) {
 		t.Errorf("UnnestFunction = %v, want %v", result, expected)
 	}
 
-	// 测试空数组
+	// Test the empty array
 	args = []any{[]any{}}
 	result, err = fn.Execute(ctx, args)
 	if err != nil {
 		t.Errorf("UnnestFunction should not return error for empty array: %v", err)
 	}
-	// 空数组应该返回带有空标记的结果
+	// An empty array should return results with an empty flag
 	expectedEmpty := []any{
 		map[string]any{
 			"__unnest_object__": true,
@@ -75,13 +75,13 @@ func TestUnnestFunction(t *testing.T) {
 		t.Errorf("UnnestFunction empty array = %v, want %v", result, expectedEmpty)
 	}
 
-	// 测试nil参数
+	// Test the nil parameters
 	args = []any{nil}
 	result, err = fn.Execute(ctx, args)
 	if err != nil {
 		t.Errorf("UnnestFunction should not return error for nil: %v", err)
 	}
-	// nil应该返回带有空标记的结果
+	// nil should return results with an empty marker
 	expectedNil := []any{
 		map[string]any{
 			"__unnest_object__": true,
@@ -92,21 +92,21 @@ func TestUnnestFunction(t *testing.T) {
 		t.Errorf("UnnestFunction nil = %v, want %v", result, expectedNil)
 	}
 
-	// 测试错误参数数量
+	// Test the number of error parameters
 	args = []any{}
 	err = fn.Validate(args)
 	if err == nil {
 		t.Errorf("UnnestFunction should return error for no arguments")
 	}
 
-	// 测试非数组参数
+	// Test non-array parameters
 	args = []any{"not an array"}
 	_, err = fn.Execute(ctx, args)
 	if err == nil {
 		t.Errorf("UnnestFunction should return error for non-array argument")
 	}
 
-	// 测试数组类型
+	// Test array types
 	args = []any{[3]string{"x", "y", "z"}}
 	result, err = fn.Execute(ctx, args)
 	if err != nil {
@@ -131,7 +131,7 @@ func TestUnnestFunction(t *testing.T) {
 	}
 }
 
-// TestUnnestFunctionCreation 测试UnnestFunction创建
+// TestUnnestFunctionCreation Tests UnnestFunction creation
 func TestUnnestFunctionCreation(t *testing.T) {
 	fn := NewUnnestFunction()
 	if fn == nil {
@@ -172,13 +172,13 @@ func TestUnnestFunctionCreation(t *testing.T) {
 }
 
 func TestIsUnnestResult(t *testing.T) {
-	// 测试非unnest结果
+	// Test for non-unnest results
 	normalSlice := []any{"a", "b", "c"}
 	if IsUnnestResult(normalSlice) {
 		t.Errorf("IsUnnestResult should return false for normal slice")
 	}
 
-	// 测试unnest结果
+	// Test the unnest results
 	unnestSlice := []any{
 		map[string]any{
 			"__unnest_object__": true,
@@ -192,7 +192,7 @@ func TestIsUnnestResult(t *testing.T) {
 		t.Errorf("IsUnnestResult should return true for unnest slice")
 	}
 
-	// 测试混合结果
+	// Test mixed results
 	mixedSlice := []any{
 		"normal",
 		map[string]any{
@@ -207,14 +207,14 @@ func TestIsUnnestResult(t *testing.T) {
 		t.Errorf("IsUnnestResult should return true for mixed slice")
 	}
 
-	// 测试非切片类型
+	// Test non-slice types
 	if IsUnnestResult("not a slice") {
 		t.Errorf("IsUnnestResult should return false for non-slice")
 	}
 }
 
 func TestProcessUnnestResult(t *testing.T) {
-	// 测试处理普通数组
+	// Test processing of ordinary arrays
 	normalSlice := []any{"a", "b", "c"}
 	result := ProcessUnnestResult(normalSlice)
 	expected := []map[string]any{
@@ -226,7 +226,7 @@ func TestProcessUnnestResult(t *testing.T) {
 		t.Errorf("ProcessUnnestResult normal slice = %v, want %v", result, expected)
 	}
 
-	// 测试处理对象数组
+	// Test the array of processed objects
 	objectSlice := []any{
 		map[string]any{
 			"__unnest_object__": true,
@@ -252,7 +252,7 @@ func TestProcessUnnestResult(t *testing.T) {
 		t.Errorf("ProcessUnnestResult object slice = %v, want %v", result, expected)
 	}
 
-	// 测试混合数组
+	// Test mixed arrays
 	mixedSlice := []any{
 		"normal",
 		map[string]any{
@@ -274,7 +274,7 @@ func TestProcessUnnestResult(t *testing.T) {
 		t.Errorf("ProcessUnnestResult mixed slice = %v, want %v", result, expected)
 	}
 
-	// 测试非切片类型
+	// Test non-slice types
 	result = ProcessUnnestResult("not a slice")
 	if result != nil {
 		t.Errorf("ProcessUnnestResult should return nil for non-slice")

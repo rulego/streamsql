@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestEvaluateNode 测试节点求值功能
+// TestEvaluateNode is a test node evaluation feature
 func TestEvaluateNode(t *testing.T) {
 	data := map[string]any{
 		"a":    10.0,
@@ -115,7 +115,7 @@ func TestEvaluateNode(t *testing.T) {
 			15.0,
 			false,
 		},
-		// 错误情况
+		// Error case
 		{"不存在的字段", &ExprNode{Type: TypeField, Value: "unknown"}, 0, true},
 		{"除零错误", &ExprNode{
 			Type:  TypeOperator,
@@ -144,7 +144,7 @@ func TestEvaluateNode(t *testing.T) {
 	}
 }
 
-// TestEvaluateNodeWithNull 测试支持NULL值的节点求值
+// TestEvaluateNodeWithNull tests support node evaluation of NULL values
 func TestEvaluateNodeWithNull(t *testing.T) {
 	data := map[string]any{
 		"a":            10.0,
@@ -298,7 +298,7 @@ func TestEvaluateNodeWithNull(t *testing.T) {
 			false,
 			false,
 		},
-		// 错误情况
+		// Error case
 		{
 			"无效数字",
 			&ExprNode{Type: TypeNumber, Value: "invalid"},
@@ -360,7 +360,7 @@ func TestEvaluateNodeWithNull(t *testing.T) {
 	}
 }
 
-// TestEvaluateIsOperator 测试IS运算符
+// TestEvaluateIsOperator tests the IS operator
 func TestEvaluateIsOperator(t *testing.T) {
 	data := map[string]any{
 		"a":    10.0,
@@ -474,7 +474,7 @@ func TestEvaluateIsOperator(t *testing.T) {
 			true,
 			false,
 		},
-		// 错误情况
+		// Error case
 		{
 			"缺少右操作数",
 			&ExprNode{
@@ -512,7 +512,7 @@ func TestEvaluateIsOperator(t *testing.T) {
 	}
 }
 
-// TestEvaluateBoolFunction 测试布尔函数求值
+// TestEvaluateBoolFunction to evaluate the Boolean function
 func TestEvaluateBoolFunction(t *testing.T) {
 	data := map[string]any{}
 
@@ -542,7 +542,7 @@ func TestEvaluateBoolFunction(t *testing.T) {
 			false,
 			false,
 		},
-		// 错误情况
+		// Error case
 		{
 			"未知函数",
 			&ExprNode{
@@ -568,7 +568,7 @@ func TestEvaluateBoolFunction(t *testing.T) {
 	}
 }
 
-// TestEvaluateFieldNode 测试字段节点求值
+// TestEvaluateFieldNode Evaluates the field node
 func TestEvaluateFieldNode(t *testing.T) {
 	data := map[string]any{
 		"int_field":    42,
@@ -586,7 +586,7 @@ func TestEvaluateFieldNode(t *testing.T) {
 	}{
 		{"整数字段", "int_field", 42.0, false},
 		{"浮点数字段", "float_field", 3.14, false},
-		{"字符串字段（数字）", "string_field", 0, true}, // 字符串"hello"无法转换为数字
+		{"字符串字段（数字）", "string_field", 0, true}, // The string "hello" cannot be converted to numbers
 		{"布尔字段", "bool_field", 1.0, false},
 		{"nil字段", "nil_field", 0, true},
 		{"不存在的字段", "unknown_field", 0, true},
@@ -606,7 +606,7 @@ func TestEvaluateFieldNode(t *testing.T) {
 	}
 }
 
-// TestEvaluateOperatorNode 测试运算符节点求值
+// TestEvaluateOperatorNode Evaluates the node of the test operator
 func TestEvaluateOperatorNode(t *testing.T) {
 	data := map[string]any{
 		"a": 10.0,
@@ -670,7 +670,7 @@ func TestEvaluateOperatorNode(t *testing.T) {
 			9.0,
 			false,
 		},
-		// 错误情况
+		// Error case
 		{
 			"除零",
 			"/",
@@ -716,7 +716,7 @@ func TestEvaluateOperatorNode(t *testing.T) {
 	}
 }
 
-// TestEvaluateFunctionNode 测试函数节点求值
+// TestEvaluateFunctionNode Evaluates the function node
 func TestEvaluateFunctionNode(t *testing.T) {
 	data := map[string]any{}
 
@@ -827,7 +827,7 @@ func TestEvaluateFunctionNode(t *testing.T) {
 			4.0,
 			false,
 		},
-		// 三角函数
+		// Trigonometric functions
 		{
 			"SIN函数",
 			"sin",
@@ -842,7 +842,7 @@ func TestEvaluateFunctionNode(t *testing.T) {
 			1.0,
 			false,
 		},
-		// 对数函数
+		// Logarithmic function
 		{
 			"LOG函数",
 			"log",
@@ -864,7 +864,7 @@ func TestEvaluateFunctionNode(t *testing.T) {
 			1.0,
 			false,
 		},
-		// 错误情况
+		// Error case
 		{"未知函数", "unknown", []*ExprNode{{Type: TypeNumber, Value: "1"}}, 0, true},
 		{"参数数量错误", "abs", []*ExprNode{}, 0, true},
 		{"SQRT负数", "sqrt", []*ExprNode{{Type: TypeNumber, Value: "-1"}}, 0, true},
@@ -889,7 +889,7 @@ func TestEvaluateFunctionNode(t *testing.T) {
 	}
 }
 
-// TestEvaluateNodeValue 测试节点值求值（支持NULL）
+// TestEvaluateNodeValue Evaluate the test node value (supports NULL)
 func TestEvaluateNodeValue(t *testing.T) {
 	data := map[string]any{
 		"a":        10.0,
@@ -998,7 +998,7 @@ func TestEvaluateNodeValue(t *testing.T) {
 			false,
 			false,
 		},
-		// 错误情况
+		// Error case
 		{"不存在的字段", &ExprNode{Type: TypeField, Value: "unknown"}, nil, true},
 	}
 
@@ -1015,7 +1015,7 @@ func TestEvaluateNodeValue(t *testing.T) {
 	}
 }
 
-// TestCompareValues 测试值比较功能
+// TestCompareValues test value comparison feature
 func TestCompareValues(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1025,7 +1025,7 @@ func TestCompareValues(t *testing.T) {
 		expected bool
 		wantErr  bool
 	}{
-		// 数字比较
+		// Comparison of numbers
 		{"数字相等", "==", 5.0, 5.0, true, false},
 		{"数字不等", "!=", 5.0, 3.0, true, false},
 		{"数字大于", ">", 5.0, 3.0, true, false},
@@ -1033,25 +1033,25 @@ func TestCompareValues(t *testing.T) {
 		{"数字大于等于", ">=", 5.0, 5.0, true, false},
 		{"数字小于等于", "<=", 3.0, 5.0, true, false},
 
-		// 字符串比较
+		// String comparison
 		{"字符串相等", "==", "hello", "hello", true, false},
 		{"字符串不等", "!=", "hello", "world", true, false},
 		{"字符串大于", ">", "world", "hello", true, false},
 		{"字符串小于", "<", "hello", "world", true, false},
 
-		// LIKE模式匹配
+		// LIKE pattern matching
 		{"LIKE匹配", "LIKE", "hello", "h%", true, false},
 		{"LIKE不匹配", "LIKE", "hello", "w%", false, false},
 		{"LIKE通配符", "LIKE", "hello", "h_llo", true, false},
 		{"LIKE完全匹配", "LIKE", "hello", "hello", true, false},
 
-		// 混合类型比较
+		// Mixed types comparison
 		{"数字与字符串", "==", 5.0, "5", true, false},
 		{"布尔值比较", "==", true, true, true, false},
 		{"布尔值与数字", "==", true, 1.0, true, false},
 		{"布尔值与数字（假）", "==", false, 0.0, true, false},
 
-		// 错误情况
+		// Error case
 		{"无效运算符", "@", 5.0, 3.0, false, true},
 		{"不兼容类型", ">", "hello", 5.0, false, true},
 	}
@@ -1069,7 +1069,7 @@ func TestCompareValues(t *testing.T) {
 	}
 }
 
-// TestMatchLikePattern 测试LIKE模式匹配
+// TestMatchLikePattern Tests LIKE pattern matching
 func TestMatchLikePattern(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1101,7 +1101,7 @@ func TestMatchLikePattern(t *testing.T) {
 	}
 }
 
-// TestEvaluateBoolNode 测试布尔节点求值
+// TestEvaluateBoolNode tests the Boolean node's evaluation
 func TestEvaluateBoolNode(t *testing.T) {
 	data := map[string]any{
 		"a":          10.0,
@@ -1209,7 +1209,7 @@ func TestEvaluateBoolNode(t *testing.T) {
 			true,
 			false,
 		},
-		// 新增测试用例以提高覆盖率
+		// Add test cases to increase coverage
 		{
 			"字段节点（真值）",
 			&ExprNode{Type: TypeField, Value: "flag"},
@@ -1271,7 +1271,7 @@ func TestEvaluateBoolNode(t *testing.T) {
 			true,
 			false,
 		},
-		// 错误情况
+		// Error case
 		{"非布尔运算符", &ExprNode{
 			Type:  TypeOperator,
 			Value: "+",

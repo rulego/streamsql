@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-// TestNewTimeSlot 测试 NewTimeSlot 构造函数
+// TestNewTimeSlot Tests the NewTimeSlot constructor
 func TestNewTimeSlot(t *testing.T) {
 	start := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	end := time.Date(2024, 1, 1, 13, 0, 0, 0, time.UTC)
@@ -49,11 +49,11 @@ func TestNewTimeSlot(t *testing.T) {
 	}
 }
 
-// TestNewTimeSlotWithNil 测试 NewTimeSlot 处理 nil 参数的情况
+// TestNewTimeSlotWithNil tests how NewTimeSlot handles nil parameters
 func TestNewTimeSlotWithNil(t *testing.T) {
 	start := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
-	// 测试 end 为 nil
+	// Test end is nil
 	ts1 := NewTimeSlot(&start, nil)
 	if ts1.Start == nil {
 		t.Error("Expected Start to be non-nil")
@@ -62,7 +62,7 @@ func TestNewTimeSlotWithNil(t *testing.T) {
 		t.Error("Expected End to be nil")
 	}
 
-	// 测试 start 为 nil
+	// Test start is nil
 	ts2 := NewTimeSlot(nil, &start)
 	if ts2.Start != nil {
 		t.Error("Expected Start to be nil")
@@ -71,7 +71,7 @@ func TestNewTimeSlotWithNil(t *testing.T) {
 		t.Error("Expected End to be non-nil")
 	}
 
-	// 测试两者都为 nil
+	// Both tests are nil
 	ts3 := NewTimeSlot(nil, nil)
 	if ts3.Start != nil {
 		t.Error("Expected Start to be nil")
@@ -81,7 +81,7 @@ func TestNewTimeSlotWithNil(t *testing.T) {
 	}
 }
 
-// TestTimeSlotHash 测试 Hash 方法
+// TestTimeSlotHash Testing the hash method
 func TestTimeSlotHash(t *testing.T) {
 	start := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	end := time.Date(2024, 1, 1, 13, 0, 0, 0, time.UTC)
@@ -92,12 +92,12 @@ func TestTimeSlotHash(t *testing.T) {
 	hash1 := ts1.Hash()
 	hash2 := ts2.Hash()
 
-	// 相同的时间槽应该产生相同的哈希值
+	// The same time slots should produce the same hash value
 	if hash1 != hash2 {
 		t.Errorf("Expected same hash for identical time slots, got %d and %d", hash1, hash2)
 	}
 
-	// 不同的时间槽应该产生不同的哈希值
+	// Different time slots should produce different hash values
 	differentEnd := time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC)
 	ts3 := NewTimeSlot(&start, &differentEnd)
 	hash3 := ts3.Hash()
@@ -107,13 +107,13 @@ func TestTimeSlotHash(t *testing.T) {
 	}
 }
 
-// TestTimeSlotContains 测试 Contains 方法
+// TestTimeSlotContains Test Contains method
 func TestTimeSlotContains(t *testing.T) {
 	start := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	end := time.Date(2024, 1, 1, 13, 0, 0, 0, time.UTC)
 	ts := NewTimeSlot(&start, &end)
 
-	// 测试边界情况
+	// Test boundary conditions
 	if !ts.Contains(start) {
 		t.Error("Expected Contains to return true for start time")
 	}
@@ -122,13 +122,13 @@ func TestTimeSlotContains(t *testing.T) {
 		t.Error("Expected Contains to return false for end time (exclusive)")
 	}
 
-	// 测试范围内的时间
+	// Time within the test range
 	midTime := time.Date(2024, 1, 1, 12, 30, 0, 0, time.UTC)
 	if !ts.Contains(midTime) {
 		t.Error("Expected Contains to return true for time within range")
 	}
 
-	// 测试范围外的时间
+	// Testing time beyond the scope of the test
 	beforeStart := time.Date(2024, 1, 1, 11, 59, 59, 0, time.UTC)
 	if ts.Contains(beforeStart) {
 		t.Error("Expected Contains to return false for time before start")
@@ -140,7 +140,7 @@ func TestTimeSlotContains(t *testing.T) {
 	}
 }
 
-// TestGetStartTime 测试 GetStartTime 方法
+// TestGetStartTime Tests the GetStartTime method
 func TestGetStartTime(t *testing.T) {
 	start := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	end := time.Date(2024, 1, 1, 13, 0, 0, 0, time.UTC)
@@ -155,14 +155,14 @@ func TestGetStartTime(t *testing.T) {
 		t.Errorf("Expected start time %v, got %v", start, *startTime)
 	}
 
-	// 测试 nil TimeSlot
+	// Test nil TimeSlot
 	var nilTS *TimeSlot
 	nilStartTime := nilTS.GetStartTime()
 	if nilStartTime != nil {
 		t.Error("Expected GetStartTime to return nil for nil TimeSlot")
 	}
 
-	// 测试 Start 为 nil 的情况
+	// Test the case where Start is nil
 	tsWithNilStart := NewTimeSlot(nil, &end)
 	nilStart := tsWithNilStart.GetStartTime()
 	if nilStart != nil {
@@ -170,7 +170,7 @@ func TestGetStartTime(t *testing.T) {
 	}
 }
 
-// TestGetEndTime 测试 GetEndTime 方法
+// TestGetEndTime Tests the GetEndTime method
 func TestGetEndTime(t *testing.T) {
 	start := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	end := time.Date(2024, 1, 1, 13, 0, 0, 0, time.UTC)
@@ -185,14 +185,14 @@ func TestGetEndTime(t *testing.T) {
 		t.Errorf("Expected end time %v, got %v", end, *endTime)
 	}
 
-	// 测试 nil TimeSlot
+	// Test nil TimeSlot
 	var nilTS *TimeSlot
 	nilEndTime := nilTS.GetEndTime()
 	if nilEndTime != nil {
 		t.Error("Expected GetEndTime to return nil for nil TimeSlot")
 	}
 
-	// 测试 End 为 nil 的情况
+	// Test the case where End is nil
 	tsWithNilEnd := NewTimeSlot(&start, nil)
 	nilEnd := tsWithNilEnd.GetEndTime()
 	if nilEnd != nil {
@@ -200,7 +200,7 @@ func TestGetEndTime(t *testing.T) {
 	}
 }
 
-// TestWindowStart 测试 WindowStart 方法
+// TestWindowStart tests the WindowStart method
 func TestWindowStart(t *testing.T) {
 	start := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	end := time.Date(2024, 1, 1, 13, 0, 0, 0, time.UTC)
@@ -213,14 +213,14 @@ func TestWindowStart(t *testing.T) {
 		t.Errorf("Expected window start %d, got %d", expectedStart, windowStart)
 	}
 
-	// 测试 nil TimeSlot
+	// Test nil TimeSlot
 	var nilTS *TimeSlot
 	nilWindowStart := nilTS.WindowStart()
 	if nilWindowStart != 0 {
 		t.Errorf("Expected WindowStart to return 0 for nil TimeSlot, got %d", nilWindowStart)
 	}
 
-	// 测试 Start 为 nil 的情况
+	// Test the case where Start is nil
 	tsWithNilStart := NewTimeSlot(nil, &end)
 	nilStart := tsWithNilStart.WindowStart()
 	if nilStart != 0 {
@@ -228,7 +228,7 @@ func TestWindowStart(t *testing.T) {
 	}
 }
 
-// TestWindowEnd 测试 WindowEnd 方法
+// TestWindowEnd tests the WindowEnd method
 func TestWindowEnd(t *testing.T) {
 	start := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	end := time.Date(2024, 1, 1, 13, 0, 0, 0, time.UTC)
@@ -241,14 +241,14 @@ func TestWindowEnd(t *testing.T) {
 		t.Errorf("Expected window end %d, got %d", expectedEnd, windowEnd)
 	}
 
-	// 测试 nil TimeSlot
+	// Test nil TimeSlot
 	var nilTS *TimeSlot
 	nilWindowEnd := nilTS.WindowEnd()
 	if nilWindowEnd != 0 {
 		t.Errorf("Expected WindowEnd to return 0 for nil TimeSlot, got %d", nilWindowEnd)
 	}
 
-	// 测试 End 为 nil 的情况
+	// Test the case where End is nil
 	tsWithNilEnd := NewTimeSlot(&start, nil)
 	nilEnd := tsWithNilEnd.WindowEnd()
 	if nilEnd != 0 {
@@ -256,9 +256,9 @@ func TestWindowEnd(t *testing.T) {
 	}
 }
 
-// TestTimeSlotEdgeCases 测试 TimeSlot 的边界情况
+// TestTimeSlotEdgeCases Tests the boundaries of the TimeSlot
 func TestTimeSlotEdgeCases(t *testing.T) {
-	// 测试相同的开始和结束时间
+	// Test the same start and end times
 	sameTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	ts := NewTimeSlot(&sameTime, &sameTime)
 
@@ -266,7 +266,7 @@ func TestTimeSlotEdgeCases(t *testing.T) {
 		t.Error("Expected Contains to return false when start equals end")
 	}
 
-	// 测试开始时间晚于结束时间的情况
+	// Cases where the test starts later than the end time
 	start := time.Date(2024, 1, 1, 13, 0, 0, 0, time.UTC)
 	end := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	invalidTS := NewTimeSlot(&start, &end)
@@ -277,18 +277,18 @@ func TestTimeSlotEdgeCases(t *testing.T) {
 	}
 }
 
-// TestTimeSlotConcurrentAccess 测试 TimeSlot 的并发访问
+// TestTimeSlotConcurrentAccess Tests for concurrent access to the TimeSlot
 func TestTimeSlotConcurrentAccess(t *testing.T) {
 	start := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	end := time.Date(2024, 1, 1, 13, 0, 0, 0, time.UTC)
 	ts := NewTimeSlot(&start, &end)
 
-	// 启动多个 goroutine 并发访问 TimeSlot 方法
+	// Start multiple goroutines to concurrently access TimeSlot methods
 	done := make(chan bool, 10)
 	for i := 0; i < 10; i++ {
 		go func() {
 			for j := 0; j < 100; j++ {
-				// 测试各种方法的并发访问
+				// Testing concurrent access for various methods
 				_ = ts.Hash()
 				_ = ts.Contains(start)
 				_ = ts.GetStartTime()
@@ -300,7 +300,7 @@ func TestTimeSlotConcurrentAccess(t *testing.T) {
 		}()
 	}
 
-	// 等待所有 goroutine 完成
+	// Wait for all goroutines to complete
 	for i := 0; i < 10; i++ {
 		<-done
 	}

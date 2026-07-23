@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 辅助函数：创建测试环境
+// Auxiliary function: Creates test environments
 func createTestEnvironment(t *testing.T, rsql string) (*streamsql.Streamsql, chan any) {
 	ssql := streamsql.New()
 	t.Cleanup(func() { ssql.Stop() })
@@ -25,34 +25,34 @@ func createTestEnvironment(t *testing.T, rsql string) (*streamsql.Streamsql, cha
 	ssql.AddSink(func(result []map[string]any) {
 		defer func() {
 			if r := recover(); r != nil {
-				// channel 已关闭，忽略错误
+				// channel is closed, ignoring errors
 			}
 		}()
 		select {
 		case resultChan <- result:
 		default:
-			// 非阻塞发送
+			// Non-blocking transmission
 		}
 	})
 
 	return ssql, resultChan
 }
 
-// 辅助函数：发送测试数据并收集结果
+// Auxiliary function: Send test data and collect results
 func sendDataAndCollectResults(t *testing.T, ssql *streamsql.Streamsql, resultChan chan any, testData []map[string]any, windowSizeSeconds int) []map[string]any {
 	for _, data := range testData {
 		ssql.Emit(data)
 	}
 
-	// 等待窗口触发
+	// Wait for the window to trigger
 	time.Sleep(time.Duration(windowSizeSeconds+1) * time.Second)
 
-	// 使用更严格的超时机制
+	// Uses stricter timeout mechanisms
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var results []map[string]any
-	maxIterations := 10 // 最多收集10次结果
+	maxIterations := 10 // Collect results up to 10 times
 	iteration := 0
 
 collecting:
@@ -64,10 +64,10 @@ collecting:
 			}
 			iteration++
 		case <-time.After(500 * time.Millisecond):
-			// 500ms 没有新结果，退出
+			// Exit after 500 ms without a new result
 			break collecting
 		case <-ctx.Done():
-			// 超时退出
+			// Exiting after the time limit
 			break collecting
 		}
 	}
@@ -75,7 +75,7 @@ collecting:
 	return results
 }
 
-// TestPostAggregationExpressions 测试分阶段聚合功能
+// TestPostAggregationExpressions tests the staged aggregation feature
 func TestPostAggregationExpressions(t *testing.T) {
 	t.Parallel()
 	t.Run("基础聚合函数复杂运算", func(t *testing.T) {
@@ -102,7 +102,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 		require.Len(t, results, 1)
 		result := results[0]
 
-		// 验证基础聚合函数运算
+		// Verify basic aggregate function operations
 		assert.Equal(t, "dev1", result["deviceId"])
 		assert.Equal(t, 10.0, result["firstVal"])
 		assert.Equal(t, 30.0, result["lastVal"])
@@ -113,7 +113,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 		assert.Equal(t, 80.0, result["sumPlusAvg"]) // SUM + AVG
 	})
 
-	// IF_NULL 基础功能：在 IF_NULL 中包裹聚合/分析函数
+	// IF_NULL Basic function: Wrap aggregation/analysis functions in IF_NULL
 	t.Run("验证：IF_NULL 基础功能", func(t *testing.T) {
 		rsql := `SELECT deviceId,
 				IF_NULL(FIRST_VALUE(value), 0) as firstOrZero,
@@ -136,15 +136,15 @@ func TestPostAggregationExpressions(t *testing.T) {
 		result := results[0]
 
 		assert.Equal(t, "sensor1", result["deviceId"])
-		// FIRST_VALUE(value) 为 nil => IF_NULL(...,0) = 0
+		// FIRST_VALUE(value) is nil = > IF_NULL(...,0) = 0
 		assert.Equal(t, 0.0, result["firstOrZero"])
-		// LAST_VALUE(value) 为 30 => IF_NULL(...,0) = 30
+		// LAST_VALUE(value) is 30 = > IF_NULL(...,0) = 30
 		assert.Equal(t, 30.0, result["lastOrZero"])
-		// AVG(value) 仅计算非空 => (10+30)/2 = 20 => IF_NULL(...,0) = 20
+		// AVG(value) only calculates non-null = >(10+30)/2 = 20 = > IF_NULL(...,0) = 20
 		assert.Equal(t, 20.0, result["avgOrZero"])
 	})
 
-	// 聚合函数参数中嵌套 IF_NULL：如 SUM(IF_NULL(value,0))
+	// Nested IF_NULL in aggregate function parameters: such as SUM(IF_NULL(value, 0))
 	t.Run("验证：聚合函数嵌套 IF_NULL", func(t *testing.T) {
 		rsql := `SELECT deviceId,
 				SUM(IF_NULL(value, 0)) as sumVal,
@@ -179,7 +179,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 	})
 
 	t.Run("分析函数与聚合函数复杂运算", func(t *testing.T) {
-		t.Skip("v1.2 分析函数改为直连 OVER 语义，不再与 GROUP BY/聚合运算混用；混合运算见后续版本")
+		t.Skip("v1.2 The analysis function was changed to a direct OVER semantic, no longer mixed with GROUP BY/ aggregation operations; Hybrid operations are available in future versions")
 		rsql := `SELECT deviceId, 
 				SUM(value) as total,
 				AVG(value) as average,
@@ -201,11 +201,11 @@ func TestPostAggregationExpressions(t *testing.T) {
 		require.Len(t, results, 1)
 		result := results[0]
 
-		// 验证分析函数与聚合函数的复杂运算
+		// Verify the complex operations of the analysis function and the aggregation function
 		assert.Equal(t, "sensor1", result["deviceId"])
 		assert.Equal(t, 60.0, result["total"])           // 10+20+30
 		assert.Equal(t, 20.0, result["average"])         // 60/3
-		assert.Equal(t, 30.0, result["latest"])          // 最新值
+		assert.Equal(t, 30.0, result["latest"])          // Latest values
 		assert.Equal(t, 90.0, result["totalPlusLatest"]) // 60 + 30
 		assert.Equal(t, 600.0, result["avgTimesLatest"]) // 20 * 30
 	})
@@ -238,14 +238,14 @@ func TestPostAggregationExpressions(t *testing.T) {
 		require.Len(t, results, 1)
 		result := results[0]
 
-		// 验证基础函数
+		// Verify the basic function
 		assert.Equal(t, "sensor1", result["deviceId"])
 		assert.Equal(t, 100.0, result["total"])  // 10+20+30+40
 		assert.Equal(t, 4.0, result["count"])    // 4 records
 		assert.Equal(t, 25.0, result["average"]) // 100/4
 		assert.Equal(t, 40.0, result["maxVal"])  // max value
 
-		// 验证最外层嵌套普通函数
+		// Verify the outermost nested ordinary function
 		// (COUNT(*) * AVG(value)) = 4 * 25 = 100
 		assert.Equal(t, 100.0, result["countTimesAvg"], "最外层嵌套函数计算错误")
 
@@ -255,7 +255,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 		// ((COUNT(*) + SUM(value)) * AVG(value)) = (4 + 100) * 25 = 2600
 		assert.Equal(t, 2600.0, result["complexNested"], "最外层复杂嵌套函数计算错误")
 
-		// 验证最外层嵌套普通函数
+		// Verify the outermost nested ordinary function
 		// FLOOR((SUM(value) / MAX(value))) = FLOOR(100/40) = FLOOR(2.5) = 2
 		if floorResult, ok := result["floorResult"].(float64); ok {
 			assert.Equal(t, 2.0, floorResult, "FLOOR函数嵌套计算错误")
@@ -271,7 +271,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 			assert.Equal(t, 2.5, roundResult, "ROUND函数嵌套计算错误")
 		}
 
-		// 验证最外层嵌套普通函数的正确性
+		// Verify the correctness of the outermost nested ordinary function
 		assert.Equal(t, 100.0, result["countTimesAvg"], "COUNT(*) * AVG(value) 计算错误")
 		assert.Equal(t, 2.5, result["sumDivideMax"], "SUM(value) / MAX(value) 计算错误")
 		assert.Equal(t, 2600.0, result["complexNested"], "复杂嵌套表达式计算错误")
@@ -291,11 +291,11 @@ func TestPostAggregationExpressions(t *testing.T) {
 		ssql, resultChan := createTestEnvironment(t, rsql)
 
 		testData := []map[string]any{
-			// 设备1的数据
+			// Data from device 1
 			{"deviceId": "meter001", "displayNum": 100.0},
 			{"deviceId": "meter001", "displayNum": 115.0},
 
-			// 设备2的数据
+			// Data from device 2
 			{"deviceId": "meter002", "displayNum": 200.0},
 			{"deviceId": "meter002", "displayNum": 206.0},
 		}
@@ -303,13 +303,13 @@ func TestPostAggregationExpressions(t *testing.T) {
 		results := sendDataAndCollectResults(t, ssql, resultChan, testData, 5)
 		require.GreaterOrEqual(t, len(results), 1, "应该至少有一个窗口的结果")
 
-		// 预期结果
+		// Expected results
 		expectedDiffs := map[string]float64{
 			"meter001": 15.0, // 115.0 - 100.0 = 15.0 kWh
 			"meter002": 6.0,  // 206.0 - 200.0 = 6.0 kWh
 		}
 
-		// 验证每个设备的计算结果
+		// Verify the calculation results for each device
 		deviceResults := make(map[string]map[string]any)
 		for _, result := range results {
 			deviceId, ok := result["deviceId"].(string)
@@ -328,17 +328,17 @@ func TestPostAggregationExpressions(t *testing.T) {
 					"设备 %s 的用电量计算应该正确: 期望 %.1f, 实际 %.1f",
 					deviceId, expectedDiff, diffVal)
 
-				// 验证窗口时间字段存在
+				// Verify the existence of the window time field
 				assert.Contains(t, result, "start", "结果应包含窗口开始时间")
 				assert.Contains(t, result, "end", "结果应包含窗口结束时间")
 			}
 		}
 
-		// 原始问题验证成功：电表读数差值计算正确
+		// Original issue verified successfully: meter reading difference calculation is correct
 	})
 
 	t.Run("综合功能验证", func(t *testing.T) {
-		t.Skip("v1.2 分析函数改为直连 OVER 语义，不再与 GROUP BY/聚合运算混用；混合运算见后续版本")
+		t.Skip("v1.2 The analysis function was changed to a direct OVER semantic, no longer mixed with GROUP BY/ aggregation operations; Hybrid operations are available in future versions")
 		rsql := `SELECT deviceId, 
 				SUM(value) as total,
 				AVG(value) as average,
@@ -370,30 +370,30 @@ func TestPostAggregationExpressions(t *testing.T) {
 		require.Len(t, results, 1)
 		result := results[0]
 
-		// 验证基础函数
+		// Verify the basic function
 		assert.Equal(t, "sensor1", result["deviceId"])
 		assert.Equal(t, 100.0, result["total"])  // 10+20+30+40
 		assert.Equal(t, 25.0, result["average"]) // 100/4
-		assert.Equal(t, 10.0, result["first"])   // 第一个值
-		assert.Equal(t, 40.0, result["last"])    // 最后一个值
-		assert.Equal(t, 40.0, result["latest"])  // 最新值
-		assert.Equal(t, 4.0, result["count"])    // 4条记录
-		assert.Equal(t, 40.0, result["maxVal"])  // 最大值
-		assert.Equal(t, 10.0, result["minVal"])  // 最小值
+		assert.Equal(t, 10.0, result["first"])   // The first value
+		assert.Equal(t, 40.0, result["last"])    // The last value
+		assert.Equal(t, 40.0, result["latest"])  // Latest values
+		assert.Equal(t, 4.0, result["count"])    // 4 records
+		assert.Equal(t, 40.0, result["maxVal"])  // Maximum value
+		assert.Equal(t, 10.0, result["minVal"])  // Minimum value
 
-		// 验证复杂表达式计算
+		// Verify complex expression calculations
 		assert.Equal(t, 27.5, result["complexCalc1"])  // (100 + 10) / 4 = 27.5
 		assert.Equal(t, 990.0, result["complexCalc2"]) // 40 * 25 - 10 = 990
 		assert.Equal(t, 35.0, result["complexCalc3"])  // (40 + 100) / 4 = 35
 		assert.Equal(t, 25.0, result["complexCalc4"])  // 40 + 10 - 25 = 25
 
-		// 验证多层嵌套数学函数
+		// Verify multi-layer nested mathematical functions
 		// ROUND(SQRT(ABS(AVG(value) - MIN(value))), 2) = ROUND(SQRT(ABS(25-10)), 2) = ROUND(SQRT(15), 2) ≈ 3.87
 		if nestedMathFunc, ok := result["nestedMathFunc"].(float64); ok {
 			assert.InEpsilon(t, 3.87, nestedMathFunc, 0.01, "多层嵌套数学函数计算错误")
 		}
 
-		// 验证多层嵌套字符串和数学函数
+		// Verify multi-layer nested strings and mathematical functions
 		// UPPER(CONCAT('RESULT_', CAST(ROUND(SUM(value), 0) as STRING))) = UPPER(CONCAT('RESULT_', '100')) = 'RESULT_100'
 		if nestedStrMathFunc, ok := result["nestedStrMathFunc"].(string); ok {
 			assert.Equal(t, "RESULT_100", nestedStrMathFunc, "多层嵌套字符串和数学函数计算错误")
@@ -430,7 +430,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 		require.Len(t, results, 1)
 		result := results[0]
 
-		// 验证基础聚合函数
+		// Verify the basic aggregation function
 		assert.Equal(t, "sensor1", result["deviceId"])
 		assert.Equal(t, 126.0, result["total"])  // 16+25+36+49
 		assert.Equal(t, 31.5, result["average"]) // 126/4
@@ -438,7 +438,7 @@ func TestPostAggregationExpressions(t *testing.T) {
 		assert.Equal(t, 49.0, result["maxVal"])  // max value
 		assert.Equal(t, 16.0, result["minVal"])  // min value
 
-		// 验证嵌套聚合函数运算
+		// Verify nested aggregate function operations
 		// ROUND(AVG(ABS(value)), 2) = ROUND(AVG(16,25,36,49), 2) = ROUND(31.5, 2) = 31.5
 		if avgAbs, ok := result["avgAbs"].(float64); ok {
 			assert.Equal(t, 31.5, avgAbs, "AVG(ABS(value))计算错误")
@@ -503,12 +503,12 @@ func TestPostAggregationExpressions(t *testing.T) {
 		require.Len(t, results, 1)
 		result := results[0]
 
-		// 验证基础函数
+		// Verify the basic function
 		assert.Equal(t, "sensor1", result["deviceId"])
 		assert.Equal(t, 100.0, result["total"]) // 10+20+30+40
 		assert.Equal(t, 4.0, result["count"])   // 4 records
 
-		// 验证窗口函数基础功能
+		// Verify the basic functions of the window function
 		assert.NotNil(t, result["countTimesSecond"], "COUNT(*) * NTH_VALUE(value, 2) 应该有计算结果")
 
 	})
@@ -535,9 +535,9 @@ func TestPostAggregationExpressions(t *testing.T) {
 		require.Len(t, results, 1)
 		result := results[0]
 
-		// 验证 NTH_VALUE 函数的返回值
-		// 期望结果：按添加顺序
-		// 第1个值: 100, 第2个值: 200, 第3个值: 300, 第4个值: 400
+		// Verify the return value of the NTH_VALUE function
+		// Expected result: in order of addition
+		// First value: 100, Second value: 200, Third value: 300, Fourth value: 400
 		if firstValue, ok := result["firstValue"].(float64); ok {
 			assert.Equal(t, 100.0, firstValue, "第1个值应该是100")
 		} else {

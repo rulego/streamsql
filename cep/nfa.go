@@ -1,29 +1,29 @@
 package cep
 
-// stateKind 标识 NFA 状态类别。
+// stateKind identifies the NFA state category.
 type stateKind int
 
 const (
-	stEpsilon stateKind = iota // 不消费行，沿 out1/out2 前进
-	stMatch                    // 消费一行：当行满足 symbol 的 DEFINE 时，沿 out1 前进
-	stAccept                   // 接受态：一次完整匹配
+	stEpsilon stateKind = iota // Don't spend money, just move forward along out1/out2
+	stMatch                    // Consuming a line: When a line satisfies the DEFINE of the symbol, it moves forward along out1
+	stAccept                   // Acceptance state: a complete match at once
 )
 
-// state 是 NFA 的一个状态。DEFINE 条件按 symbol 在引擎处查表，故 state 只携 symbol。
+// state is a state of the NFA. The DEFINE condition is checked in the engine by the symbol, so state only carries the symbol.
 type state struct {
 	kind   stateKind
-	symbol string // stMatch：模式变量名
+	symbol string // stMatch: Name of the mode variable
 	out1   *state
-	out2   *state // 仅 stEpsilon 的选择/循环用到
+	out2   *state // Only stEpsilon is selected/recycled
 }
 
-// NFA 是编译后的模式自动机：start 经 epsilon/match 转移到达 accept。
+// NFA is a compiled mode automaton: start is transferred via epsilon/match to accept.
 type NFA struct {
 	start  *state
 	accept *state
 }
 
-// frag 是 Thompson 构造的片段：start 与若干待接续的出边（dots 指向 nil 的 out 槽）。
+// frag is a piece constructed by Thompson: start and several out-of-the-line edges to be joined (dots point to the out slot of nil).
 type frag struct {
 	start *state
 	dots  []**state
@@ -55,21 +55,21 @@ func alt(a, b *frag) *frag {
 	return &frag{start: s, dots: append(a.dots, b.dots...)}
 }
 
-// starFrag 构造 child*（贪婪：优先回环）。
+// starFrag constructs child* (greedy: priority loop).
 func starFrag(child *frag) *frag {
 	s := &state{kind: stEpsilon}
-	patch(child, s) // 子片段结束后回到分支点
+	patch(child, s) // After the subsegment ends, return to the branching point
 	s.out1 = child.start
-	return &frag{start: s, dots: []**state{&s.out2}} // out2=出口（待接续）
+	return &frag{start: s, dots: []**state{&s.out2}} // out2=Exit (to be continued)
 }
 
-// optFrag 构造 child?（0 或 1）。
+// optFrag constructs child?(0 or 1).
 func optFrag(child *frag) *frag {
 	s := &state{kind: stEpsilon, out1: child.start}
 	return &frag{start: s, dots: append(child.dots, &s.out2)}
 }
 
-// closure 计算 starts 经 epsilon 转移可达的全部状态（含 match/accept 终态）。
+// closure calculates all states that can be reached via epsilon transfer (including match/accept final states).
 func closure(starts ...*state) []*state {
 	seen := make(map[*state]bool, len(starts))
 	var stack []*state
@@ -97,7 +97,7 @@ func closure(starts ...*state) []*state {
 	return out
 }
 
-// hasAccept 报告状态集是否含接受态。
+// hasAccept reports whether the state set contains the acceptance state.
 func hasAccept(states []*state) bool {
 	for _, s := range states {
 		if s.kind == stAccept {
@@ -107,13 +107,13 @@ func hasAccept(states []*state) bool {
 	return false
 }
 
-// isComplete 报告状态集是否「到达接受态且无法再延伸」（贪婪终结）。
-// 含 accept 但仍有 match-state 的（如 A* 续配）不算终结，应继续贪婪延伸。
+// isComplete reports whether the state set has 'reached the accepting state and can no longer be extended' (Greed Ends).
+// Items containing accept but still having match-state (such as A* continuation) do not end and should continue to be greedily extended.
 func isComplete(states []*state) bool {
 	return hasAccept(states) && len(matchStates(states)) == 0
 }
 
-// matchStates 抽出状态集中的全部 stMatch（待消费行测试）。
+// matchStates extracts all stMatch (pending line testing) from the state set.
 func matchStates(states []*state) []*state {
 	var ms []*state
 	for _, s := range states {

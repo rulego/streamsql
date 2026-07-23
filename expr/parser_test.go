@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestParseExpression 测试表达式解析功能
+// TestParseExpression parsing function for test expressions
 func TestParseExpression(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -124,12 +124,12 @@ func TestParseUnaryExpression(t *testing.T) {
 	}
 }
 
-// TestParseExpressionWithPrecedence 测试运算符优先级解析
+// TestParseExpressionWithPrecedence The test operator prioritizes resolution
 func TestParseExpressionWithPrecedence(t *testing.T) {
 	tests := []struct {
 		name     string
 		tokens   []string
-		expected string // 用字符串表示预期的树结构
+		expected string // Represent the expected tree structure with strings
 	}{
 		{"加法和乘法", []string{"a", "+", "b", "*", "c"}, "(a + (b * c))"},
 		{"乘法和除法", []string{"a", "*", "b", "/", "c"}, "((a * b) / c)"},
@@ -148,7 +148,7 @@ func TestParseExpressionWithPrecedence(t *testing.T) {
 	}
 }
 
-// TestParseFunction 测试函数解析
+// TestParseFunction Test function analysis
 func TestParseFunction(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -215,7 +215,7 @@ func TestParseFunction(t *testing.T) {
 			9,
 			false,
 		},
-		// 错误情况
+		// Error case
 		{"缺少左括号", []string{"abs", "x", ")"}, 0, nil, 0, true},
 		{"缺少右括号", []string{"abs", "(", "x"}, 0, nil, 0, true},
 		{"参数分隔符错误", []string{"max", "(", "a", ";", "b", ")"}, 0, nil, 0, true},
@@ -235,7 +235,7 @@ func TestParseFunction(t *testing.T) {
 	}
 }
 
-// TestGetOperatorPrecedence 测试运算符优先级获取
+// TestGetOperatorPrecedence Determines the precedence of the test operator
 func TestGetOperatorPrecedence(t *testing.T) {
 	tests := []struct {
 		op       string
@@ -271,7 +271,7 @@ func TestGetOperatorPrecedence(t *testing.T) {
 	}
 }
 
-// TestIsRightAssociative 测试右结合性判断
+// TestIsRightAssociative TestIsAssociative Assessment of Right Association
 func TestIsRightAssociative(t *testing.T) {
 	tests := []struct {
 		op       string
@@ -295,7 +295,7 @@ func TestIsRightAssociative(t *testing.T) {
 	}
 }
 
-// 辅助函数：连接字符串数组
+// Auxiliary function: concatenate string arrays
 func joinStrings(strs []string, sep string) string {
 	if len(strs) == 0 {
 		return ""

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// BenchmarkStreamSQL StreamSQL基准测试
+// BenchmarkStreamSQL StreamSQL benchmarking
 func BenchmarkStreamSQL(b *testing.B) {
 	tests := []struct {
 		name     string
@@ -34,13 +34,13 @@ func BenchmarkStreamSQL(b *testing.B) {
 
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
-			// 使用默认配置
+			// Use the default configuration
 			ssql := New()
 			defer ssql.Stop()
 
 			err := ssql.Execute(tt.sql)
 			if err != nil {
-				b.Fatalf("SQL执行失败: %v", err)
+				b.Fatalf("SQL execution failure: %v", err)
 			}
 
 			var resultCount int64
@@ -48,7 +48,7 @@ func BenchmarkStreamSQL(b *testing.B) {
 				atomic.AddInt64(&resultCount, 1)
 			})
 
-			// 异步消费结果防止阻塞
+			// Asynchronous consumption results prevent blockages
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
@@ -62,13 +62,13 @@ func BenchmarkStreamSQL(b *testing.B) {
 				}
 			}()
 
-			// 生成测试数据
+			// Generate test data
 			testData := generateOptimizedTestData(5)
 			ssql.Stream().ResetStats()
 
 			b.ResetTimer()
 
-			// 执行基准测试
+			// Benchmark the test
 			start := time.Now()
 			for i := 0; i < b.N; i++ {
 				ssql.Emit(testData[i%len(testData)])
@@ -77,37 +77,37 @@ func BenchmarkStreamSQL(b *testing.B) {
 
 			b.StopTimer()
 
-			// 等待处理完成
+			// Wait for processing to complete
 			time.Sleep(tt.waitTime)
 			cancel()
 
-			// 获取统计信息
+			// Get statistics
 			stats := ssql.Stream().GetStats()
 			results := atomic.LoadInt64(&resultCount)
 
-			// 计算核心性能指标
+			// Calculate core performance metrics
 			throughput := float64(b.N) / inputDuration.Seconds()
 			processedCount := stats["output_count"]
 			droppedCount := stats["dropped_count"]
 			processRate := float64(processedCount) / float64(b.N) * 100
 			dropRate := float64(droppedCount) / float64(b.N) * 100
 
-			// 报告指标
+			// Reporting indicators
 			b.ReportMetric(throughput, "ops/sec")
 			b.ReportMetric(processRate, "process_rate_%")
 			b.ReportMetric(dropRate, "drop_rate_%")
 			b.ReportMetric(float64(results), "results")
 
-			// 输出可读的性能报告
-			b.Logf("性能报告 - %s:", tt.name)
-			b.Logf("  吞吐量: %.0f ops/sec (%.1f万 ops/sec)", throughput, throughput/10000)
-			b.Logf("  处理率: %.1f%%, 丢弃率: %.2f%%", processRate, dropRate)
-			b.Logf("  结果数: %d", results)
+			// Output readable performance reports
+			b.Logf("Performance Report - %s:", tt.name)
+			b.Logf("Throughput: %.0f ops/sec (%.1f million ops/sec)", throughput, throughput/10000)
+			b.Logf("Processing rate: %.1f%%, Disposal rate: %.2f%%", processRate, dropRate)
+			b.Logf("Number of results: %d", results)
 		})
 	}
 }
 
-// BenchmarkConfigurationOptimized 优化后的配置对比基准测试
+// BenchmarkConfigurationOptimized configuration comparison benchmark
 func BenchmarkConfigurationOptimized(b *testing.B) {
 	configs := []struct {
 		name      string
@@ -142,7 +142,7 @@ func BenchmarkConfigurationOptimized(b *testing.B) {
 
 			err := ssql.Execute(sql)
 			if err != nil {
-				b.Fatalf("SQL执行失败: %v", err)
+				b.Fatalf("SQL execution failure: %v", err)
 			}
 
 			var resultCount int64
@@ -150,7 +150,7 @@ func BenchmarkConfigurationOptimized(b *testing.B) {
 				atomic.AddInt64(&resultCount, 1)
 			})
 
-			// 异步消费结果
+			// Asynchronous consumption results
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
@@ -180,7 +180,7 @@ func BenchmarkConfigurationOptimized(b *testing.B) {
 			time.Sleep(100 * time.Millisecond)
 			cancel()
 
-			// 获取详细统计
+			// Get detailed statistics
 			detailedStats := ssql.Stream().GetDetailedStats()
 			results := atomic.LoadInt64(&resultCount)
 
@@ -192,15 +192,15 @@ func BenchmarkConfigurationOptimized(b *testing.B) {
 			b.ReportMetric(processRate, "process_rate_%")
 			b.ReportMetric(dropRate, "drop_rate_%")
 
-			b.Logf("%s配置性能:", config.name)
-			b.Logf("  吞吐量: %.0f ops/sec (%.1f万 ops/sec)", throughput, throughput/10000)
-			b.Logf("  处理率: %.1f%%, 丢弃率: %.2f%%", processRate, dropRate)
-			b.Logf("  结果数: %d", results)
+			b.Logf("%s Configuration Performance:", config.name)
+			b.Logf("Throughput: %.0f ops/sec (%.1f million ops/sec)", throughput, throughput/10000)
+			b.Logf("Processing rate: %.1f%%, Disposal rate: %.2f%%", processRate, dropRate)
+			b.Logf("Number of results: %d", results)
 		})
 	}
 }
 
-// BenchmarkPureInputOptimized 优化后的纯输入性能测试
+// BenchmarkPureInputOptimized: Optimized pure input performance testing
 func BenchmarkPureInputOptimized(b *testing.B) {
 	ssql := New(WithHighPerformance())
 	defer ssql.Stop()
@@ -211,7 +211,7 @@ func BenchmarkPureInputOptimized(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	// 启动结果消费者
+	// Launch results for consumers
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -225,7 +225,7 @@ func BenchmarkPureInputOptimized(b *testing.B) {
 		}
 	}()
 
-	// 预生成数据
+	// Pre-generated data
 	data := map[string]any{
 		"deviceId":    "device1",
 		"temperature": 25.0,
@@ -243,10 +243,10 @@ func BenchmarkPureInputOptimized(b *testing.B) {
 	throughput := float64(b.N) / duration.Seconds()
 
 	b.ReportMetric(throughput, "pure_ops/sec")
-	b.Logf("纯输入性能: %.0f ops/sec (%.1f万 ops/sec)", throughput, throughput/10000)
+	b.Logf("Pure input performance: %.0f ops/sec (%.1f million ops/sec)", throughput, throughput/10000)
 }
 
-// BenchmarkPostAggregationPerformance 后聚合性能基准测试
+// BenchmarkPostAggregationPerformance followed by aggregated performance benchmarking
 func BenchmarkPostAggregationPerformance(b *testing.B) {
 	tests := []struct {
 		name string
@@ -273,7 +273,7 @@ func BenchmarkPostAggregationPerformance(b *testing.B) {
 
 			err := ssql.Execute(tt.sql)
 			if err != nil {
-				b.Fatalf("SQL执行失败: %v", err)
+				b.Fatalf("SQL execution failure: %v", err)
 			}
 
 			var resultCount int64
@@ -324,15 +324,15 @@ func BenchmarkPostAggregationPerformance(b *testing.B) {
 			b.ReportMetric(dropRate, "drop_rate_%")
 			b.ReportMetric(float64(results), "results")
 
-			b.Logf("%s性能:", tt.name)
-			b.Logf("  吞吐量: %.0f ops/sec (%.1f万 ops/sec)", throughput, throughput/10000)
-			b.Logf("  处理率: %.1f%%, 丢弃率: %.2f%%", processRate, dropRate)
-			b.Logf("  结果数: %d", results)
+			b.Logf("%s Performance:", tt.name)
+			b.Logf("Throughput: %.0f ops/sec (%.1f million ops/sec)", throughput, throughput/10000)
+			b.Logf("Processing rate: %.1f%%, Disposal rate: %.2f%%", processRate, dropRate)
+			b.Logf("Number of results: %d", results)
 		})
 	}
 }
 
-// generateOptimizedTestData 生成优化的测试数据
+// generateOptimizedTestData generates optimized test data
 func generateOptimizedTestData(count int) []map[string]any {
 	data := make([]map[string]any, count)
 	devices := []string{"device1", "device2", "device3", "device4", "device5"}
@@ -340,7 +340,7 @@ func generateOptimizedTestData(count int) []map[string]any {
 	for i := 0; i < count; i++ {
 		data[i] = map[string]any{
 			"deviceId":    devices[rand.Intn(len(devices))],
-			"temperature": 15.0 + rand.Float64()*20, // 15-35度
+			"temperature": 15.0 + rand.Float64()*20, // 15-35 degrees
 			"humidity":    30.0 + rand.Float64()*40, // 30-70%
 			"timestamp":   time.Now().UnixNano(),
 		}
@@ -348,7 +348,7 @@ func generateOptimizedTestData(count int) []map[string]any {
 	return data
 }
 
-// BenchmarkMemoryEfficiency 内存效率基准测试
+// BenchmarkMemoryEfficiency Memory Efficiency Benchmark
 func BenchmarkMemoryEfficiency(b *testing.B) {
 	configs := []struct {
 		name      string
@@ -383,7 +383,7 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 
 			err := ssql.Execute(sql)
 			if err != nil {
-				b.Fatalf("SQL执行失败: %v", err)
+				b.Fatalf("SQL execution failure: %v", err)
 			}
 
 			var resultCount int64
@@ -434,13 +434,13 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 			b.ReportMetric(float64(results), "results")
 
 			basicStats := detailedStats["basic_stats"].(map[string]int64)
-			b.Logf("%s配置效率:", config.name)
-			b.Logf("  缓冲区: 数据%d/结果%d/Sink%d",
+			b.Logf("%s Configuration Efficiency:", config.name)
+			b.Logf("Buffer: Data %d / Result %d / Sink%d",
 				basicStats["data_chan_cap"],
 				basicStats["result_chan_cap"],
 				basicStats["sink_pool_cap"])
-			b.Logf("  吞吐量: %.0f ops/sec, 处理率: %.1f%%, 结果数: %d", throughput, processRate, results)
-			b.Logf("  通道使用率: 数据%.1f%%, 结果%.1f%%", dataChanUsage, resultChanUsage)
+			b.Logf("Throughput: %.0f ops/sec, Throughput: %.1f%%, Number of Results: %d", throughput, processRate, results)
+			b.Logf("Channel Utilization: Data %.1f%%, results %.1f%%", dataChanUsage, resultChanUsage)
 		})
 	}
 }

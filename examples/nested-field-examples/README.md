@@ -1,33 +1,33 @@
-# StreamSQL 嵌套字段访问功能完整演示
+# StreamSQL Complete demonstration of nested field access functionality
 
-这个演示展示了 StreamSQL 的完整嵌套字段访问功能，包括基础点号访问、复杂数组索引、Map键访问和混合操作。
+This demo demonstrates StreamSQL's complete nested field access features, including basic dot point access, complex array indexing, Map key access, and hybrid operations.
 
-## 功能概览
+## Feature Overview
 
-### 基础功能
-- **点号语法访问**：使用 `field.subfield.property` 访问嵌套结构
-- **条件过滤**：在WHERE子句中使用嵌套字段进行数据筛选
-- **聚合计算**：对嵌套字段进行GROUP BY和聚合函数操作
+### Basic Features
+- **Point-Marked Syntax Access**: Use `field.subfield.property` to access nested structures
+- **Conditional Filtering**: Use nested fields in WHERE clauses for data filtering
+- **Aggregate Computation**: Perform GROUP BY and aggregation operations on nested fields
 
-### 高级功能
-- **数组索引访问**：使用 `array[0]`、`array[-1]` 等语法访问数组元素
-- **Map键访问**：支持 `map['key']` 和 `map["key"]` 语法访问Map值
-- **混合复杂访问**：组合使用点号、数组索引、Map键进行深层嵌套访问
-- **负数索引**：支持负数索引从数组末尾开始访问元素
-- **复杂聚合**：在聚合函数中使用复杂字段访问路径
+### Advanced Features
+- **Array Index Access**: Use syntax such as `array[0]`, `array[-1]`, etc. to access array elements
+- **Map key access to**: Supports `map['key']` and `map["key"]` syntax access to Map values
+- **Hybrid complex access**: Combines dot numbers, array indexes, and Map keys for deep nested access
+- **Negative Index**: Supports accessing elements from the end of the array using negative indexes
+- **Complex Aggregation**: Use complex fields in aggregation functions to access paths
 
-## 运行演示
+## Run the demo
 
 ```bash
 cd examples/nested-field-examples
 go run main.go
 ```
 
-## 演示内容
+## Presentation Content
 
-### 第一部分：基础嵌套字段访问
+### Part One: Basic Nested Field Access
 
-#### 示例SQL
+#### Example SQL
 ```sql
 SELECT device.info.name as device_name, 
        device.location,
@@ -38,7 +38,7 @@ WHERE device.location = 'room-A'
   AND sensor.temperature > 20
 ```
 
-#### 测试数据结构
+#### Test data structures
 ```json
 {
   "device": {
@@ -55,9 +55,9 @@ WHERE device.location = 'room-A'
 }
 ```
 
-### 第二部分：嵌套字段聚合
+### Part Two: Nested Field Aggregation
 
-#### 示例SQL
+#### Example SQL
 ```sql
 SELECT device.location, 
        AVG(sensor.temperature) as avg_temp,
@@ -68,11 +68,11 @@ GROUP BY device.location, TumblingWindow('2s')
 WITH (TIMESTAMP='timestamp', TIMEUNIT='ss')
 ```
 
-### 第三部分：复杂嵌套字段访问
+### Part Three: Accessing Complex Nested Fields
 
-#### 演示1：数组索引访问
+#### Demo 1: Array Index Access
 
-**SQL查询**
+**SQL Query**
 ```sql
 SELECT device, 
        sensors[0].temperature as first_sensor_temp,
@@ -81,7 +81,7 @@ SELECT device,
 FROM stream
 ```
 
-**数据结构**
+**Data Structure**
 ```json
 {
   "device": "工业传感器-001",
@@ -94,9 +94,9 @@ FROM stream
 }
 ```
 
-#### 演示2：Map键访问
+#### Demo 2: Map Key Access
 
-**SQL查询**
+**SQL Query**
 ```sql
 SELECT device_id,
        config['host'] as server_host,
@@ -106,7 +106,7 @@ SELECT device_id,
 FROM stream
 ```
 
-**数据结构**
+**Data Structure**
 ```json
 {
   "device_id": "gateway-001",
@@ -122,9 +122,9 @@ FROM stream
 }
 ```
 
-#### 演示3：混合复杂访问
+#### Demo 3: Hybrid Complex Access
 
-**SQL查询**
+**SQL Query**
 ```sql
 SELECT building,
        floors[0].rooms[2]['name'] as first_floor_room3_name,
@@ -134,7 +134,7 @@ SELECT building,
 FROM stream
 ```
 
-**数据结构**
+**Data Structure**
 ```json
 {
   "building": "智能大厦A座",
@@ -163,9 +163,9 @@ FROM stream
 }
 ```
 
-#### 演示4：负数索引访问
+#### Demo 4: Negative Index Access
 
-**SQL查询**
+**SQL Query**
 ```sql
 SELECT device_name,
        readings[-1] as latest_reading,
@@ -174,7 +174,7 @@ SELECT device_name,
 FROM stream
 ```
 
-**数据结构**
+**Data Structure**
 ```json
 {
   "device_name": "温度监测器-Alpha",
@@ -184,9 +184,9 @@ FROM stream
 }
 ```
 
-#### 演示5：数组索引聚合计算
+#### Demo 5: Array Index Aggregation Calculation
 
-**SQL查询**
+**SQL Query**
 ```sql
 SELECT location,
        AVG(sensors[0].temperature) as avg_first_sensor_temp,
@@ -197,21 +197,21 @@ GROUP BY location, TumblingWindow('2s')
 WITH (TIMESTAMP='timestamp', TIMEUNIT='ss')
 ```
 
-## 支持的访问语法总结
+## Summary of supported access syntax
 
-| 语法类型 | 示例 | 说明 |
+| Grammatical type | Example | Note |
 |---------|------|------|
-| 点号访问 | `device.info.name` | 基础嵌套字段访问 |
-| 数组正索引 | `items[0]`, `data[2]` | 从0开始的数组索引 |
-| 数组负索引 | `items[-1]`, `data[-2]` | 从末尾开始的数组索引 |
-| Map单引号键 | `config['host']` | 使用单引号的Map键访问 |
-| Map双引号键 | `settings["timeout"]` | 使用双引号的Map键访问 |
-| 混合访问 | `users[0].profile['name']` | 组合多种访问方式 |
-| 多维数组 | `matrix[1][2]` | 二维或多维数组访问 |
+| Click access | `device.info.name` | Basic nested field access |
+| Array positive index | `items[0]`, `data[2]` | Array index starting from 0 |
+| Array negative index | `items[-1]`, `data[-2]` | Array index |, starting from the end
+| Map Single quote key | `config['host']` | Use the single-quoted Map key to access |
+| Map Double quotation key | `settings["timeout"]` | Access |using the Map key in double quotes
+| Hybrid Access | `users[0].profile['name']` | Combine multiple access methods |
+| Multidimensional array | `matrix[1][2]` | Two-dimensional or multidimensional array access |
 
-## 预期输出示例
+## Example of expected output
 
-### 基础嵌套字段访问结果
+### Basic Nested Field Access Results
 ```
 📊 第一部分：基础嵌套字段访问
   📋 基础嵌套字段访问结果:
@@ -222,7 +222,7 @@ WITH (TIMESTAMP='timestamp', TIMEUNIT='ss')
       湿度: 60.2%
 ```
 
-### 数组索引访问结果
+### Array index access result
 ```
 📊 演示1: 数组索引访问
   📋 数组索引访问结果:
@@ -233,7 +233,7 @@ WITH (TIMESTAMP='timestamp', TIMEUNIT='ss')
       第三个数据项: signal_strong
 ```
 
-### Map键访问结果
+### Map key to access results
 ```
 🗝️ 演示2: Map键访问
   🗝️ Map键访问结果:
@@ -245,7 +245,7 @@ WITH (TIMESTAMP='timestamp', TIMEUNIT='ss')
       应用版本: v2.1.3
 ```
 
-### 聚合计算结果
+### Aggregated calculation results
 ```
 📈 演示5: 数组索引聚合计算
   📈 数组索引聚合计算结果:
@@ -256,35 +256,35 @@ WITH (TIMESTAMP='timestamp', TIMEUNIT='ss')
       设备数量: 4
 ```
 
-## 技术特性
+## Technical Features
 
-### 性能优化
-- 字段路径解析结果缓存
-- 高效的嵌套访问算法
-- 最小化内存分配
+### Performance Optimization
+- Caching field path parsing results
+- Efficient nested access algorithms
+- Minimizes memory allocation
 
-### 错误处理
-- 安全的数组边界检查
-- 优雅的空值处理
-- 类型安全的访问操作
+### Error Handling
+- Secure array boundary checks
+- Elegant null value processing
+- Type-safe access operations
 
-### 兼容性
-- 完全向后兼容简单字段访问
-- 支持所有现有SQL功能
-- 无缝集成聚合和窗口函数
+### Compatibility
+- Fully backward compatible with simple field access
+- Supports all existing SQL features
+- Seamless integration of aggregation and window functions
 
-## 使用建议
+## Usage Recommendations
 
-1. **字段别名**：为复杂路径使用AS别名提高可读性
-2. **数据验证**：在生产环境中验证数据结构的一致性
-3. **性能考虑**：避免过深的嵌套层级（建议不超过5层）
-4. **错误预期**：预期并处理字段不存在的情况
-5. **测试覆盖**：全面测试各种数据结构和边界情况
+1. **Field Aliases**: Use AS Aliases for complex paths to improve readability
+2. **Data Validation**: Verify the consistency of data structures in production environments
+3. **Performance Considerations**: Avoid overly deep nested layers (recommended not to exceed 5 layers)
+4. **Error Expectation**: Anticipate and handle cases where fields do not exist
+5. **Test coverage**: Comprehensive testing of various data structures and boundary situations
 
-## 注意事项
+## Notes
 
-- 数组索引从0开始，负数索引从-1开始
-- Map键访问区分大小写
-- 访问不存在的字段返回null而不抛出异常
-- 所有操作都是线程安全的
-- 支持实时流处理和批处理模式 
+- The array index starts from 0, and the negative index starts at -1
+- Map Key access is case-sensitive
+- Returns null to non-existent fields without throwing exceptions
+- All operations are thread-safe
+- Supports real-time stream processing and batch processing modes 

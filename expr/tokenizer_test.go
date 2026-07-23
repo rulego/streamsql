@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestTokenize 测试分词功能
+// TestTokenize tests word segmentation functionality
 func TestTokenize(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -15,49 +15,49 @@ func TestTokenize(t *testing.T) {
 		expected []string
 		wantErr  bool
 	}{
-		// 基本分词测试
+		// Basic word segmentation test
 		{"简单表达式", "a + b", []string{"a", "+", "b"}, false},
 		{"数字和运算符", "123 + 456", []string{"123", "+", "456"}, false},
 		{"小数", "3.14 * 2", []string{"3.14", "*", "2"}, false},
 		{"负数", "-5 + 3", []string{"-5", "+", "3"}, false},
 		{"负小数", "-3.14 * 2", []string{"-3.14", "*", "2"}, false},
 
-		// 括号和函数
+		// Parentheses and functions
 		{"括号表达式", "(a + b) * c", []string{"(", "a", "+", "b", ")", "*", "c"}, false},
 		{"函数调用", "abs(x)", []string{"abs", "(", "x", ")"}, false},
 		{"函数参数", "max(a, b)", []string{"max", "(", "a", ",", "b", ")"}, false},
 
-		// 比较运算符
+		// Comparison operator
 		{"等于运算符", "a == b", []string{"a", "==", "b"}, false},
 		{"不等于运算符", "a != b", []string{"a", "!=", "b"}, false},
 		{"大于等于", "a >= b", []string{"a", ">=", "b"}, false},
 		{"小于等于", "a <= b", []string{"a", "<=", "b"}, false},
 		{"不等于SQL风格", "a <> b", []string{"a", "<>", "b"}, false},
 
-		// 字符串字面量
+		// string literal
 		{"单引号字符串", "'hello'", []string{"'hello'"}, false},
 		{"双引号字符串", "\"world\"", []string{"\"world\""}, false},
 		{"字符串比较", "name == 'test'", []string{"name", "==", "'test'"}, false},
 		{"包含转义的字符串", "'hello\\world'", []string{"'hello\\world'"}, false},
 
-		// 反引号标识符
+		// Backquote identifier
 		{"反引号字段", "`field name`", []string{"`field name`"}, false},
 		{"反引号表达式", "`user.name` + `user.age`", []string{"`user.name`", "+", "`user.age`"}, false},
 
-		// CASE表达式
+		// CASE expression
 		{"简单CASE", "CASE WHEN a > 0 THEN 1 ELSE 0 END", []string{"CASE", "WHEN", "a", ">", "0", "THEN", "1", "ELSE", "0", "END"}, false},
 
-		// 复杂表达式
+		// Complex expressions
 		{"复杂算术", "a + b * c - d / e", []string{"a", "+", "b", "*", "c", "-", "d", "/", "e"}, false},
 		{"幂运算", "a ^ b", []string{"a", "^", "b"}, false},
 		{"取模运算", "a % b", []string{"a", "%", "b"}, false},
 
-		// 空白字符处理
+		// Whitespace character processing
 		{"多个空格", "a   +   b", []string{"a", "+", "b"}, false},
 		{"制表符", "a\t+\tb", []string{"a", "+", "b"}, false},
 		{"换行符", "a\n+\nb", []string{"a", "+", "b"}, false},
 
-		// 错误情况
+		// Error case
 		{"空表达式", "", nil, true},
 		{"只有空格", "   ", nil, true},
 		{"未闭合字符串", "'hello", nil, true},
@@ -78,7 +78,7 @@ func TestTokenize(t *testing.T) {
 	}
 }
 
-// TestIsDigit 测试数字字符判断
+// TestIsDigit tests numeric character judgments
 func TestIsDigit(t *testing.T) {
 	tests := []struct {
 		ch       byte
@@ -102,7 +102,7 @@ func TestIsDigit(t *testing.T) {
 	}
 }
 
-// TestIsLetter 测试字母字符判断
+// TestIsLetter tests the character for letters
 func TestIsLetter(t *testing.T) {
 	tests := []struct {
 		ch       byte
@@ -127,7 +127,7 @@ func TestIsLetter(t *testing.T) {
 	}
 }
 
-// TestIsNumber 测试数字字符串判断
+// TestIsNumber tests for numeric string checks
 func TestIsNumber(t *testing.T) {
 	tests := []struct {
 		s        string
@@ -155,7 +155,7 @@ func TestIsNumber(t *testing.T) {
 	}
 }
 
-// TestIsIdentifier 测试标识符判断
+// TestIsIdentifier Test the identifier to check
 func TestIsIdentifier(t *testing.T) {
 	tests := []struct {
 		s        string
@@ -183,7 +183,7 @@ func TestIsIdentifier(t *testing.T) {
 	}
 }
 
-// TestIsOperator 测试运算符判断
+// TestIsOperator test operator to check
 func TestIsOperator(t *testing.T) {
 	tests := []struct {
 		s        string
@@ -222,7 +222,7 @@ func TestIsOperator(t *testing.T) {
 	}
 }
 
-// TestIsComparisonOperator 测试比较运算符判断
+// TestIsComparisonOperator tests the comparison operator's judgment
 func TestIsComparisonOperator(t *testing.T) {
 	tests := []struct {
 		s        string
@@ -252,7 +252,7 @@ func TestIsComparisonOperator(t *testing.T) {
 	}
 }
 
-// TestIsStringLiteral 测试字符串字面量判断
+// TestIsStringLiteral: Tests string literal quantity check
 func TestIsStringLiteral(t *testing.T) {
 	tests := []struct {
 		s        string
@@ -280,7 +280,7 @@ func TestIsStringLiteral(t *testing.T) {
 	}
 }
 
-// TestTokenizeComplexExpressions 测试复杂表达式分词
+// TestTokenizeComplexExpressions tests complex expression segmentation
 func TestTokenizeComplexExpressions(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -323,7 +323,7 @@ func TestTokenizeComplexExpressions(t *testing.T) {
 	}
 }
 
-// TestTokenizeEdgeCases 测试边界情况
+// TestTokenizeEdgeCases tests boundary conditions
 func TestTokenizeEdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -334,7 +334,7 @@ func TestTokenizeEdgeCases(t *testing.T) {
 		{"只有数字", "123", []string{"123"}, false},
 		{"只有小数点开头的数字", ".5", []string{".5"}, false},
 		{"连续运算符（应该在解析阶段检测）", "a + + b", []string{"a", "+", "+", "b"}, false},
-		{"多个小数点", "3.14.15", []string{"3.14", ".", "15"}, false}, // 分词器不检查语法错误
+		{"多个小数点", "3.14.15", []string{"3.14", ".", "15"}, false}, // The word segmentation does not check for grammatical errors
 		{"空字符串转义", "''", []string{"''"}, false},
 		{"包含空格的反引号标识符", "`user name`", []string{"`user name`"}, false},
 		{"特殊字符在字符串中", "'hello@world#test'", []string{"'hello@world#test'"}, false},

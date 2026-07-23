@@ -22,14 +22,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestPrintTableFromSlice 测试表格打印功能
+// TestPrintTableFromSlice tests the table printing function
 func TestPrintTableFromSlice(t *testing.T) {
-	// 测试空数据
+	// Test empty data
 	assert.NotPanics(t, func() {
 		PrintTableFromSlice([]map[string]any{}, nil)
 	}, "空数据不应该panic")
 
-	// 测试正常数据
+	// Test normal data
 	data := []map[string]any{
 		{"name": "Alice", "age": 30, "city": "New York"},
 		{"name": "Bob", "age": 25, "city": "Los Angeles"},
@@ -38,30 +38,30 @@ func TestPrintTableFromSlice(t *testing.T) {
 		PrintTableFromSlice(data, nil)
 	}, "正常数据不应该panic")
 
-	// 测试带字段顺序的数据
+	// Test data with field order
 	fieldOrder := []string{"name", "city", "age"}
 	assert.NotPanics(t, func() {
 		PrintTableFromSlice(data, fieldOrder)
 	}, "带字段顺序的数据不应该panic")
 }
 
-// TestPrintTableBorder 测试边框打印功能
+// TestPrintTableBorder tests border printing functionality
 func TestPrintTableBorder(t *testing.T) {
-	// 测试正常宽度
+	// Test the normal width
 	assert.NotPanics(t, func() {
 		colWidths := []int{5, 8, 6}
 		PrintTableBorder(colWidths)
 	}, "PrintTableBorder不应该panic")
 
-	// 测试空宽度
+	// Test the empty width
 	assert.NotPanics(t, func() {
 		PrintTableBorder([]int{})
 	}, "空宽度数组不应该panic")
 }
 
-// TestFormatTableData 测试数据格式化功能
+// TestFormatTableData test data formatting function
 func TestFormatTableData(t *testing.T) {
-	// 测试切片数据
+	// Test slicing data
 	sliceData := []map[string]any{
 		{"device": "sensor1", "temp": 25.5},
 	}
@@ -69,18 +69,18 @@ func TestFormatTableData(t *testing.T) {
 		FormatTableData(sliceData, nil)
 	}, "切片数据不应该panic")
 
-	// 测试单个map数据
+	// Test individual map data
 	mapData := map[string]any{"device": "sensor1", "temp": 25.5}
 	assert.NotPanics(t, func() {
 		FormatTableData(mapData, nil)
 	}, "map数据不应该panic")
 
-	// 测试其他类型数据
+	// Testing other types of data
 	assert.NotPanics(t, func() {
 		FormatTableData("string data", nil)
 	}, "字符串数据不应该panic")
 
-	// 测试空数据
+	// Test empty data
 	assert.NotPanics(t, func() {
 		FormatTableData([]map[string]any{}, nil)
 	}, "空切片数据不应该panic")
@@ -90,9 +90,9 @@ func TestFormatTableData(t *testing.T) {
 	}, "空map数据不应该panic")
 }
 
-// TestPrintTableFromSliceEdgeCases 测试边缘情况
+// TestPrintTableFromSliceEdgeCases tests edge conditions
 func TestPrintTableFromSliceEdgeCases(t *testing.T) {
-	// 测试字段顺序包含不存在的字段
+	// The test field order includes fields that do not exist
 	data := []map[string]any{
 		{"a": "1", "b": "2"},
 	}
@@ -101,17 +101,17 @@ func TestPrintTableFromSliceEdgeCases(t *testing.T) {
 		PrintTableFromSlice(data, fieldOrder)
 	}, "字段顺序包含不存在字段不应该panic")
 
-	// 测试数据行中某些字段缺失
+	// Some fields in the test data row are missing
 	dataWithMissingFields := []map[string]any{
 		{"name": "Alice", "age": 30},
-		{"name": "Bob", "city": "NYC"}, // 缺少age字段
-		{"age": 25, "city": "LA"},      // 缺少name字段
+		{"name": "Bob", "city": "NYC"}, // The age field is missing
+		{"age": 25, "city": "LA"},      // The name field is missing
 	}
 	assert.NotPanics(t, func() {
 		PrintTableFromSlice(dataWithMissingFields, nil)
 	}, "数据行字段缺失不应该panic")
 
-	// 测试短字段名（测试最小宽度4的逻辑）
+	// Test short field name (test minimum width 4 logic)
 	shortFieldData := []map[string]any{
 		{"a": "1", "bb": "22", "ccc": "333"},
 	}
@@ -119,7 +119,7 @@ func TestPrintTableFromSliceEdgeCases(t *testing.T) {
 		PrintTableFromSlice(shortFieldData, nil)
 	}, "短字段名不应该panic")
 
-	// 测试空值和nil值
+	// Test null values and nil values
 	nilValueData := []map[string]any{
 		{"name": "Alice", "value": nil},
 		{"name": "Bob", "value": ""},

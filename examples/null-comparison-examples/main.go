@@ -11,11 +11,11 @@ func main() {
 	fmt.Println("=== StreamSQL Null 比较语法演示 ===")
 	fmt.Println()
 
-	demo1() // fieldName = nil 语法
-	demo2() // fieldName != nil 语法
-	demo3() // fieldName = null 和 != null 语法
-	demo4() // 混合语法演示
-	demo5() // 嵌套字段 null 比较
+	demo1() // fieldName = nil syntax
+	demo2() // fieldName!= nil syntax
+	demo3() // fieldName = null and!= null syntax
+	demo4() // Mixed grammar demonstration
+	demo5() // Nested field null comparison
 }
 
 func demo1() {
@@ -25,7 +25,7 @@ func demo1() {
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 使用 = nil 语法查找空值
+	// Use the = nil syntax to find null values
 	rsql := `SELECT deviceId, value, status 
 	         FROM stream 
 	         WHERE value = nil`
@@ -43,9 +43,9 @@ func demo1() {
 
 	testData := []map[string]any{
 		{"deviceId": "sensor1", "value": 25.5, "status": "active"},
-		{"deviceId": "sensor2", "value": nil, "status": "active"}, // 符合条件
+		{"deviceId": "sensor2", "value": nil, "status": "active"}, // Meet the requirements
 		{"deviceId": "sensor3", "value": 30.0, "status": "inactive"},
-		{"deviceId": "sensor4", "value": nil, "status": "error"}, // 符合条件
+		{"deviceId": "sensor4", "value": nil, "status": "error"}, // Meet the requirements
 	}
 
 	for _, data := range testData {
@@ -63,7 +63,7 @@ func demo2() {
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 使用 != nil 语法查找非空值
+	// Use the!= nil syntax to find non-null values
 	rsql := `SELECT deviceId, value, status 
 	         FROM stream 
 	         WHERE value != nil AND value > 20`
@@ -80,10 +80,10 @@ func demo2() {
 	})
 
 	testData := []map[string]any{
-		{"deviceId": "sensor1", "value": 25.5, "status": "active"},   // 符合条件
-		{"deviceId": "sensor2", "value": nil, "status": "active"},    // 不符合（空值）
-		{"deviceId": "sensor3", "value": 15.0, "status": "inactive"}, // 不符合（值<=20）
-		{"deviceId": "sensor4", "value": 30.0, "status": "error"},    // 符合条件
+		{"deviceId": "sensor1", "value": 25.5, "status": "active"},   // Meet the requirements
+		{"deviceId": "sensor2", "value": nil, "status": "active"},    // Nonconforming (null)
+		{"deviceId": "sensor3", "value": 15.0, "status": "inactive"}, // Not compliant (value <=20)
+		{"deviceId": "sensor4", "value": 30.0, "status": "error"},    // Meet the requirements
 	}
 
 	for _, data := range testData {
@@ -101,7 +101,7 @@ func demo3() {
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 使用 = null 和 != null 语法
+	// Use the = null and!= null syntax
 	rsql := `SELECT deviceId, value, status 
 	         FROM stream 
 	         WHERE status != null OR value = null`
@@ -124,10 +124,10 @@ func demo3() {
 	})
 
 	testData := []map[string]any{
-		{"deviceId": "sensor1", "value": 25.5, "status": "active"},   // 符合（status不为null）
-		{"deviceId": "sensor2", "value": nil, "status": nil},         // 符合（value为null）
-		{"deviceId": "sensor3", "value": 30.0, "status": "inactive"}, // 符合（status不为null）
-		{"deviceId": "sensor4", "value": nil, "status": "error"},     // 符合（两个条件都满足）
+		{"deviceId": "sensor1", "value": 25.5, "status": "active"},   // Compliance (status not null)
+		{"deviceId": "sensor2", "value": nil, "status": nil},         // Compliant (value is null)
+		{"deviceId": "sensor3", "value": 30.0, "status": "inactive"}, // Compliance (status not null)
+		{"deviceId": "sensor4", "value": nil, "status": "error"},     // Meets (both conditions met)
 	}
 
 	for _, data := range testData {
@@ -145,7 +145,7 @@ func demo4() {
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 混合使用 IS NULL、= nil、!= null 等语法
+	// Syntax such as IS NULL, = nil,!= null is used together
 	rsql := `SELECT deviceId, value, status, priority 
 	         FROM stream 
 	         WHERE (value IS NOT NULL AND value > 20) OR 
@@ -171,12 +171,12 @@ func demo4() {
 	})
 
 	testData := []map[string]any{
-		{"deviceId": "sensor1", "value": 25.0, "status": "active", "priority": "high"}, // 符合第一个条件
-		{"deviceId": "sensor2", "value": 15.0, "status": "active", "priority": "low"},  // 不符合
-		{"deviceId": "sensor3", "value": nil, "status": nil, "priority": "medium"},     // 符合第二个条件
-		{"deviceId": "sensor4", "value": nil, "status": nil, "priority": nil},          // 不符合
-		{"deviceId": "sensor5", "value": 30.0, "status": "inactive", "priority": nil},  // 符合第一个条件
-		{"deviceId": "sensor6", "value": 10.0, "status": nil, "priority": "urgent"},    // 符合第二个条件
+		{"deviceId": "sensor1", "value": 25.0, "status": "active", "priority": "high"}, // Meet the first condition
+		{"deviceId": "sensor2", "value": 15.0, "status": "active", "priority": "low"},  // It does not fit
+		{"deviceId": "sensor3", "value": nil, "status": nil, "priority": "medium"},     // Meet the second condition
+		{"deviceId": "sensor4", "value": nil, "status": nil, "priority": nil},          // It does not fit
+		{"deviceId": "sensor5", "value": 30.0, "status": "inactive", "priority": nil},  // Meet the first condition
+		{"deviceId": "sensor6", "value": 10.0, "status": nil, "priority": "urgent"},    // Meet the second condition
 	}
 
 	for _, data := range testData {
@@ -194,7 +194,7 @@ func demo5() {
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 嵌套字段的 null 比较
+	// null comparison of nested fields
 	rsql := `SELECT deviceId, device.location 
 	         FROM stream 
 	         WHERE device.location != nil`
@@ -216,23 +216,23 @@ func demo5() {
 			"device": map[string]any{
 				"location": "warehouse-A",
 			},
-		}, // 符合条件
+		}, // Meet the requirements
 		{
 			"deviceId": "sensor2",
 			"device": map[string]any{
 				"location": nil,
 			},
-		}, // 不符合（location为nil）
+		}, // Not compliant (location is nil)
 		{
 			"deviceId": "sensor3",
 			"device":   map[string]any{},
-		}, // 不符合（location字段不存在）
+		}, // Does not meet (location field does not exist)
 		{
 			"deviceId": "sensor4",
 			"device": map[string]any{
 				"location": "office-B",
 			},
-		}, // 符合条件
+		}, // Meet the requirements
 	}
 
 	for _, data := range testData {

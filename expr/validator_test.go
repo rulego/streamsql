@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestValidateExpressionNode 测试表达式节点验证功能
+// TestValidateExpressionNode Tests expression node validation functionality
 func TestValidateExpressionNode(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -69,7 +69,7 @@ func TestValidateExpressionNode(t *testing.T) {
 			},
 			false,
 		},
-		// 错误情况
+		// Error case
 		{"空节点", nil, true},
 		{"无效数字", &ExprNode{Type: TypeNumber, Value: "abc"}, true},
 		{"无效字段名", &ExprNode{Type: TypeField, Value: "123field"}, true},
@@ -109,14 +109,14 @@ func TestValidateExpressionNode(t *testing.T) {
 	}
 }
 
-// TestValidateExpression 测试公共表达式验证接口
+// TestValidateExpression tests the common expression verification interface
 func TestValidateExpression(t *testing.T) {
 	tests := []struct {
 		name    string
 		expr    string
 		wantErr bool
 	}{
-		// 有效表达式
+		// Valid expression
 		{"简单数字", "123", false},
 		{"简单字段", "field1", false},
 		{"算术表达式", "1 + 2", false},
@@ -128,7 +128,7 @@ func TestValidateExpression(t *testing.T) {
 		{"逻辑表达式", "field1 > 0 AND field2 < 100", false},
 		{"嵌套函数", "max(abs(field1), abs(field2))", false},
 
-		// 无效表达式
+		// Invalid expressions
 		{"空表达式", "", true},
 		{"只有空格", "   ", true},
 		{"括号不匹配1", "(1 + 2", true},
@@ -158,7 +158,7 @@ func TestValidateExpression(t *testing.T) {
 	}
 }
 
-// TestValidateNumberNode 测试数字节点验证
+// TestValidateNumberNode Validates the digital node
 func TestValidateNumberNode(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -174,7 +174,7 @@ func TestValidateNumberNode(t *testing.T) {
 		{"负科学计数法", "-1.5e-3", false},
 		{"小数点开头", ".5", false},
 		{"小数点结尾", "5.", false},
-		// 错误情况
+		// Error case
 		{"空字符串", "", true},
 		{"字母", "abc", true},
 		{"多个小数点", "3.14.15", true},
@@ -197,7 +197,7 @@ func TestValidateNumberNode(t *testing.T) {
 	}
 }
 
-// TestValidateStringNode 测试字符串节点验证
+// TestValidateStringNode Tests string node validation
 func TestValidateStringNode(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -211,7 +211,7 @@ func TestValidateStringNode(t *testing.T) {
 		{"包含转义的字符串", "'hello\\world'", false},
 		{"包含单引号的双引号字符串", "\"hello'world\"", false},
 		{"包含双引号的单引号字符串", "'hello\"world'", false},
-		// 错误情况
+		// Error case
 		{"未闭合单引号", "'hello", true},
 		{"未闭合双引号", "\"hello", true},
 		{"没有引号", "hello", true},
@@ -234,7 +234,7 @@ func TestValidateStringNode(t *testing.T) {
 	}
 }
 
-// TestValidateFieldNode 测试字段节点验证
+// TestValidateFieldNode Verification of the test field node
 func TestValidateFieldNode(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -250,7 +250,7 @@ func TestValidateFieldNode(t *testing.T) {
 		{"反引号字段", "`field name`", false},
 		{"反引号包含特殊字符", "`user.name`", false},
 		{"反引号包含空格", "`user name`", false},
-		// 错误情况
+		// Error case
 		{"空字段名", "", true},
 		{"数字开头", "123field", true},
 		{"包含特殊字符", "field-name", true},
@@ -274,7 +274,7 @@ func TestValidateFieldNode(t *testing.T) {
 	}
 }
 
-// TestValidateOperatorNode 测试运算符节点验证
+// TestValidateOperatorNode Node verifies the test operator node
 func TestValidateOperatorNode(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -326,7 +326,7 @@ func TestValidateOperatorNode(t *testing.T) {
 			nil,
 			false,
 		},
-		// 错误情况
+		// Error case
 		{"无效运算符", "@", &ExprNode{Type: TypeNumber, Value: "1"}, &ExprNode{Type: TypeNumber, Value: "2"}, true},
 		{"缺少左操作数", "+", nil, &ExprNode{Type: TypeNumber, Value: "2"}, true},
 		{"缺少右操作数（双操作数运算符）", "+", &ExprNode{Type: TypeNumber, Value: "1"}, nil, true},
@@ -353,9 +353,9 @@ func TestValidateOperatorNode(t *testing.T) {
 	}
 }
 
-// TestValidateFunctionNode 测试函数节点验证
+// TestValidateFunctionNode Validates the test function node
 func TestValidateFunctionNode(t *testing.T) {
-	// 测试函数Value为空的情况
+	// Test when the function Value is empty
 	t.Run("函数名为空", func(t *testing.T) {
 		node := &ExprNode{
 			Type:  TypeFunction,
@@ -404,7 +404,7 @@ func TestValidateFunctionNode(t *testing.T) {
 			[]*ExprNode{},
 			false,
 		},
-		// 错误情况
+		// Error case
 		{"未知函数", "unknown", []*ExprNode{{Type: TypeNumber, Value: "1"}}, true},
 		{"ABS参数数量错误", "abs", []*ExprNode{}, true},
 		{"POW参数数量错误", "pow", []*ExprNode{{Type: TypeNumber, Value: "2"}}, true},
@@ -429,7 +429,7 @@ func TestValidateFunctionNode(t *testing.T) {
 	}
 }
 
-// TestValidateFunctionArgs 测试函数参数验证
+// TestValidateFunctionArgs Validates the function parameters
 func TestValidateFunctionArgs(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -437,38 +437,38 @@ func TestValidateFunctionArgs(t *testing.T) {
 		args     []*ExprNode
 		wantErr  bool
 	}{
-		// 单参数函数
+		// Single-parameter function
 		{"ABS正确参数", "abs", []*ExprNode{{Type: TypeNumber, Value: "1"}}, false},
 		{"ABS参数过少", "abs", []*ExprNode{}, true},
 		{"ABS参数过多", "abs", []*ExprNode{{Type: TypeNumber, Value: "1"}, {Type: TypeNumber, Value: "2"}}, true},
 
-		// 双参数函数
+		// Two-parameter function
 		{"POW正确参数", "pow", []*ExprNode{{Type: TypeNumber, Value: "2"}, {Type: TypeNumber, Value: "3"}}, false},
 		{"POW参数过少", "pow", []*ExprNode{{Type: TypeNumber, Value: "2"}}, true},
 		{"POW参数过多", "pow", []*ExprNode{{Type: TypeNumber, Value: "2"}, {Type: TypeNumber, Value: "3"}, {Type: TypeNumber, Value: "4"}}, true},
 
-		// 可变参数函数
+		// Variable parameter function
 		{"MAX单参数", "max", []*ExprNode{{Type: TypeNumber, Value: "1"}}, false},
 		{"MAX多参数", "max", []*ExprNode{{Type: TypeNumber, Value: "1"}, {Type: TypeNumber, Value: "2"}, {Type: TypeNumber, Value: "3"}}, false},
 		{"MAX无参数", "max", []*ExprNode{}, true},
 
-		// 无参数函数（如果有的话）
+		// Parameterless functions (if available)
 		{"COUNT无参数", "count", []*ExprNode{}, false},
-		{"COUNT有参数", "count", []*ExprNode{{Type: TypeNumber, Value: "1"}}, false}, // COUNT可以有参数
+		{"COUNT有参数", "count", []*ExprNode{{Type: TypeNumber, Value: "1"}}, false}, // COUNT can have parameters
 
-		// 未知函数
+		// Unknown function
 		{"未知函数", "unknown", []*ExprNode{{Type: TypeNumber, Value: "1"}}, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 创建一个函数节点来测试
+			// Create a function node to test
 			node := &ExprNode{
 				Type:  TypeFunction,
 				Value: tt.funcName,
 				Args:  tt.args,
 			}
-			// 使用validateFunctionNode来验证函数名和参数数量
+			// Use validateFunctionNode to verify function names and number of parameters
 			err := validateFunctionNode(node)
 			if tt.wantErr {
 				assert.Error(t, err, "应该返回错误")
@@ -479,7 +479,7 @@ func TestValidateFunctionArgs(t *testing.T) {
 	}
 }
 
-// TestValidateCaseNode 测试CASE节点验证
+// TestValidateCaseNode Tests CASE node verification
 func TestValidateCaseNode(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -511,11 +511,11 @@ func TestValidateCaseNode(t *testing.T) {
 				WhenClauses: []WhenClause{
 					{
 						Condition: &ExprNode{Type: TypeString, Value: "'active'"},
-						Result: &ExprNode{Type: TypeNumber, Value: "1"},
+						Result:    &ExprNode{Type: TypeNumber, Value: "1"},
 					},
 					{
 						Condition: &ExprNode{Type: TypeString, Value: "'inactive'"},
-						Result: &ExprNode{Type: TypeNumber, Value: "0"},
+						Result:    &ExprNode{Type: TypeNumber, Value: "0"},
 					},
 				},
 				ElseResult: &ExprNode{Type: TypeNumber, Value: "-1"},
@@ -567,7 +567,7 @@ func TestValidateCaseNode(t *testing.T) {
 			},
 			false,
 		},
-		// 错误情况
+		// Error case
 		{"没有WHEN子句", &CaseExpression{WhenClauses: []WhenClause{}, ElseResult: &ExprNode{Type: TypeNumber, Value: "0"}}, true},
 		{"WHEN条件为空", &CaseExpression{
 			WhenClauses: []WhenClause{
@@ -603,7 +603,7 @@ func TestValidateCaseNode(t *testing.T) {
 		}, true},
 	}
 
-	// 添加CaseExpr为nil的测试用例
+	// Add a test case where CaseExpr is nil
 	t.Run("CaseExpr为nil", func(t *testing.T) {
 		node := &ExprNode{Type: TypeCase, CaseExpr: nil}
 		err := validateCaseNode(node)
@@ -624,14 +624,14 @@ func TestValidateCaseNode(t *testing.T) {
 	}
 }
 
-// TestIsValidFieldName 测试字段名验证
+// TestIsValidFieldName to validate the test field name
 func TestIsValidFieldName(t *testing.T) {
 	tests := []struct {
 		name      string
 		fieldName string
 		expected  bool
 	}{
-		// 有效情况
+		// Effective situation
 		{"简单字段名", "field", true},
 		{"下划线开头", "_field", true},
 		{"包含数字", "field123", true},
@@ -646,7 +646,7 @@ func TestIsValidFieldName(t *testing.T) {
 		{"反引号包含连字符", "`field-name`", true},
 		{"反引号包含各种符号", "`field@#$%^&*()`", true},
 
-		// 无效情况
+		// Invalid cases
 		{"空字段名", "", false},
 		{"数字开头", "123field", false},
 		{"包含连字符", "field-name", false},
@@ -672,7 +672,7 @@ func TestIsValidFieldName(t *testing.T) {
 	}
 }
 
-// TestValidateTokens 测试标记列表验证
+// TestValidateTokens test tag list verification
 func TestValidateTokens(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -682,7 +682,7 @@ func TestValidateTokens(t *testing.T) {
 		{"有效标记列表", []string{"a", "+", "b"}, false},
 		{"有效函数调用", []string{"abs", "(", "x", ")"}, false},
 		{"有效CASE表达式", []string{"CASE", "WHEN", "a", ">", "0", "THEN", "1", "ELSE", "0", "END"}, false},
-		// 错误情况
+		// Error case
 		{"空标记列表", []string{}, true},
 		{"括号不匹配", []string{"(", "a", "+", "b"}, true},
 		{"连续运算符", []string{"a", "+", "+", "b"}, true},
@@ -702,7 +702,7 @@ func TestValidateTokens(t *testing.T) {
 	}
 }
 
-// TestValidateParentheses 测试括号验证
+// TestValidateParentheses test parentheses verification
 func TestValidateParentheses(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -713,7 +713,7 @@ func TestValidateParentheses(t *testing.T) {
 		{"嵌套括号", []string{"(", "(", "a", "+", "b", ")", "*", "c", ")"}, false},
 		{"函数括号", []string{"abs", "(", "x", ")"}, false},
 		{"无括号", []string{"a", "+", "b"}, false},
-		// 错误情况
+		// Error case
 		{"缺少右括号", []string{"(", "a", "+", "b"}, true},
 		{"缺少左括号", []string{"a", "+", "b", ")"}, true},
 		{"括号顺序错误", []string{")", "a", "+", "b", "("}, true},
@@ -732,7 +732,7 @@ func TestValidateParentheses(t *testing.T) {
 	}
 }
 
-// TestValidateTokenOrder 测试标记顺序验证
+// TestValidateTokenOrder verifies the order of test tags
 func TestValidateTokenOrder(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -742,7 +742,7 @@ func TestValidateTokenOrder(t *testing.T) {
 		{"正确顺序", []string{"a", "+", "b"}, false},
 		{"函数调用", []string{"abs", "(", "x", ")"}, false},
 		{"复杂表达式", []string{"a", "+", "b", "*", "c"}, false},
-		// 错误情况
+		// Error case
 		{"连续运算符", []string{"a", "+", "+", "b"}, true},
 		{"运算符开头", []string{"+", "a"}, true},
 		{"运算符结尾", []string{"a", "+"}, true},
@@ -768,13 +768,13 @@ func TestValidateTokenOrder(t *testing.T) {
 	}
 }
 
-// TestValidateSyntax 测试语法验证
+// TestValidateSyntax tests syntax verification
 func TestValidateParenthesisNode(t *testing.T) {
 	tests := []struct {
-		name     string
-		node     *ExprNode
-		wantErr  bool
-		errMsg   string
+		name    string
+		node    *ExprNode
+		wantErr bool
+		errMsg  string
 	}{
 		{
 			name: "有效的括号表达式",
@@ -802,7 +802,7 @@ func TestValidateParenthesisNode(t *testing.T) {
 				Type: TypeParenthesis,
 				Left: &ExprNode{
 					Type:  TypeField,
-					Value: "", // 空字段名
+					Value: "", // Empty field name
 				},
 			},
 			wantErr: true,
@@ -834,7 +834,7 @@ func TestValidateSyntax(t *testing.T) {
 		expr    string
 		wantErr bool
 	}{
-		// 有效表达式
+		// Valid expression
 		{"有效算术表达式", "a + b", false},
 		{"有效函数调用", "abs(x)", false},
 		{"有效CASE表达式", "CASE WHEN a > 0 THEN 1 END", false},
@@ -844,7 +844,7 @@ func TestValidateSyntax(t *testing.T) {
 		{"有效小于等于表达式", "a <= b", false},
 		{"复杂表达式", "a + b * c", false},
 
-		// 错误情况
+		// Error case
 		{"空表达式", "", true},
 		{"只有空格", "   ", true},
 		{"空括号", "()", true},

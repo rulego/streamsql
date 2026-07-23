@@ -69,13 +69,13 @@ func TestCreateAggregator(t *testing.T) {
 }
 
 func TestAggregatorAdapter(t *testing.T) {
-	// 测试聚合器适配器
+	// Test the aggregator adapter
 	adapter, err := NewAggregatorAdapter("sum")
 	if err != nil {
 		t.Fatalf("Failed to create aggregator adapter: %v", err)
 	}
 
-	// 测试创建新实例
+	// Test to create new instances
 	newInstance := adapter.New()
 	if newInstance == nil {
 		t.Fatal("Failed to create new adapter instance")
@@ -86,7 +86,7 @@ func TestAggregatorAdapter(t *testing.T) {
 		t.Fatal("New instance is not an AggregatorAdapter")
 	}
 
-	// 测试添加值和获取结果
+	// Test the added value and obtain the results
 	newAdapter.Add(5.0)
 	newAdapter.Add(10.0)
 
@@ -97,10 +97,10 @@ func TestAggregatorAdapter(t *testing.T) {
 }
 
 func TestCustomFunctionRegistration(t *testing.T) {
-	// 注册自定义函数示例
+	// Register custom function examples
 	RegisterCustomFunctions()
 
-	// 测试自定义聚合函数
+	// Test custom aggregate functions
 	productFunc, exists := Get("product")
 	if !exists {
 		t.Fatal("Custom product function not registered")
@@ -110,7 +110,7 @@ func TestCustomFunctionRegistration(t *testing.T) {
 		t.Error("Product function should be aggregation type")
 	}
 
-	// 测试自定义分析函数
+	// Test the custom analysis function
 	movingAvgFunc, exists := Get("moving_avg")
 	if !exists {
 		t.Fatal("Custom moving average function not registered")
@@ -120,7 +120,7 @@ func TestCustomFunctionRegistration(t *testing.T) {
 		t.Error("Moving average function should be analytical type")
 	}
 
-	// 测试简单自定义函数
+	// Test simple custom functions
 	doubleFunc, exists := Get("double")
 	if !exists {
 		t.Fatal("Custom double function not registered")
@@ -140,13 +140,13 @@ func TestCustomFunctionRegistration(t *testing.T) {
 }
 
 func TestFunctionRegistry(t *testing.T) {
-	// 测试函数注册表
+	// Test the function registry
 	allFunctions := ListAll()
 	if len(allFunctions) == 0 {
 		t.Error("No functions registered")
 	}
 
-	// 测试按类型获取函数
+	// Test to get functions by type
 	aggFunctions := GetByType(TypeAggregation)
 	if len(aggFunctions) == 0 {
 		t.Error("No aggregation functions found")
@@ -157,7 +157,7 @@ func TestFunctionRegistry(t *testing.T) {
 		t.Error("No analytical functions found")
 	}
 
-	// 验证一些内置函数存在
+	// Verify the existence of some built-in functions
 	expectedFunctions := []string{"sum", "avg", "min", "max", "count", "lag", "latest"}
 	for _, funcName := range expectedFunctions {
 		if _, exists := Get(funcName); !exists {
@@ -183,7 +183,7 @@ func BenchmarkAggregatorBatch(b *testing.B) {
 		Data: make(map[string]any),
 	}
 
-	// 准备测试数据
+	// Prepare test data
 	args := make([]any, b.N)
 	for i := 0; i < b.N; i++ {
 		args[i] = float64(i)
@@ -193,7 +193,7 @@ func BenchmarkAggregatorBatch(b *testing.B) {
 	_, _ = sumFunc.Execute(ctx, args)
 }
 
-// CustomProductFunction 自定义乘积聚合函数示例
+// Example of a custom product aggregation function with CustomProductFunction
 type CustomProductFunction struct {
 	*BaseFunction
 	product float64
@@ -224,7 +224,7 @@ func (f *CustomProductFunction) Execute(ctx *FunctionContext, args []any) (any, 
 	return product, nil
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (f *CustomProductFunction) New() AggregatorFunction {
 	return &CustomProductFunction{
 		BaseFunction: f.BaseFunction,
@@ -264,9 +264,9 @@ func (f *CustomProductFunction) Clone() AggregatorFunction {
 	}
 }
 
-// CustomMovingAverageFunction 自定义移动平均分析函数示例。
-// 演示自定义分析函数的正确写法：实现 StatefulAnalytic（NewState→Apply），跨行状态
-// 放在独立 State 里，由 AnalyticEngine 为每个 PARTITION 各持一份逐条求值。
+// CustomMovingAverageFunction: Example of a custom moving average analysis function.
+// Demonstrates the correct way to write custom analysis functions: implement StatefulAnalytic(NewState→Apply) and span lines
+// Placed in independent states, AnalyticEngine holds a copy for each PARTITION and evaluates each entry.
 type CustomMovingAverageFunction struct {
 	*BaseFunction
 	windowSize int
@@ -284,17 +284,17 @@ func (f *CustomMovingAverageFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-// Execute 标量路径禁用：分析函数需跨行状态，由 AnalyticEngine 的状态机求值。
+// Execute scalar path disabled: The analysis function needs to be cross-line state, evaluated by the state machine of AnalyticEngine.
 func (f *CustomMovingAverageFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return nil, fmt.Errorf("analytic function %q must be used as a field or with OVER, not in a scalar expression", f.GetName())
 }
 
-// NewState 实现 StatefulAnalytic：每个 PARTITION 一份独立窗口状态。
+// NewState implements StatefulAnalytic: Each PARTITION has its own independent window state.
 func (f *CustomMovingAverageFunction) NewState() AnalyticState {
 	return &movingAvgState{windowSize: f.windowSize}
 }
 
-// movingAvgState 维护最近 windowSize 个值，Apply 返回当前窗口均值。
+// movingAvgState maintains the value of the most recent windowSize, and Apply returns the current window's average.
 type movingAvgState struct {
 	windowSize int
 	values     []float64
@@ -321,7 +321,7 @@ func (s *movingAvgState) Apply(args []any) any {
 
 func (s *movingAvgState) Reset() { s.values = nil }
 
-// CustomGeometricMeanFunction 自定义几何平均聚合函数示例
+// CustomGeometricMeanFunction is an example custom geometric-mean aggregation function.
 type CustomGeometricMeanFunction struct {
 	*BaseFunction
 	product float64
@@ -355,7 +355,7 @@ func (f *CustomGeometricMeanFunction) Execute(ctx *FunctionContext, args []any) 
 	return math.Pow(product, 1.0/float64(len(args))), nil
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (f *CustomGeometricMeanFunction) New() AggregatorFunction {
 	return &CustomGeometricMeanFunction{
 		BaseFunction: f.BaseFunction,
@@ -391,20 +391,20 @@ func (f *CustomGeometricMeanFunction) Clone() AggregatorFunction {
 	}
 }
 
-// RegisterCustomFunctions 注册自定义函数的示例
+// RegisterCustomFunctions Example of registering custom functions
 func RegisterCustomFunctions() {
-	// 注册自定义聚合函数
+	// Register custom aggregation functions
 	_ = Register(NewCustomProductFunction())
 	_ = Register(NewCustomGeometricMeanFunction())
 
-	// 注册自定义分析函数
-	_ = Register(NewCustomMovingAverageFunction(5)) // 5个值的移动平均
+	// Register custom analysis functions
+	_ = Register(NewCustomMovingAverageFunction(5)) // Moving average of 5 values
 
-	// 注册适配器
+	// Register the adapter
 	RegisterAggregatorAdapter("product")
 	RegisterAggregatorAdapter("geomean")
 
-	// 使用RegisterCustomFunction的方式注册简单函数
+	// Register simple functions using the RegisterCustomFunction method
 	RegisterCustomFunction("double", TypeMath, "自定义函数", "将值乘以2", 1, 1,
 		func(ctx *FunctionContext, args []any) (any, error) {
 			val, err := cast.ToFloat64E(args[0])

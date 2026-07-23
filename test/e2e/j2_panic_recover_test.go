@@ -8,8 +8,8 @@ import (
 	"github.com/rulego/streamsql"
 )
 
-// panicLookupSource 对指定 key 抛 panic，验证 ingest 主循环 recover（J2），
-// 不再因用户 TableSource.Lookup bug 崩整进程。
+// panicLookupSource throws a panic on the specified key to verify the ingest main loop recover(J2),
+// No longer crashes processes due to user TableSource.Lookup bugs.
 type panicLookupSource struct {
 	name    string
 	boomKey string
@@ -54,8 +54,8 @@ func TestJ2_PanicInLookupRecovered(t *testing.T) {
 		mu.Unlock()
 	})
 
-	// 先发会触发 Lookup panic 的行，再发正常行：修复前 panic 直接崩进程；
-	// 修复后 recover 记日志，正常行仍应到达 sink。
+	// Sending first triggers a Lookup panic line, then sends a normal line: Repairing the previous panic crashes the process;
+	// After repair, recover and log the log; normally, the line should still reach the sink.
 	ssql.Emit(map[string]any{"deviceId": "boom"})
 	ssql.Emit(map[string]any{"deviceId": "ok"})
 

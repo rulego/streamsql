@@ -277,7 +277,7 @@ func ToString(input any) string {
 	return v
 }
 
-// convertNumericToString 将数字类型转换为字符串
+// convertNumericToString converts the numeric type into a string
 func convertNumericToString(input any) (string, bool) {
 	switch v := input.(type) {
 	case float64:
@@ -309,7 +309,7 @@ func convertNumericToString(input any) (string, bool) {
 	}
 }
 
-// convertComplexToString 将复杂类型转换为字符串
+// convertComplexToString converts complex types into strings
 func convertComplexToString(input any) (string, error) {
 	switch v := input.(type) {
 	case []byte:
@@ -319,7 +319,7 @@ func convertComplexToString(input any) (string, error) {
 	case error:
 		return v.Error(), nil
 	case map[any]any:
-		// 转换为 map[string]any
+		// Convert to map[string]any
 		convertedInput := make(map[string]any)
 		for k, value := range v {
 			convertedInput[fmt.Sprintf("%v", k)] = value
@@ -330,7 +330,7 @@ func convertComplexToString(input any) (string, error) {
 	}
 }
 
-// marshalToString 通过JSON序列化转换为字符串
+// marshalToString converts to strings via JSON serialization
 func marshalToString(input any) (string, error) {
 	if newValue, err := json.Marshal(input); err == nil {
 		return string(newValue), nil
@@ -353,16 +353,16 @@ func ToStringE(input any) (string, error) {
 	case bool:
 		return strconv.FormatBool(v), nil
 	default:
-		// 尝试数字类型转换
+		// Try converting the number type
 		if str, ok := convertNumericToString(input); ok {
 			return str, nil
 		}
-		// 尝试复杂类型转换
+		// Try complex type conversions
 		return convertComplexToString(input)
 	}
 }
 
-// ConvertIntToTime 将整数时间戳转换为 time.Time
+// ConvertIntToTime converts integer timestamps to time.Time
 func ConvertIntToTime(timestampInt int64, timeUnit time.Duration) time.Time {
 	switch timeUnit {
 	case time.Second:
@@ -374,6 +374,6 @@ func ConvertIntToTime(timestampInt int64, timeUnit time.Duration) time.Time {
 	case time.Nanosecond:
 		return time.Unix(0, timestampInt)
 	default:
-		return time.Unix(timestampInt, 0) // 默认按秒处理
+		return time.Unix(timestampInt, 0) // Default processing is done by second
 	}
 }

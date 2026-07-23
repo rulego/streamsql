@@ -5,12 +5,12 @@ import (
 )
 
 func TestFunctionsAggregatorIntegration(t *testing.T) {
-	// 测试聚合函数的增量计算
+	// Test the incremental calculation of the aggregate function
 	t.Run("SumAggregator", func(t *testing.T) {
 		sumFunc := NewSumFunction()
 		aggInstance := sumFunc.New()
 
-		// 测试增量计算
+		// Test incremental calculations
 		aggInstance.Add(10.0)
 		aggInstance.Add(20.0)
 		aggInstance.Add(30.0)
@@ -82,7 +82,7 @@ func TestWindowFunctions(t *testing.T) {
 	t.Run("WindowStartFunction", func(t *testing.T) {
 		windowStartFunc := NewWindowStartFunction()
 
-		// 测试增量计算接口
+		// Test incremental computing interface
 		aggInstance := windowStartFunc.New()
 		aggInstance.Add(1000)
 
@@ -95,7 +95,7 @@ func TestWindowFunctions(t *testing.T) {
 	t.Run("WindowEndFunction", func(t *testing.T) {
 		windowEndFunc := NewWindowEndFunction()
 
-		// 测试增量计算接口
+		// Test incremental computing interface
 		aggInstance := windowEndFunc.New()
 		aggInstance.Add(2000)
 
@@ -118,7 +118,7 @@ func TestComplexAggregators(t *testing.T) {
 		aggInstance.Add(5.0)
 
 		result := aggInstance.Result()
-		// 标准差应该约为1.58
+		// The standard deviation should be about 1.58
 		if result.(float64) < 1.5 || result.(float64) > 1.7 {
 			t.Errorf("Expected stddev around 1.58, got %v", result)
 		}
@@ -169,9 +169,9 @@ func TestComplexAggregators(t *testing.T) {
 
 		aggInstance.Add("a")
 		aggInstance.Add("b")
-		aggInstance.Add("a") // 重复
+		aggInstance.Add("a") // Repeat
 		aggInstance.Add("c")
-		aggInstance.Add("b") // 重复
+		aggInstance.Add("b") // Repeat
 
 		result := aggInstance.Result()
 		values, ok := result.([]any)

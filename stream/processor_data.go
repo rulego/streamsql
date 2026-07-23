@@ -80,7 +80,7 @@ func (dp *DataProcessor) Process() {
 	}
 }
 
-// processItem 处理单条事件，recover 防止单行 panic 中断处理循环。
+// processItem handles a single event and recovers to prevent a single panic interrupt handling loop.
 func (dp *DataProcessor) processItem(data map[string]any) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -109,10 +109,10 @@ func (dp *DataProcessor) processItem(data map[string]any) {
 	}
 }
 
-// processCEP 处理单事件：JOIN 富化 + WHERE 过滤后喂入 CEP 引擎；匹配输出直发 sink。
+// processCEP handles single events: JOIN enrichment + WHERE filtering is fed into the CEP engine; Match the output and direct sink.
 func (dp *DataProcessor) processCEP(data map[string]any) {
 	defer func() {
-		// 单事件求值异常不应中断整条流水线（与分析函数一致的防御）。
+		// Single-event evaluation anomalies should not interrupt the entire pipeline (a defense consistent with the analysis function).
 		if r := recover(); r != nil {
 			dp.stream.log.Error("CEP process panic recovered: %v", r)
 		}
@@ -136,7 +136,7 @@ func (dp *DataProcessor) processCEP(data map[string]any) {
 	if len(raw) == 0 {
 		return
 	}
-	// 外层 SELECT 投影（与 Stop-Flush 共用 projectCep），使 SELECT 具体列/表达式/重命名生效。
+	// Outer SELECT projection (shared with Stop-Flush projectCep) takes effect of SELECT specific columns/expressions/renames.
 	dp.stream.emitCepResults(dp.stream.projectCep(raw))
 }
 
@@ -184,7 +184,7 @@ func convertToAggregationFieldInfos(fields []types.AggregationFieldInfo) []aggre
 			InputField:  field.InputField,
 			Placeholder: field.Placeholder,
 			AggType:     field.AggType,
-			FullCall:    field.FullCall, // 保持FullCall字段
+			FullCall:    field.FullCall, // Keep the FullCall field
 		}
 	}
 	return result
@@ -440,8 +440,8 @@ func (dp *DataProcessor) processAggregationResults(results []map[string]any) {
 	// the qualified key temporarily so HAVING/ORDER BY can reference either form.
 	dp.stream.projectGroupColumns(results)
 
-	// 窗口查询里分析函数对结果行求值（状态跨窗口保留），在 HAVING 之前，
-	// 这样 HAVING 可引用分析函数别名。
+	// In window queries, the analysis function evaluates the result row (state is kept across windows). Before HAVING,
+	// This way, HAVING can reference the analysis function alias.
 	if dp.stream.hasAnalyticFields() {
 		kept := results[:0]
 		for _, r := range results {
@@ -464,7 +464,7 @@ func (dp *DataProcessor) processAggregationResults(results []map[string]any) {
 	// Apply HAVING filter condition
 	if dp.stream.config.Having != "" {
 		finalResults = dp.applyHavingFilter(finalResults)
-		// HAVING 引用的隐藏聚合（__having_N__）仅为满足 HAVING 补算，不进输出/sink。
+		// The hidden aggregation (__having_N__) referenced by HAVING only satisfies HAVING completion, without input/sink.
 		for _, r := range finalResults {
 			for k := range r {
 				if strings.HasPrefix(k, "__having_") {
@@ -649,7 +649,7 @@ func (dp *DataProcessor) processDirectData(data map[string]any) {
 	dp.stream.callSinksAsync(results)
 }
 
-// expandUnnestResults 检查结果是否包含 unnest 函数输出并展开为多行
+// expandUnnestResults checks whether the result contains the unnest function output and expands it into multiple lines
 func (dp *DataProcessor) expandUnnestResults(result map[string]any, originalData map[string]any) []map[string]any {
 	// Early return if no unnest function is used in the query
 	// This optimization significantly improves performance for queries without unnest functions
@@ -664,7 +664,7 @@ func (dp *DataProcessor) expandUnnestResults(result map[string]any, originalData
 	for fieldName, fieldValue := range result {
 		if functions.IsUnnestResult(fieldValue) {
 			expandedRows := functions.ProcessUnnestResultWithFieldName(fieldValue, fieldName)
-			// 如果unnest结果为空，返回空结果数组
+			// If the unnest result is empty, return an empty result array
 			if len(expandedRows) == 0 {
 				return []map[string]any{}
 			}

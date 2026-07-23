@@ -113,7 +113,7 @@ func (f *Dec2HexFunction) Execute(ctx *FunctionContext, args []any) (any, error)
 	return fmt.Sprintf("%x", val), nil
 }
 
-// EncodeFunction 将输入值编码为指定格式的字符串
+// EncodeFunction encodes the input value into a string in the specified format
 type EncodeFunction struct {
 	*BaseFunction
 }
@@ -170,7 +170,7 @@ func (f *EncodeFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 	}
 }
 
-// DecodeFunction 将编码的字符串解码为原始数据
+// DecodeFunction decodes the encoded string back to its original data
 type DecodeFunction struct {
 	*BaseFunction
 }
@@ -232,7 +232,7 @@ func (f *DecodeFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 	}
 }
 
-// ConvertTzFunction 时区转换函数
+// ConvertTzFunction is a time zone conversion function
 type ConvertTzFunction struct {
 	*BaseFunction
 }
@@ -248,14 +248,14 @@ func (f *ConvertTzFunction) Validate(args []any) error {
 }
 
 func (f *ConvertTzFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 获取时间值
+	// Gain time values
 	var t time.Time
 	switch v := args[0].(type) {
 	case time.Time:
 		t = v
 	case string:
 		var err error
-		// 尝试多种时间格式解析
+		// Try parsing multiple time formats
 		formats := []string{
 			time.RFC3339,
 			"2006-01-02 15:04:05",
@@ -275,23 +275,23 @@ func (f *ConvertTzFunction) Execute(ctx *FunctionContext, args []any) (any, erro
 		return nil, fmt.Errorf("time value must be time.Time or string")
 	}
 
-	// 获取目标时区
+	// Obtain the target time zone
 	timezone, err := cast.ToStringE(args[1])
 	if err != nil {
 		return nil, err
 	}
 
-	// 加载时区
+	// Loading time zone
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
 		return nil, fmt.Errorf("invalid timezone: %s", timezone)
 	}
 
-	// 转换时区
+	// Switching time zones
 	return t.In(loc), nil
 }
 
-// ToSecondsFunction 转换为Unix时间戳（秒）
+// ToSecondsFunction to convert Unix timestamps (seconds)
 type ToSecondsFunction struct {
 	*BaseFunction
 }
@@ -307,14 +307,14 @@ func (f *ToSecondsFunction) Validate(args []any) error {
 }
 
 func (f *ToSecondsFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 获取时间值
+	// Gain time values
 	var t time.Time
 	switch v := args[0].(type) {
 	case time.Time:
 		t = v
 	case string:
 		var err error
-		// 尝试多种时间格式解析
+		// Try parsing multiple time formats
 		formats := []string{
 			time.RFC3339,
 			"2006-01-02 15:04:05",
@@ -331,7 +331,7 @@ func (f *ToSecondsFunction) Execute(ctx *FunctionContext, args []any) (any, erro
 			return nil, fmt.Errorf("invalid time format: %s", v)
 		}
 	case int, int32, int64, float32, float64:
-		// 数值按 Unix 秒处理
+		// Values are processed in Unix seconds
 		sec, err := cast.ToInt64E(v)
 		if err != nil {
 			return nil, fmt.Errorf("invalid timestamp: %v", err)
@@ -344,7 +344,7 @@ func (f *ToSecondsFunction) Execute(ctx *FunctionContext, args []any) (any, erro
 	return t.Unix(), nil
 }
 
-// ChrFunction 返回对应ASCII字符
+// ChrFunction returns the corresponding ASCII character
 type ChrFunction struct {
 	*BaseFunction
 }
@@ -372,7 +372,7 @@ func (f *ChrFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return string(rune(code)), nil
 }
 
-// UrlEncodeFunction URL编码函数
+// UrlEncodeFunction URL encoding function
 type UrlEncodeFunction struct {
 	*BaseFunction
 }
@@ -400,7 +400,7 @@ func (f *UrlEncodeFunction) Execute(ctx *FunctionContext, args []any) (any, erro
 	return url.QueryEscape(input), nil
 }
 
-// UrlDecodeFunction URL解码函数
+// UrlDecodeFunction URL decoder function
 type UrlDecodeFunction struct {
 	*BaseFunction
 }
@@ -432,47 +432,47 @@ func (f *UrlDecodeFunction) Execute(ctx *FunctionContext, args []any) (any, erro
 	return result, nil
 }
 
-// TruncFunction 截断小数位数
+// TruncFunction Truncates decimal places
 type TruncFunction struct {
 	*BaseFunction
 }
 
-// NewTruncFunction 创建新的 trunc 函数
+// NewTruncFunction creates a new trunc function
 func NewTruncFunction() *TruncFunction {
 	return &TruncFunction{
 		BaseFunction: NewBaseFunction("trunc", TypeConversion, "转换函数", "截断小数位数", 2, 2),
 	}
 }
 
-// Validate 验证参数
+// Validate the parameters
 func (f *TruncFunction) Validate(args []any) error {
 	return f.ValidateArgCount(args)
 }
 
-// Execute 执行函数
+// Execute the function
 func (f *TruncFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	if err := f.Validate(args); err != nil {
 		return nil, err
 	}
 
-	// 转换第一个参数为浮点数（NULL/非数值返回错误，不再静默当 0）
+	// Convert the first parameter to a floating-point number (NULL/non-numeric return error, no longer silenced when 0)
 	num, err := cast.ToFloat64E(args[0])
 	if err != nil {
 		return nil, err
 	}
 
-	// 转换第二个参数为整数（精度）
+	// Convert the second parameter to an integer (precision)
 	precision, err := cast.ToIntE(args[1])
 	if err != nil {
 		return nil, err
 	}
 
-	// 精度不能为负数
+	// Accuracy cannot be negative
 	if precision < 0 {
 		return nil, fmt.Errorf("trunc precision cannot be negative")
 	}
 
-	// 计算截断。precision 过大时 multiplier 溢出为 +Inf，截断无意义，报错。
+	// Calculation truncation. If precision is too large, the multiplier overflows to +Inf, making truncation meaningless and causing errors.
 	multiplier := math.Pow(10, float64(precision))
 	if math.IsInf(multiplier, 0) {
 		return nil, fmt.Errorf("trunc precision %d too large", precision)

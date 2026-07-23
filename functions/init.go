@@ -1,6 +1,6 @@
 package functions
 
-// 初始化所有内置函数
+// Initialize all built-in functions
 func init() {
 	registerBuiltinFunctions()
 }

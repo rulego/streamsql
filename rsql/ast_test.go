@@ -7,7 +7,7 @@ import (
 	"github.com/rulego/streamsql/window"
 )
 
-// TestSelectStatement_ToStreamConfig 测试 SelectStatement 转换为 Stream 配置
+// TestSelectStatement_ToStreamConfig Test the conversion of SelectStatement to Stream configuration
 func TestSelectStatement_ToStreamConfig(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -209,9 +209,9 @@ func TestSelectStatement_ToStreamConfig(t *testing.T) {
 	}
 }
 
-// TestSelectStatementEdgeCases 测试边界情况
+// TestSelectStatementEdgeCases tests boundary conditions
 func TestSelectStatementEdgeCases(t *testing.T) {
-	// 测试空字段列表
+	// Test the list of empty fields
 	stmt := &SelectStatement{
 		Fields: []Field{},
 		Source: "test_table",
@@ -230,7 +230,7 @@ func TestSelectStatementEdgeCases(t *testing.T) {
 		t.Errorf("Expected empty condition, got %s", condition)
 	}
 
-	// 测试复杂窗口类型
+	// Test complex window types
 	stmt2 := &SelectStatement{
 		Fields: []Field{
 			{Expression: "COUNT(*)", Alias: "count"},
@@ -256,7 +256,7 @@ func TestSelectStatementEdgeCases(t *testing.T) {
 	}
 }
 
-// TestSelectStatementConcurrency 测试并发安全性
+// TestSelectStatementConcurrency tests concurrency security
 func TestSelectStatementConcurrency(t *testing.T) {
 	stmt := &SelectStatement{
 		Fields: []Field{
@@ -270,7 +270,7 @@ func TestSelectStatementConcurrency(t *testing.T) {
 		},
 	}
 
-	// 启动多个 goroutine 并发调用 ToStreamConfig
+	// Start multiple goroutines and call ToStreamConfig concurrently
 	done := make(chan bool, 10)
 	for i := 0; i < 10; i++ {
 		go func() {
@@ -293,13 +293,13 @@ func TestSelectStatementConcurrency(t *testing.T) {
 		}()
 	}
 
-	// 等待所有 goroutine 完成
+	// Wait for all goroutines to complete
 	for i := 0; i < 10; i++ {
 		<-done
 	}
 }
 
-// TestBuildSelectFields 测试 buildSelectFields 函数
+// TestBuildSelectFields tests the buildSelectFields function
 func TestBuildSelectFields(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -366,7 +366,7 @@ func TestBuildSelectFields(t *testing.T) {
 				return
 			}
 
-			// 检查聚合函数映射
+			// Check the aggregation function mapping
 			if len(aggMap) != len(tt.wantAggs) {
 				t.Errorf("buildSelectFields() aggMap length = %d, want %d", len(aggMap), len(tt.wantAggs))
 			}
@@ -376,7 +376,7 @@ func TestBuildSelectFields(t *testing.T) {
 				}
 			}
 
-			// 检查字段映射
+			// Check the field mapping
 			if len(fieldMap) != len(tt.wantMap) {
 				t.Errorf("buildSelectFields() fieldMap length = %d, want %d", len(fieldMap), len(tt.wantMap))
 			}
@@ -389,7 +389,7 @@ func TestBuildSelectFields(t *testing.T) {
 	}
 }
 
-// TestIsAggregationFunction 测试 isAggregationFunction 函数
+// TestIsAggregationFunction Test the isAggregationFunction function
 func TestIsAggregationFunction(t *testing.T) {
 	tests := []struct {
 		name string
@@ -408,7 +408,7 @@ func TestIsAggregationFunction(t *testing.T) {
 		{"表达式", "temperature + 10", false},
 		{"UPPER函数", "UPPER(name)", false},
 		{"CONCAT函数", "CONCAT(first_name, last_name)", false},
-		{"未知函数", "UNKNOWN_FUNC(field)", true}, // 保守处理
+		{"未知函数", "UNKNOWN_FUNC(field)", true}, // Handle it conservatively
 		{"复杂表达式", "temperature > 25 AND humidity < 80", false},
 	}
 
@@ -421,7 +421,7 @@ func TestIsAggregationFunction(t *testing.T) {
 	}
 }
 
-// TestParseAggregateTypeWithExpression 测试 ParseAggregateTypeWithExpression 函数
+// TestParseAggregateTypeWithExpression Test the ParseAggregateTypeWithExpression function
 func TestParseAggregateTypeWithExpression(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -502,7 +502,7 @@ func TestParseAggregateTypeWithExpression(t *testing.T) {
 		},
 	}
 
-	// 测试正常情况
+	// Test for normal conditions
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			aggType, name, expression, allFields, err := ParseAggregateTypeWithExpression(tt.exprStr)
@@ -534,7 +534,7 @@ func TestParseAggregateTypeWithExpression(t *testing.T) {
 		})
 	}
 
-	// 测试嵌套聚合函数检测
+	// Test nested aggregation function detection
 	nestedTests := []struct {
 		name    string
 		exprStr string
@@ -565,7 +565,7 @@ func TestParseAggregateTypeWithExpression(t *testing.T) {
 	}
 }
 
-// TestDetectNestedAggregation 测试嵌套聚合函数检测
+// TestDetectNestedAggregation Tests nested aggregation function detection
 func TestDetectNestedAggregation(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -611,7 +611,7 @@ func TestDetectNestedAggregation(t *testing.T) {
 	}
 }
 
-// TestExtractAggFieldWithExpression 测试 extractAggFieldWithExpression 函数
+// TestExtractAggFieldWithExpression Test extractAggFieldWithExpression function
 func TestExtractAggFieldWithExpression(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -654,7 +654,7 @@ func TestExtractAggFieldWithExpression(t *testing.T) {
 			funcName:       "DISTANCE",
 			wantFieldName:  "x1",
 			wantExpression: "x1, y1, x2, y2",
-			// 不检查 allFields，因为实际行为可能与预期不同
+			// Not checking allFields, because actual behavior may differ from expectations
 		},
 		{
 			name:     "无效表达式",

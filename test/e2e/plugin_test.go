@@ -11,17 +11,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// 本文件测试串行执行（不加 t.Parallel）：向全局 function registry 注册自定义函数，
-// 与 custom_functions/quoted 等存在重名注册，并行会导致 "already registered" 冲突。
+// This file tests serial execution (without t.Parallel): registering a custom function in the global function registry,
+// Duplicate registrations with custom_functions/quoted names and parallel will cause "already registered" conflicts.
 
-// TestPluginStyleCustomFunctions 测试插件式自定义函数
+// TestPluginStyleCustomFunctions Tests plugin-style custom functions
 func TestPluginStyleCustomFunctions(t *testing.T) {
 
-	// 动态注册新函数（运行时注册，无需修改SQL解析代码）
+	// Dynamically registering new functions (registering at runtime, no need to modify SQL parsing code)
 
-	// 1. 注册字符串处理函数（应该直接处理，不需要窗口）
+	// 1. Register a string handler function (should handle it directly, no window needed)
 	err := functions.RegisterCustomFunction(
-		"mask_phone", // 全新的函数名
+		"mask_phone", // A brand new function name
 		functions.TypeString,
 		"数据脱敏",
 		"手机号脱敏",
@@ -37,7 +37,7 @@ func TestPluginStyleCustomFunctions(t *testing.T) {
 	assert.NoError(t, err)
 	defer functions.Unregister("mask_phone")
 
-	// 2. 注册转换函数（应该直接处理）
+	// 2. Register conversion functions (should be handled directly)
 	err = functions.RegisterCustomFunction(
 		"format_id",
 		functions.TypeConversion,
@@ -52,7 +52,7 @@ func TestPluginStyleCustomFunctions(t *testing.T) {
 	assert.NoError(t, err)
 	defer functions.Unregister("format_id")
 
-	// 3. 注册数学函数（用于窗口聚合）
+	// 3. Register Math Functions (for window aggregation)
 	err = functions.RegisterCustomFunction(
 		"calculate_commission",
 		functions.TypeMath,
@@ -68,13 +68,13 @@ func TestPluginStyleCustomFunctions(t *testing.T) {
 	assert.NoError(t, err)
 	defer functions.Unregister("calculate_commission")
 
-	// 测试1：纯字符串函数（不需要窗口）
+	// Test 1: Pure string function (no window required)
 	testStringFunctionsOnly(t)
 
-	// 测试2：转换函数（不需要窗口）
+	// Test 2: Conversion function (no window required)
 	testConversionFunctionsOnly(t)
 
-	// 测试3：数学函数在聚合中使用（需要窗口）
+	// Test 3: Using Mathematical Functions in Aggregation (Window Required)
 	testMathFunctionsInAggregate(t)
 
 }
@@ -99,7 +99,7 @@ func testStringFunctionsOnly(t *testing.T) {
 		resultChan <- result
 	})
 
-	// 添加测试数据
+	// Add test data
 	testData := map[string]any{
 		"employee_id": "E001",
 		"phone":       "13812345678",
@@ -116,10 +116,10 @@ func testStringFunctionsOnly(t *testing.T) {
 
 		item := resultSlice[0]
 		assert.Equal(t, "E001", item["employee_id"])
-		assert.Equal(t, "138****5678", item["masked_phone"]) // 脱敏后的手机号
+		assert.Equal(t, "138****5678", item["masked_phone"]) // The desensitized phone number
 
 	case <-time.After(2 * time.Second):
-		t.Fatal("字符串函数测试超时")
+		t.Fatal("String function test timeout")
 	}
 }
 
@@ -143,7 +143,7 @@ func testConversionFunctionsOnly(t *testing.T) {
 		resultChan <- result
 	})
 
-	// 添加测试数据
+	// Add test data
 	testData := map[string]any{
 		"user_id": "12345",
 	}
@@ -163,7 +163,7 @@ func testConversionFunctionsOnly(t *testing.T) {
 
 		fmt.Printf("  📊 转换函数结果: %v\n", item)
 	case <-time.After(2 * time.Second):
-		t.Fatal("转换函数测试超时")
+		t.Fatal("Conversion function test timeout")
 	}
 }
 
@@ -188,7 +188,7 @@ func testMathFunctionsInAggregate(t *testing.T) {
 		resultChan <- result
 	})
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
 		{
 			"department":      "sales",
@@ -219,23 +219,23 @@ func testMathFunctionsInAggregate(t *testing.T) {
 		item := resultSlice[0]
 		assert.Equal(t, "sales", item["department"])
 
-		// 验证聚合计算结果
+		// Verify aggregated calculation results
 		avgCommission, ok := item["avg_commission"].(float64)
 		assert.True(t, ok)
 		expectedAvg := (8000*3/100 + 12000*4/100) / 2 // (240 + 480) / 2 = 360
 		assert.InEpsilon(t, expectedAvg, avgCommission, 0.01)
 
 	case <-time.After(3 * time.Second):
-		t.Fatal("聚合数学函数测试超时")
+		t.Fatal("Aggregate math function test timed out")
 	}
 }
 
-// TestRuntimeFunctionManagement 测试运行时函数管理
+// TestRuntimeFunctionManagement Manages the runtime function for testing
 func TestRuntimeFunctionManagement(t *testing.T) {
-	// 动态注册函数
+	// Dynamic registration function
 	err := functions.RegisterCustomFunction(
 		"temp_function",
-		functions.TypeString, // 使用字符串类型以便直接处理
+		functions.TypeString, // String types are used for direct processing
 		"临时函数",
 		"临时测试函数",
 		1, 1,
@@ -246,12 +246,12 @@ func TestRuntimeFunctionManagement(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
-	// 验证函数已注册
+	// The verification function has been registered
 	fn, exists := functions.Get("temp_function")
 	assert.True(t, exists)
 	assert.Equal(t, "temp_function", fn.GetName())
 
-	// 在SQL中使用
+	// Used in SQL
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
@@ -274,21 +274,21 @@ func TestRuntimeFunctionManagement(t *testing.T) {
 		assert.Len(t, resultSlice, 1)
 		assert.Equal(t, "TEMP_test", resultSlice[0]["result"])
 	case <-time.After(2 * time.Second):
-		t.Fatal("运行时函数管理测试超时")
+		t.Fatal("Runtime function management tests timed out")
 	}
 
-	// 运行时注销函数
+	// Runtime logout function
 	success := functions.Unregister("temp_function")
 	assert.True(t, success)
 
-	// 验证函数已注销
+	// The validation function has been logged off
 	_, exists = functions.Get("temp_function")
 	assert.False(t, exists)
 }
 
-// TestFunctionPluginDiscovery 测试函数插件发现机制
+// TestFunctionPluginDiscovery Discovers the mechanism of the test function plugin
 func TestFunctionPluginDiscovery(t *testing.T) {
-	// 注册不同类型的函数
+	// Register functions of different types
 	functions.RegisterCustomFunction("plugin_math", functions.TypeMath, "插件", "数学插件", 1, 1,
 		func(ctx *functions.FunctionContext, args []any) (any, error) {
 			return args[0], nil
@@ -302,11 +302,11 @@ func TestFunctionPluginDiscovery(t *testing.T) {
 	defer functions.Unregister("plugin_math")
 	defer functions.Unregister("plugin_string")
 
-	// 测试按类型发现函数
+	// Testing functions by type
 	mathFunctions := functions.GetByType(functions.TypeMath)
 	assert.Greater(t, len(mathFunctions), 0)
 
-	// 验证新注册的函数被发现
+	// Verification of newly registered functions is discovered
 	found := false
 	for _, fn := range mathFunctions {
 		if fn.GetName() == "plugin_math" {
@@ -316,16 +316,16 @@ func TestFunctionPluginDiscovery(t *testing.T) {
 	}
 	assert.True(t, found, "新注册的数学函数应该被发现")
 
-	// 测试全量函数发现
+	// Testing the full function reveals this
 	allFunctions := functions.ListAll()
 	assert.Contains(t, allFunctions, "plugin_math")
 	assert.Contains(t, allFunctions, "plugin_string")
 
 }
 
-// TestCompleteSQLIntegration 测试完整的SQL集成
+// TestCompleteSQLIntegration tests complete SQL integration
 func TestCompleteSQLIntegration(t *testing.T) {
-	// 注册完全新的业务函数
+	// Register a completely new business function
 	err := functions.RegisterCustomFunction(
 		"business_metric",
 		functions.TypeString,
@@ -355,7 +355,7 @@ func TestCompleteSQLIntegration(t *testing.T) {
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 使用全新的函数在SQL中
+	// Use brand-new functions in SQL
 	sql := `
 		SELECT 
 			customer_id,
@@ -391,6 +391,6 @@ func TestCompleteSQLIntegration(t *testing.T) {
 		assert.Equal(t, "premium:150.00", item["metric"])
 
 	case <-time.After(2 * time.Second):
-		t.Fatal("完整SQL集成测试超时")
+		t.Fatal("Full SQL integration test timeout")
 	}
 }

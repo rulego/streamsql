@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSessionWindowReapsTriggeredSessionsPT 锁定修复：ProcessingTime 模式下会话过期后
-// 保留在 triggeredSessions 等 allowedLateness 迟到数据；closeTime 过期后必须被清理，
-// 否则高基数会话 + allowedLateness>0 会让 triggeredSessions 无界增长。
-// 修复前 checkExpiredSessions（PT 路径）漏调 closeExpiredSessions（仅 ET 路径调）。
+// TestSessionWindowReapsTriggeredSessionsPT lock fix: After a session expires in ProcessingTime mode
+// Retention of delayed data for allowedLateness such as triggeredSessions; closeTime must be cleaned up after expiration,
+// Otherwise, high base sessions + allowedLateness>0 will cause triggeredSessions to grow unbounded.
+// Fixed missed call on checkExpiredSessions (PT path) before closeExpiredSessions (only on ET path).
 func TestSessionWindowReapsTriggeredSessionsPT(t *testing.T) {
 	config := types.WindowConfig{
 		Type:            TypeSession,
@@ -26,7 +26,7 @@ func TestSessionWindowReapsTriggeredSessionsPT(t *testing.T) {
 
 	sw.Add(map[string]any{"user_id": "u1", "value": 1})
 
-	// 等 会话过期(60ms) + 保留期过期(100ms) + ticker(timeout/2=30ms)多次检查 + 余量。
+	// Etc. Session expired (60ms) + Retention expired (100ms) + ticker (timeout/2=30ms) Multiple checks + remaining balance.
 	time.Sleep(500 * time.Millisecond)
 
 	sw.mu.Lock()

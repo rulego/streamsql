@@ -109,7 +109,7 @@ func (s *Stream) compileOutputNames() error {
 	seen := make(map[string]bool)
 
 	if s.config.Mode == types.ExecCEP {
-		// CEP 路径：输出列由 MEASURES 别名决定（无 GROUP BY/投影）。
+		// CEP path: The output column is determined by the MEASURES alias (no GROUP BY/projection).
 		if s.config.MatchRecognize != nil {
 			for _, m := range s.config.MatchRecognize.Measures {
 				if seen[m.Alias] {
@@ -202,9 +202,9 @@ func (s *Stream) projectGroupColumns(results []map[string]any) {
 	}
 }
 
-// injectGroupKeyExprs 对函数表达式分组键（如 upper(device)）就地求值并写入行，使窗口与
-// aggregator 能按该合成键分组（它们只按 row[key] 取值，不求值）。裸列键无需处理。
-// 仅窗口路径在 Window.Add 前调用；dataMap 为 Emit 拷贝或 JOIN 增强副本，注入安全。
+// injectGroupKeyExprs evaluates the grouping key of a function expression (such as upper(device)) in place and writes the line so that the window and
+// aggregators can group by the composition key (they only take values by row[key], not evaluate). Bare keys do not require processing.
+// Only window paths are called before Window.Add; dataMap injects security into Emit copies or JOIN enhanced replicas.
 func (s *Stream) injectGroupKeyExprs(data map[string]any) {
 	for _, gf := range s.config.GroupFields {
 		if !strings.Contains(gf, "(") {

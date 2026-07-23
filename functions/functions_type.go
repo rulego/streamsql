@@ -136,7 +136,7 @@ func (f *IsBoolFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 	return ok, nil
 }
 
-// IsArrayFunction 检查是否为数组类型
+// IsArrayFunction checks whether it is an array type
 type IsArrayFunction struct {
 	*BaseFunction
 }
@@ -160,7 +160,7 @@ func (f *IsArrayFunction) Execute(ctx *FunctionContext, args []any) (any, error)
 	return v.Kind() == reflect.Slice || v.Kind() == reflect.Array, nil
 }
 
-// IsObjectFunction 检查是否为对象类型
+// IsObjectFunction checks whether it is an object type
 type IsObjectFunction struct {
 	*BaseFunction
 }

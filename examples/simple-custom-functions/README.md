@@ -1,32 +1,32 @@
-# 简单自定义函数示例
+# Simple custom function example
 
-## 简介
+## Introduction
 
-这个示例展示了如何使用StreamSQL的插件式自定义函数系统注册和使用简单的自定义函数。
+This example demonstrates how to register and use simple custom functions using StreamSQL's plugin-based custom function system.
 
-## 功能演示
+## Feature Demonstration
 
-- ✅ 数学函数：平方计算、华氏度转摄氏度、圆面积计算
-- ✅ 直接SQL查询模式和聚合查询模式
-- ✅ 函数管理功能：查询、分类、统计
+- ✅ Mathematical functions: square calculation, Fahrenheit to Celsius, circle area calculation
+- ✅ Direct SQL query mode and aggregate query mode
+- ✅ Function management functions: query, classification, statistics
 
-## 运行方式
+## Operating Mode
 
 ```bash
 cd examples/simple-custom-functions
 go run main.go
 ```
 
-## 代码亮点
+## Code Highlights
 
-### 1. 简单函数注册
+### 1. Simple function registration
 ```go
 functions.RegisterCustomFunction(
-    "square",               // 函数名
-    functions.TypeMath,     // 函数类型
-    "数学函数",             // 分类
-    "计算平方",             // 描述
-    1, 1,                  // 参数数量
+    "square",               // Function name
+    functions.TypeMath,     // Function type
+    "数学函数",             // Classification
+    "计算平方",             // Description
+    1, 1,                  // Number of parameters
     func(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
         val, _ := functions.ConvertToFloat64(args[0])
         return val * val, nil
@@ -34,18 +34,18 @@ functions.RegisterCustomFunction(
 )
 ```
 
-### 2. SQL中直接使用
+### 2. SQL to use directly
 ```sql
 SELECT square(value) as squared_value FROM stream
 ```
 
-### 3. 聚合查询
+### 3. Aggregated queries
 ```sql
 SELECT AVG(square(value)) as avg_squared FROM stream GROUP BY device, TumblingWindow('1s')
 ```
 
-## 适用场景
+## Applicable Scenarios
 
-- 🔰 初学者入门StreamSQL自定义函数
-- 📚 学习插件式函数注册机制
-- 🧪 快速验证函数功能 
+- 🔰 Beginner's Introduction StreamSQL Custom Functions
+- 📚 Learn the plugin-based function registration mechanism
+- 🧪 Quick verification function functionality 

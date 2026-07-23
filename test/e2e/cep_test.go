@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// collectCEP 执行一条 MATCH_RECOGNIZE 查询，按序投入事件，等待 wantMatches 次匹配到达 sink。
-// 返回收到的每次匹配（每次 sink 回调的一批行）。
+// collectCEP executes a MATCH_RECOGNIZE query, inserts events in order, and waits for the wantMatches match to reach the sink.
+// Returns each received match (a batch of lines for each sink callback).
 func collectCEP(t *testing.T, sql string, rows []map[string]any, wantMatches int) [][]map[string]any {
 	t.Helper()
 	s := streamsql.New()
@@ -20,8 +20,8 @@ func collectCEP(t *testing.T, sql string, rows []map[string]any, wantMatches int
 	var mu sync.Mutex
 	var got [][]map[string]any
 	done := make(chan struct{}, 256)
-	// 用 AddSyncSink：sync sink 在数据处理器 goroutine 内 inline 顺序执行，保证匹配到达顺序
-	// 与产出顺序一致（AddSink 走异步 worker pool，多 worker 不保序）。
+	// Use AddSyncSink: Sync sink executes inline sequentially within the data processor goroutine to ensure matching of the order of arrival
+	// Consistent with the output order (AddSink uses an asynchronous worker pool, multiple workers do not maintain order).
 	s.AddSyncSink(func(r []map[string]any) {
 		mu.Lock()
 		got = append(got, r)
@@ -35,7 +35,7 @@ func collectCEP(t *testing.T, sql string, rows []map[string]any, wantMatches int
 	for _, r := range rows {
 		s.Emit(r)
 	}
-	// 等待期望匹配数（带超时）。CEP 匹配在触发事件处理期间产生（无需 Stop flush）。
+	// Waiting for the expected match number (with timeout). CEP matches are generated during triggered event handling (no need to stop flush).
 	for i := 0; i < wantMatches; i++ {
 		select {
 		case <-done:
@@ -44,7 +44,7 @@ func collectCEP(t *testing.T, sql string, rows []map[string]any, wantMatches int
 			t.Fatalf("timeout waiting for match %d/%d; got %d", i+1, wantMatches, len(got))
 		}
 	}
-	// 再给一点时间让多余匹配（若有）落地，然后 Stop 收尾。
+	// Give a little more time for any extra matches (if any) to land, then Stop to wrap up.
 	time.Sleep(50 * time.Millisecond)
 	s.Stop()
 
@@ -53,7 +53,7 @@ func collectCEP(t *testing.T, sql string, rows []map[string]any, wantMatches int
 	return got
 }
 
-// flatten 把多次匹配的行展平为一个切片（用于 ONE ROW PER MATCH 断言）。
+// flatten flattens the rows of multiple matches into a slice (used for ONE ROW PER MATCH Assertions).
 func flatten(matches [][]map[string]any) []map[string]any {
 	var out []map[string]any
 	for _, m := range matches {
@@ -62,7 +62,7 @@ func flatten(matches [][]map[string]any) []map[string]any {
 	return out
 }
 
-// 场景1：A{3} 连续越限确认。
+// Scenario 1: A{3} Consecutive limit exceedance confirmations.
 func TestCEP_ConsecutiveThreshold(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -87,7 +87,7 @@ func TestCEP_ConsecutiveThreshold(t *testing.T) {
 	assert.Equal(t, 80.0, asFloat64(flat[0]["peak"]))
 }
 
-// 场景2：A B 过热后回落（故障前兆）。
+// Scenario 2: A and B overheat and then fall back (a warning sign).
 func TestCEP_RiseThenDrop(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -108,7 +108,7 @@ func TestCEP_RiseThenDrop(t *testing.T) {
 	assert.Equal(t, 90.0, asFloat64(flat[0]["drop"]))
 }
 
-// 场景3：A B+ C 单调上升后转降（PREV 导航 + 聚合 MEASURES）。
+// Scenario 3: A B+ C monotonically rising and then falling (PREV navigation + aggregation MEASURES).
 func TestCEP_TrendReversal(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -132,7 +132,7 @@ func TestCEP_TrendReversal(t *testing.T) {
 	assert.Equal(t, 25.0, asFloat64(flat[0]["end"]), "last")
 }
 
-// 场景4：A{5,} 振动突发（5+，以中断事件收尾）。
+// Scenario 4: A{5,} Vibration Burst (5+, ending with an interrupt event).
 func TestCEP_VibrationBurst(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -158,7 +158,7 @@ func TestCEP_VibrationBurst(t *testing.T) {
 	assert.Equal(t, 6.0, asFloat64(flat[0]["n"]), "6 consecutive vib")
 }
 
-// 场景5：Start Process+ End 跨事件类型序列（工作流）。
+// Scenario 5: Start Process+ End cross-event type sequence (workflow).
 func TestCEP_CrossEventSequence(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -180,7 +180,7 @@ func TestCEP_CrossEventSequence(t *testing.T) {
 	assert.Equal(t, 4.0, asFloat64(flat[0]["steps"]))
 }
 
-// PARTITION BY 按设备各自匹配。
+// PARTITION BY matches each device individually.
 func TestCEP_PartitionBy(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -202,7 +202,7 @@ func TestCEP_PartitionBy(t *testing.T) {
 	assert.Len(t, got, 2, "每设备各一次匹配")
 }
 
-// 交替 A | B + CLASSIFIER。
+// Alternate A | B + CLASSIFIER.
 func TestCEP_Alternation(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -224,7 +224,7 @@ func TestCEP_Alternation(t *testing.T) {
 	assert.Equal(t, "B", flat[1]["c"])
 }
 
-// ALL ROWS PER MATCH 逐行输出 + RUNNING 聚合。
+// ALL ROWS PER MATCH output line by line + RUNNING aggregation.
 func TestCEP_AllRowsPerMatch(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -252,7 +252,7 @@ func TestCEP_AllRowsPerMatch(t *testing.T) {
 	}
 }
 
-// AFTER MATCH SKIP TO NEXT ROW 允许重叠。
+// AFTER MATCH SKIP TO NEXT ROW allows overlap.
 func TestCEP_SkipToNextRow(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -264,7 +264,7 @@ func TestCEP_SkipToNextRow(t *testing.T) {
 			WITHIN '1h'
 			DEFINE A AS v > 50
 		)`
-	// 4 连续：SKIP TO NEXT ROW → 匹配 (1,2),(2,3),(3,4) 共 3 次。
+	// 4 Consecutive: SKIP TO NEXT ROW → Match (1,2), (2,3), (3,4) 3 times.
 	rows := []map[string]any{
 		{"ts": 1, "v": 60},
 		{"ts": 2, "v": 70},
@@ -275,7 +275,7 @@ func TestCEP_SkipToNextRow(t *testing.T) {
 	assert.Len(t, got, 3)
 }
 
-// 分组模式 (A B)+：重复的 A-B 序列。
+// Grouping mode (A B)+: Repeating A-B sequences.
 func TestCEP_GroupRepetition(t *testing.T) {
 	sql := `SELECT * FROM stream
 		MATCH_RECOGNIZE (
@@ -291,7 +291,7 @@ func TestCEP_GroupRepetition(t *testing.T) {
 		{"ts": 2, "k": 2},
 		{"ts": 3, "k": 1},
 		{"ts": 4, "k": 2},
-		{"ts": 5, "k": 3}, // 中断收尾
+		{"ts": 5, "k": 3}, // Interrupt and wrap up
 	}
 	got := collectCEP(t, sql, rows, 1)
 	flat := flatten(got)
@@ -299,7 +299,7 @@ func TestCEP_GroupRepetition(t *testing.T) {
 	assert.Equal(t, 4.0, asFloat64(flat[0]["n"]), "两轮 A-B 共 4 行")
 }
 
-// Execute 对非法 CEP（缺 PATTERN、排除模式）应 fail-fast。
+// Execute should fail-fast for illegal CEPs (missing PATTERN, excluding patterns).
 func TestCEP_ExecuteRejects(t *testing.T) {
 	cases := []struct {
 		name string
@@ -319,7 +319,7 @@ func TestCEP_ExecuteRejects(t *testing.T) {
 	}
 }
 
-// EmitSync 对 CEP 查询应返回错误。
+// EmitSync should return an error for CEP queries.
 func TestCEP_EmitSyncRejected(t *testing.T) {
 	s := streamsql.New()
 	require.NoError(t, s.Execute(`SELECT * FROM stream MATCH_RECOGNIZE (ORDER BY ts PATTERN (A) DEFINE A AS v>0)`))
@@ -328,9 +328,9 @@ func TestCEP_EmitSyncRejected(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// === 场景驱动：从真实 IoT 场景推导，含函数组合 ===
+// === Scenario-driven: derived from real IoT scenarios, including function combinations ===
 
-// 场景：温度连续上升 3 步，输出上升幅度（PREV 链 + MEASURES 算术 + 符号限定字段）。
+// Scenario: Temperature rises continuously by 3 steps, output increase (PREV chain + MEASURES arithmetic + symbol-limited fields).
 func TestCEP_Scenario_RiseStepsWithDelta(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -351,7 +351,7 @@ func TestCEP_Scenario_RiseStepsWithDelta(t *testing.T) {
 	assert.Equal(t, 20.0, asFloat64(flat[0]["rise"]), "30-10=20")
 }
 
-// 场景：MEASURES 用 CASE 对匹配做分级（CASE + 聚合占位符）。
+// Scenario: MEASURES Uses CASE to rank matches (CASE + aggregated placeholder).
 func TestCEP_Scenario_CaseLevel(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -373,7 +373,7 @@ func TestCEP_Scenario_CaseLevel(t *testing.T) {
 	assert.Equal(t, "warn", flat[0]["level"], "MAX=120 → warn")
 }
 
-// 场景：DEFINE 复合条件 + 函数（AND + 绝对值）。
+// Scenario: DEFINE Compound Condition + Function (AND + Absolute Value).
 func TestCEP_Scenario_DefineWithFunction(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -384,9 +384,9 @@ func TestCEP_Scenario_DefineWithFunction(t *testing.T) {
 		DEFINE A AS abs(v) > 50 AND type == "spike"
 	)`
 	rows := []map[string]any{
-		{"ts": 1, "v": 10, "type": "spike"},   // abs(10)<50 → 不匹配
-		{"ts": 2, "v": 80, "type": "spike"},   // 匹配
-		{"ts": 3, "v": 80, "type": "normal"},  // type 不符 → 不匹配
+		{"ts": 1, "v": 10, "type": "spike"},  // abs(10)<50 → mismatch
+		{"ts": 2, "v": 80, "type": "spike"},  // Match
+		{"ts": 3, "v": 80, "type": "normal"}, // Type mismatches → mismatches
 	}
 	got := collectCEP(t, sql, rows, 1)
 	flat := flatten(got)
@@ -394,7 +394,7 @@ func TestCEP_Scenario_DefineWithFunction(t *testing.T) {
 	assert.Equal(t, 80.0, asFloat64(flat[0]["v"]))
 }
 
-// 场景：输出含分区键（rulego 据此路由到对应设备）。
+// Scenario: output with partition keys (rulego routes to the corresponding device).
 func TestCEP_Scenario_PartitionKeyInOutput(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		PARTITION BY dev
@@ -421,7 +421,7 @@ func TestCEP_Scenario_PartitionKeyInOutput(t *testing.T) {
 	assert.True(t, devs["d1"] && devs["d2"], "两设备各一匹配，输出含 dev: %v", devs)
 }
 
-// 场景：重试后成功（A+ B：连续失败后一次成功）。
+// Scenario: Successful after retry (A+ B: One success after consecutive failures).
 func TestCEP_Scenario_RetryThenSuccess(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -443,7 +443,7 @@ func TestCEP_Scenario_RetryThenSuccess(t *testing.T) {
 	assert.Equal(t, 4.0, asFloat64(flat[0]["n"]), "3 fail + 1 ok")
 }
 
-// 场景：MEASURES 算术范围（MAX-MIN、AVG）。
+// Scenario: MEASURES arithmetic range (MAX-MIN, AVG).
 func TestCEP_Scenario_ArithmeticMeasures(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -465,7 +465,7 @@ func TestCEP_Scenario_ArithmeticMeasures(t *testing.T) {
 	assert.Equal(t, 30.0, asFloat64(flat[0]["avg"]), "(10+50+30)/3=30")
 }
 
-// 场景：可选中间步（Start (Process)? End：Process 0 或 1 次）。
+// Scenario: Optional intermediate step (Start (Process)? End: Process 0 or 1 time).
 func TestCEP_Scenario_OptionalMiddle(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -480,14 +480,14 @@ func TestCEP_Scenario_OptionalMiddle(t *testing.T) {
 		{"ts": 2, "s": "P"},
 		{"ts": 3, "s": "E"},
 		{"ts": 4, "s": "S"},
-		{"ts": 5, "s": "E"}, // 无 Process 也匹配
+		{"ts": 5, "s": "E"}, // No Process also matches
 	}
 	got := collectCEP(t, sql, rows, 2)
 	assert.Len(t, got, 2, "S-P-E 与 S-E 各一次")
 }
 
-// MEASURES 支持任意标量函数（非导航/聚合）：upper/round/算术组合。
-// 顶层 SELECT 在 CEP 不生效，函数须写在 MEASURES 里。
+// MEASURES supports arbitrary scalar functions (non-navigation/aggregation): upper/round/arithmetic combinations.
+// Top-level SELECT does not work in CEP; the function must be written in MEASURES.
 func TestCEP_MeasuresScalarFunctions(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -506,7 +506,7 @@ func TestCEP_MeasuresScalarFunctions(t *testing.T) {
 	assert.Equal(t, 4.4, asFloat64(flat[0]["vp1"]), "3.4+1")
 }
 
-// ALL ROWS PER MATCH 下 FIRST/LAST 按 RUNNING 推进（与 COUNT 一致），而非恒为末行。
+// Under ALL ROWS PER MATCH, FIRST/LAST advance by RUNNING (consistent with COUNT), rather than always being the last row.
 func TestCEP_AllRows_FirstLastRunning(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -520,7 +520,7 @@ func TestCEP_AllRows_FirstLastRunning(t *testing.T) {
 	got := collectCEP(t, sql, rows, 1)
 	require.Len(t, got, 1, "一次匹配")
 	require.Len(t, got[0], 3, "ALL ROWS 输出 3 行")
-	// LAST RUNNING：10,20,30；FIRST 恒 10；COUNT RUNNING：1,2,3
+	// LAST RUNNING: 10, 20, 30; FIRST constant 10; COUNT RUNNING: 1, 2, 3
 	assert.Equal(t, 10.0, asFloat64(got[0][0]["lv"]))
 	assert.Equal(t, 20.0, asFloat64(got[0][1]["lv"]))
 	assert.Equal(t, 30.0, asFloat64(got[0][2]["lv"]))
@@ -528,7 +528,7 @@ func TestCEP_AllRows_FirstLastRunning(t *testing.T) {
 	assert.Equal(t, 1.0, asFloat64(got[0][0]["n"]))
 }
 
-// 外层 SELECT 投影 MEASURES 列：ONE ROW 下 SELECT 具体别名只输出选中的列。
+// Outer SELECT Projection MEASURES column: Under ONE ROW, the specific SELECT aliases only output the selected columns.
 func TestCEP_SelectProjectsMeasures(t *testing.T) {
 	sql := `SELECT mn, peak FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -548,7 +548,7 @@ func TestCEP_SelectProjectsMeasures(t *testing.T) {
 	assert.False(t, hasTS, "ONE ROW SELECT 具体列不应漏入未选的输入字段")
 }
 
-// 外层 SELECT 表达式对 MEASURES 列求值。
+// The outer SELECT expression evaluates the MEASURES column.
 func TestCEP_SelectExpressionOverMeasures(t *testing.T) {
 	sql := `SELECT hi - lo AS span, hi FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -566,7 +566,7 @@ func TestCEP_SelectExpressionOverMeasures(t *testing.T) {
 	assert.Equal(t, 40.0, asFloat64(flat[0]["span"]), "hi-lo=50-10=40")
 }
 
-// ONE ROW PER MATCH + SELECT *：关系只暴露 MEASURES 列（输入字段不漏入），对齐 Flink。
+// ONE ROW PER MATCH + SELECT *: The relationship exposes only the MEASURES column (no missing input fields), aligning with Flink.
 func TestCEP_SelectStarOneRowMeasuresOnly(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -585,7 +585,7 @@ func TestCEP_SelectStarOneRowMeasuresOnly(t *testing.T) {
 	assert.False(t, hasTS, "ONE ROW PER MATCH 仅暴露 MEASURES 列，不含输入字段")
 }
 
-// ALL ROWS PER MATCH 暴露输入列：外层 SELECT 可引用输入字段（如 ts）。
+// ALL ROWS PER MATCH Exposed input column: Outer SELECT can reference input fields (such as ts).
 func TestCEP_AllRowsSelectInputField(t *testing.T) {
 	sql := `SELECT ts, c FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -605,7 +605,7 @@ func TestCEP_AllRowsSelectInputField(t *testing.T) {
 	assert.Equal(t, 2.0, asFloat64(got[0][1]["ts"]), "次行 ts=2")
 }
 
-// ALL ROWS PER MATCH + SELECT *：含输入字段与 MEASURES 列。
+// ALL ROWS PER MATCH + SELECT *: Includes input fields and MEASURES columns.
 func TestCEP_AllRowsSelectStarIncludesInput(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -624,9 +624,9 @@ func TestCEP_AllRowsSelectStarIncludesInput(t *testing.T) {
 	assert.True(t, hasV && hasC, "ALL ROWS SELECT * 应含输入列 v 与 MEASURES 列 c")
 }
 
-// === 缺口补全：此前仅单元/探针覆盖、无 e2e 的场景 ===
+// === Gap Filling: Previously, only cell/probe coverage was used, with no e2e ===
 
-// PERMUTE(A, B)：两种顺序都匹配（A,B) 与 (B,A)。
+// PERMUTE(A, B): Both sequences match (A, B) and (B, A).
 func TestCEP_Permute(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -644,7 +644,7 @@ func TestCEP_Permute(t *testing.T) {
 	assert.Equal(t, "A", flat[1]["last"], "[B,A]→末符号 A")
 }
 
-// WITHIN 过期恢复：超窗的 A-B 作废，窗内的新 A-B 仍匹配。
+// WITHIN expired recovery: The A-B of the super window is voided, while the new A-B inside the window still matches.
 func TestCEP_WithinExpiryRecovery(t *testing.T) {
 	const base = int64(1700000000000)
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
@@ -657,9 +657,9 @@ func TestCEP_WithinExpiryRecovery(t *testing.T) {
 	)`
 	rows := []map[string]any{
 		{"ts": base, "k": 1},          // A
-		{"ts": base + 70000, "k": 2},  // 距 A 70s > 1min → 过期
-		{"ts": base + 100000, "k": 1}, // 新 A
-		{"ts": base + 100030, "k": 2}, // 距新 A 30ms < 1min → 匹配
+		{"ts": base + 70000, "k": 2},  // Expired → 1 minute > from A 70s
+		{"ts": base + 100000, "k": 1}, // New A
+		{"ts": base + 100030, "k": 2}, // Matches → 1 minute < 30ms from the new A
 	}
 	got := collectCEP(t, sql, rows, 1)
 	flat := flatten(got)
@@ -667,7 +667,7 @@ func TestCEP_WithinExpiryRecovery(t *testing.T) {
 	assert.Equal(t, 1.0, asFloat64(flat[0]["mn"]), "仅第二对在窗内匹配")
 }
 
-// NEXT 导航：匹配末行 NEXT 越界为 nil。
+// NEXT Navigation: Matches the last line NEXT outbound as nil.
 func TestCEP_NextNavigation(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -685,7 +685,7 @@ func TestCEP_NextNavigation(t *testing.T) {
 	assert.Nil(t, flat[0]["nxt"], "末行 NEXT 越界应为 nil")
 }
 
-// DEFINE 复合：OR 逻辑 + 引用另一符号字段（B AS v > A.v）。
+// DEFINE Complex: OR logic + reference another symbolic field (B AS v > A.v).
 func TestCEP_DefineOrAndCrossSymbol(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -696,17 +696,17 @@ func TestCEP_DefineOrAndCrossSymbol(t *testing.T) {
 		DEFINE A AS v > 10, B AS v > A.v OR k == 9
 	)`
 	rows := []map[string]any{
-		{"ts": 1, "v": 20, "k": 0}, // A: v>10 ✓；后续 B 不满足 → 失败
-		{"ts": 2, "v": 5, "k": 0},  // B: 5>A.v(20)? 否；k==9? 否 → 不匹配
+		{"ts": 1, "v": 20, "k": 0}, // A: v>10 ✓;  Subsequently, B does not satisfy → failure
+		{"ts": 2, "v": 5, "k": 0},  // B: 5>A.v(20)? No; k==9? No → mismatch
 		{"ts": 3, "v": 20, "k": 0}, // A
-		{"ts": 4, "v": 25, "k": 0}, // B: 25>20 ✓ → 匹配
+		{"ts": 4, "v": 25, "k": 0}, // B: 25>20 ✓ → match
 	}
 	got := collectCEP(t, sql, rows, 1)
 	flat := flatten(got)
 	require.Len(t, flat, 1, "仅 A(3)B(4) 匹配")
 }
 
-// 多字段 PARTITION BY：按 dev+tenant 联合隔离。
+// Multi-field PARTITION BY: Joint isolation by dev+tenant.
 func TestCEP_MultiPartitionBy(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		PARTITION BY dev, tenant
@@ -727,7 +727,7 @@ func TestCEP_MultiPartitionBy(t *testing.T) {
 	assert.Len(t, got, 2, "dev+tenant 各一组各一次匹配")
 }
 
-// SUM 聚合 MEASURES（此前只测了 AVG/MIN/MAX/COUNT）。
+// SUM Aggregation MEASURES (previously only AVG/MIN/MAX/COUNT were measured).
 func TestCEP_MeasuresSum(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -745,7 +745,7 @@ func TestCEP_MeasuresSum(t *testing.T) {
 	assert.Equal(t, 3.0, asFloat64(flat[0]["n"]))
 }
 
-// A* 星号量词：0+ 个 A 后接 B。
+// A* Asterisk: 0+ A's followed by B.
 func TestCEP_StarQuantifier(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -762,7 +762,7 @@ func TestCEP_StarQuantifier(t *testing.T) {
 	assert.Equal(t, 3.0, asFloat64(flat[0]["n"]), "A* B：2A+1B=3")
 }
 
-// AFTER MATCH SKIP TO LAST <符号>：解析+运行时（首行场景，断言匹配数）。
+// AFTER MATCH SKIP TO LAST <symbol>: parsing and runtime (first-line case; assert the match count).
 func TestCEP_SkipToLastSymbol(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -783,8 +783,8 @@ func TestCEP_SkipToLastSymbol(t *testing.T) {
 	assert.Equal(t, 1.0, asFloat64(flat[0]["mn"]))
 }
 
-// Stop 冲刷未闭合的贪婪匹配（A+ 无收尾事件，仅 Stop Flush 产出）。
-// 同时验证 Flush 输出也经 SELECT 投影（与 Process 一致）。
+// Stop flushes unclosed greedy matches (A+ has no finishing events, only Stop Flush outputs).
+// At the same time, verify that the Flush output is also projected by SELECT (consistent with the Process).
 func TestCEP_FlushUnclosed(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -806,15 +806,15 @@ func TestCEP_FlushUnclosed(t *testing.T) {
 	for _, r := range []map[string]any{{"ts": 1, "k": 1}, {"ts": 2, "k": 1}, {"ts": 3, "k": 1}} {
 		s.Emit(r)
 	}
-	time.Sleep(100 * time.Millisecond) // 等处理器消费
-	s.Stop()                           // Flush 产出未闭合的 A+ 突发
+	time.Sleep(100 * time.Millisecond) // and other processor consumption
+	s.Stop()                           // Flush produces an unclosed A+ burst
 	mu.Lock()
 	defer mu.Unlock()
 	require.Len(t, got, 1, "Flush 应输出未闭合的 A+ 突发")
 	assert.Equal(t, 3.0, asFloat64(got[0]["n"]), "3 个 A")
 }
 
-// 符号限定聚合 SUM(A.v) 仅对 A 标签行求和；SUM(v) 对全部行。
+// Symbol-limited aggregation SUM(A.v) only sums rows of A labels; SUM(v) for all rows.
 func TestCEP_SymbolScopedAggregate(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -828,7 +828,7 @@ func TestCEP_SymbolScopedAggregate(t *testing.T) {
 		{"ts": 1, "k": 1, "v": 1},   // A
 		{"ts": 2, "k": 2, "v": 10},  // B
 		{"ts": 3, "k": 2, "v": 100}, // B
-		{"ts": 4, "k": 3, "v": 0},   // 非 A/B：收尾 B+
+		{"ts": 4, "k": 3, "v": 0},   // Non-A/B: Finishing B+
 	}
 	got := collectCEP(t, sql, rows, 1)
 	flat := flatten(got)
@@ -837,7 +837,7 @@ func TestCEP_SymbolScopedAggregate(t *testing.T) {
 	assert.Equal(t, 111.0, asFloat64(flat[0]["allv"]), "SUM(v) 全部行 = 1+10+100")
 }
 
-// MATCH_RECOGNIZE ORDER BY DESC 流式下无意义（按到达序），Execute 期 fail-fast。
+// MATCH_RECOGNIZE ORDER BY DESC is meaningless in the flow (by order of arrival), Execute period fail-fast.
 func TestCEP_RejectsOrderByDesc(t *testing.T) {
 	s := streamsql.New()
 	err := s.Execute(`SELECT * FROM stream MATCH_RECOGNIZE (ORDER BY ts DESC PATTERN (A) DEFINE A AS v>0)`)
@@ -845,8 +845,8 @@ func TestCEP_RejectsOrderByDesc(t *testing.T) {
 	s.Stop()
 }
 
-// SUBSET 在 MEASURES 引用：SUM(S.v) 对 S={A,B} 全部成分行求和；S.v 取成分末行。
-// 语法入口：ONE ROW PER MATCH + 外层 SELECT 具体别名（验证不漏未选列）。
+// SUBSET in MEASURES reference: SUM(S.v) sums all components of S={A,B}; S.v takes the last row of the components.
+// Syntax entry: ONE ROW PER MATCH + outer SELECT specific alias (verifying no missed columns).
 func TestCEP_SubsetAggregate(t *testing.T) {
 	sql := `SELECT sv, last, mn FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -861,7 +861,7 @@ func TestCEP_SubsetAggregate(t *testing.T) {
 		{"ts": 1, "k": 1, "v": 1},
 		{"ts": 2, "k": 2, "v": 10},
 		{"ts": 3, "k": 2, "v": 100},
-		{"ts": 4, "k": 3, "v": 0}, // 非 A/B：收尾 B+
+		{"ts": 4, "k": 3, "v": 0}, // Non-A/B: Finishing B+
 	}
 	got := collectCEP(t, sql, rows, 1)
 	flat := flatten(got)
@@ -873,8 +873,8 @@ func TestCEP_SubsetAggregate(t *testing.T) {
 	assert.False(t, hasAV, "SELECT 未选 av 不应漏入")
 }
 
-// SUBSET 在 PATTERN 里作原子：PATTERN(S C)（S={A,B}）→ (A|B) C，CLASSIFIER 返回真实成分。
-// 语法入口：ALL ROWS PER MATCH + 外层 SELECT 输入字段 ts 与 MEASURES 列 c。
+// SUBSET is an atom in a PATTERN: PATTERN(S C)(S={A,B})→ (A| B) C, CLASSIFIER returns the true composition.
+// Syntax entry: ALL ROWS PER MATCH + outer SELECT input fields ts and MEASURES column c.
 func TestCEP_SubsetInPattern(t *testing.T) {
 	sql := `SELECT ts, c FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -886,7 +886,7 @@ func TestCEP_SubsetInPattern(t *testing.T) {
 		DEFINE A AS k == 1, B AS k == 2, C AS k == 3
 	)`
 	rows := []map[string]any{
-		{"ts": 1, "k": 1}, // A（经 S 展开匹配）
+		{"ts": 1, "k": 1}, // A (Expand S for Matching)
 		{"ts": 2, "k": 3}, // C
 	}
 	got := collectCEP(t, sql, rows, 1)
@@ -898,7 +898,7 @@ func TestCEP_SubsetInPattern(t *testing.T) {
 	assert.Equal(t, 2.0, asFloat64(got[0][1]["ts"]))
 }
 
-// ALL ROWS PER MATCH 下 FINAL 聚合取整段匹配（恒定），RUNNING 截到当前行（累计）。
+// Under ALL ROWS PER MATCH, FINAL AGGREGATES THE entire segment match (constant), RUNNING cuts to the current row (cumulative).
 func TestCEP_FinalVsRunning(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -912,7 +912,7 @@ func TestCEP_FinalVsRunning(t *testing.T) {
 	got := collectCEP(t, sql, rows, 1)
 	require.Len(t, got, 1, "一次匹配")
 	require.Len(t, got[0], 3, "ALL ROWS 输出 3 行")
-	// FINAL SUM 恒为 60（整段）；RUNNING SUM 累计 10/30/60。
+	// FINAL SUM is always 60 (entire segment); RUNNING SUM cumulative 10/30/60.
 	for _, r := range got[0] {
 		assert.Equal(t, 60.0, asFloat64(r["fs"]), "FINAL SUM 恒 60")
 	}
@@ -921,7 +921,7 @@ func TestCEP_FinalVsRunning(t *testing.T) {
 	assert.Equal(t, 60.0, asFloat64(got[0][2]["rs"]), "RUNNING 行2=60")
 }
 
-// ONE ROW PER MATCH 下 FINAL 与默认（RUNNING）结果一致：cur 已是末行，二者相等。
+// Under ONE ROW PER MATCH, FINAL matches the default (RUNNING) result: cur is already the last row, and both are equal.
 func TestCEP_FinalOneRowNoChange(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -939,8 +939,8 @@ func TestCEP_FinalOneRowNoChange(t *testing.T) {
 	assert.Equal(t, 60.0, asFloat64(flat[0]["rs"]), "ONE ROW 下 FINAL 与默认一致")
 }
 
-// WITHIN 主动过期：sweeper 定期清除超窗的部分匹配。空闲超过 WITHIN 后 A 被主动清除，
-// 后续 B 无法续上 → 无匹配。需用近期 epoch 时间戳（sweeper 按 wall-clock 判过期）。
+// WITHIN Active Expire: The sweeper periodically clears partial matches of the overwindow. After the idle exceeds WITHIN and A is actively removed,
+// Subsequent B cannot be renewed → no match. A recent epoch timestamp is required (sweeper presses wall-clock to indicate expire).
 func TestCEP_WithinSweeperExpires(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -960,8 +960,8 @@ func TestCEP_WithinSweeperExpires(t *testing.T) {
 		mu.Unlock()
 	})
 	s.Emit(map[string]any{"ts": time.Now().UnixMilli(), "k": 1}) // A
-	time.Sleep(500 * time.Millisecond)                           // >WITHIN 且 >sweepInterval(100ms)：sweeper 清除 A
-	s.Emit(map[string]any{"ts": time.Now().UnixMilli(), "k": 2}) // B 来时无 A → 无匹配
+	time.Sleep(500 * time.Millisecond)                           // >WITHIN and >sweepInterval(100ms): sweeper clears A
+	s.Emit(map[string]any{"ts": time.Now().UnixMilli(), "k": 2}) // B comes without A→ No matching
 	time.Sleep(200 * time.Millisecond)
 	s.Stop()
 	mu.Lock()
@@ -969,7 +969,7 @@ func TestCEP_WithinSweeperExpires(t *testing.T) {
 	assert.Empty(t, got, "sweeper 主动过期部分匹配，B 来时无 A → 无匹配")
 }
 
-// 对照：sweeper 启用时不误删窗内匹配（AB 在 WITHIN 内连续到达 → 有匹配）。
+// Comparison: When sweeper is enabled, it does not delete in-window matches (AB arrives consecutively within WITHIN → matches are made).
 func TestCEP_WithinSweeperKeepsRecent(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -990,8 +990,8 @@ func TestCEP_WithinSweeperKeepsRecent(t *testing.T) {
 	assert.Equal(t, 1.0, asFloat64(flat[0]["mn"]))
 }
 
-// 贪婪 A*（A/B DEFINE 重叠 v>0）选最长：3 事件 → 1 个匹配 [A,A,B]（n=3）。
-// 重叠下贪婪延伸到流末 Flush 才选最长，故用 Stop 后断言（非 collectCEP）。
+// Greedy A*(A/B DEFINE overlaps v>0) Choose the longest: 3 events → 1 match [A,A,B](n=3).
+// The longest is chosen when greed extends to the end of the flush, so a stop post-assertion is used (not collectCEP).
 func TestCEP_GreedyStarLongest(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -1014,14 +1014,14 @@ func TestCEP_GreedyStarLongest(t *testing.T) {
 		s.Emit(r)
 	}
 	time.Sleep(100 * time.Millisecond)
-	s.Stop() // 贪婪重叠：匹配在 Flush 选最长后产出
+	s.Stop() // Greed Overlap: Matches after Flush picks the longest output
 	mu.Lock()
 	defer mu.Unlock()
 	require.Len(t, got, 1, "贪婪 A* 选最长：1 个匹配 [A,A,B]")
 	assert.Equal(t, 3.0, asFloat64(got[0]["n"]), "贪婪匹配 3 行 A,A,B")
 }
 
-// 懒惰 A*?（A/B DEFINE 重叠）选最短：每位置 0 个 A + B → [B]×3（各 n=1）。
+// Lazy A*? (A/B DEFINE Overlap) Select the shortest: 0 A + B → [B]×3 (each n = 1).
 func TestCEP_ReluctantStarShortest(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -1040,8 +1040,8 @@ func TestCEP_ReluctantStarShortest(t *testing.T) {
 	}
 }
 
-// 贪婪 pending 不被 WITHIN sweeper 删除：sweep 用 wall-clock、withinOk 用事件时间，
-// 已完成的合法匹配（pending）只由 emitGreedy/Flush 产出。修复前 sweep 会误删 pending 致丢失。
+// Greedy pending is not deleted by WITHIN sweeper: sweep uses wall-clock, withinOk uses event time,
+// Completed valid pendings are only generated by emitGreedy/Flush. Before repairing, sweep would accidentally delete pending and cause loss.
 func TestCEP_GreedyPendingNotSwept(t *testing.T) {
 	sql := `SELECT * FROM stream MATCH_RECOGNIZE (
 		ORDER BY ts
@@ -1065,7 +1065,7 @@ func TestCEP_GreedyPendingNotSwept(t *testing.T) {
 		s.Emit(map[string]any{"ts": now.Add(time.Duration(i) * 10 * time.Millisecond).UnixMilli(), "v": i})
 		time.Sleep(10 * time.Millisecond)
 	}
-	time.Sleep(400 * time.Millisecond) // >sweepInterval(100ms)：sweep 多次跑，但 pending 须保留
+	time.Sleep(400 * time.Millisecond) // >sweepInterval(100ms): Sweep multiple times, but pending must be retained
 	s.Stop()
 	mu.Lock()
 	defer mu.Unlock()

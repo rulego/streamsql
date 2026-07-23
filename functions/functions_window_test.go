@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// isWindowFunction 判断是否为窗口函数
+// isWindowFunction to determine whether it is a window function
 func isWindowFunction(funcName string) bool {
 	windowFunctions := map[string]bool{
 		"window_start": true,
@@ -26,7 +26,7 @@ func TestNewWindowFunctions(t *testing.T) {
 		wantErr  bool
 		setup    func(fn AggregatorFunction)
 	}{
-		// first_value 函数测试
+		// first_value Function Testing
 		{
 			name:     "first_value basic",
 			funcName: "first_value",
@@ -48,7 +48,7 @@ func TestNewWindowFunctions(t *testing.T) {
 			setup:    func(fn AggregatorFunction) {},
 		},
 
-		// last_value 函数测试
+		// last_value Function testing
 		{
 			name:     "last_value basic",
 			funcName: "last_value",
@@ -70,7 +70,7 @@ func TestNewWindowFunctions(t *testing.T) {
 			setup:    func(fn AggregatorFunction) {},
 		},
 
-		// nth_value 函数测试
+		// nth_value Function Testing
 		{
 			name:     "nth_value first",
 			funcName: "nth_value",
@@ -136,41 +136,41 @@ func TestNewWindowFunctions(t *testing.T) {
 				t.Fatalf("Function %s not found", tt.funcName)
 			}
 
-			// 检查函数是否实现了AggregatorFunction接口
+			// Check whether the function implements the AggregatorFunction interface
 			aggFn, ok := fn.(AggregatorFunction)
 			if !ok {
 				t.Fatalf("Function %s does not implement AggregatorFunction", tt.funcName)
 			}
 
-			// 先执行函数的Validate方法来设置参数
+			// First, the function's Validate method is executed to set the parameters
 			err := fn.Validate(tt.args)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			// 如果期望错误且Validate已经失败，则测试通过
+			// If the expectation is incorrect and Validate has failed, the test passes
 			if tt.wantErr && err != nil {
 				return
 			}
 
-			// 创建新的聚合器实例
+			// Create a new aggregator instance
 			aggInstance := aggFn.New()
 
-			// 执行setup函数添加测试数据
+			// Execute the setup function to add test data
 			if tt.setup != nil {
 				tt.setup(aggInstance)
 			}
 
-			// 对于窗口函数测试，不需要调用Execute方法
-			// Execute方法主要用于流式处理，这里我们直接测试聚合器的Result方法
-			// 如果需要测试Execute方法，应该在原始函数实例上调用
+			// For window function testing, there is no need to call the Execute method
+			// The Execute method is mainly used for streaming processing. Here, we will directly test the aggregator's Result method
+			// If you need to test the Execute method, it should be called on the original function instance
 			if !isWindowFunction(tt.funcName) {
-				// 对于非窗口函数，在聚合器实例上执行
+				// For non-window functions, execute on the aggregator instance
 				if aggFunc, ok := aggInstance.(Function); ok {
 					_, err = aggFunc.Execute(nil, tt.args)
 				} else {
-					// 执行函数
+					// Execute the function
 					_, err = fn.Execute(nil, tt.args)
 				}
 			}
@@ -181,7 +181,7 @@ func TestNewWindowFunctions(t *testing.T) {
 			}
 
 			if !tt.wantErr {
-				// 对于窗口函数，我们主要测试聚合器的Result方法
+				// For window functions, we mainly test the aggregator's Result method
 				aggResult := aggInstance.Result()
 				if tt.want != nil && aggResult != tt.want {
 					t.Errorf("AggregatorFunction.Result() = %v, want %v", aggResult, tt.want)
@@ -191,9 +191,9 @@ func TestNewWindowFunctions(t *testing.T) {
 	}
 }
 
-// 测试窗口函数的基本功能
+// Test the basic functions of the window function
 func TestWindowFunctionBasics(t *testing.T) {
-	// 测试window_start和window_end函数
+	// Test window_start and window_end functions
 	t.Run("WindowStartEndFunctions", func(t *testing.T) {
 		windowStartFunc, exists := Get("window_start")
 		if !exists {
@@ -205,7 +205,7 @@ func TestWindowFunctionBasics(t *testing.T) {
 			t.Fatal("window_end function not found")
 		}
 
-		// 测试无窗口信息时的行为
+		// Testing behavior when there is no window information
 		ctx := &FunctionContext{
 			Data: map[string]any{},
 		}
@@ -213,50 +213,50 @@ func TestWindowFunctionBasics(t *testing.T) {
 		if err != nil {
 			t.Errorf("Execute() error = %v", err)
 		}
-		// 无窗口信息时应该返回nil或默认值
+		// If there is no window information, nil or the default value should be returned
 
 		_, err = windowEndFunc.Execute(ctx, []any{})
 		if err != nil {
 			t.Errorf("Execute() error = %v", err)
 		}
-		// 无窗口信息时应该返回nil或默认值
+		// If there is no window information, nil or the default value should be returned
 	})
 }
 
 func TestWindowFunctionResetAndClone(t *testing.T) {
-	// 测试WindowStartFunction的Reset和Clone
+	// Test the reset and clone of WindowStartFunction
 	windowStart := NewWindowStartFunction()
 	agg := windowStart.New().(*WindowStartFunction)
 	agg.Add("data1")
 	agg.Add("data2")
 
-	// 测试Reset
+	// Test Reset
 	agg.Reset()
 	res := agg.Result()
 	if res != nil {
 		t.Errorf("WindowStart Reset failed, result = %v, want nil", res)
 	}
 
-	// 测试Clone
+	// Testing Clone
 	clone := agg.Clone().(*WindowStartFunction)
 	if clone.windowStart != agg.windowStart {
 		t.Errorf("WindowStart Clone failed")
 	}
 
-	// 测试WindowEndFunction的Reset和Clone
+	// Test the reset and clone of WindowEndFunction
 	windowEnd := NewWindowEndFunction()
 	agg2 := windowEnd.New().(*WindowEndFunction)
 	agg2.Add("data1")
 	agg2.Add("data2")
 
-	// 测试Reset
+	// Test Reset
 	agg2.Reset()
 	res2 := agg2.Result()
 	if res2 != nil {
 		t.Errorf("WindowEnd Reset failed, result = %v, want nil", res2)
 	}
 
-	// 测试Clone
+	// Testing Clone
 	clone2 := agg2.Clone().(*WindowEndFunction)
 	if clone2.windowEnd != agg2.windowEnd {
 		t.Errorf("WindowEnd Clone failed")
@@ -267,28 +267,28 @@ func TestExpressionFunction(t *testing.T) {
 	fn := NewExpressionFunction()
 	ctx := &FunctionContext{}
 
-	// 测试Execute方法
+	// Test the Execute method
 	_, err := fn.Execute(ctx, []any{"x + y", 1, 2})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
-	// 注意：这里的结果取决于表达式求值器的实现
-	// 我们主要测试函数调用是否成功
+	// Note: The result here depends on the implementation of the expression evaluator
+	// We mainly test whether the function call is successful
 
-	// 测试聚合器方法
+	// Test aggregator methods
 	agg := fn.New().(*ExpressionFunction)
 	agg.Add("test")
 	_ = agg.Result()
-	// 结果取决于表达式求值器的实现
+	// The result depends on the implementation of the expression evaluator
 
-	// 测试Reset
+	// Test Reset
 	agg.Reset()
 	res := agg.Result()
 	if res != nil {
 		t.Errorf("Reset failed, result = %v, want nil", res)
 	}
 
-	// 测试Clone
+	// Testing Clone
 	clone := agg.Clone().(*ExpressionFunction)
 	if !reflect.DeepEqual(clone.values, agg.values) {
 		t.Errorf("Clone failed")
@@ -299,27 +299,27 @@ func TestExpressionAggregatorFunction(t *testing.T) {
 	fn := NewExpressionAggregatorFunction()
 	ctx := &FunctionContext{}
 
-	// 测试Execute方法
+	// Test the Execute method
 	_, err := fn.Execute(ctx, []any{"sum(x)", 1, 2, 3})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
 	}
-	// 注意：这里的结果取决于表达式求值器的实现
+	// Note: The result here depends on the implementation of the expression evaluator
 
-	// 测试聚合器方法
+	// Test aggregator methods
 	agg := fn.New().(*ExpressionAggregatorFunction)
 	agg.Add("test")
 	_ = agg.Result()
-	// 结果取决于表达式求值器的实现
+	// The result depends on the implementation of the expression evaluator
 
-	// 测试Reset
+	// Test Reset
 	agg.Reset()
 	res := agg.Result()
 	if res != nil {
 		t.Errorf("Reset failed, result = %v, want nil", res)
 	}
 
-	// 测试Clone
+	// Testing Clone
 	clone := agg.Clone().(*ExpressionAggregatorFunction)
 	if clone.lastResult != agg.lastResult {
 		t.Errorf("Clone failed")
@@ -329,7 +329,7 @@ func TestExpressionAggregatorFunction(t *testing.T) {
 func TestFirstValueFunction(t *testing.T) {
 	fn := NewFirstValueFunction()
 
-	// 测试聚合器方法
+	// Test aggregator methods
 	agg := fn.New().(*FirstValueFunction)
 	agg.Add("x")
 	agg.Add("y")
@@ -339,14 +339,14 @@ func TestFirstValueFunction(t *testing.T) {
 		t.Errorf("Agg first_value result = %v, want x", res)
 	}
 
-	// 测试Reset
+	// Test Reset
 	agg.Reset()
 	res2 := agg.Result()
 	if res2 != nil {
 		t.Errorf("Reset failed, result = %v, want nil", res2)
 	}
 
-	// 测试Clone
+	// Testing Clone
 	clone := agg.Clone().(*FirstValueFunction)
 	if clone.firstValue != agg.firstValue {
 		t.Errorf("Clone failed")
@@ -356,7 +356,7 @@ func TestFirstValueFunction(t *testing.T) {
 func TestNthValueFunction(t *testing.T) {
 	fn := NewNthValueFunction()
 
-	// 测试聚合器方法
+	// Test aggregator methods
 	agg := fn.New().(*NthValueFunction)
 	agg.Add("x")
 	agg.Add("y")
@@ -366,14 +366,14 @@ func TestNthValueFunction(t *testing.T) {
 		t.Errorf("Agg nth_value result = %v, want x", res)
 	}
 
-	// 测试Reset
+	// Test Reset
 	agg.Reset()
 	res = agg.Result()
 	if res != nil {
 		t.Errorf("Reset failed, result = %v, want nil", res)
 	}
 
-	// 测试Clone
+	// Testing Clone
 	clone := agg.Clone().(*NthValueFunction)
 	if clone.n != agg.n {
 		t.Errorf("Clone failed")
@@ -381,7 +381,7 @@ func TestNthValueFunction(t *testing.T) {
 }
 
 func TestWindowFunctionEdgeCases(t *testing.T) {
-	// NthValueFunction Validate/Execute边界
+	// NthValueFunction Validate/Execute boundary
 	nth := NewNthValueFunction()
 	if err := nth.Validate([]any{}); err == nil {
 		t.Error("NthValueFunction.Validate should fail for insufficient args")
@@ -394,7 +394,7 @@ func TestWindowFunctionEdgeCases(t *testing.T) {
 	agg2.Reset()
 	_ = agg2.Clone()
 
-	// FirstValueFunction Validate/Execute边界
+	// FirstValueFunction Validate/Execute boundary
 	first := NewFirstValueFunction()
 	if err := first.Validate([]any{}); err == nil {
 		t.Error("FirstValueFunction.Validate should fail for insufficient args")
@@ -407,7 +407,7 @@ func TestWindowFunctionEdgeCases(t *testing.T) {
 	agg3.Reset()
 	_ = agg3.Clone()
 
-	// LastValueFunction Validate/Execute边界
+	// LastValueFunction Validate/Execute boundary
 	last := NewLastValueFunction()
 	if err := last.Validate([]any{}); err == nil {
 		t.Error("LastValueFunction.Validate should fail for insufficient args")
@@ -420,7 +420,7 @@ func TestWindowFunctionEdgeCases(t *testing.T) {
 	agg4.Reset()
 	_ = agg4.Clone()
 
-	// WindowStartFunction/WindowEndFunction Reset/Clone边界
+	// WindowStartFunction/WindowEndFunction Reset/Clone boundary
 	ws := NewWindowStartFunction().New().(*WindowStartFunction)
 	ws.Reset()
 	_ = ws.Clone()

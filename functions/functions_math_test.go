@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// TestMathFunctions 测试数学函数的基本功能
+// TestMathFunctions Tests the basic functions of mathematical functions
 func TestMathFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -448,7 +448,7 @@ func TestMathFunctions(t *testing.T) {
 			expected: float64(1),
 			wantErr:  false,
 		},
-		// 错误处理测试用例
+		// Error handling test cases
 		{
 			name:     "abs invalid type",
 			funcName: "abs",
@@ -485,7 +485,7 @@ func TestMathFunctions(t *testing.T) {
 			if !exists {
 				t.Fatalf("Function %s not found", tt.funcName)
 			}
-			// 验证参数
+			// Validate parameters
 			if err := fn.Validate(tt.args); err != nil {
 				if !tt.wantErr {
 					t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
@@ -509,7 +509,7 @@ func TestMathFunctions(t *testing.T) {
 		})
 	}
 
-	// 特殊测试：rand函数（因为结果是随机的）
+	// Special test: rand function (since the result is random)
 	t.Run("rand function", func(t *testing.T) {
 		fn, exists := Get("rand")
 		if !exists {
@@ -533,7 +533,7 @@ func TestMathFunctions(t *testing.T) {
 	})
 }
 
-// TestMathFunctionValidation 测试数学函数的参数验证
+// TestMathFunctionValidation: Tests the parameter validation of mathematical functions
 func TestMathFunctionValidation(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -571,7 +571,7 @@ func TestMathFunctionValidation(t *testing.T) {
 	}
 }
 
-// TestMathFunctionErrors 测试数学函数的错误处理
+// TestMathFunctionErrors tests error handling in mathematical functions
 func TestMathFunctionErrors(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -657,7 +657,7 @@ func TestMathFunctionErrors(t *testing.T) {
 	}
 }
 
-// TestMathFunctionEdgeCases 测试数学函数的边界情况
+// TestMathFunctionEdgeCases tests the boundary state of the mathematical function
 func TestMathFunctionEdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -740,7 +740,7 @@ func TestMathFunctionEdgeCases(t *testing.T) {
 			}
 
 			if !tt.wantErr {
-				// 对于浮点数比较，使用近似相等
+				// For floating-point comparisons, approximate equality is used
 				if expected, ok := tt.expected.(float64); ok {
 					if actual, ok := result.(float64); ok {
 						if math.Abs(actual-expected) > 1e-9 {

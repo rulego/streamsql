@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 本文件镜像 rulego-doc「案例集锦」里的 SQL，防止文档示例与代码漂移：
-// 一旦 streamsql 改动让某条案例 SQL 失效（解析失败/输出变了），这里会先红。
-// 案例文档：docs/03.StreamSQL/31.案例集锦/
+// This document mirrors the SQL from the rulego-doc "Case Collection" to prevent document examples and code from drifting:
+// If a streamsql change causes a case SQL to become invalid (parsing failed/output changes), it will be red first.
+// Case Document: docs/03.StreamSQL/31. Case Collection/
 
-// 05.数据过滤与转换：非聚合 EmitSync，过滤 + 算术换算 + CASE 分级。
+// 05. Data filtering and conversion: Non-aggregation EmitSync, filtering + arithmetic conversion + CASE hierarchy.
 func TestDocCases_FilterTransform(t *testing.T) {
 	ssql := streamsql.New()
 	const sql = `SELECT deviceId,
@@ -28,15 +28,15 @@ WHERE temperature > 0 AND temperature < 100`
 
 	cases := []struct {
 		in     map[string]any
-		filter bool // 期望被 WHERE 过滤（EmitSync 返回 nil）
+		filter bool // Expected to be filtered by WHERE (EmitSync returns nil)
 		level  string
 		tempF  float64
 	}{
 		{map[string]any{"deviceId": "dev-01", "temperature": 28.0}, false, "OK", 82.4},
 		{map[string]any{"deviceId": "dev-02", "temperature": 32.0}, false, "WARNING", 89.6},
 		{map[string]any{"deviceId": "dev-03", "temperature": 38.0}, false, "CRITICAL", 100.4},
-		{map[string]any{"deviceId": "dev-04", "temperature": 999.0}, true, "", 0},   // 越界过滤
-		{map[string]any{"deviceId": "dev-05", "temperature": nil}, true, "", 0},      // nil 过滤
+		{map[string]any{"deviceId": "dev-04", "temperature": 999.0}, true, "", 0}, // Filtering beyond boundaries
+		{map[string]any{"deviceId": "dev-05", "temperature": nil}, true, "", 0},   // NIL filtration
 	}
 	for _, c := range cases {
 		out, err := ssql.EmitSync(c.in)
@@ -51,13 +51,13 @@ WHERE temperature > 0 AND temperature < 100`
 	}
 }
 
-// 01.流表JOIN元数据增强：Execute 后 RegisterTable，INNER JOIN 补属性，无匹配丢弃。
+// 01. Enhanced JOIN metadata in flow tables: After executing, RegisterTable and INNER JOIN are supplemented with attributes, and no match is discarded.
 func TestDocCases_JoinEnrichment(t *testing.T) {
 	ssql := streamsql.New()
 	const sql = `SELECT deviceId, m.location, m.model, temperature
 FROM stream JOIN meta m ON deviceId = m.deviceId`
 	require.NoError(t, ssql.Execute(sql))
-	// RegisterTable 必须在 Execute 之后。
+	// RegisterTable must be placed after Execute.
 	_, err := ssql.RegisterTable("meta", []map[string]any{
 		{"deviceId": "d1", "location": "plantA", "model": "TX-100"},
 		{"deviceId": "d2", "location": "plantB", "model": "TX-200"},
@@ -75,12 +75,12 @@ FROM stream JOIN meta m ON deviceId = m.deviceId`
 	require.NotNil(t, r2)
 	assert.Equal(t, "plantB", r2["location"])
 
-	// d9 无匹配 → INNER JOIN 丢弃（nil，非 error）。
+	// d9 No match → INNER JOIN discard (nil, not error).
 	r9, _ := ssql.EmitSync(map[string]any{"deviceId": "d9", "temperature": 40.0})
 	assert.Nil(t, r9, "INNER JOIN 无匹配应丢弃")
 }
 
-// 03.变更数据捕获 场景1：全局 lag（无分区），电流从 ≤300 跳到 >300 的时刻。
+// 03. Change Data Capture Scenario 1: Global lag (no partitioning), the moment when current jumps from ≤300 to >300.
 func TestDocCases_CDC_GlobalLag(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute(`SELECT current, ts FROM stream WHERE current > 300 AND lag(current) <= 300`))
@@ -108,7 +108,7 @@ func TestDocCases_CDC_GlobalLag(t *testing.T) {
 	assert.Equal(t, 400, outs[2]["current"])
 }
 
-// 03.变更数据捕获 场景3：OVER WHEN 限定 lag 范围，只盯 deviceId=1。
+// 03. Change Data Capture Scenario 3: OVER WHEN Limit the lag range, focusing only on deviceId=1.
 func TestDocCases_CDC_WhenLimitedLag(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute(`SELECT current, deviceId, ts FROM stream WHERE current > 300 AND deviceId = 1 AND lag(current) OVER (WHEN deviceId = 1) < 300`))
@@ -135,7 +135,7 @@ func TestDocCases_CDC_WhenLimitedLag(t *testing.T) {
 	assert.Equal(t, 1, outs[0]["deviceId"])
 }
 
-// 时间类窗口 SQL 至少保证可解析执行（输出行为受时间调度影响，单独在窗口测试里覆盖）。
+// Time-based window SQL must at least ensure parsable execution (output behavior is affected by time scheduling and is overlaid separately in window testing).
 func TestDocCases_WindowSQL_Parses(t *testing.T) {
 	t.Parallel()
 	sqls := map[string]string{

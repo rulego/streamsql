@@ -12,7 +12,7 @@ const (
 	TokenIdent
 	TokenNumber
 	TokenString
-	TokenQuotedIdent // 反引号标识符
+	TokenQuotedIdent // Backquote identifier
 	TokenComma
 	TokenLParen
 	TokenRParen
@@ -56,21 +56,21 @@ const (
 	TokenIS
 	TokenNULL
 	TokenNOT
-	// CASE表达式相关token
+	// CASE expression-related tokens
 	TokenCASE
 	TokenWHEN
 	TokenTHEN
 	TokenELSE
 	TokenEND
-	// 数组索引相关token
+	// Array indexes related tokens
 	TokenLBracket
 	TokenRBracket
-	// 分析函数 OVER 子句相关 token
+	// Analyze the token related to the OVER clause of the function
 	TokenOVER
 	TokenPARTITION
-	// 点号token
+	// Point token
 	TokenDot
-	// MATCH_RECOGNIZE PATTERN 正则语法标点（仅 PATTERN 体内消费）
+	// MATCH_RECOGNIZE PATTERN regular syntax punctuation (PATTERN internal consumption only)
 	TokenQuestion // ?
 	TokenPipe     // |
 	TokenLBrace   // {
@@ -105,12 +105,12 @@ func NewLexer(input string) *Lexer {
 	return l
 }
 
-// SetErrorRecovery 设置错误恢复实例
+// SetErrorRecovery sets the error recovery instance
 func (l *Lexer) SetErrorRecovery(er *ErrorRecovery) {
 	l.errorRecovery = er
 }
 
-// GetPosition 获取当前位置信息
+// GetPosition retrieves the current location information
 func (l *Lexer) GetPosition() (int, int, int) {
 	return l.pos, l.line, l.column
 }
@@ -139,7 +139,7 @@ func (l *Lexer) restore(s lexerSnapshot) {
 func (l *Lexer) NextToken() Token {
 	l.skipWhitespace()
 
-	// 记录token开始位置
+	// Record the starting position of the token
 	tokenPos := l.pos
 	tokenLine := l.line
 	tokenColumn := l.column
@@ -181,12 +181,12 @@ func (l *Lexer) NextToken() Token {
 		l.readChar()
 		return Token{Type: TokenPlus, Value: "+", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
 	case '-':
-		// 检查是否是负数
+		// Check if it's negative
 		if l.peekChar() != 0 && isDigit(l.peekChar()) {
-			// 这是一个负数，读取整个数字
-			l.readChar() // 跳过负号
+			// This is a negative number, read the entire number
+			l.readChar() // Skip the minus sign
 			number := "-" + l.readNumber()
-			// 验证数字格式
+			// Verify the digital format
 			if !l.isValidNumber(number) && l.errorRecovery != nil {
 				err := CreateLexicalError(fmt.Sprintf("Invalid number format: %s", number), tokenPos, 0)
 				err.Type = ErrorTypeInvalidNumber
@@ -194,7 +194,7 @@ func (l *Lexer) NextToken() Token {
 			}
 			return Token{Type: TokenNumber, Value: number, Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
 		}
-		// 这是一个减号操作符
+		// This is a minus operator
 		l.readChar()
 		return Token{Type: TokenMinus, Value: "-", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
 	case '*':
@@ -233,13 +233,13 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			return Token{Type: TokenNE, Value: "!=", Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
 		}
-		// 处理无效的 '!' 字符
+		// Handle invalid '!' characters
 		if l.errorRecovery != nil {
 			err := CreateLexicalErrorWithPosition("Invalid character '!', did you mean '!='?", tokenPos, tokenLine, tokenColumn, l.ch)
 			l.errorRecovery.AddError(err)
 		}
 		l.readChar()
-		return l.NextToken() // 跳过无效字符，继续解析
+		return l.NextToken() // Skip invalid characters and continue parsing
 	case '\'':
 		return l.readStringToken(tokenPos, tokenLine, tokenColumn)
 	case '"':
@@ -259,7 +259,7 @@ func (l *Lexer) NextToken() Token {
 
 	if isDigit(l.ch) {
 		number := l.readNumber()
-		// 验证数字格式
+		// Verify the digital format
 		if !l.isValidNumber(number) && l.errorRecovery != nil {
 			err := CreateLexicalError(fmt.Sprintf("Invalid number format: %s", number), tokenPos, 0)
 			err.Type = ErrorTypeInvalidNumber
@@ -268,14 +268,14 @@ func (l *Lexer) NextToken() Token {
 		return Token{Type: TokenNumber, Value: number, Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
 	}
 
-	// 处理无法识别的字符
+	// Handling unrecognizable characters
 	if l.ch != 0 {
 		if l.errorRecovery != nil {
 			err := CreateLexicalErrorWithPosition(fmt.Sprintf("Unexpected character '%c'", l.ch), tokenPos, tokenLine, tokenColumn, l.ch)
 			l.errorRecovery.AddError(err)
 		}
 		l.readChar()
-		return l.NextToken() // 跳过无效字符，继续解析
+		return l.NextToken() // Skip invalid characters and continue parsing
 	}
 
 	return Token{Type: TokenEOF, Pos: tokenPos, Line: tokenLine, Column: tokenColumn}
@@ -288,7 +288,7 @@ func (l *Lexer) readChar() {
 		l.ch = l.input[l.readPos]
 	}
 
-	// 更新位置信息
+	// Update location information
 	if l.ch == '\n' {
 		l.line++
 		l.column = 0
@@ -318,7 +318,7 @@ func (l *Lexer) readIdentifier() string {
 }
 
 func (l *Lexer) readPreviousIdentifier() string {
-	// 保存当前位置
+	// Save your current location
 	endPos := l.pos
 
 	// Move backward until finding a non-letter character or reaching the input start
@@ -349,14 +349,14 @@ func (l *Lexer) readNumber() string {
 func (l *Lexer) readString() string {
 	quoteChar := l.ch // Record the quote type (single or double quote)
 	startPos := l.pos // Record the start position (including the quote)
-	l.readChar()      // 跳过开头引号
+	l.readChar()      // Skip the opening quotation marks
 
 	for l.ch != quoteChar && l.ch != 0 {
 		l.readChar()
 	}
 
 	if l.ch == quoteChar {
-		l.readChar() // 跳过结尾引号
+		l.readChar() // Skip the closing quotes
 	}
 
 	// Return the complete string including quotes
@@ -432,7 +432,7 @@ func (l *Lexer) lookupIdent(ident string) Token {
 		return Token{Type: TokenNULL, Value: ident}
 	case "NOT":
 		return Token{Type: TokenNOT, Value: ident}
-	// CASE表达式相关关键字
+	// CASE expression-related keywords
 	case "CASE":
 		return Token{Type: TokenCASE, Value: ident}
 	case "WHEN":
@@ -456,7 +456,7 @@ func (l *Lexer) lookupIdent(ident string) Token {
 	}
 }
 
-// checkForTypos 检查常见的拼写错误
+// checkForTypos checks for common spelling errors
 func (l *Lexer) checkForTypos(original, upper string) {
 	suggestions := make([]string, 0)
 
@@ -490,11 +490,11 @@ func (l *Lexer) checkForTypos(original, upper string) {
 	}
 }
 
-// readStringToken 读取字符串token并处理错误
+// readStringToken reads the string token and handles the error
 func (l *Lexer) readStringToken(pos, line, column int) Token {
 	quoteChar := l.ch
 	startPos := l.pos
-	l.readChar() // 跳过开头引号
+	l.readChar() // Skip the opening quotation marks
 
 	for l.ch != quoteChar && l.ch != 0 {
 		l.readChar()
@@ -520,17 +520,17 @@ func (l *Lexer) readStringToken(pos, line, column int) Token {
 	}
 
 	if l.ch == quoteChar {
-		l.readChar() // 跳过结尾引号
+		l.readChar() // Skip the closing quotes
 	}
 
 	value := l.input[startPos:l.pos]
 	return Token{Type: TokenString, Value: value, Pos: pos, Line: line, Column: column}
 }
 
-// readQuotedIdentToken 读取反引号标识符token并处理错误
+// readQuotedIdentToken reads the backquoted identifier token and handles the error
 func (l *Lexer) readQuotedIdentToken(pos, line, column int) Token {
 	startPos := l.pos
-	l.readChar() // 跳过开头反引号
+	l.readChar() // Skip the opening backquotes
 
 	for l.ch != '`' && l.ch != 0 {
 		l.readChar()
@@ -556,24 +556,24 @@ func (l *Lexer) readQuotedIdentToken(pos, line, column int) Token {
 	}
 
 	if l.ch == '`' {
-		l.readChar() // 跳过结尾反引号
+		l.readChar() // Skip the closing quotation marks
 	}
 
 	value := l.input[startPos:l.pos]
 	return Token{Type: TokenQuotedIdent, Value: value, Pos: pos, Line: line, Column: column}
 }
 
-// isValidNumber 验证数字格式
+// isValidNumber verifies the numeric format
 func (l *Lexer) isValidNumber(number string) bool {
 	if number == "" {
 		return false
 	}
 
-	// 处理负数
+	// Handle negative numbers
 	startIndex := 0
 	if number[0] == '-' {
 		if len(number) == 1 {
-			return false // 只有负号
+			return false // Only the minus sign
 		}
 		startIndex = 1
 	}
@@ -584,14 +584,14 @@ func (l *Lexer) isValidNumber(number string) bool {
 		if ch == '.' {
 			dotCount++
 			if dotCount > 1 {
-				return false // 多个小数点
+				return false // Multiple decimal points
 			}
 		} else if !isDigit(ch) {
-			return false // 非数字字符
+			return false // Non-numeric characters
 		}
 	}
 
-	// 检查是否以小数点开头或结尾
+	// Check whether it starts or ends with a decimal point
 	if number[startIndex] == '.' || number[len(number)-1] == '.' {
 		return false
 	}

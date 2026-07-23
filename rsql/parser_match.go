@@ -10,7 +10,7 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
-// isMRClauseKeyword 报告 ident 是否是 MATCH_RECOGNIZE 子句起始关键字（用于表达式收集终止）。
+// isMRClauseKeyword reports whether ident is the starting key for MATCH_RECOGNIZE clauses (used to terminate expression collection).
 func isMRClauseKeyword(v string) bool {
 	switch strings.ToUpper(v) {
 	case "PARTITION", "ORDER", "MEASURES", "ONE", "ALL", "AFTER",
@@ -20,7 +20,7 @@ func isMRClauseKeyword(v string) bool {
 	return false
 }
 
-// peekToken 不消费地预读一个 token（基于 lexer save/restore）。
+// peekToken prefetchs a token without consumption (based on lexer save/restore).
 func (p *Parser) peekToken() Token {
 	snap := p.lexer.save()
 	t := p.lexer.NextToken()
@@ -28,11 +28,11 @@ func (p *Parser) peekToken() Token {
 	return t
 }
 
-// parseMatchRecognize 解析 FROM 之后的可选 MATCH_RECOGNIZE(...) 子句。
-// 识别完整语法；未实现子句给明确错误。约定：进入时 lexer 在 MATCH 之前；非 MATCH 则不动。
-// parseMatchRecognize 解析 FROM 之后的可选 MATCH_RECOGNIZE(...) 子句。
-// 识别完整语法；未实现子句给明确错误。约定：进入时 lexer 在 MATCH_RECOGNIZE 之前；非该关键字则不动。
-// 注：词法器把 MATCH_RECOGNIZE 读成单个标识符 token（下划线连接）。
+// parseMatchRecognize parses the optional MATCH_RECOGNIZE(...) clause after FROM.
+// Recognize complete grammar; Unrealized clauses give clear errors. Agreement: Lexer enters before MATCH; If not MATCH, it won't move.
+// parseMatchRecognize parses the optional MATCH_RECOGNIZE(...) clause after FROM.
+// Recognize complete grammar; Unrealized clauses give clear errors. Agreement: Lexer enters before MATCH_RECOGNIZE; Do not move any keywords that are not the same keywords.
+// Note: The lexicon reads MATCH_RECOGNIZE as a single identifier token (underline conjunction).
 func (p *Parser) parseMatchRecognize(stmt *SelectStatement) error {
 	snap := p.lexer.save()
 	t := p.lexer.NextToken()
@@ -52,7 +52,7 @@ func (p *Parser) parseMatchRecognize(stmt *SelectStatement) error {
 	for {
 		t := p.lexer.NextToken()
 		if t.Type == TokenRParen {
-			break // MATCH_RECOGNIZE 结束
+			break // MATCH_RECOGNIZE End
 		}
 		kw := strings.ToUpper(t.Value)
 		switch kw {
@@ -81,13 +81,13 @@ func (p *Parser) parseMatchRecognize(stmt *SelectStatement) error {
 			}
 			spec.Measures = ms
 		case "ONE":
-			// SQL 标准：ONE ROW PER MATCH
+			// SQL standard: ONE ROW PER MATCH
 			if err := p.expectRowPerMatch("ROW"); err != nil {
 				return err
 			}
 			spec.RowsPerMatch = types.RowsPerMatchOne
 		case "ALL":
-			// SQL 标准：ALL ROWS PER MATCH（复数）
+			// SQL standard: ALL ROWS PER MATCH (PLURAL)
 			if err := p.expectRowPerMatch("ROWS"); err != nil {
 				return err
 			}
@@ -125,12 +125,12 @@ func (p *Parser) parseMatchRecognize(stmt *SelectStatement) error {
 		}
 	}
 
-	// Pattern/OrderBy 必需性在 ToStreamConfig 校验（其错误不被解析恢复吞掉）。
+	// Pattern/OrderBy is required in ToStreamConfig validation (its errors are not swallowed by parsing recovery).
 	stmt.MatchRecognize = spec
 	return nil
 }
 
-// expectKeyword 消费一个值匹配（大小写无关）的 ident token。
+// expectKeyword consumes an ident token that matches a value (case-insensitive).
 func (p *Parser) expectKeyword(want string) error {
 	t := p.lexer.NextToken()
 	if !strings.EqualFold(t.Value, want) {
@@ -139,7 +139,7 @@ func (p *Parser) expectKeyword(want string) error {
 	return nil
 }
 
-// readIdentList 读取逗号分隔的标识符列表（去反引号），到非逗号终止符止（不消费终止符）。
+// readIdentList reads the comma-separated identifier list (without backquotes), and stops at the non-comma terminator (no terminator is consumed).
 func (p *Parser) readIdentList() ([]string, error) {
 	var fields []string
 	for {
@@ -164,7 +164,7 @@ func stripBackticks(s string) string {
 	return s
 }
 
-// readMROrderBy 读取 ORDER BY 字段[ ASC|DESC], ... 到非逗号终止符止。
+// readMROrderBy reads the ORDER BY field[ASC| DESC],... Ends with a non-comma termination.
 func (p *Parser) readMROrderBy() ([]types.OrderByField, error) {
 	var obs []types.OrderByField
 	for {
@@ -173,13 +173,13 @@ func (p *Parser) readMROrderBy() ([]types.OrderByField, error) {
 			return nil, fmt.Errorf("expected ORDER BY field, got %q", t.Value)
 		}
 		f := types.OrderByField{Expression: stripBackticks(t.Value), Direction: types.SortAsc}
-		// 可选 ASC/DESC
+		// Optional ASC/DESC
 		snap := p.lexer.save()
 		dir := p.lexer.NextToken()
 		if strings.EqualFold(dir.Value, "DESC") {
 			f.Direction = types.SortDesc
 		} else if strings.EqualFold(dir.Value, "ASC") {
-			// 默认
+			// Default
 		} else {
 			p.lexer.restore(snap)
 		}
@@ -193,7 +193,7 @@ func (p *Parser) readMROrderBy() ([]types.OrderByField, error) {
 	}
 }
 
-// expectRowPerMatch 消费 "<rowKeyword> PER MATCH"（rowKeyword 为 ROW 或 ROWS）。
+// expectRowPerMatch Consumption "<rowKeyword> PER MATCH" (rowKeyword is ROW or ROWS).
 func (p *Parser) expectRowPerMatch(rowKeyword string) error {
 	for _, want := range []string{rowKeyword, "PER", "MATCH"} {
 		if err := p.expectKeyword(want); err != nil {
@@ -203,7 +203,7 @@ func (p *Parser) expectRowPerMatch(rowKeyword string) error {
 	return nil
 }
 
-// readMRMeasures 读取 MEASURES <expr> AS <alias>, ... 到非逗号终止符止。
+// readMRMeasures Read MEASURES <expr> AS<alias>,... Ends with a non-comma termination.
 func (p *Parser) readMRMeasures() ([]types.Measure, error) {
 	var ms []types.Measure
 	for {
@@ -228,7 +228,7 @@ func (p *Parser) readMRMeasures() ([]types.Measure, error) {
 	}
 }
 
-// readMRDefines 读取 DEFINE <sym> AS <cond>, ... 到非逗号终止符止。
+// readMRDefines Read DEFINE <sym> AS<cond>,... Ends with a non-comma termination.
 func (p *Parser) readMRDefines() ([]types.MatchDefine, error) {
 	var ds []types.MatchDefine
 	for {
@@ -253,7 +253,7 @@ func (p *Parser) readMRDefines() ([]types.MatchDefine, error) {
 	}
 }
 
-// readMRSubsets 读取 SUBSET <name> = (sym, ...), ... 到非逗号终止符止。
+// readMRSubsets reads SUBSET <name> = (sym,...),... Ends with a non-comma termination.
 func (p *Parser) readMRSubsets() ([]types.MatchSubset, error) {
 	var ss []types.MatchSubset
 	for {
@@ -284,7 +284,7 @@ func (p *Parser) readMRSubsets() ([]types.MatchSubset, error) {
 	}
 }
 
-// readMRAfterMatchSkip 解析 AFTER MATCH SKIP (...)。
+// readMRAfterMatchSkip parses AFTER MATCH SKIP (...).
 func (p *Parser) readMRAfterMatchSkip(spec *types.MatchRecognizeSpec) error {
 	if err := p.expectKeyword("MATCH"); err != nil {
 		return err
@@ -325,7 +325,7 @@ func (p *Parser) readMRAfterMatchSkip(spec *types.MatchRecognizeSpec) error {
 			spec.Skip = types.SkipToLast
 			spec.SkipSymbol = sym
 		default:
-			// TO <symbol>（无 FIRST/LAST）
+			// TO <symbol>(No FIRST/LAST)
 			spec.Skip = types.SkipToVariable
 			spec.SkipSymbol = n.Value
 		}
@@ -343,12 +343,12 @@ func (p *Parser) readSymbol() (string, error) {
 	return stripBackticks(t.Value), nil
 }
 
-// isMRSymbolToken 报告 token 是否可作为模式变量符号（标识符/反引号标识符/被归为关键字的标识符词）。
+// isMRSymbolToken reports whether tokens can be used as pattern variable symbols (identifiers/backquotes/identifiers classified as keywords).
 func isMRSymbolToken(t Token) bool {
 	return t.Type == TokenQuotedIdent || isMRIdentLike(t)
 }
 
-// parseMRDuration 解析 WITHIN 时长：'5s' / 5 SECONDS / 100 MS 等。
+// parseMRDuration WITHIN duration: '5s' / 5 SECONDS / 100 MS, etc.
 func (p *Parser) parseMRDuration() (time.Duration, error) {
 	t := p.lexer.NextToken()
 	if t.Type == TokenString {
@@ -392,14 +392,14 @@ func durationUnit(unit string, n float64) (time.Duration, bool) {
 	return 0, false
 }
 
-// readMRUntilAS 收集表达式到顶层 AS（不消费 AS）。
+// readMRUntilAS collects expressions to the top-level AS (no AS is consumed).
 func (p *Parser) readMRUntilAS() (string, error) {
 	var parts []string
 	depth := 0
 	for i := 0; i < 1000; i++ {
 		snap := p.lexer.save()
 		t := p.lexer.NextToken()
-		// AS 被词法器归为 TokenAS（关键字），非 TokenIdent；顶层 AS 终止表达式收集。
+		// AS is classified as TokenAS (keyword) by the lexical editor, not as TokenIdent; Top-level AS termination expression collection.
 		if depth == 0 && t.Type == TokenAS {
 			p.lexer.restore(snap)
 			return strings.Join(parts, " "), nil
@@ -415,7 +415,7 @@ func (p *Parser) readMRUntilAS() (string, error) {
 	return "", errors.New("MEASURES expression too long (missing AS)")
 }
 
-// readMRExpr 收集表达式到顶层 ',' 或 ')' 或子句关键字（不消费终止符）。
+// readMRExpr collects expressions to the top-level ',' or ')' or clause keywords (without consuming terminators).
 func (p *Parser) readMRExpr() (string, error) {
 	var parts []string
 	depth := 0

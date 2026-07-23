@@ -116,15 +116,15 @@ type Stream struct {
 	groupOutputNames []string
 
 	// Unnest function optimization flags
-	// hasUnnestFunction 标识查询是否使用了 unnest 函数，在预处理阶段确定
-	// 用于优化 expandUnnestResults 函数的性能，避免不必要的字段遍历检查
+	// Whether the hasUnnestFunction identifier query uses the unnest function is determined during the preprocessing phase
+	// Used to optimize the performance of the expandUnnestResults function and avoid unnecessary field traversal checks
 	hasUnnestFunction bool // Whether the query uses unnest function, determined during preprocessing
 
-	// 分析函数状态机引擎，lazy 初始化。直连路径在 WHERE 前求值。
+	// Analyze function state machine engine, lazy initialization. Direct path evaluation before WHERE is evaluated.
 	analytic     *AnalyticEngine
 	analyticOnce sync.Once
 
-	// CEP（MATCH_RECOGNIZE）引擎适配器。构造期（StreamFactory）初始化，消除懒初始化并发读。
+	// CEP (MATCH_RECOGNIZE) engine adapter. StreamFactory initialization eliminates lazy initialization and concurrent reads.
 	cep *cepRunner
 }
 
@@ -239,7 +239,7 @@ func (s *Stream) Start() {
 	}
 	s.startMu.Unlock()
 	if s.cep != nil {
-		s.cep.Start() // 启动 WITHIN 主动过期 sweeper
+		s.cep.Start() // Activate the WITHIN active expired sweeper
 	}
 	go func() {
 		defer s.lifecycle.Done()
@@ -293,14 +293,14 @@ func (s *Stream) Stop() {
 	// (e.g. a rulego component Destroy).
 	s.waitLifecycle()
 
-	// 停止 CEP sweeper：数据处理 goroutine 已 join，不再有并发 Process；紧接的 Flush 看到静止引擎。
+	// Stop CEP sweeper: The data processing goroutine has joined, and there are no longer concurrent processes; Immediately after, Flush saw the engine at a standstill.
 	if s.cep != nil {
 		s.cep.Stop()
 	}
 
-	// 冲刷 CEP 流末未界匹配（如未闭合的 A+ 突发）。此时所有 goroutine 已 join、worker pool
-	// 已退出，故同步派发到 sink（不经 pool）——若在 close(done) 后仍走 pool，worker 已退出会
-	// 使 Flush 结果丢失。
+	// Flushing CEP end-of-flow unbounded matches (such as unclosed A+ bursts). At this point, all goroutines have joined and worked in the pool
+	// has already exited, so the worker is distributed to the sink (without going through the pool)—if the worker still goes through the pool after closing(done), the worker will have exited
+	// Causes the Flush result to be lost.
 	if s.cep != nil {
 		s.emitCepFlushSync(s.projectCep(s.cep.engine.Flush()))
 	}
@@ -395,8 +395,8 @@ func (s *Stream) IsCEPQuery() bool {
 	return s.config.Mode == types.ExecCEP
 }
 
-// projectCep 对 MATCH_RECOGNIZE 原始输出行做外层 SELECT 投影（复用直连路径投影），
-// 供 processCEP 与 Stop-Flush 共用，保证两条产出路径输出形态一致。
+// projectCep performs an outer SELECT projection (multiplexing direct path projection) on the original output line of MATCH_RECOGNIZE,
+// Shared by processCEP and Stop-Flush to ensure consistent output patterns for both output paths.
 func (s *Stream) projectCep(raw []map[string]any) []map[string]any {
 	out := make([]map[string]any, 0, len(raw))
 	for _, mrRow := range raw {
@@ -407,8 +407,8 @@ func (s *Stream) projectCep(raw []map[string]any) []map[string]any {
 	return out
 }
 
-// emitCepResults 派发 CEP 匹配输出行到 result channel 与 sinks。
-// mOutput 由 sendResultNonBlocking 计一次（与窗口/直连异步路径一致）。
+// emitCepResults sends CEP matching output lines to the result channel and sinks.
+// mOutput is counted once by sendResultNonBlocking (consistent with window/direct asynchronous path).
 func (s *Stream) emitCepResults(results []map[string]any) {
 	if len(results) == 0 {
 		return
@@ -417,18 +417,18 @@ func (s *Stream) emitCepResults(results []map[string]any) {
 	s.callSinksAsync(results)
 }
 
-// emitCepFlushSync 在 Stop 末尾同步派发 CEP Flush 输出。此时 worker pool 已随 done 退出，
-// 故在 Stop goroutine 内直接调用 sink（同步、不经 pool），避免未闭合匹配的 Flush 结果丢失。
+// emitCepFlushSync synchronously sends the CEP Flush output at the end of Stop. At this point, the worker pool has already exited with 'done',
+// Therefore, the Stop goroutine directly calls sinks (synchronous, without pooling) to avoid losing flushing results in unclosed matches.
 func (s *Stream) emitCepFlushSync(results []map[string]any) {
 	if len(results) == 0 {
 		return
 	}
-	s.sendResultForFlush(results) // 尽量送达 resultChan（短阻塞），不静默丢
+	s.sendResultForFlush(results) // Try to deliver resultChan (short block) without silently discarding it
 	s.invokeSinksInline(results)
 }
 
-// invokeSinksInline 在当前 goroutine 同步调用全部 sinks 与 syncSinks（带 recover），
-// 供 Stop-Flush 等 worker pool 已退出场景复用。
+// invokeSinksInline synchronously calls all sinks and syncSinks (with recover) in the current goroutine,
+// Allows Stop-Flush and other worker pools to be reused in deleted scenarios.
 func (s *Stream) invokeSinksInline(results []map[string]any) {
 	s.sinksMux.RLock()
 	sinks := make([]func([]map[string]any), len(s.sinks))
@@ -452,8 +452,8 @@ func (s *Stream) invokeSinksInline(results []map[string]any) {
 	}
 }
 
-// sendResultForFlush 向 resultChan 尽量投递：先非阻塞试，满则短时阻塞等活跃消费者；
-// 超时计 drop（不静默）。供 Flush 路径使用——未闭合匹配是流末关键产物，优先保投递。
+// sendResultForFlush tries to deliver to resultChan: first non-blocking test, then short-term blocking when full, etc., active consumers;
+// Timer drop (not silent). For use by Flush paths—unclosed matching is a key product at the end of the stream, prioritized for guaranteed delivery.
 func (s *Stream) sendResultForFlush(results []map[string]any) {
 	select {
 	case s.resultChan <- results:
@@ -470,7 +470,7 @@ func (s *Stream) sendResultForFlush(results []map[string]any) {
 	}
 }
 
-// ensureAnalytic 懒初始化分析函数状态机引擎（SELECT 分析函数 + WHERE 占位符调用统一管理）。
+// ensureAnalytic lazily initializes the analysis function state machine engine (SELECT analysis function + WHERE placeholder call unified management).
 func (s *Stream) ensureAnalytic() {
 	s.analyticOnce.Do(func() {
 		if len(s.config.AnalyticFields) == 0 && len(s.config.WhereAnalyticCalls) == 0 {
@@ -496,15 +496,15 @@ func (s *Stream) ensureAnalytic() {
 	})
 }
 
-// evalAnalytic 求值分析函数并把结果注入 dataMap（供 WHERE 占位符引用），返回结果供投影。
-// 在 WHERE 之前调用（分析函数最先求值，不受 WHERE 影响）。
+// evalAnalytic evaluates and analyzes the function, injects the results into dataMap (for WHERE placeholder references), and returns the results for projection.
+// Call before WHERE (the analysis function evaluates first, not affected by WHERE).
 func (s *Stream) evalAnalytic(dataMap map[string]any) map[string]any {
 	s.ensureAnalytic()
 	if s.analytic == nil || !s.analytic.HasFields() {
 		return nil
 	}
 	results := s.analytic.Evaluate(dataMap)
-	// SELECT 分析函数注入 dataMap：多列函数按 prefix+列名 扇出，供 WHERE/HAVING 引用。
+	// SELECT Injection of analysis function dataMap: Multi-column functions are fanned out by prefix+ column name for WHERE/HAVING reference.
 	for _, af := range s.config.AnalyticFields {
 		v, ok := results[af.Alias]
 		if !ok {
@@ -520,7 +520,7 @@ func (s *Stream) evalAnalytic(dataMap map[string]any) map[string]any {
 		}
 		dataMap[af.Alias] = v
 	}
-	// WHERE 占位符调用：注入占位符键值，供改写后的 WHERE 引用。
+	// WHERE Placeholder Call: Injects placeholder key values for referenced by the rewritten WHERE page.
 	for _, wc := range s.config.WhereAnalyticCalls {
 		if v, ok := results[wc.Placeholder]; ok {
 			dataMap[wc.Placeholder] = v
@@ -529,7 +529,7 @@ func (s *Stream) evalAnalytic(dataMap map[string]any) map[string]any {
 	return results
 }
 
-// projectAnalytic 把 SELECT 分析函数结果写入投影输出：单列按 alias，多列按 prefix+列名 扇出。
+// projectAnalytic writes the SELECT analysis function results into projected output: single columns press alias, multiple columns press prefix+ column name fan-out.
 func (s *Stream) projectAnalytic(result map[string]any, analyticResults map[string]any) {
 	if analyticResults == nil {
 		return
@@ -547,7 +547,7 @@ func (s *Stream) projectAnalytic(result map[string]any, analyticResults map[stri
 			}
 			continue
 		}
-		// changed_col 未变化时返回 nil：投影时省略该字段（避免 null 刷屏）。
+		// changed_col Returns nil when no changes occur: omitted this field during projection (to avoid null flooding).
 		if af.FuncName == "changed_col" && v == nil {
 			continue
 		}
@@ -555,8 +555,8 @@ func (s *Stream) projectAnalytic(result map[string]any, analyticResults map[stri
 	}
 }
 
-// hasOmitEmptyAnalytic 是否含 changed_col/changed_cols 这类变化检测函数：
-// 当它们的输出全为空（无变化）时，整行抑制输出。
+// hasOmitEmptyAnalytic is included in changed_col/changed_cols Function for detecting changes like this:
+// When all their outputs are empty (unchanged), the entire line suppresses output.
 func (s *Stream) hasOmitEmptyAnalytic() bool {
 	for _, af := range s.config.AnalyticFields {
 		if af.MultiColumn || af.FuncName == "changed_col" {
@@ -566,11 +566,11 @@ func (s *Stream) hasOmitEmptyAnalytic() bool {
 	return false
 }
 
-// hasAnalyticFields 是否有 SELECT 分析函数字段。
+// hasAnalyticFields Whether there is a SELECT analysis function numbered segment.
 func (s *Stream) hasAnalyticFields() bool { return len(s.config.AnalyticFields) > 0 }
 
-// applyWindowAnalytic 在窗口查询里对结果行求值分析函数（状态跨窗口保留），
-// 把输出合并进结果行，剥离内联聚合隐藏键。返回 false 表示该行应抑制（变化检测无变化）。
+// applyWindowAnalytic evaluates and analyzes the result row in window queries (status is kept across windows),
+// Merge outputs into the result row, strip off the inline aggregated hidden keys. Returning false means the line should be suppressed (change detection shows no change).
 func (s *Stream) applyWindowAnalytic(row map[string]any) bool {
 	s.ensureAnalytic()
 	if s.analytic == nil || !s.analytic.HasFields() {
@@ -594,20 +594,20 @@ func (s *Stream) applyWindowAnalytic(row map[string]any) bool {
 			}
 			continue
 		}
-		// changed_col 未变化时返回 nil：投影省略该字段。
+		// changed_col Returns nil when unchanged: Omit this field for projection.
 		if af.FuncName == "changed_col" && v == nil {
 			continue
 		}
 		row[af.Alias] = v
 		changedAny = true
 	}
-	// 剥离内联聚合隐藏键（不进最终输出）。
+	// Strip the inline aggregated hidden key (do not input the final output).
 	for k := range row {
 		if strings.HasPrefix(k, "__winagg_") {
 			delete(row, k)
 		}
 	}
-	// omitEmpty：仅选了变化检测函数且本次无变化 → 抑制整行。
+	// omitEmpty: Only the change detection function is selected and there is no change this time→ Suppresses the entire line.
 	if !changedAny && s.hasOmitEmptyAnalytic() {
 		return false
 	}
@@ -623,8 +623,8 @@ func (s *Stream) applyWindowAnalytic(row map[string]any) bool {
 //   - map[string]any: processed result data, returns nil if doesn't match filter condition
 //   - error: processing error, returns error for aggregation queries
 func (s *Stream) ProcessSync(data map[string]any) (map[string]any, error) {
-	// 同步单事件返回仅适用于直连路径：窗口聚合与 CEP 模式匹配都跨多事件，无法单事件返回。
-	// 窗口判定沿用 NeedWindow（兼容直接构造 config 的用例），CEP 判定用 Mode。
+	// Synchronous single-event return is only applicable to direct connection paths: window aggregation and CEP mode matching both span multiple events and cannot return single events.
+	// Window determination uses NeedWindow (compatible with direct config construction use cases), CEP uses Mode.
 	if s.config.NeedWindow {
 		return nil, fmt.Errorf("Synchronous processing is not supported for aggregation queries.")
 	}
@@ -637,8 +637,8 @@ func (s *Stream) ProcessSync(data map[string]any) (map[string]any, error) {
 	return s.processDirectDataSync(data)
 }
 
-// enrichData 解析流-表 JOIN 富化。返回富化后的 dataMap、是否保留、JOIN 错误。
-// 无 JOIN 时零开销直返。同步直连/异步直连/窗口前置三路径共用。
+// enrichData Stream-Table JOIN Enrichment. Returns the enriched dataMap, whether to retain, JOIN error.
+// No JOIN with zero overhead direct return. Synchronous direct connection, asynchronous direct connection, and window front-end are shared by three paths.
 func (s *Stream) enrichData(data map[string]any) (dataMap map[string]any, keep bool, err error) {
 	dataMap = data
 	if !s.hasJoin() {
@@ -649,13 +649,13 @@ func (s *Stream) enrichData(data map[string]any) (dataMap map[string]any, keep b
 		return dataMap, false, jerr
 	}
 	if !k {
-		return dataMap, false, nil // INNER JOIN 无匹配：丢弃
+		return dataMap, false, nil // INNER JOIN: No match: Discarded
 	}
 	return wm, true, nil
 }
 
-// applyWhereAndAnalytic 按 WHERE 是否引用分析函数决定求值序，并应用 WHERE 过滤。
-// 返回分析结果（供投影）与是否通过过滤。同步/异步直连路径共用。
+// applyWhereAndAnalytic determines the evaluation order based on whether the analysis function references WHERE and applies WHERE filtering.
+// Returns analysis results (for projection) and whether they pass filtering. Synchronous/asynchronous direct connection paths are shared.
 func (s *Stream) applyWhereAndAnalytic(dataMap map[string]any) (analyticResults map[string]any, keep bool) {
 	whereUsesAnalytic := len(s.config.WhereAnalyticCalls) > 0
 	if whereUsesAnalytic {
@@ -670,8 +670,8 @@ func (s *Stream) applyWhereAndAnalytic(dataMap map[string]any) (analyticResults 
 	return analyticResults, true
 }
 
-// projectDirectRow 投影 SELECT 字段（表达式/简单字段/分析函数），含 omitEmpty 抑制。
-// emit=false 表示该行被 omitEmpty 抑制、不应输出。同步/异步直连路径共用。
+// projectDirectRow projects SELECT fields (expressions/simple fields/parser functions), including omitEmpty suppression.
+// emit=false means the line is suppressed by omitEmpty and should not be output. Synchronous/asynchronous direct connection paths are shared.
 func (s *Stream) projectDirectRow(dataMap, analyticResults map[string]any) (result map[string]any, emit bool) {
 	estimatedSize := len(s.config.FieldExpressions) + len(s.config.SimpleFields)
 	if estimatedSize < 8 {

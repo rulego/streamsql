@@ -1,61 +1,61 @@
-# StreamSQL 函数系统
+# StreamSQL Function system
 
-StreamSQL 现已支持强大的函数系统，允许在 SQL 查询中使用各种内置函数和自定义函数。
+StreamSQL now supports a powerful function system, allowing the use of various built-in and custom functions in SQL queries.
 
-## 🚀 主要特性
+## 🚀 Main Features
 
-### 1. 模块化函数架构
-- **函数注册器**：统一的函数注册和管理系统
-- **类型安全**：强类型参数验证和转换
-- **可扩展性**：支持运行时注册自定义函数
-- **分类管理**：按功能类型组织函数
+### 1. Modular function architecture
+- **Function Registerer**: A unified system for function registration and management
+- **Type Safety**: Strong type parameter validation and conversion
+- **Scalability**: Supports runtime registration of custom functions
+- **Category Management**: Organize functions by function type
 
-### 2. 内置函数类别
+### 2. Built-in function categories
 
-#### 数学函数 (TypeMath)
-- `ABS(x)` - 绝对值
-- `SQRT(x)` - 平方根
+#### Mathematical Functions (TypeMath)
+- `ABS(x)` - absolute value
+- `SQRT(x)` - square root
 
-#### 字符串函数 (TypeString)
-- `CONCAT(str1, str2, ...)` - 字符串连接
-- `LENGTH(str)` - 字符串长度
-- `UPPER(str)` - 转大写
-- `LOWER(str)` - 转小写
+#### String Function (TypeString)
+- `CONCAT(str1, str2,.)` - String concatenation
+- `LENGTH(str)` - String length
+- `UPPER(str)` - Capitalized
+- `LOWER(str)` - lowercase
 
-#### 转换函数 (TypeConversion)
-- `CAST(value, type)` - 类型转换
-- `HEX2DEC(hexStr)` - 十六进制转十进制
-- `DEC2HEX(number)` - 十进制转十六进制
+#### Transformation Function (TypeConversion)
+- `CAST(value, type)` - Type conversion
+- `HEX2DEC(hexStr)` - Hexadecimal converted to decimal
+- `DEC2HEX(number)` - Decimal converted to hexadecimal
 
-#### 时间日期函数 (TypeDateTime)
-- `NOW()` - 当前时间戳
+#### Time-Date Function (TypeDateTime)
+- `NOW()` - Current timestamp
 
-### 3. 表达式引擎增强
-- 支持函数调用的复杂表达式
-- 运算符优先级处理
-- 括号分组支持
-- 自动类型转换
+### 3. Expression engine enhancement
+- Complex expressions that support function calls
+- Operator priority handling
+- Bracket grouping support
+- Automatic type conversion
 
-## 📝 使用示例
+## 📝 Usage Examples
 
-### 基本函数使用
+### Basic Function Usage
 
 ```sql
--- 数学函数
+-- Mathematical functions
 SELECT device, ABS(temperature - 20) as deviation 
 FROM stream;
 
--- 字符串函数  
+-- String function  
 SELECT CONCAT(device, '_processed') as processed_name
 FROM stream;
 
--- 表达式中的函数
+-- Functions in expressions
 SELECT device, AVG(ABS(temperature - 20)) as avg_deviation
 FROM stream 
 GROUP BY device, TumblingWindow('1s');
 ```
 
-### 自定义函数注册
+### Custom function registration
 
 ```go
 import (
@@ -63,7 +63,7 @@ import (
     "github.com/rulego/streamsql/utils/cast"
 )
 
-// 注册华氏度转摄氏度函数
+// Register the Fahrenheit to Celsius function
 err := functions.RegisterCustomFunction(
     "fahrenheit_to_celsius", 
     functions.TypeCustom, 
@@ -79,7 +79,7 @@ err := functions.RegisterCustomFunction(
         return celsius, nil
     })
 
-// 在 SQL 中使用
+// Used in SQL
 sql := `
     SELECT device, AVG(fahrenheit_to_celsius(temperature)) as avg_celsius
     FROM stream 
@@ -87,10 +87,10 @@ sql := `
 `
 ```
 
-### 复合表达式
+### Compound Expressions
 
 ```sql
--- 复杂的数学表达式
+-- Complex mathematical expressions
 SELECT 
     device,
     AVG(ABS(temperature - 20) * 1.8 + 32) as complex_calc
@@ -98,17 +98,17 @@ FROM stream
 GROUP BY device, TumblingWindow('1s');
 ```
 
-## 🛠️ 函数开发
+## 🛠️ Function Development
 
-### 实现自定义函数
+### Implementing custom functions
 
 ```go
-// 1. 定义函数结构
+// 1. Define the function structure
 type MyCustomFunction struct {
     *functions.BaseFunction
 }
 
-// 2. 实现构造函数
+// 2. Implement constructors
 func NewMyCustomFunction() *MyCustomFunction {
     return &MyCustomFunction{
         BaseFunction: functions.NewBaseFunction(
@@ -116,30 +116,30 @@ func NewMyCustomFunction() *MyCustomFunction {
             functions.TypeCustom, 
             "自定义分类", 
             "函数描述", 
-            1, 3, // 最少1个参数，最多3个参数
+            1, 3, // Minimum 1 parameter, maximum 3 parameters
         ),
     }
 }
 
-// 3. 实现验证方法
+// 3. Implement verification methods
 func (f *MyCustomFunction) Validate(args []interface{}) error {
     return f.ValidateArgCount(args)
 }
 
-// 4. 实现执行方法
+// 4. Implement the execution method
 func (f *MyCustomFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-    // 实现具体逻辑
+    // Implement concrete logic
     return result, nil
 }
 
-// 5. 注册函数
+// 5. Register functions
 functions.Register(NewMyCustomFunction())
 ```
 
-### 便捷注册方式
+### Convenient Registration Methods
 
 ```go
-// 使用便捷方法注册函数
+// Use an easy way to register the function
 err := functions.RegisterCustomFunction(
     "double", 
     functions.TypeCustom, 
@@ -155,70 +155,70 @@ err := functions.RegisterCustomFunction(
     })
 ```
 
-## 🧪 测试
+## 🧪 Testing
 
-### 运行函数系统测试
+### Running Function System Testing
 ```bash
 go test ./functions -v
 ```
 
-### 运行集成测试
+### Run Integration Testing
 ```bash
 go test -v -run TestExpressionInAggregation
 ```
 
-## 📋 支持的数据类型
+## 📋 Supported Data Types
 
-函数系统支持以下数据类型的自动转换：
+The function system supports automatic conversion of the following data types:
 
-- **数值类型**: `int`, `int32`, `int64`, `uint`, `uint32`, `uint64`, `float32`, `float64`
-- **字符串类型**: `string`
-- **布尔类型**: `bool`
-- **自动转换**: 字符串数值自动转换为相应的数值类型
+- **Numeric types**: `int`, `int32`, `int64`, `uint`, `uint32`, `uint64`, `float32`, `float64`
+- **String type**: `string`
+- **Boolean type**: `bool`
+- **Automatic Conversion**: Automatically converts string values into the corresponding value type
 
-## 🔧 类型转换工具
+## 🔧 Type conversion tool
 
 ```go
-// 使用内置转换函数
+// Use built-in conversion functions
 val, err := cast.ToFloat64E(someValue)
 str, err := cast.ToStringE(someValue)
 num, err := cast.ToInt64E(someValue)
 flag, err := cast.ToBoolE(someValue)
 ```
 
-## 📈 性能考虑
+## 📈 Performance considerations
 
-- **函数注册**: 一次性注册，运行时无开销
-- **类型转换**: 高效的类型检查和转换
-- **表达式缓存**: 表达式解析结果可复用
-- **并发安全**: 函数注册器支持并发访问
+- **Function Registration**: One-time registration, no overhead at runtime
+- **Type Conversion**: Efficient type checking and conversion
+- **Expression cache**: Expression parsing results can be reused
+- **Concurrency Security**: The function registerer supports concurrent access
 
-## 🌟 路线图
+## 🌟 Roadmap
 
-已实现的功能：
+Implemented features:
 - ✅ SELECT DISTINCT
-- ✅ LIMIT 子句  
-- ✅ HAVING 子句
-- ✅ SESSION 窗口
-- ✅ 函数参数支持表达式运算
-- ✅ 统一函数注册系统
+- ✅ LIMIT Clause  
+- ✅ HAVING Clause
+- ✅ SESSION window
+- ✅ Function parameters support expression operations
+- ✅ Unified function registration system
 
-待实现的功能：
-- 🔄 更多聚合函数（MEDIAN、STDDEV 等）
-- 🔄 窗口函数（ROW_NUMBER、RANK 等）
-- 🔄 更多时间日期函数
-- 🔄 正则表达式函数
-- 🔄 JSON 处理函数
+Functions to be implemented:
+- 🔄 More aggregate functions (MEDIAN, STDDEV, etc.)
+- 🔄 Window functions (ROW_NUMBER, RANK, etc.)
+- 🔄 More time-date functions
+- 🔄 Regular expression function
+- 🔄 JSON Handling functions
 
-## 🤝 贡献
+## 🤝 Contribution
 
-欢迎提交新的函数实现！请遵循以下步骤：
+Welcome to submit new function implementations! Please follow these steps:
 
-1. 在 `functions/` 目录中实现函数
-2. 添加相应的测试用例
-3. 更新文档
-4. 提交 Pull Request
+1. Implement the function in the `functions/` directory
+2. Add the corresponding test cases
+3. Update the documentation
+4. Submit Pull Request
 
 ---
 
-*StreamSQL 函数系统让流处理更加强大和灵活！* 🚀 
+*StreamSQL Function system makes stream processing more powerful and flexible! * 🚀 

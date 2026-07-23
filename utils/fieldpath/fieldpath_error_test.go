@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TestSetNestedField 测试设置嵌套字段功能
+// TestSetNestedField tests the nested field function
 func TestSetNestedField(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -50,7 +50,7 @@ func TestSetNestedField(t *testing.T) {
 	}
 }
 
-// TestGetNestedFieldBasic 测试基本嵌套字段访问功能
+// TestGetNestedFieldBasic tests basic nested field access functionality
 func TestGetNestedFieldBasic(t *testing.T) {
 	data := map[string]any{
 		"user": map[string]any{
@@ -109,7 +109,7 @@ func TestGetNestedFieldBasic(t *testing.T) {
 	}
 }
 
-// TestIsNestedField 测试嵌套字段检测功能
+// TestIsNestedField Tests nested field detection functionality
 func TestIsNestedField(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -148,7 +148,7 @@ func TestIsNestedField(t *testing.T) {
 	}
 }
 
-// TestFieldPathErrorHandling 测试错误处理
+// TestFieldPathErrorHandling Test error handling
 func TestFieldPathErrorHandling(t *testing.T) {
 	data := map[string]any{
 		"valid": "value",
@@ -179,14 +179,14 @@ func TestFieldPathErrorHandling(t *testing.T) {
 				testData = data
 			}
 
-			// 这些调用不应该panic
+			// These calls shouldn't panic
 			_, _ = GetNestedField(testData, tt.path)
 			_ = IsNestedField(tt.path)
 		})
 	}
 }
 
-// TestExtractTopLevelField 测试提取顶级字段功能
+// TestExtractTopLevelField tests the top-level field extraction function
 func TestExtractTopLevelField(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -225,7 +225,7 @@ func TestExtractTopLevelField(t *testing.T) {
 	}
 }
 
-// TestMapKeyAccess 测试Map键访问功能
+// TestMapKeyAccess Tests the Map key access function
 func TestMapKeyAccess(t *testing.T) {
 	data := map[string]any{
 		"stringMap": map[string]any{
@@ -272,7 +272,7 @@ func TestMapKeyAccess(t *testing.T) {
 	}
 }
 
-// TestNegativeArrayIndex 测试负数组索引功能
+// TestNegativeArrayIndex tests the negative array index function
 func TestNegativeArrayIndex(t *testing.T) {
 	data := map[string]any{
 		"items": []any{"first", "second", "third"},
@@ -318,7 +318,7 @@ func TestNegativeArrayIndex(t *testing.T) {
 	}
 }
 
-// TestFieldAccessErrorMessage 测试字段访问错误消息
+// TestFieldAccessErrorMessage (Test field access error message).
 func TestFieldAccessErrorMessage(t *testing.T) {
 	err := &FieldAccessError{
 		Path:    "test.path",
@@ -331,7 +331,7 @@ func TestFieldAccessErrorMessage(t *testing.T) {
 	}
 }
 
-// TestParseFieldPathErrors 测试ParseFieldPath的错误处理
+// TestParseFieldPathErrors Test the error handling of ParseFieldPath
 func TestParseFieldPathErrors(t *testing.T) {
 	tests := []struct {
 		name string
@@ -365,7 +365,7 @@ func TestParseFieldPathErrors(t *testing.T) {
 	}
 }
 
-// TestGetNestedFieldErrorCases 测试GetNestedField的错误情况
+// TestGetNestedFieldErrorCases Tests for GetNestedField errors
 func TestGetNestedFieldErrorCases(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -439,7 +439,7 @@ func TestGetNestedFieldErrorCases(t *testing.T) {
 	}
 }
 
-// TestStructFieldAccess 测试结构体字段访问
+// TestStructFieldAccess tests the field access to the structure field
 func TestStructFieldAccess(t *testing.T) {
 	type TestStruct struct {
 		Name string
@@ -461,13 +461,13 @@ func TestStructFieldAccess(t *testing.T) {
 		t.Errorf("expected: John, got: %v", result)
 	}
 
-	// 测试不存在的结构体字段
+	// Test the nonexistent structure field
 	result, found = GetNestedField(data, "user.NonExistent")
 	if found {
 		t.Error("expected not to find field")
 	}
 
-	// 测试结构体指针
+	// Test the structure pointer
 	ptrData := map[string]any{
 		"user": &TestStruct{
 			Name: "Jane",
@@ -483,7 +483,7 @@ func TestStructFieldAccess(t *testing.T) {
 	}
 }
 
-// 辅助函数
+// Auxiliary function
 func createDeepNestedData(depth int) any {
 	if depth <= 0 {
 		return "deep_value"
@@ -527,7 +527,7 @@ func createCircularReference() any {
 
 func createLargeDataStructure() any {
 	data := make(map[string]any)
-	for i := 0; i < 100; i++ { // 减少数据量避免测试超时
+	for i := 0; i < 100; i++ { // Reduce data volume to avoid test timeouts
 		data["key_"+string(rune('0'+i%10))] = map[string]any{
 			"nested": map[string]any{
 				"value": i,
@@ -537,7 +537,7 @@ func createLargeDataStructure() any {
 	return data
 }
 
-// TestSetNestedFieldErrors 测试SetNestedField的错误处理
+// TestSetNestedFieldErrors: Tests the error handling of SetNestedField
 func TestSetNestedFieldErrors(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -592,7 +592,7 @@ func TestSetNestedFieldErrors(t *testing.T) {
 	}
 }
 
-// TestValidateFieldPathExtended 测试ValidateFieldPath函数的扩展情况
+// TestValidateFieldPathExtended tests the extension of the ValidateFieldPath function
 func TestValidateFieldPathExtended(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -642,7 +642,7 @@ func TestValidateFieldPathExtended(t *testing.T) {
 	}
 }
 
-// TestGetFieldPathDepthExtended 测试GetFieldPathDepth函数的扩展情况
+// TestGetFieldPathDepthExtended tests the extension of the GetFieldPathDepth function
 func TestGetFieldPathDepthExtended(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -667,12 +667,12 @@ func TestGetFieldPathDepthExtended(t *testing.T) {
 		{
 			name:     "无效路径回退测试",
 			path:     "field[invalid.path",
-			expected: 2, // 回退到简单计算: ["field[invalid", "path"]
+			expected: 2, // Backtrack to simple calculation: ["field[invalid", "path"]
 		},
 		{
 			name:     "空括号内容",
 			path:     "field[].nested",
-			expected: 2, // 解析失败，回退到简单计算
+			expected: 2, // Parsing fails, reverting to simple calculations
 		},
 	}
 
@@ -686,7 +686,7 @@ func TestGetFieldPathDepthExtended(t *testing.T) {
 	}
 }
 
-// TestNormalizeFieldPathExtended 测试NormalizeFieldPath函数的扩展情况
+// TestNormalizeFieldPathExtended tests the extension of the NormalizeFieldPath function
 func TestNormalizeFieldPathExtended(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -735,7 +735,7 @@ func TestNormalizeFieldPathExtended(t *testing.T) {
 	}
 }
 
-// TestGetAllReferencedFieldsExtended 测试GetAllReferencedFields函数的扩展情况
+// TestGetAllReferencedFieldsExtended tests the extension of the GetAllReferencedFields function
 func TestGetAllReferencedFieldsExtended(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -772,13 +772,13 @@ func TestGetAllReferencedFieldsExtended(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetAllReferencedFields(tt.paths)
-			// 由于返回的是map的键，顺序可能不同，所以需要检查长度和包含关系
+			// Since the returned map keys may be in different order, you need to check the length and inclusion relationships
 			if len(result) != len(tt.expected) {
 				t.Errorf("expected length: %v, got: %v", len(tt.expected), len(result))
 				return
 			}
 
-			// 检查每个期望的字段都在结果中
+			// Check that every desired field is included in the results
 			for _, expected := range tt.expected {
 				found := false
 				for _, actual := range result {
@@ -795,17 +795,17 @@ func TestGetAllReferencedFieldsExtended(t *testing.T) {
 	}
 }
 
-// TestMapWithIntKeys 测试整数键的Map访问
+// TestMapWithIntKeys tests the map access to integer keys
 func TestMapWithIntKeys(t *testing.T) {
 	data := map[string]any{
 		"intMap": map[any]any{
 			1:   "value1",
 			2:   "value2",
-			"3": "value3", // 字符串键
+			"3": "value3", // String keys
 		},
 	}
 
-	// 测试通过数组索引访问整数键Map（应该成功，因为会尝试整数键）
+	// Test to access integer keys via array index (should succeed, since integer keys are attempted)
 	result, found := GetNestedField(data, "intMap[1]")
 	if !found {
 		t.Error("expected to find int key when accessing with index")
@@ -814,7 +814,7 @@ func TestMapWithIntKeys(t *testing.T) {
 		t.Errorf("expected: value1, got: %v", result)
 	}
 
-	// 测试访问字符串键
+	// Test access string keys
 	result, found = GetNestedField(data, "intMap[\"3\"]")
 	if !found {
 		t.Error("expected to find string key in map")
@@ -823,14 +823,14 @@ func TestMapWithIntKeys(t *testing.T) {
 		t.Errorf("expected: value3, got: %v", result)
 	}
 
-	// 测试不存在的键
+	// Test keys that don't exist
 	result, found = GetNestedField(data, "intMap[\"999\"]")
 	if found {
 		t.Error("expected not to find non-existent key")
 	}
 }
 
-// TestArrayAsMapAccess 测试数组作为Map访问的情况
+// TestArrayAsMapAccess Tests the array as a Map access
 func TestArrayAsMapAccess(t *testing.T) {
 	data := map[string]any{
 		"mixedMap": map[any]any{
@@ -840,7 +840,7 @@ func TestArrayAsMapAccess(t *testing.T) {
 		},
 	}
 
-	// 测试数字键访问
+	// Test the numeric keys
 	result, found := GetNestedField(data, "mixedMap[0]")
 	if !found {
 		t.Error("expected to find numeric key 0")
@@ -849,7 +849,7 @@ func TestArrayAsMapAccess(t *testing.T) {
 		t.Errorf("expected: zero, got: %v", result)
 	}
 
-	// 测试字符串形式的数字键
+	// Test the number key in string form
 	result, found = GetNestedField(data, "mixedMap['1']")
 	if !found {
 		t.Error("expected to find string key '1'")
@@ -885,16 +885,16 @@ func TestTypedMapMismatchedKey(t *testing.T) {
 	}
 }
 
-// TestComplexErrorScenarios 测试复杂的错误场景
+// TestComplexErrorScenarios: Tests complex error scenarios
 func TestComplexErrorScenarios(t *testing.T) {
-	// 测试解析失败时的回退机制
+	// Testing the rollback mechanism when parsing fails
 	data := map[string]any{
 		"simple": map[string]any{
 			"field": "value",
 		},
 	}
 
-	// 这个路径会导致解析失败，但应该回退到简单访问
+	// This path will cause parsing failures, but it should be reverted to simple access
 	result, found := GetNestedField(data, "simple.field")
 	if !found {
 		t.Error("expected fallback to simple access to work")
@@ -903,14 +903,14 @@ func TestComplexErrorScenarios(t *testing.T) {
 		t.Errorf("expected: value, got: %v", result)
 	}
 
-	// 测试SetNestedField的解析失败回退
+	// Test the parsing failure of SetNestedField and rollback
 	testData := make(map[string]any)
 	err := SetNestedField(testData, "simple.field", "test")
 	if err != nil {
 		t.Errorf("unexpected error in fallback: %v", err)
 	}
 
-	// 验证值被正确设置
+	// Verification values are correctly set
 	if testData["simple"].(map[string]any)["field"] != "test" {
 		t.Error("fallback setting failed")
 	}

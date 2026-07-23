@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// now() 返回 time.Time；日期函数必须能直接吃 time.Time，否则 SELECT 字段静默变 nil、
-// WHERE 静默丢全部行。以 Go time 方法作为期望值 oracle。
+// now() returns time.Time;  The date function must be able to directly eat time. Time, otherwise the SELECT field will mute to nil,
+// WHERE silent throws all the lines. Use the Go time method as the expected oracle.
 func TestDateTimeFunctions_TimeTimeInput(t *testing.T) {
 	tm := time.Date(2025, 8, 25, 15, 30, 45, 0, time.UTC)
 	_, isoWeek := tm.ISOWeek()
@@ -53,7 +53,7 @@ func TestDateTimeFunctions(t *testing.T) {
 		expected any
 		wantErr  bool
 	}{
-		// DateFormatFunction 测试
+		// DateFormatFunction test
 		{
 			name:     "date_format basic",
 			function: NewDateFormatFunction(),
@@ -68,7 +68,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: "2025/08/25",
 			wantErr:  false,
 		},
-		// DateAddFunction 测试
+		// DateAddFunction test
 		{
 			name:     "date_add years",
 			function: NewDateAddFunction(),
@@ -125,7 +125,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: nil,
 			wantErr:  true,
 		},
-		// DateSubFunction 测试
+		// DateSubFunction test
 		{
 			name:     "date_sub years",
 			function: NewDateSubFunction(),
@@ -182,7 +182,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: nil,
 			wantErr:  true,
 		},
-		// DateDiffFunction 测试
+		// DateDiffFunction test
 		{
 			name:     "date_diff years",
 			function: NewDateDiffFunction(),
@@ -246,7 +246,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: nil,
 			wantErr:  true,
 		},
-		// YearFunction 测试
+		// YearFunction test
 		{
 			name:     "year extraction",
 			function: NewYearFunction(),
@@ -261,7 +261,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: 2025,
 			wantErr:  false,
 		},
-		// MonthFunction 测试
+		// MonthFunction test
 		{
 			name:     "month extraction",
 			function: NewMonthFunction(),
@@ -283,7 +283,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: nil,
 			wantErr:  true,
 		},
-		// DayFunction 测试
+		// DayFunction test
 		{
 			name:     "day extraction",
 			function: NewDayFunction(),
@@ -305,7 +305,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: nil,
 			wantErr:  true,
 		},
-		// HourFunction 测试
+		// HourFunction test
 		{
 			name:     "hour extraction",
 			function: NewHourFunction(),
@@ -327,7 +327,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: nil,
 			wantErr:  true,
 		},
-		// MinuteFunction 测试
+		// MinuteFunction test
 		{
 			name:     "minute extraction",
 			function: NewMinuteFunction(),
@@ -349,7 +349,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: nil,
 			wantErr:  true,
 		},
-		// SecondFunction 测试
+		// SecondFunction test
 		{
 			name:     "second extraction",
 			function: NewSecondFunction(),
@@ -371,7 +371,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: nil,
 			wantErr:  true,
 		},
-		// UnixTimestampFunction 测试
+		// UnixTimestampFunction test
 		{
 			name:     "unix_timestamp",
 			function: NewUnixTimestampFunction(),
@@ -407,7 +407,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: int64(1672531200),
 			wantErr:  false,
 		},
-		// FromUnixtimeFunction 测试
+		// FromUnixtimeFunction test
 		{
 			name:     "from_unixtime",
 			function: NewFromUnixtimeFunction(),
@@ -422,7 +422,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: nil,
 			wantErr:  true,
 		},
-		// ExtractFunction 测试
+		// ExtractFunction test
 		{
 			name:     "extract year",
 			function: NewExtractFunction(),
@@ -486,7 +486,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: 0,
 			wantErr:  true,
 		},
-		// DayOfWeekFunction 测试
+		// DayOfWeekFunction test
 		{
 			name:     "dayofweek",
 			function: NewDayOfWeekFunction(),
@@ -501,7 +501,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: 1, // Monday
 			wantErr:  false,
 		},
-		// DayOfYearFunction 测试
+		// DayOfYearFunction test
 		{
 			name:     "dayofyear",
 			function: NewDayOfYearFunction(),
@@ -516,7 +516,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: 237,
 			wantErr:  false,
 		},
-		// WeekOfYearFunction 测试
+		// WeekOfYearFunction test
 		{
 			name:     "weekofyear",
 			function: NewWeekOfYearFunction(),
@@ -531,7 +531,7 @@ func TestDateTimeFunctions(t *testing.T) {
 			expected: 35,
 			wantErr:  false,
 		},
-		// DateParseFunction 测试
+		// DateParseFunction test
 		{
 			name:     "date_parse",
 			function: NewDateParseFunction(),
@@ -550,7 +550,7 @@ func TestDateTimeFunctions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 验证参数
+			// Validate parameters
 			if err := tt.function.Validate(tt.args); err != nil {
 				if !tt.wantErr {
 					t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
@@ -558,7 +558,7 @@ func TestDateTimeFunctions(t *testing.T) {
 				return
 			}
 
-			// 执行函数
+			// Execute the function
 			result, err := tt.function.Execute(nil, tt.args)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
@@ -572,7 +572,7 @@ func TestDateTimeFunctions(t *testing.T) {
 	}
 }
 
-// TestUnixTimestampNoArgs 校验 unix_timestamp() 无参返回当前 Unix 秒
+// TestUnixTimestampNoArgs check unix_timestamp() returns the current Unix second without parameters
 func TestUnixTimestampNoArgs(t *testing.T) {
 	f := NewUnixTimestampFunction()
 	if err := f.Validate([]any{}); err != nil {
@@ -592,7 +592,7 @@ func TestUnixTimestampNoArgs(t *testing.T) {
 	}
 }
 
-// TestDateTimeFunctionValidation 测试日期时间函数的参数验证
+// TestDateTimeFunctionValidation: Parameter validation of the test date-time function
 func TestDateTimeFunctionValidation(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -637,7 +637,7 @@ func TestDateTimeFunctionValidation(t *testing.T) {
 }
 
 func TestDateTimeRegistration(t *testing.T) {
-	// 测试函数是否正确注册
+	// Test whether the function is registered correctly
 	dateTimeFunctions := []string{
 		"date_format",
 		"date_add",

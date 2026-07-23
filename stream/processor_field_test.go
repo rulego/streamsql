@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestStream_CompileFieldProcessInfo 测试字段处理信息编译
+// TestStream_CompileFieldProcessInfo Test fields handle information compilation
 func TestStream_CompileFieldProcessInfo(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age:user_age", "`device_id`", "*"},
@@ -46,18 +46,18 @@ func TestStream_CompileFieldProcessInfo(t *testing.T) {
 
 	stream.compileFieldProcessInfo()
 
-	// 验证编译后的字段信息
+	// Verify the compiled field information
 	assert.NotNil(t, stream.compiledFieldInfo)
 	assert.NotNil(t, stream.compiledExprInfo)
 
-	// 验证简单字段编译
+	// Verify simple field compilation
 	assert.Contains(t, stream.compiledFieldInfo, "name")
 	assert.Contains(t, stream.compiledFieldInfo, "age:user_age")
 	assert.Contains(t, stream.compiledFieldInfo, "`device_id`")
 	assert.Contains(t, stream.compiledFieldInfo, "*")
 }
 
-// TestStream_CompileSimpleFieldInfo 测试简单字段信息编译
+// TestStream_CompileSimpleFieldInfo Test simple field information compilation
 func TestStream_CompileSimpleFieldInfo(t *testing.T) {
 	config := types.Config{}
 	stream, err := NewStream(config)
@@ -191,7 +191,7 @@ func TestStream_CompileSimpleFieldInfo(t *testing.T) {
 	}
 }
 
-// TestStream_CompileExpressionInfo 测试表达式信息编译
+// TestStream_CompileExpressionInfo Compilation of test expression information
 func TestStream_CompileExpressionInfo(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -224,11 +224,11 @@ func TestStream_CompileExpressionInfo(t *testing.T) {
 
 	stream.compileExpressionInfo()
 
-	// 验证表达式信息已编译
+	// Verify that the expression information has been compiled
 	assert.NotNil(t, stream.compiledExprInfo)
 	assert.Len(t, stream.compiledExprInfo, 4)
 
-	// 验证每个表达式的编译信息
+	// Verify the compilation information for each expression
 	for exprName := range config.FieldExpressions {
 		assert.Contains(t, stream.compiledExprInfo, exprName)
 		info := stream.compiledExprInfo[exprName]
@@ -237,7 +237,7 @@ func TestStream_CompileExpressionInfo(t *testing.T) {
 	}
 }
 
-// TestFieldProcessInfo_EdgeCases 测试字段处理信息边界情况
+// TestFieldProcessInfo_EdgeCases Test fields handle information boundaries
 func TestFieldProcessInfo_EdgeCases(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"name", "age"},
@@ -266,7 +266,7 @@ func TestFieldProcessInfo_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 应该不会panic，即使输入不规范
+			// There shouldn't be panic, even if the input is not standard
 			assert.NotPanics(t, func() {
 				info := stream.compileSimpleFieldInfo(tt.fieldSpec)
 				assert.NotNil(t, info)
@@ -275,9 +275,9 @@ func TestFieldProcessInfo_EdgeCases(t *testing.T) {
 	}
 }
 
-// TestExpressionProcessInfo_Structure 测试表达式处理信息结构
+// TestExpressionProcessInfo_Structure Test expressions handle information structures
 func TestExpressionProcessInfo_Structure(t *testing.T) {
-	// 测试expressionProcessInfo结构的基本功能
+	// Test the basic functionality of the expressionProcessInfo structure
 	info := &expressionProcessInfo{
 		originalExpr:            "value + 10",
 		processedExpr:           "value + 10",
@@ -294,9 +294,9 @@ func TestExpressionProcessInfo_Structure(t *testing.T) {
 	assert.Nil(t, info.compiledExpr)
 }
 
-// TestFieldProcessInfo_Structure 测试字段处理信息结构
+// TestFieldProcessInfo_Structure Test fields handle information structures
 func TestFieldProcessInfo_Structure(t *testing.T) {
-	// 测试fieldProcessInfo结构的基本功能
+	// Test the basic functions of the fieldProcessInfo structure
 	info := &fieldProcessInfo{
 		fieldName:       "test_field",
 		outputName:      "output_field",
@@ -318,9 +318,9 @@ func TestFieldProcessInfo_Structure(t *testing.T) {
 	assert.Equal(t, "field_alias", info.alias)
 }
 
-// TestStream_CompileFieldProcessInfo_Performance 测试字段处理信息编译性能
+// TestStream_CompileFieldProcessInfo_Performance Test fields handle information compilation performance
 func TestStream_CompileFieldProcessInfo_Performance(t *testing.T) {
-	// 创建大量字段的配置
+	// Create configurations for a large number of fields
 	fields := make([]string, 100)
 	expressions := make(map[string]types.FieldExpression)
 
@@ -345,12 +345,12 @@ func TestStream_CompileFieldProcessInfo_Performance(t *testing.T) {
 		}
 	}()
 
-	// 编译应该快速完成，不会超时
+	// Compilation should be completed quickly without timeouts
 	assert.NotPanics(t, func() {
 		stream.compileFieldProcessInfo()
 	})
 
-	// 验证编译结果
+	// Verify the compilation results
 	assert.Len(t, stream.compiledFieldInfo, 100)
 	assert.Len(t, stream.compiledExprInfo, 100)
 }

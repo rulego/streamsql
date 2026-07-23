@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 本文件专门覆盖"多特性真实组合"场景：JOIN×分析、聚合间算术、双分析算术、
-// LEFT JOIN×COALESCE 空值填充、多分组多指标不变式。期望值均按 SQL 语义推导，
-// 用于验证组合路径的正确性；不与单特性文件重复。
+// This document specifically covers scenarios for "multi-feature true combinations": JOIN× analysis, inter-aggregate arithmetic, dual-analysis arithmetic,
+// LEFT JOIN× COALESCE NULL filling, multi-group, multi-indicator invariants. Expected values are derived according to SQL semantics,
+// Used to verify the correctness of the combined path; Does not duplicate single-attribute files.
 
-// runDirectJoin 在直连路径上跑 JOIN 查询：Execute 后注册表，逐条 EmitSync 收非 nil 行。
+// runDirectJoin runs JOIN queries on the direct connection path: after executing, the registry receives each EmitSync line by line that is not nil.
 func runDirectJoin(t *testing.T, sql, table string, tableRows []map[string]any, inputs []map[string]any) []map[string]any {
 	t.Helper()
 	ssql := streamsql.New()
@@ -38,13 +38,13 @@ func runDirectJoin(t *testing.T, sql, table string, tableRows []map[string]any, 
 	return out
 }
 
-// === JOIN × 分析函数（元数据增强后按增强字段分区做 lag/累计）===
+// === JOIN × Analysis Function (After metadata enhancement, lag/cumulative is done by partitioning by enhanced fields) ===
 
-// JOIN 增强出 location 后，lag(temp) 按 location 分区取上一条 temp。
-// meta: d1→plantA, d2→plantB, d3→plantA。
+// After JOINing to enhance the location, lag(temp) partitions the previous temp by location.
+// meta: d1→plantA, d2→plantB, d3→plantA.
 //
-// PARTITION BY 连接字段 m.location 经 resolvePartitionField 走 fieldpath 解析
-// （增强行里 location 嵌套在 m 下，裸 row[k] 恒 nil 会退化成全局分区）。
+// PARTITION BY connects fields m.location via resolvePartitionField and parses the fieldpath
+// (If the enhanced row location is nested under m, the bare row[k] constant nil will degenerate into a global partition.)
 func TestScenario_JoinAnalytic_LagByLocation(t *testing.T) {
 	const sql = `SELECT deviceId, m.location AS loc, lag(temp) OVER (PARTITION BY m.location) AS prev
 FROM stream JOIN meta m ON deviceId = m.deviceId`
@@ -54,11 +54,11 @@ FROM stream JOIN meta m ON deviceId = m.deviceId`
 		{"deviceId": "d3", "location": "plantA"},
 	}
 	in := []map[string]any{
-		{"deviceId": "d1", "temp": 10}, // plantA 首条 → prev=nil
-		{"deviceId": "d2", "temp": 20}, // plantB 首条 → prev=nil
-		{"deviceId": "d3", "temp": 30}, // plantA 第2条 → prev=10
-		{"deviceId": "d1", "temp": 40}, // plantA 第3条 → prev=30
-		{"deviceId": "d2", "temp": 50}, // plantB 第2条 → prev=20
+		{"deviceId": "d1", "temp": 10}, // plantA first → prev=nil
+		{"deviceId": "d2", "temp": 20}, // plantB First → prev=nil
+		{"deviceId": "d3", "temp": 30}, // plantA Article 2 → prev=10
+		{"deviceId": "d1", "temp": 40}, // plantA Article 3 → prev=30
+		{"deviceId": "d2", "temp": 50}, // plantB Article 2 → prev=20
 	}
 	got := runDirectJoin(t, sql, "meta", meta, in)
 	wantPrev := []any{nil, nil, 10.0, 30.0, 20.0}
@@ -80,7 +80,7 @@ FROM stream JOIN meta m ON deviceId = m.deviceId`
 	}
 }
 
-// JOIN 增强后 acc_sum(temp) 按 location 分区跨行累计（同 LagByLocation，分区键走 fieldpath）。
+// After JOIN enhancement, acc_sum (temp) is used to accumulate across rows by partitioning location (same as LagByLocation, partition keys follow the fieldpath).
 func TestScenario_JoinAnalytic_AccSumByLocation(t *testing.T) {
 	const sql = `SELECT m.location AS loc, acc_sum(temp) OVER (PARTITION BY m.location) AS s
 FROM stream JOIN meta m ON deviceId = m.deviceId`
@@ -108,9 +108,9 @@ FROM stream JOIN meta m ON deviceId = m.deviceId`
 	}
 }
 
-// === 聚合间算术（窗口聚合结果再做运算）===
+// === Arithmetic between aggregations (perform operations after aggregating window results) ===
 
-// 窗口 max-min 极差。CountingWindow(2) 三窗：[3,7]→4, [1,4]→3, [10,2]→8。
+// Window max-min is extremely poor. CountingWindow(2) Three-window: [3,7]→4, [1,4]→3, [10,2]→8.
 func TestScenario_AggArithmetic_WindowRange(t *testing.T) {
 	in := []map[string]any{{"v": 3}, {"v": 7}, {"v": 1}, {"v": 4}, {"v": 10}, {"v": 2}}
 	got := runWindow(t, `SELECT max(v) - min(v) AS rng FROM stream GROUP BY CountingWindow(2)`, in)
@@ -119,8 +119,8 @@ func TestScenario_AggArithmetic_WindowRange(t *testing.T) {
 	}
 }
 
-// 手算均值 sum/count 应与内置 avg 一致（浮点输入避免整除）。
-// 三窗 [3,7]→5, [1,4]→2.5, [10,2]→6。
+// The manual mean sum/count should match the built-in avg (floating-point input avoids division).
+// Three-window [3,7]→5, [1,4]→2.5, [10,2]→6.
 func TestScenario_AggArithmetic_ManualAvgMatchesBuiltIn(t *testing.T) {
 	in := []map[string]any{{"v": 3.0}, {"v": 7.0}, {"v": 1.0}, {"v": 4.0}, {"v": 10.0}, {"v": 2.0}}
 	got := runWindow(t, `SELECT sum(v) / count(*) AS manual, avg(v) AS built FROM stream GROUP BY CountingWindow(2)`, in)
@@ -135,12 +135,12 @@ func TestScenario_AggArithmetic_ManualAvgMatchesBuiltIn(t *testing.T) {
 	}
 }
 
-// === 双分析函数算术（同一表达式含两个分析调用）===
+// === Dual analysis function arithmetic (the same expression contains two analysis calls) ===
 
-// 运行期极差 acc_max-acc_min。v:3,1,4,1,5 → acc_max[3,3,4,4,5] acc_min[3,1,1,1,1] → 极差[0,2,3,3,4]。
+// Operating period range: acc_max-acc_min. v:3,1,4,1,5 → acc_max[3,3,4,4,5] acc_min[3,1,1,1,1] → extreme [0,2,3,3,4].
 //
-// 同表达式含两个分析调用：splitAnalyticExprMulti 抽全部调用各替换占位
-// （__analytic_self__ / __analytic_self_1__），求值期各算各的、注入占位再求 wrapper。
+// The same expression contains two analysis calls: splitAnalyticExprMulti draws all calls and replaces placeholders
+// (__analytic_self__ / __analytic_self_1__), calculate each valuation period separately, inject placeholder, then find the wrapper.
 func TestScenario_TwoAnalyticArithmetic_RunningRange(t *testing.T) {
 	in := []map[string]any{{"v": 3}, {"v": 1}, {"v": 4}, {"v": 1}, {"v": 5}}
 	got := runDirect(t, `SELECT acc_max(v) - acc_min(v) AS rr FROM stream`, in)
@@ -155,9 +155,9 @@ func TestScenario_TwoAnalyticArithmetic_RunningRange(t *testing.T) {
 	}
 }
 
-// 三个分析调用 + 混合算术：acc_max + acc_min + acc_sum。
-// v:3,1,4,1,5 → max[3,3,4,4,5] min[3,1,1,1,1] sum[3,4,8,9,14] → 三者之和[9,8,13,14,20]。
-// 验证同表达式不限于 2 个调用，占位 __analytic_self__/__analytic_self_1__/__analytic_self_2__ 各自回代。
+// Three analysis calls + mixed arithmetic: acc_max + acc_min + acc_sum.
+// v:3,1,4,1,5 → max[3,3,4,4,5] min[3,1,1,1,1] sum[3,4,8,9,14] → The sum of the three [9,8,13,14,20].
+// Verification of the same expression is not limited to two calls; placeholders __analytic_self__/__analytic_self_1__/__analytic_self_2__ are each substituted.
 func TestScenario_ThreeAnalyticArithmetic_SumOfRunning(t *testing.T) {
 	in := []map[string]any{{"v": 3}, {"v": 1}, {"v": 4}, {"v": 1}, {"v": 5}}
 	got := runDirect(t, `SELECT acc_max(v) + acc_min(v) + acc_sum(v) AS s FROM stream`, in)
@@ -172,8 +172,8 @@ func TestScenario_ThreeAnalyticArithmetic_SumOfRunning(t *testing.T) {
 	}
 }
 
-// 两个分析调用 + 乘法与标量：acc_max * acc_min。
-// v:3,1,4,1,5 → [9,3,4,4,5]。验证算术运算符不限加减，expr bridge 支持的运算符皆可。
+// Two analysis calls + multiplication and scalar: acc_max * acc_min.
+// v:3,1,4,1,5 → [9,3,4,4,5]. Verification arithmetic operators are not limited by addition or subtraction; all operators supported by expr bridge are acceptable.
 func TestScenario_TwoAnalyticArithmetic_Multiply(t *testing.T) {
 	in := []map[string]any{{"v": 3}, {"v": 1}, {"v": 4}, {"v": 1}, {"v": 5}}
 	got := runDirect(t, `SELECT acc_max(v) * acc_min(v) AS p FROM stream`, in)
@@ -188,9 +188,9 @@ func TestScenario_TwoAnalyticArithmetic_Multiply(t *testing.T) {
 	}
 }
 
-// 复杂优先级表达式：acc_max/10 - acc_min*10 + acc_sum（三个调用 + 乘除加减混合）。
+// Complex priority expression: acc_max/10 - acc_min*10 + acc_sum (three calls + multiplication, division, addition, subtraction, mix).
 // v:3,1,4,1,5 → max[3,3,4,4,5] min[3,1,1,1,1] sum[3,4,8,9,14]
-// row= max/10 - min*10 + sum：-26.7,-5.7,-1.6,-0.6,4.5。验证 */优先于+-、多调用回代正确。
+// row= max/10 - min*10 + sum:-26.7,-5.7,-1.6,-0.6,4.5. Verify that */ takes precedence over +-, and multiple calls are correct.
 func TestScenario_ThreeAnalyticArithmetic_ComplexPrecedence(t *testing.T) {
 	in := []map[string]any{{"v": 3}, {"v": 1}, {"v": 4}, {"v": 1}, {"v": 5}}
 	got := runDirect(t, `SELECT acc_max(v)/10 - acc_min(v)*10 + acc_sum(v) AS c FROM stream`, in)
@@ -205,9 +205,9 @@ func TestScenario_ThreeAnalyticArithmetic_ComplexPrecedence(t *testing.T) {
 	}
 }
 
-// === LEFT JOIN × COALESCE（无匹配行空值填充）===
+// === LEFT JOIN × COALESCE (blank pad without matching row) ===
 
-// LEFT JOIN 无匹配时 m.location 为 nil，coalesce 填默认值。
+// If LEFT JOIN has no match, m.location is nil, coalesce is set to the default value.
 func TestScenario_LeftJoinCoalesce_FillUnknown(t *testing.T) {
 	const sql = `SELECT deviceId, coalesce(m.location, 'unknown') AS loc
 FROM stream LEFT JOIN meta m ON deviceId = m.deviceId`
@@ -216,8 +216,8 @@ FROM stream LEFT JOIN meta m ON deviceId = m.deviceId`
 		{"deviceId": "d2", "location": "plantB"},
 	}
 	in := []map[string]any{
-		{"deviceId": "d1"}, // 匹配 → plantA
-		{"deviceId": "d9"}, // 无匹配 → unknown
+		{"deviceId": "d1"}, // Match → plantA
+		{"deviceId": "d9"}, // No match → unknown
 	}
 	got := runDirectJoin(t, sql, "meta", meta, in)
 	want := []map[string]any{
@@ -229,10 +229,10 @@ FROM stream LEFT JOIN meta m ON deviceId = m.deviceId`
 	}
 }
 
-// === 多分组多指标不变式（校验指标间内在关系，非逐值）===
+// === Multi-group, multi-indicator invariant formula (check the intrinsic relationships between indicators, not by value) ===
 
-// 每窗按 device 分组，断言每组满足：min<=avg<=max 且 sum==count*avg。
-// CountingWindow(2) 为全局计数窗口：6 事件 → 3 窗，窗内再按 device 分组。
+// Each window is grouped by device, asserting that each group satisfies: min<=avg<=max, and sum==count*avg.
+// CountingWindow(2) is the global counting window: 6 events → 3 windows, which are grouped by device within the window.
 func TestScenario_MultiGroupMetrics_Invariants(t *testing.T) {
 	in := []map[string]any{
 		{"device": "A", "v": 1.0}, {"device": "A", "v": 3.0},
@@ -267,10 +267,10 @@ func abs(f float64) float64 {
 	return f
 }
 
-// === 补充：窗口聚合结果用于 HAVING 之外的复合投影 ===
+// === Supplement: Window aggregation results are used for composite projections outside HAVING ===
 
-// 同一窗口同时算 sum 与 avg，并对结果做算术（avg*count 应==sum）。
-// 校验聚合间一致性：与 ManualAvg 互补，这里断言 sum - avg*count ≈ 0。
+// In the same window, compute both sum and avg, and perform arithmetic on the result (avg*count should ==sum).
+// Verify inter-aggregation consistency: complementary to ManualAvg, here asserting sum - avg*count ≈ 0.
 func TestScenario_WindowAggConsistency(t *testing.T) {
 	in := []map[string]any{{"v": 2.0}, {"v": 4.0}, {"v": 6.0}, {"v": 8.0}}
 	got := runWindow(t,
@@ -278,7 +278,7 @@ func TestScenario_WindowAggConsistency(t *testing.T) {
 	s := sortedFloatField(got, "s")
 	a := sortedFloatField(got, "a")
 	c := sortedFloatField(got, "c")
-	// 两窗 [2,4]→sum6/avg3/count2；[6,8]→sum14/avg7/count2
+	// Two windows [2,4]→sum6/avg3/count2; [6,8]→sum14/avg7/count2
 	wantSum := []float64{6, 14}
 	wantAvg := []float64{3, 7}
 	wantCnt := []float64{2, 2}
@@ -292,14 +292,14 @@ func TestScenario_WindowAggConsistency(t *testing.T) {
 	}
 }
 
-// === 第二批：HAVING 引用未选出聚合 / GROUP BY 表达式 / 多 OVER 分区 / 分析嵌 CASE 或 coalesce / WHERE与分析顺序 ===
+// === Second batch: HAVING citation of unselected aggregation / GROUP BY expressions / multi-OVER partitions / analysis CASE or coalesce / WHERE and analysis order ===
 
-// HAVING 引用未在 SELECT 出现的聚合 max(v)。CountingWindow(3) 为按 key 计数窗：
-// 每 device 各计满 3 条触发。A=[1,2,1]→c3 max2（max>4 ✗ 过滤）；B=[5,6,1]→c3 max6（>4 ✓）。
-// 期望仅 B 一行 c3——证明未选出的 max(v) 被正确补算（否则 nil>4 恒假→空）。
+// HAVING references aggregation max(v) that does not appear in SELECT. CountingWindow(3) is the key counting window:
+// Each device has 3 triggers. A = [1,2,1]→c3 max2(max>4 ✗ filter); B=[5,6,1]→c3 max6 (>4 ✓).
+// Expect only line B c3 — proving that the unselected max(v) is correctly supplemented (otherwise, nil>4 is always false → empty).
 //
-// extractHavingAggregates 把 max(v) 注册为隐藏聚合 __having_0__ 让 aggregator 补算，
-// HAVING 文本改写为 __having_0__；输出剥离该键。
+// extractHavingAggregates registers max(v) as a hidden aggregation __having_0__ lets aggregator complete the computation,
+// HAVING text rewritten as __having_0__; Output the stripped key.
 func TestScenario_Having_NonSelectedAggregate(t *testing.T) {
 	in := []map[string]any{
 		{"device": "A", "v": 1}, {"device": "B", "v": 5}, {"device": "A", "v": 2},
@@ -313,17 +313,17 @@ func TestScenario_Having_NonSelectedAggregate(t *testing.T) {
 		byDev[d] = toFloatVal(r["c"])
 	}
 	if len(byDev) != 1 || byDev["B"] != 3 {
-		t.Errorf("HAVING max(v)>4 (max 未选出): got %v, want {B:3}", byDev)
+		t.Errorf("HAVING max(v)>4 (max not selected): got %v, want {B:3}", byDev)
 	}
 }
 
-// GROUP BY 函数表达式 upper(device)。CountingWindow(4) 单窗，upper 后分两组。
-// GROUP BY 函数表达式 upper(device)。CountingWindow(2) 为按 key 计数窗：input aa,AA,bb,BB
-// → upper 各为 AA,AA,BB,BB。AA 满 2 触发 c2、BB 满 2 触发 c2。期望 {AA:2, BB:2}。
-// 若 upper() 未生效（按原始 device 分组），则 4 个不同值各 1 条、无 key 满 2 → 空。
+// GROUP BY function expression upper(device). CountingWindow(4) Single window, after the upper window, split into two groups.
+// GROUP BY function expression upper(device). CountingWindow(2) is the key-based counting window: input aa, AA, bb, BB
+// → upper are AA, AA, BB, BB. AA triggers c2 when 2 hits, BB triggers c2 when 2 hits. Expectation {AA:2, BB:2}.
+// If upper() is not active (grouped by original device), then 4 different values each have 1 line, and no key fills 2 → empty.
 //
-// parser 把 upper(device) 读成整体分组键；injectGroupKeyExprs 在 Window.Add 前求值注入；
-// projectGroupColumns 把分组键值重命名到输出别名 d。
+// parser reads upper(device) as the overall group key; injectGroupKeyExprs is evaluated and injected before Window.Add;
+// projectGroupColumns renames the group key to output the alias d.
 func TestScenario_GroupBy_FunctionExpression(t *testing.T) {
 	in := []map[string]any{
 		{"device": "aa"}, {"device": "AA"}, {"device": "bb"}, {"device": "BB"},
@@ -340,9 +340,9 @@ func TestScenario_GroupBy_FunctionExpression(t *testing.T) {
 	}
 }
 
-// GROUP BY 时间函数表达式 hour(timestamp)。hour() 取 "YYYY-MM-DD HH:MM:SS" 串的小时。
-// CountingWindow(2) 按 key（小时值）计数：hour10 有 2 条→触发 c2，hour11 有 2 条→触发 c2。
-// 期望 {10:2, 11:2}。分组键保留原始类型，hour() 返回 int，故 h 列为数值 10/11。
+// GROUP BY time function expression hour(timestamp). hour() takes the hour of the "YYYY-MM-DD HH:MM:SS" string.
+// CountingWindow(2) Counts by key (hour): hour10 triggers 2 → c2, hour11 triggers 2 → c2.
+// Expectation {10:2, 11:2}. The group key retains the original type, and hour() returns int, so the h column is a numeric value 10/11.
 func TestScenario_GroupBy_HourExpression(t *testing.T) {
 	in := []map[string]any{
 		{"timestamp": "2026-07-12 10:00:00"},
@@ -361,8 +361,8 @@ func TestScenario_GroupBy_HourExpression(t *testing.T) {
 	}
 }
 
-// 同一 SELECT 两个分析函数、不同 PARTITION BY，状态机应独立无串扰。
-// p1=lag(a) PARTITION BY k1；p2=lag(b) PARTITION BY k2。
+// For the same SELECT with two analysis functions and different PARTITION BY, the state machine should be independent and free of crosstalk.
+// p1=lag(a) PARTITION BY k1; p2=lag(b) PARTITION BY k2.
 func TestScenario_MultiOver_DifferentPartitions(t *testing.T) {
 	in := []map[string]any{
 		{"k1": 1, "a": 10, "k2": "x", "b": 100},
@@ -371,15 +371,15 @@ func TestScenario_MultiOver_DifferentPartitions(t *testing.T) {
 		{"k1": 2, "a": 40, "k2": "x", "b": 400},
 	}
 	got := runDirect(t, `SELECT lag(a) OVER (PARTITION BY k1) AS p1, lag(b) OVER (PARTITION BY k2) AS p2 FROM stream`, in)
-	// p1 按 k1：k1=1[行0,2]→nil,10；k1=2[行1,3]→nil,20
-	// p2 按 k2：x[行0,1,3]→nil,100,200；y[行2]→nil
+	// p1 According to k1: k1=1 [row 0,2] →nil,10; k1=2 [row 1,3] →nil,20
+	// p2 According to k2: x[row 0,1,3]→nil,100,200; y[row 2]→nil
 	assertNumericField(t, "multi-over p1", got, "p1", []any{nil, nil, 10.0, 20.0})
 	assertNumericField(t, "multi-over p2", got, "p2", []any{nil, 100.0, nil, 200.0})
 }
 
-// 分析函数嵌在 CASE 里：lag(temp) 解析后回代进 CASE 求值。
-// temp 10,25,15,30 → lag[nil,10,25,15] → lag>20 ? up:down → [down,down,up,down]（nil 比较判假→down）。
-// 标量套分析：applyWrapper 经 expr bridge→expr 包两级求值，CASE 走 expr 包求值器。
+// The analysis function is embedded in the CASE: lag(temp) parses and then substitutes back into the CASE for evaluation.
+// temp 10,25,15,30 → lag[nil,10,25,15] → lag>20? up:down → [down, down, up, down] (nil is a false → down).
+// Scalar Suite Analysis: applyWrapper evaluates via expr bridge → expr package, and CASE evaluates via expr package.
 func TestScenario_AnalyticInside_Case(t *testing.T) {
 	in := []map[string]any{{"temp": 10}, {"temp": 25}, {"temp": 15}, {"temp": 30}}
 	got := runDirect(t, `SELECT CASE WHEN lag(temp) > 20 THEN 'up' ELSE 'down' END AS trend FROM stream`, in)
@@ -394,8 +394,8 @@ func TestScenario_AnalyticInside_Case(t *testing.T) {
 	}
 }
 
-// 对照组：JOIN + 分析函数，但 PARTITION BY 的是**流自有列** deviceId（行内存在）。
-// 与对照（分区键为连接字段）对比：这里应正确按 deviceId 分区。
+// Control group: JOIN + parsing function, but PARTITION BY is **stream with columns** deviceId (in-line existence).
+// Comparison with the Comparison (partition key is the Connect field): Here, the deviceId partition should be correctly pressed.
 func TestScenario_JoinAnalytic_PartitionByStreamColumn(t *testing.T) {
 	const sql = `SELECT deviceId, lag(temp) OVER (PARTITION BY deviceId) AS prev
 FROM stream JOIN meta m ON deviceId = m.deviceId`
@@ -413,27 +413,27 @@ FROM stream JOIN meta m ON deviceId = m.deviceId`
 	assertNumericField(t, "JOIN+analytic 分区流列", got, "prev", []any{nil, nil, 10.0, 20.0})
 }
 
-// coalesce 包分析函数：首行 lag=nil → 填默认 -1。
-// temp 10,20,30 → lag[nil,10,20] → coalesce(lag,-1)=[-1,10,20]。
-// 标量套分析：applyWrapper 不在 nil 上短路，coalesce(nil,-1)→-1。
+// coalesce package analysis function: first line lag = nil → set to default -1.
+// temp 10,20,30 → lag[nil,10,20] → coalesce(lag,-1)=[-1,10,20].
+// Scalar sleeve analysis: applyWrapper does not short circuit on nil, coalesce(nil, -1) →-1.
 func TestScenario_CoalesceWraps_Analytic(t *testing.T) {
 	in := []map[string]any{{"temp": 10}, {"temp": 20}, {"temp": 30}}
 	got := runDirect(t, `SELECT coalesce(lag(temp), -1) AS safe_prev FROM stream`, in)
 	assertNumericField(t, "coalesce(lag,-1)", got, "safe_prev", []any{-1.0, 10.0, 20.0})
 }
 
-// WHERE 与分析函数的求值顺序（标准 SQL：WHERE 先过滤，分析只看过滤后的行）。
-// temp 10,20,15,30，WHERE temp>12 保留 20,15,30；lag 在过滤后流上 → [nil,20,15]；
-// d=temp-lag → [nil,-5,15]。普通 WHERE 场景；CDC 模式（WHERE 引用分析）仍分析在先。
+// The evaluation order of WHERE and the analysis function (standard SQL: WHERE filters first, analysis only looks at the rows after filtering).
+// temp 10,20,15,30,WHERE temp>12 Retain 20,15,30; lag on filtered stream → [nil,20,15];
+// d=temp-lag → [nil,-5,15]. Regular WHERE scenes; The CDC model (WHERE citation analysis) still leads the analysis.
 func TestScenario_WhereVsAnalytic_Ordering(t *testing.T) {
 	in := []map[string]any{{"temp": 10}, {"temp": 20}, {"temp": 15}, {"temp": 30}}
 	got := runDirect(t, `SELECT temp, temp - lag(temp) AS d FROM stream WHERE temp > 12`, in)
 	assertNumericField(t, "WHERE先于分析", got, "d", []any{nil, -5.0, 15.0})
 }
 
-// 分析函数组合与边界测试：多函数共存、与分区/窗口/条件组合，找潜在 bug。
+// Analyze function combinations and boundary testing: coexist with multiple functions, combine with partitions/windows/conditions to identify potential bugs.
 
-// 多个分析函数在同一查询共存，各自独立状态。
+// Multiple analysis functions coexist within the same query, each in its own independent state.
 func TestCombo_MultipleAnalytics_Direct(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute(
@@ -446,20 +446,20 @@ func TestCombo_MultipleAnalytics_Direct(t *testing.T) {
 		require.NoError(t, err)
 		got = append(got, out)
 	}
-	// lag: nil,1,2 ; acc_sum(b): 10,30,60 ; changed_col(c): x(首),nil(未变),y(变→cc 省略 nil)
+	// lag: nil,1,2; acc_sum(b): 10,30,60; changed_col(c): x (beginning), nil (unchanged), y (changed→cc omitted nil)
 	assert.Nil(t, got[0]["p"])
 	assert.InDelta(t, 10.0, toFloatVal(got[0]["s"]), 0.01)
 	assert.Equal(t, "x", got[0]["cc"])
 	assert.InDelta(t, 1.0, toFloatVal(got[1]["p"]), 0.01)
 	assert.InDelta(t, 30.0, toFloatVal(got[1]["s"]), 0.01)
-	_, hasCC1 := got[1]["cc"] // c 未变 → cc 省略
+	_, hasCC1 := got[1]["cc"] // c unchanged → cc omitted
 	assert.False(t, hasCC1)
 	assert.InDelta(t, 2.0, toFloatVal(got[2]["p"]), 0.01)
 	assert.InDelta(t, 60.0, toFloatVal(got[2]["s"]), 0.01)
 	assert.Equal(t, "y", got[2]["cc"])
 }
 
-// acc_sum + PARTITION BY：每分区各自累加。
+// acc_sum + PARTITION BY: Each partition is accumulated separately.
 func TestCombo_AccSum_Partition(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute(
@@ -472,7 +472,7 @@ func TestCombo_AccSum_Partition(t *testing.T) {
 		require.NoError(t, err)
 		got = append(got, out)
 	}
-	// 输入序: A1, B2, A3, B4 → A 累加 1,4；B 累加 2,6（分区独立，互不混入）
+	// Input order: A1, B2, A3, B4 → A cumulative 1,4; B cumulative 2,6 (partition-independent, no mixing)
 	assert.Equal(t, "A", got[0]["k"])
 	assert.InDelta(t, 1.0, toFloatVal(got[0]["s"]), 0.01)
 	assert.Equal(t, "B", got[1]["k"])
@@ -483,13 +483,13 @@ func TestCombo_AccSum_Partition(t *testing.T) {
 	assert.InDelta(t, 6.0, toFloatVal(got[3]["s"]), 0.01)
 }
 
-// 条件 ACC + PARTITION：每分区各自的 start/reset 生命周期。
+// Condition ACC + PARTITION: The start/reset lifecycle for each partition.
 func TestCombo_CondAcc_Partition(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute(
 		`SELECT k, acc_count(v, v > 1, v < 0) OVER (PARTITION BY k) AS c FROM stream`))
 	defer ssql.Stop()
-	// A: 1,2,3,-1,1 → 0,1,2,0,0 ; B: 5,5 → 5>1 计 1,2
+	// A: 1,2,3,-1,1 → 0,1,2,0,0; B: 5.5 → 5>1 Total: 1.2
 	in := []map[string]any{{"k": "A", "v": 1}, {"k": "A", "v": 2}, {"k": "B", "v": 5}, {"k": "A", "v": 3}, {"k": "B", "v": 5}, {"k": "A", "v": -1}}
 	var got []map[string]any
 	for _, r := range in {
@@ -502,16 +502,16 @@ func TestCombo_CondAcc_Partition(t *testing.T) {
 		k, _ := r["k"].(string)
 		byK[k] = append(byK[k], toInt64Val(r["c"]))
 	}
-	// A 依次: 0,1,2,0 (A 的 -1 归零)；B: 1,2
+	// A in order: 0, 1, 2, 0 (A zeros -1); B: 1,2
 	assert.Equal(t, []int64{0, 1, 2, 0}, byK["A"], "A 分区条件累计")
 	assert.Equal(t, []int64{1, 2}, byK["B"], "B 分区条件累计")
 }
 
-// lag 进窗口：对窗口聚合输出跨窗口 lag。
+// lag into window: outputs a lag across windows when aggregated.
 func TestCombo_Lag_InWindow(t *testing.T) {
 	d := []map[string]any{{"t": 10.0}, {"t": 20.0}, {"t": 30.0}, {"t": 40.0}}
 	got := runWindow(t, `SELECT lag(avg(t)) AS p FROM stream GROUP BY CountingWindow(1)`, d)
-	// 每事件一窗，avg=t：10,20,30,40；lag 跨窗口: nil,10,20,30
+	// One window per event, avg = t: 10, 20, 30, 40; lag across windows: nil, 10, 20, 30
 	var vals []float64
 	nilCnt := 0
 	for _, r := range got {
@@ -526,29 +526,29 @@ func TestCombo_Lag_InWindow(t *testing.T) {
 	assert.Equal(t, []float64{10, 20, 30}, vals, "lag(avg) 跨窗口非 nil 值: 10,20,30")
 }
 
-// had_changed 进窗口：检测窗口聚合输出是否变化。
+// had_changed In-window: Detects whether the window aggregate output has changed.
 func TestCombo_HadChanged_InWindow(t *testing.T) {
 	d := []map[string]any{{"t": 10.0}, {"t": 10.0}, {"t": 20.0}, {"t": 20.0}}
 	got := runWindow(t, `SELECT had_changed(true, avg(t)) AS h FROM stream GROUP BY CountingWindow(2)`, d)
-	// 窗口均值: 10,20 → had_changed: true(首),true(变)
+	// Window Average: 10, 20 → had_changed: true (initial), true (variable)
 	bools := []bool{}
 	for _, r := range got {
 		b, _ := r["h"].(bool)
 		bools = append(bools, b)
 	}
-	// 两个窗口都 true（首+变）；若串扰/错位会出 false
+	// Both windows are true (first + change); If crosstalk/misalignment occurs, false will appear
 	require.Len(t, bools, 2, "应 2 个窗口输出")
 	for _, b := range bools {
 		assert.True(t, b, "had_changed(avg) 首窗与变化窗均应 true")
 	}
 }
 
-// 窗口内双内联聚合：changed_cols 同时跟踪 avg 和 max。
+// Dual inline aggregation within the window: changed_cols tracks both AVG and MAX simultaneously.
 func TestCombo_Window_TwoAggregates(t *testing.T) {
 	d := []map[string]any{{"t": 10.0}, {"t": 20.0}, {"t": 30.0}, {"t": 30.0}}
 	got := runWindow(t, `SELECT changed_cols("c_", true, avg(t), max(t)) FROM stream GROUP BY CountingWindow(2)`, d)
-	// 窗口1 [10,20]: avg=15,max=20（首→都变）{c_avg:15,c_max:20}
-	// 窗口2 [30,30]: avg=30,max=30（都变）{c_avg:30,c_max:30}
+	// Window 1 [10,20]: avg=15, max=20 (both → and first change) {c_avg:15, c_max:20}
+	// Window 2 [30,30]: avg=30, max=30 (all changes) {c_avg:30, c_max:30}
 	keys := map[string]bool{}
 	for _, r := range got {
 		for k := range r {
@@ -560,7 +560,7 @@ func TestCombo_Window_TwoAggregates(t *testing.T) {
 	assert.True(t, keys["c_avg"] && keys["c_max"], "双内联聚合应产出 c_avg 与 c_max 列；got=%v", got)
 }
 
-// 文档案例 9 镜像：设备级跨窗口变化——changed_col(avg) 按 GROUP BY 分区。
+// Document Case 9 Mirroring: Device-Level Cross-Window Changes — changed_col (avg) partitioned by GROUP BY.
 func TestCombo_DocCase_GroupedCrossWindow(t *testing.T) {
 	in := []map[string]any{
 		{"deviceId": "A", "temp": 10.0}, {"deviceId": "A", "temp": 20.0},
@@ -568,7 +568,7 @@ func TestCombo_DocCase_GroupedCrossWindow(t *testing.T) {
 		{"deviceId": "B", "temp": 5.0}, {"deviceId": "B", "temp": 5.0},
 	}
 	got := runWindow(t, `SELECT deviceId, changed_col(true, avg(temp)) AS chg FROM stream GROUP BY deviceId, CountingWindow(2)`, in)
-	// A 窗口均值 15,35；B 窗口均值 5。各设备独立：A→{15,35}，B→{5}。
+	// Window A averages 15.35; Window B averages 5. Each piece of equipment is independent: A→{15,35}, B→{5}.
 	byDev := map[string][]float64{}
 	for _, r := range got {
 		k, _ := r["deviceId"].(string)
@@ -583,7 +583,7 @@ func TestCombo_DocCase_GroupedCrossWindow(t *testing.T) {
 	assert.Equal(t, []float64{5}, byDev["B"], "B 设备跨窗口变化")
 }
 
-// D1：窗口查询里分析函数引用裸原始列 → 报错（不再静默返回列名）。
+// D1: In window queries, the analysis function references the raw column → an error (no longer silently returns column name).
 func TestCombo_D1_RawColumnInWindowErrors(t *testing.T) {
 	ssql := streamsql.New()
 	defer ssql.Stop()
@@ -592,7 +592,7 @@ func TestCombo_D1_RawColumnInWindowErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "raw column")
 }
 
-// D9：分析套分析 / 聚合套分析 → 报错；分析套聚合仍允许。
+// D9: Analytical suite analysis / aggregate suite analysis → error report; Analytical set aggregation is still allowed.
 func TestCombo_D9_NestedAnalyticErrors(t *testing.T) {
 	for _, sql := range []string{
 		`SELECT lag(lag(a)) AS p FROM stream`,
@@ -603,18 +603,18 @@ func TestCombo_D9_NestedAnalyticErrors(t *testing.T) {
 		assert.Error(t, err, "嵌套分析应报错: %s", sql)
 		ssql.Stop()
 	}
-	// 分析套聚合（窗口内）仍合法。
+	// Analytical set aggregation (within the window) remains valid.
 	ok := streamsql.New()
 	defer ok.Stop()
 	assert.NoError(t, ok.Execute(`SELECT changed_cols("t", true, avg(temperature)) FROM stream GROUP BY CountingWindow(2)`))
 }
 
-// D5：acc_avg 空累积返回 nil（与 acc_max/min 一致），不返回 0.0。
+// D5: acc_avg Null cumulative returns nil (consistent with acc_max/min), not 0.0.
 func TestCombo_D5_AccAvgEmptyNil(t *testing.T) {
 	ssql := streamsql.New()
 	require.NoError(t, ssql.Execute(`SELECT acc_avg(s) AS a FROM stream`))
 	defer ssql.Stop()
-	// 非数字输入 → count 保持 0 → nil
+	// Non-numeric input → count remains at 0 → nil
 	r, err := ssql.EmitSync(map[string]any{"s": "not-a-number"})
 	require.NoError(t, err)
 	assert.Nil(t, r["a"], "空 acc_avg 应返回 nil 而非 0.0")

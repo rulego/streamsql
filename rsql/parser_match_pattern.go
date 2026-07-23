@@ -8,7 +8,7 @@ import (
 	"github.com/rulego/streamsql/types"
 )
 
-// parseMRPatternBody 解析 PATTERN ( <正则> )。约定：调用时 lexer 在 '(' 之前。
+// parseMRPatternBody parses PATTERN (<regex>). The lexer must be positioned before '(' when called.
 func (p *Parser) parseMRPatternBody() (*types.PatternNode, error) {
 	if t := p.lexer.NextToken(); t.Type != TokenLParen {
 		return nil, fmt.Errorf("expected '(' after PATTERN, got %q", t.Value)
@@ -44,7 +44,7 @@ func (p *Parser) parseMRAlternation() (*types.PatternNode, error) {
 	return &types.PatternNode{Kind: types.PatternAlternation, Children: children}, nil
 }
 
-// parseMRSequence: quantified+ (并列即序列)
+// parseMRSequence: quantified+ (Sequence equals sequence)
 func (p *Parser) parseMRSequence() (*types.PatternNode, error) {
 	var atoms []*types.PatternNode
 	for isMRAtomStart(p.peekToken()) {
@@ -63,7 +63,7 @@ func (p *Parser) parseMRSequence() (*types.PatternNode, error) {
 	return &types.PatternNode{Kind: types.PatternSequence, Children: atoms}, nil
 }
 
-// parseMRQuantified: atom + 可选量词
+// parseMRQuantified: atom + optional quantifier
 func (p *Parser) parseMRQuantified() (*types.PatternNode, error) {
 	atom, err := p.parseMRAtom()
 	if err != nil {
@@ -79,8 +79,8 @@ func (p *Parser) parseMRQuantified() (*types.PatternNode, error) {
 	return &types.PatternNode{Kind: types.PatternRepetition, Children: []*types.PatternNode{atom}, Quant: q}, nil
 }
 
-// parseMRAtom: 模式变量 | ( 交替 ) | PERMUTE(...) | {- 排除 -}
-// 模式变量可为任意标识符，含被词法器归为关键字的词（如 End/When），故按"值以字母开头"识别。
+// parseMRAtom: Pattern variable | (alternate) | PERMUTE(...) | {- Exclude -}
+// The pattern variable can be any identifier, including words that are categorized as keywords (such as End/When), so they are identified by "values starting with letters."
 func (p *Parser) parseMRAtom() (*types.PatternNode, error) {
 	t := p.peekToken()
 	switch t.Type {
@@ -95,7 +95,7 @@ func (p *Parser) parseMRAtom() (*types.PatternNode, error) {
 		}
 		return &types.PatternNode{Kind: types.PatternGroup, Children: []*types.PatternNode{inner}}, nil
 	case TokenLBrace:
-		// {- ... -} 排除（absence）：解析为 Exclusion 节点，编译期拒绝
+		// {-... -} Absence: Resolves as an Exclusion node, compile rejection
 		p.lexer.NextToken() // consume '{'
 		if d := p.lexer.NextToken(); d.Type != TokenMinus {
 			return nil, fmt.Errorf("expected '-' after '{' in exclusion pattern, got %q", d.Value)
@@ -113,7 +113,7 @@ func (p *Parser) parseMRAtom() (*types.PatternNode, error) {
 		return &types.PatternNode{Kind: types.PatternExclusion, Children: []*types.PatternNode{inner}}, nil
 	}
 	if isMRIdentLike(t) {
-		p.lexer.NextToken() // consume 变量名
+		p.lexer.NextToken() // consume variable name
 		if t.Type == TokenIdent && strings.EqualFold(t.Value, "PERMUTE") {
 			return p.parseMRPermute()
 		}
@@ -122,8 +122,8 @@ func (p *Parser) parseMRAtom() (*types.PatternNode, error) {
 	return nil, fmt.Errorf("unexpected %q in PATTERN", t.Value)
 }
 
-// isMRIdentLike 报告 token 是否像一个标识符（值以字母/下划线开头），用于把 End/When
-// 等被词法器归为关键字的词也接受为模式变量。
+// isMRIdentLike reports whether the token acts like an identifier (values start with letters/underscores) used to set End/When
+// Words that are classified as keywords by the lexical analyzer are also accepted as pattern variables.
 func isMRIdentLike(t Token) bool {
 	v := t.Value
 	return v != "" && (isLetter(v[0]) || v[0] == '_')
@@ -152,7 +152,7 @@ func (p *Parser) parseMRPermute() (*types.PatternNode, error) {
 	return &types.PatternNode{Kind: types.PatternPermute, Children: children}, nil
 }
 
-// isMRAtomStart 报告 token 能否开启一个模式原子。
+// isMRAtomStart reports whether the token can enable a mode atom.
 func isMRAtomStart(t Token) bool {
 	if t.Type == TokenLParen || t.Type == TokenLBrace {
 		return true
@@ -160,7 +160,7 @@ func isMRAtomStart(t Token) bool {
 	return isMRIdentLike(t)
 }
 
-// tryMRQuantifier 尝试读取后缀量词；ok=false 表示无量词。
+// tryMRQuantifier attempts to read the suffix quantifier; ok=false means no quantifier.
 func (p *Parser) tryMRQuantifier() (*types.Quantifier, bool, error) {
 	t := p.peekToken()
 	var q types.Quantifier
@@ -188,7 +188,7 @@ func (p *Parser) tryMRQuantifier() (*types.Quantifier, bool, error) {
 	return &q, true, nil
 }
 
-// parseMRBounded 解析 {n} / {n,} / {n,m}（'{' 已消费）。
+// parseMRBounded parse {n} / {n,} / {n,m} ('{' consumed).
 func (p *Parser) parseMRBounded() (types.Quantifier, error) {
 	nTok := p.lexer.NextToken()
 	if nTok.Type != TokenNumber {
@@ -225,7 +225,7 @@ func (p *Parser) parseMRBounded() (types.Quantifier, error) {
 	return types.Quantifier{}, fmt.Errorf("expected ',' or '}' in quantifier, got %q", t.Value)
 }
 
-// consumeReluctant 若量词后紧跟 '?' 则消费它，返回 true（懒惰量词）。
+// consumeReluctant: If the quantifier is immediately followed by '?', it is consumed and returns true (laziness quantifier).
 func (p *Parser) consumeReluctant() bool {
 	if p.peekToken().Type == TokenQuestion {
 		p.lexer.NextToken()

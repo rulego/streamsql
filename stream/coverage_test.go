@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDataProcessor_ApplyDistinct 测试DISTINCT去重功能
+// TestDataProcessor_ApplyDistinct Test the DISTINCT deduplication feature
 func TestDataProcessor_ApplyDistinct(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature"},
@@ -50,24 +50,24 @@ func TestDataProcessor_ApplyDistinct(t *testing.T) {
 
 	processor := NewDataProcessor(stream)
 
-	// 测试数据
+	// Test data
 	results := []map[string]any{
 		{"device": "sensor1", "temperature": 25.0, "humidity": 60.0},
-		{"device": "sensor1", "temperature": 25.0, "humidity": 60.0}, // 重复数据
+		{"device": "sensor1", "temperature": 25.0, "humidity": 60.0}, // Duplicate data
 		{"device": "sensor2", "temperature": 30.0, "humidity": 70.0},
-		{"device": "sensor1", "temperature": 25.0, "humidity": 60.0}, // 再次重复
+		{"device": "sensor1", "temperature": 25.0, "humidity": 60.0}, // Repeat again
 	}
 
-	// 应用DISTINCT
+	// Apply DISTINCT
 	distinctResults := processor.applyDistinct(results)
 
-	// 验证去重结果
+	// Verify deduplication results
 	assert.Len(t, distinctResults, 2)
 	assert.Equal(t, "sensor1", distinctResults[0]["device"])
 	assert.Equal(t, "sensor2", distinctResults[1]["device"])
 }
 
-// TestDataProcessor_ApplyHavingFilter 测试HAVING过滤功能
+// TestDataProcessor_ApplyHavingFilter Test the HAVING filtration function
 func TestDataProcessor_ApplyHavingFilter(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature"},
@@ -92,23 +92,23 @@ func TestDataProcessor_ApplyHavingFilter(t *testing.T) {
 
 	processor := NewDataProcessor(stream)
 
-	// 测试数据
+	// Test data
 	results := []map[string]any{
 		{"device": "sensor1", "temperature": 20.0},
 		{"device": "sensor2", "temperature": 30.0},
 		{"device": "sensor3", "temperature": 35.0},
 	}
 
-	// 应用HAVING过滤
+	// Apply HAVING filtration
 	filteredResults := processor.applyHavingFilter(results)
 
-	// 验证过滤结果
+	// Verify the filtering results
 	assert.Len(t, filteredResults, 2)
 	assert.Equal(t, "sensor2", filteredResults[0]["device"])
 	assert.Equal(t, "sensor3", filteredResults[1]["device"])
 }
 
-// TestDataProcessor_ApplyHavingWithCaseExpression 测试带CASE表达式的HAVING过滤
+// TestDataProcessor_ApplyHavingWithCaseExpression Test HAVING filtering with CASE expressions
 func TestDataProcessor_ApplyHavingWithCaseExpression(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature", "status"},
@@ -133,23 +133,23 @@ func TestDataProcessor_ApplyHavingWithCaseExpression(t *testing.T) {
 
 	processor := NewDataProcessor(stream)
 
-	// 测试数据
+	// Test data
 	results := []map[string]any{
 		{"device": "sensor1", "temperature": 25.0, "status": "inactive"},
 		{"device": "sensor2", "temperature": 35.0, "status": "inactive"},
 		{"device": "sensor3", "temperature": 20.0, "status": "active"},
 	}
 
-	// 应用HAVING过滤
+	// Apply HAVING filtration
 	filteredResults := processor.applyHavingWithCaseExpression(results)
 
-	// 验证过滤结果
+	// Verify the filtering results
 	assert.Len(t, filteredResults, 2)
 	assert.Equal(t, "sensor2", filteredResults[0]["device"]) // temperature > 30
 	assert.Equal(t, "sensor3", filteredResults[1]["device"]) // status = 'active'
 }
 
-// TestDataProcessor_ApplyHavingWithCondition 测试带条件表达式的HAVING过滤
+// TestDataProcessor_ApplyHavingWithCondition Test HAVING filtering with conditional expressions
 func TestDataProcessor_ApplyHavingWithCondition(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature"},
@@ -174,23 +174,23 @@ func TestDataProcessor_ApplyHavingWithCondition(t *testing.T) {
 
 	processor := NewDataProcessor(stream)
 
-	// 测试数据
+	// Test data
 	results := []map[string]any{
 		{"device": "sensor1", "temperature": 20.0},
 		{"device": "sensor2", "temperature": 30.0},
 		{"device": "sensor3", "temperature": 45.0},
 	}
 
-	// 应用HAVING过滤
+	// Apply HAVING filtration
 	filteredResults := processor.applyHavingWithCondition(results)
 
-	// 验证过滤结果
+	// Verify the filtering results
 	assert.Len(t, filteredResults, 2)
 	assert.Equal(t, "sensor2", filteredResults[0]["device"])
 	assert.Equal(t, "sensor3", filteredResults[1]["device"])
 }
 
-// TestStream_ProcessExpressionFieldFallback 测试表达式字段处理回退机制
+// TestStream_ProcessExpressionFieldFallback Test the expression field revert mechanism
 func TestStream_ProcessExpressionFieldFallback(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature"},
@@ -209,24 +209,24 @@ func TestStream_ProcessExpressionFieldFallback(t *testing.T) {
 		}
 	}()
 
-	// 测试数据
+	// Test data
 	dataMap := map[string]any{
 		"device":      "sensor1",
 		"temperature": 25.0,
 	}
 	result := make(map[string]any)
 
-	// 测试表达式字段处理
+	// Test expression field handling
 	stream.processExpressionFieldFallback("temp_fahrenheit", dataMap, result)
 	assert.Equal(t, 77.0, result["temp_fahrenheit"])
 
-	// 测试不存在的字段
+	// Test fields that don't exist
 	result = make(map[string]any)
 	stream.processExpressionFieldFallback("nonexistent", dataMap, result)
 	assert.Nil(t, result["nonexistent"])
 }
 
-// TestStream_ProcessSingleFieldFallback 测试单字段处理回退机制
+// TestStream_ProcessSingleFieldFallback Test the single-field fallback mechanism
 func TestStream_ProcessSingleFieldFallback(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature", "`nested.field`"},
@@ -239,7 +239,7 @@ func TestStream_ProcessSingleFieldFallback(t *testing.T) {
 		}
 	}()
 
-	// 测试数据
+	// Test data
 	dataMap := map[string]any{
 		"device": "sensor1",
 		"nested": map[string]any{
@@ -248,29 +248,29 @@ func TestStream_ProcessSingleFieldFallback(t *testing.T) {
 	}
 	result := make(map[string]any)
 
-	// 测试普通字段
+	// Test the general field
 	stream.processSingleFieldFallback("device", dataMap, dataMap, result)
 	assert.Equal(t, "sensor1", result["device"])
 
-	// 测试嵌套字段
+	// Test nested fields
 	result = make(map[string]any)
 	stream.processSingleFieldFallback("`nested.field`", dataMap, dataMap, result)
-	// 嵌套字段处理可能返回nil，这是正常行为
+	// Nested field handling may return nil, which is normal behavior
 	// assert.Equal(t, "value", result["nested.field"])
 
-	// 测试字符串字面量
+	// Test string literal count
 	result = make(map[string]any)
 	stream.processSingleFieldFallback("'literal'", dataMap, dataMap, result)
-	// 字符串字面量处理可能返回nil，这是正常行为
+	// String literal processing may return nil, which is normal behavior
 	// assert.Equal(t, "literal", result["'literal'"])
 
-	// 测试SELECT *
+	// Test SELECT *
 	result = make(map[string]any)
 	stream.processSingleFieldFallback("*", dataMap, dataMap, result)
 	assert.Equal(t, dataMap, result)
 }
 
-// TestStream_ExecuteFunction 测试函数执行
+// TestStream_ExecuteFunction Test function execution
 func TestStream_ExecuteFunction(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature"},
@@ -283,32 +283,32 @@ func TestStream_ExecuteFunction(t *testing.T) {
 		}
 	}()
 
-	// 测试数据
+	// Test data
 	data := map[string]any{
 		"device":      "sensor1",
 		"temperature": 25.0,
 		"values":      []any{1, 2, 3, 4, 5},
 	}
 
-	// 测试数学函数
+	// Test mathematical functions
 	result, err := stream.executeFunction("SUM(values)", data)
-	// 函数执行可能返回nil，这是正常行为
+	// Function execution may return nil, which is normal behavior
 	// require.NoError(t, err)
 	// assert.Equal(t, 15.0, result)
 
-	// 测试字符串函数
+	// Test string function
 	result, err = stream.executeFunction("UPPER(device)", data)
-	// 函数执行可能返回nil，这是正常行为
+	// Function execution may return nil, which is normal behavior
 	// require.NoError(t, err)
 	// assert.Equal(t, "SENSOR1", result)
 
-	// 测试无效函数
+	// Test the invalid function
 	result, err = stream.executeFunction("INVALID_FUNC()", data)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 }
 
-// TestExtractFunctionName 测试函数名提取
+// TestExtractFunctionName Extract the test function name
 func TestExtractFunctionName(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -330,7 +330,7 @@ func TestExtractFunctionName(t *testing.T) {
 	}
 }
 
-// TestStream_ParseFunctionArgs 测试函数参数解析
+// TestStream_ParseFunctionArgs Analysis of test function parameters
 func TestStream_ParseFunctionArgs(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature"},
@@ -343,34 +343,34 @@ func TestStream_ParseFunctionArgs(t *testing.T) {
 		}
 	}()
 
-	// 测试数据
+	// Test data
 	data := map[string]any{
 		"device":      "sensor1",
 		"temperature": 25.0,
 		"values":      []any{1, 2, 3},
 	}
 
-	// 测试简单参数
+	// Testing simple parameters
 	args, err := stream.parseFunctionArgs("SUM(values)", data)
 	require.NoError(t, err)
 	assert.Len(t, args, 1)
 	assert.Equal(t, []any{1, 2, 3}, args[0])
 
-	// 测试多个参数
+	// Test multiple parameters
 	args, err = stream.parseFunctionArgs("CONCAT(device, ':', temperature)", data)
-	// 参数解析可能返回不同的结果，这是正常行为
+	// Parameter parsing may return different results, which is normal behavior
 	// require.NoError(t, err)
 	// assert.Len(t, args, 2)
 	// assert.Equal(t, "sensor1", args[0])
 	// assert.Equal(t, 25.0, args[1])
 
-	// 测试嵌套函数参数
+	// Test nested function parameters
 	args, err = stream.parseFunctionArgs("SUM(COUNT(values))", data)
 	require.NoError(t, err)
 	assert.Len(t, args, 1)
 }
 
-// TestStream_SmartSplitArgs 测试智能参数分割
+// TestStream_SmartSplitArgs Intelligent parameter segmentation for testing
 func TestStream_SmartSplitArgs(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature"},
@@ -410,7 +410,7 @@ func TestStream_SmartSplitArgs(t *testing.T) {
 	}
 }
 
-// TestStream_FallbackExpressionEvaluation 测试表达式评估回退机制（提升43.8%覆盖率）
+// TestStream_FallbackExpressionEvaluation Test expression evaluation rollback mechanism (increased coverage by 43.8%)
 func TestStream_FallbackExpressionEvaluation(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature"},
@@ -425,30 +425,30 @@ func TestStream_FallbackExpressionEvaluation(t *testing.T) {
 
 	processor := NewDataProcessor(stream)
 
-	// 测试数据
+	// Test data
 	dataMap := map[string]any{
 		"device":      "sensor1",
 		"temperature": 25.0,
 	}
 
-	// 测试有效表达式
+	// Test valid expressions
 	result, err := processor.fallbackExpressionEvaluation("temperature * 2", dataMap)
 	require.NoError(t, err)
 	assert.Equal(t, 50.0, result)
 
-	// 测试无效表达式
+	// Test for invalid expressions
 	result, err = processor.fallbackExpressionEvaluation("invalid_expression", dataMap)
-	// 某些无效表达式可能不会返回错误，这是正常行为
+	// Some invalid expressions may not return errors, which is normal behavior
 	// assert.Error(t, err)
 	// assert.Nil(t, result)
 
-	// 测试CASE表达式
+	// Test the CASE expression
 	result, err = processor.fallbackExpressionEvaluation("CASE WHEN temperature > 30 THEN 'hot' ELSE 'normal' END", dataMap)
 	require.NoError(t, err)
 	assert.Equal(t, "normal", result)
 }
 
-// TestStream_ComplexFieldProcessing 测试复杂字段处理场景
+// TestStream_ComplexFieldProcessing Test complex field handling scenarios
 func TestStream_ComplexFieldProcessing(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "`nested.field`", "'literal'", "*"},
@@ -475,7 +475,7 @@ func TestStream_ComplexFieldProcessing(t *testing.T) {
 		}
 	}()
 
-	// 测试数据
+	// Test data
 	dataMap := map[string]any{
 		"device": "sensor1",
 		"nested": map[string]any{
@@ -486,28 +486,28 @@ func TestStream_ComplexFieldProcessing(t *testing.T) {
 	}
 	result := make(map[string]any)
 
-	// 测试各种字段处理
+	// Test various field processing
 	stream.processSimpleField("device", dataMap, dataMap, result)
 	stream.processSimpleField("`nested.field`", dataMap, dataMap, result)
 	stream.processSimpleField("'literal'", dataMap, dataMap, result)
 	stream.processSimpleField("*", dataMap, dataMap, result)
 
-	// 测试表达式字段
+	// Test the expression field
 	stream.processExpressionFieldFallback("computed_field", dataMap, result)
 	stream.processExpressionFieldFallback("function_call", dataMap, result)
 	stream.processExpressionFieldFallback("case_expression", dataMap, result)
 
-	// 验证结果
+	// Verify the results
 	assert.Equal(t, "sensor1", result["device"])
 	assert.Equal(t, "value", result["nested.field"])
 	assert.Equal(t, "literal", result["'literal'"])
 	assert.Equal(t, 77.0, result["computed_field"])
-	// 函数调用结果可能为nil，这是正常行为
+	// The function call result may be nil, which is normal behavior
 	// assert.Equal(t, 15.0, result["function_call"])
 	assert.Equal(t, "warm", result["case_expression"])
 }
 
-// TestStream_Stop 测试Stop函数的各种场景
+// TestStream_Stop Test various scenarios for the Stop function
 func TestStream_Stop(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature"},
@@ -515,23 +515,23 @@ func TestStream_Stop(t *testing.T) {
 	stream, err := NewStream(config)
 	require.NoError(t, err)
 
-	// 测试正常停止
+	// The test stopped normally
 	stream.Stop()
 
-	// 测试重复停止（应该不会有问题）
+	// Repeated testing stops (should be fine)
 	stream.Stop()
 	stream.Stop()
 
-	// 测试dataStrategy为nil的情况
+	// Testing dataStrategy in the case of nil
 	stream2, err := NewStream(config)
 	require.NoError(t, err)
 	stream2.dataStrategy = nil
 	stream2.Stop()
 }
 
-// TestStream_ProcessSync 测试ProcessSync函数的各种场景
+// TestStream_ProcessSync Test various scenarios for the ProcessSync function
 func TestStream_ProcessSync(t *testing.T) {
-	// 测试聚合查询的错误情况
+	// Testing for errors in aggregated queries
 	aggConfig := types.Config{
 		SimpleFields: []string{"device", "temperature"},
 		NeedWindow:   true,
@@ -553,13 +553,13 @@ func TestStream_ProcessSync(t *testing.T) {
 		"temperature": 25.0,
 	}
 
-	// 聚合查询应该返回错误
+	// Aggregate queries should return errors
 	result, err := aggStream.ProcessSync(data)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "Synchronous processing is not supported for aggregation queries")
 
-	// 测试非聚合查询的正常情况
+	// Test the normal state of non-aggregated queries
 	nonAggConfig := types.Config{
 		SimpleFields: []string{"device", "temperature"},
 	}
@@ -567,14 +567,14 @@ func TestStream_ProcessSync(t *testing.T) {
 	require.NoError(t, err)
 	defer nonAggStream.Stop()
 
-	// 正常处理
+	// Handle it normally
 	result, err = nonAggStream.ProcessSync(data)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, "sensor1", result["device"])
 	assert.Equal(t, 25.0, result["temperature"])
 
-	// 测试带过滤器的情况
+	// Testing the filter case
 	filterStream, err := NewStream(nonAggConfig)
 	require.NoError(t, err)
 	defer filterStream.Stop()
@@ -582,12 +582,12 @@ func TestStream_ProcessSync(t *testing.T) {
 	err = filterStream.RegisterFilter("temperature > 30")
 	require.NoError(t, err)
 
-	// 不匹配过滤条件
+	// Filter conditions do not match
 	result, err = filterStream.ProcessSync(data)
 	assert.NoError(t, err)
 	assert.Nil(t, result)
 
-	// 匹配过滤条件
+	// Match filtering conditions
 	highTempData := map[string]any{
 		"device":      "sensor2",
 		"temperature": 35.0,
@@ -599,9 +599,9 @@ func TestStream_ProcessSync(t *testing.T) {
 	assert.Equal(t, 35.0, result["temperature"])
 }
 
-// TestStream_ProcessDirectDataSync 测试processDirectDataSync函数的各种场景
+// TestStream_ProcessDirectDataSync Test various scenarios for the processDirectDataSync function
 func TestStream_ProcessDirectDataSync(t *testing.T) {
-	// 测试表达式字段处理
+	// Test expression field handling
 	exprConfig := types.Config{
 		SimpleFields: []string{"device", "temperature"},
 		FieldExpressions: map[string]types.FieldExpression{
@@ -627,7 +627,7 @@ func TestStream_ProcessDirectDataSync(t *testing.T) {
 	assert.Equal(t, 25.0, result["temperature"])
 	assert.Equal(t, 77.0, result["temp_fahrenheit"])
 
-	// 测试没有字段配置的情况（保留所有字段）
+	// Test cases without field configuration (keep all fields)
 	allFieldsConfig := types.Config{}
 	allFieldsStream, err := NewStream(allFieldsConfig)
 	require.NoError(t, err)
@@ -639,7 +639,7 @@ func TestStream_ProcessDirectDataSync(t *testing.T) {
 	assert.Equal(t, "sensor1", result["device"])
 	assert.Equal(t, 25.0, result["temperature"])
 
-	// 测试只有表达式字段的情况
+	// Test cases where only the expression field is present
 	onlyExprConfig := types.Config{
 		FieldExpressions: map[string]types.FieldExpression{
 			"temp_fahrenheit": {
@@ -656,18 +656,18 @@ func TestStream_ProcessDirectDataSync(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, 77.0, result["temp_fahrenheit"])
-	// 原始字段不应该在结果中
+	// The original field should not be in the results
 	_, exists := result["device"]
 	assert.False(t, exists)
 	_, exists = result["temperature"]
 	assert.False(t, exists)
 }
 
-// TestStreamFactory_SetupDataProcessingStrategy 测试setupDataProcessingStrategy函数
+// TestStreamFactory_SetupDataProcessingStrategy Test the setupDataProcessingStrategy function
 func TestStreamFactory_SetupDataProcessingStrategy(t *testing.T) {
 	factory := NewStreamFactory()
 
-	// 测试有效策略
+	// Test effective strategies
 	stream := &Stream{}
 	perfConfig := types.PerformanceConfig{
 		OverflowConfig: types.OverflowConfig{
@@ -679,7 +679,7 @@ func TestStreamFactory_SetupDataProcessingStrategy(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, stream.dataStrategy)
 
-	// 测试无效策略（会使用默认的drop策略）
+	// Test invalid policies (default drop policies will be used)
 	stream2 := &Stream{}
 	perfConfig2 := types.PerformanceConfig{
 		OverflowConfig: types.OverflowConfig{
@@ -688,10 +688,10 @@ func TestStreamFactory_SetupDataProcessingStrategy(t *testing.T) {
 	}
 
 	err2 := factory.setupDataProcessingStrategy(stream2, perfConfig2)
-	assert.NoError(t, err2) // 不应该出错，会使用默认策略
+	assert.NoError(t, err2) // There shouldn't be any mistakes, and the default policy will be used
 	assert.NotNil(t, stream2.dataStrategy)
 
-	// 测试block策略
+	// Test the block policy
 	stream3 := &Stream{}
 	perfConfig3 := types.PerformanceConfig{
 		OverflowConfig: types.OverflowConfig{
@@ -703,7 +703,7 @@ func TestStreamFactory_SetupDataProcessingStrategy(t *testing.T) {
 	assert.NoError(t, err3)
 	assert.NotNil(t, stream3.dataStrategy)
 
-	// 测试expand策略
+	// Test the expand strategy
 	stream4 := &Stream{}
 	perfConfig4 := types.PerformanceConfig{
 		OverflowConfig: types.OverflowConfig{
@@ -716,11 +716,11 @@ func TestStreamFactory_SetupDataProcessingStrategy(t *testing.T) {
 	assert.NotNil(t, stream4.dataStrategy)
 }
 
-// TestStreamFactory_ValidatePerformanceConfig 测试validatePerformanceConfig函数
+// TestStreamFactory_ValidatePerformanceConfig Test validatePerformanceConfig function
 func TestStreamFactory_ValidatePerformanceConfig(t *testing.T) {
 	factory := NewStreamFactory()
 
-	// 测试有效配置
+	// Test effective configuration
 	validConfig := types.PerformanceConfig{
 		BufferConfig: types.BufferConfig{
 			DataChannelSize:   100,
@@ -737,7 +737,7 @@ func TestStreamFactory_ValidatePerformanceConfig(t *testing.T) {
 	err := factory.validatePerformanceConfig(validConfig)
 	assert.NoError(t, err)
 
-	// 测试负数DataChannelSize
+	// Test negative DataChannelSize
 	invalidConfig1 := types.PerformanceConfig{
 		BufferConfig: types.BufferConfig{
 			DataChannelSize:   -1,
@@ -749,7 +749,7 @@ func TestStreamFactory_ValidatePerformanceConfig(t *testing.T) {
 	assert.Error(t, err1)
 	assert.Contains(t, err1.Error(), "DataChannelSize cannot be negative")
 
-	// 测试负数ResultChannelSize
+	// Test negative ResultChannelSize
 	invalidConfig2 := types.PerformanceConfig{
 		BufferConfig: types.BufferConfig{
 			DataChannelSize:   100,
@@ -761,7 +761,7 @@ func TestStreamFactory_ValidatePerformanceConfig(t *testing.T) {
 	assert.Error(t, err2)
 	assert.Contains(t, err2.Error(), "ResultChannelSize cannot be negative")
 
-	// 测试负数SinkPoolSize
+	// Test negative SinkPoolSize
 	invalidConfig3 := types.PerformanceConfig{
 		BufferConfig: types.BufferConfig{
 			DataChannelSize:   100,
@@ -776,7 +776,7 @@ func TestStreamFactory_ValidatePerformanceConfig(t *testing.T) {
 	assert.Error(t, err3)
 	assert.Contains(t, err3.Error(), "SinkPoolSize cannot be negative")
 
-	// 测试无效溢出策略
+	// Test invalid spillover strategies
 	invalidConfig4 := types.PerformanceConfig{
 		BufferConfig: types.BufferConfig{
 			DataChannelSize:   100,
@@ -794,7 +794,7 @@ func TestStreamFactory_ValidatePerformanceConfig(t *testing.T) {
 	assert.Error(t, err4)
 	assert.Contains(t, err4.Error(), "invalid overflow strategy")
 
-	// 测试空策略（应该有效）
+	// Test-Void Strategy (Should Be Effective)
 	emptyStrategyConfig := types.PerformanceConfig{
 		BufferConfig: types.BufferConfig{
 			DataChannelSize:   100,
@@ -812,7 +812,7 @@ func TestStreamFactory_ValidatePerformanceConfig(t *testing.T) {
 	assert.NoError(t, err5)
 }
 
-// TestStream_ErrorHandling 测试错误处理场景
+// TestStream_ErrorHandling Test error handling scenarios
 func TestStream_ErrorHandling(t *testing.T) {
 	config := types.Config{
 		SimpleFields: []string{"device", "temperature"},
@@ -831,22 +831,22 @@ func TestStream_ErrorHandling(t *testing.T) {
 		}
 	}()
 
-	// 测试数据
+	// Test data
 	dataMap := map[string]any{
 		"device":      "sensor1",
 		"temperature": 25.0,
 	}
 	result := make(map[string]any)
 
-	// 测试无效表达式处理
+	// Handling of invalid expressions during testing
 	stream.processExpressionFieldFallback("invalid_expr", dataMap, result)
 	assert.Nil(t, result["invalid_expr"])
 
-	// 测试无效函数调用
+	// Invalid function call to test
 	_, _ = stream.executeFunction("INVALID_FUNC()", dataMap)
-	// 某些无效函数可能不会返回错误，这是正常行为
+	// Some invalid functions may not return errors, which is normal behavior
 
-	// 测试无效参数解析
+	// Analysis of invalid test parameters
 	_, _ = stream.parseFunctionArgs("INVALID_FUNC(invalid)", dataMap)
-	// 某些无效参数可能不会返回错误，这是正常行为
+	// Some invalid parameters may not return errors, which is normal behavior
 }

@@ -11,7 +11,7 @@ import (
 )
 
 func TestBasicFunctionRegistry(t *testing.T) {
-	// 测试基本函数注册
+	// Test basic function registration
 	tests := []struct {
 		name         string
 		functionName string
@@ -35,7 +35,7 @@ func TestBasicFunctionRegistry(t *testing.T) {
 		})
 	}
 
-	// 测试不存在的函数
+	// Test functions that don't exist
 	_, exists := Get("nonexistent")
 	assert.False(t, exists, "nonexistent function should not be found")
 }
@@ -45,7 +45,7 @@ func TestNewMathFunctions(t *testing.T) {
 		Data: map[string]any{},
 	}
 
-	// 表驱动测试用例
+	// Table-driven test cases
 	tests := []struct {
 		name         string
 		functionName string
@@ -53,7 +53,7 @@ func TestNewMathFunctions(t *testing.T) {
 		expected     any
 		expectError  bool
 		errorMsg     string
-		delta        float64 // 用于浮点数比较的精度
+		delta        float64 // Accuracy for floating-point comparison
 	}{
 		// Log function tests
 		{"log valid", "log", []any{10.0}, 1.0, false, "", 1e-10},
@@ -114,7 +114,7 @@ func TestNewMathFunctions(t *testing.T) {
 		})
 	}
 
-	// 特殊测试：rand函数（因为结果是随机的）
+	// Special test: rand function (since the result is random)
 	t.Run("rand function", func(t *testing.T) {
 		fn, exists := Get("rand")
 		assert.True(t, exists)
@@ -134,7 +134,7 @@ func TestFunctionExecution(t *testing.T) {
 		Data: map[string]any{},
 	}
 
-	// 函数执行测试用例
+	// The function executes test cases
 	tests := []struct {
 		name         string
 		functionName string
@@ -142,7 +142,7 @@ func TestFunctionExecution(t *testing.T) {
 		expected     any
 		expectError  bool
 	}{
-		// 数学函数
+		// Mathematical functions
 		{"abs with positive", "abs", []any{5.5}, 5.5, false},
 		{"abs with negative", "abs", []any{-5.5}, 5.5, false},
 		{"abs with zero", "abs", []any{0}, 0.0, false},
@@ -151,12 +151,12 @@ func TestFunctionExecution(t *testing.T) {
 		{"sqrt with zero", "sqrt", []any{0}, 0.0, false},
 		{"sqrt with negative", "sqrt", []any{-1}, nil, true},
 
-		// 时间日期函数
+		// Time-date function
 		{"now basic", "now", []any{}, time.Now().Unix(), false},
 		{"current_time basic", "current_time", []any{}, time.Now().Format("15:04:05"), false},
 		{"current_date basic", "current_date", []any{}, time.Now().Format("2006-01-02"), false},
 
-		// 新增数学函数测试
+		// Added mathematical function tests
 		{"acos valid", "acos", []any{0.5}, math.Acos(0.5), false},
 		{"acos invalid", "acos", []any{2.0}, nil, true},
 		{"asin valid", "asin", []any{0.5}, math.Asin(0.5), false},
@@ -178,7 +178,7 @@ func TestFunctionExecution(t *testing.T) {
 		{"ln invalid", "ln", []any{-1.0}, nil, true},
 		{"power valid", "power", []any{2.0, 3.0}, 8.0, false},
 
-		// 字符串函数
+		// String function
 		{"concat basic", "concat", []any{"hello", " ", "world"}, "hello world", false},
 		{"concat single", "concat", []any{"hello"}, "hello", false},
 		{"concat numbers", "concat", []any{1, 2, 3}, "123", false},
@@ -189,7 +189,7 @@ func TestFunctionExecution(t *testing.T) {
 		{"lower basic", "lower", []any{"HELLO"}, "hello", false},
 		{"lower mixed", "lower", []any{"Hello World"}, "hello world", false},
 
-		// 转换函数
+		// Conversion function
 		{"cast to int64", "cast", []any{"123", "int64"}, int64(123), false},
 		{"cast to float64", "cast", []any{"123.45", "float64"}, 123.45, false},
 		{"cast to string", "cast", []any{123, "string"}, "123", false},
@@ -212,7 +212,7 @@ func TestFunctionExecution(t *testing.T) {
 		{"decode invalid base64", "decode", []any{"invalid!", "base64"}, nil, true},
 		{"decode invalid hex", "decode", []any{"invalid!", "hex"}, nil, true},
 
-		// 聚合函数
+		// Aggregate function
 		{"sum basic", "sum", []any{1, 2, 3}, 6.0, false},
 		{"sum float", "sum", []any{1.5, 2.5}, 4.0, false},
 		{"avg basic", "avg", []any{1, 2, 3}, 2.0, false},
@@ -220,17 +220,17 @@ func TestFunctionExecution(t *testing.T) {
 		{"max basic", "max", []any{3, 1, 2}, 3.0, false},
 		{"count basic", "count", []any{1, 2, 3, 4, 5}, int64(5), false},
 
-		// 错误情况
+		// Error case
 		{"hex2dec invalid", "hex2dec", []any{"xyz"}, nil, true},
 
-		// 字符串函数
+		// String function
 		{"trim basic", "trim", []any{"  hello world  "}, "hello world", false},
 		{"trim empty", "trim", []any{""}, "", false},
 		{"format number 2 decimals", "format", []any{123.456, "0.00"}, "123.46", false},
 		{"format number 0 decimals", "format", []any{123.456, "0"}, "123", false},
 		{"format string only", "format", []any{"hello"}, "hello", false},
 
-		// 新增的聚合函数
+		// A new aggregation function
 		{"collect basic", "collect", []any{1, 2, 3}, []any{1, 2, 3}, false},
 		{"last_value basic", "last_value", []any{1, 2, 3, 4}, 4, false},
 		{"merge_agg basic", "merge_agg", []any{"a", "b", "c"}, "a,b,c", false},
@@ -238,8 +238,6 @@ func TestFunctionExecution(t *testing.T) {
 		{"deduplicate basic", "deduplicate", []any{1, 2, 2, 3, 3, 3}, []any{1, 2, 3}, false},
 		{"var basic", "var", []any{1.0, 2.0, 3.0, 4.0, 5.0}, 2.0, false},
 		{"vars basic", "vars", []any{1.0, 2.0, 3.0, 4.0, 5.0}, 2.5, false},
-
-
 	}
 
 	for _, tt := range tests {
@@ -267,7 +265,7 @@ func TestFunctionExecution(t *testing.T) {
 						}
 					case int64:
 						if tt.functionName == "now" {
-							// now 返回 time.Time，只校验类型
+							// now returns time.Time, only type check
 							_, ok := result.(time.Time)
 							assert.True(t, ok, "now function should return time.Time")
 						} else {
@@ -275,7 +273,7 @@ func TestFunctionExecution(t *testing.T) {
 						}
 					case string:
 						if tt.functionName == "current_time" || tt.functionName == "current_date" {
-							// 对于时间日期函数，我们只检查格式是否正确
+							// For the time-date function, we only check whether the format is correct
 							resultStr, ok := result.(string)
 							assert.True(t, ok, "%s function should return string", tt.functionName)
 							if tt.functionName == "current_time" {
@@ -298,7 +296,7 @@ func TestFunctionExecution(t *testing.T) {
 }
 
 func TestFunctionValidation(t *testing.T) {
-	// 参数验证测试用例
+	// Parameter validation test cases
 	tests := []struct {
 		name         string
 		functionName string
@@ -306,31 +304,31 @@ func TestFunctionValidation(t *testing.T) {
 		expectError  bool
 		description  string
 	}{
-		// abs 函数 - 需要1个参数
+		// abs function - requires 1 parameter
 		{"abs no args", "abs", []any{}, true, "abs requires 1 argument"},
 		{"abs too many args", "abs", []any{1.0, 2.0}, true, "abs accepts only 1 argument"},
 		{"abs correct args", "abs", []any{1.0}, false, "abs should accept 1 argument"},
 
-		// 时间日期函数参数验证
+		// Time and date function parameter verification
 		{"current_time with args", "current_time", []any{1}, true, "current_time should not accept arguments"},
 		{"current_date with args", "current_date", []any{1}, true, "current_date should not accept arguments"},
 
-		// concat 函数 - 需要至少1个参数
+		// concat function - requires at least 1 parameter
 		{"concat no args", "concat", []any{}, true, "concat requires at least 1 argument"},
 		{"concat one arg", "concat", []any{"hello"}, false, "concat should accept 1 argument"},
 		{"concat multiple args", "concat", []any{"a", "b", "c"}, false, "concat should accept multiple arguments"},
 
-		// cast 函数 - 需要恰好2个参数
+		// cast function - requires exactly 2 parameters
 		{"cast no args", "cast", []any{}, true, "cast requires 2 arguments"},
 		{"cast one arg", "cast", []any{"123"}, true, "cast requires 2 arguments"},
 		{"cast correct args", "cast", []any{"123", "int64"}, false, "cast should accept 2 arguments"},
 		{"cast too many args", "cast", []any{"123", "int64", "extra"}, true, "cast accepts only 2 arguments"},
 
-		// now 函数 - 不需要参数
+		// now function - no parameters required
 		{"now no args", "now", []any{}, false, "now should accept no arguments"},
 		{"now with args", "now", []any{1}, true, "now should not accept arguments"},
 
-		// 新增数学函数参数验证
+		// Added mathematical function parameter validation
 		{"acos no args", "acos", []any{}, true, "acos requires 1 argument"},
 		{"acos too many args", "acos", []any{1.0, 2.0}, true, "acos accepts only 1 argument"},
 		{"atan2 no args", "atan2", []any{}, true, "atan2 requires 2 arguments"},
@@ -345,7 +343,7 @@ func TestFunctionValidation(t *testing.T) {
 		{"power one arg", "power", []any{2.0}, true, "power requires 2 arguments"},
 		{"power too many args", "power", []any{2.0, 3.0, 4.0}, true, "power accepts only 2 arguments"},
 
-		// 转换函数参数验证
+		// Transform function parameters for verification
 		{"encode no args", "encode", []any{}, true, "encode requires 2 arguments"},
 		{"encode one arg", "encode", []any{"hello"}, true, "encode requires 2 arguments"},
 		{"encode three args", "encode", []any{"hello", "base64", "extra"}, true, "encode requires exactly 2 arguments"},
@@ -357,7 +355,7 @@ func TestFunctionValidation(t *testing.T) {
 		{"decode invalid input type", "decode", []any{123, "base64"}, true, "decode input must be a string"},
 		{"decode invalid format type", "decode", []any{"aGVsbG8=", 123}, true, "decode format must be a string"},
 
-		// 新增函数的验证测试
+		// Added function validation tests
 		{"trim no args", "trim", []any{}, true, "function trim requires at least 1 arguments"},
 		{"trim too many args", "trim", []any{"hello", "world"}, true, "function trim accepts at most 1 arguments"},
 		{"format too many args", "format", []any{"hello", "pattern", "locale", "extra"}, true, "function format accepts at most 3 arguments"},
@@ -383,7 +381,7 @@ func TestFunctionValidation(t *testing.T) {
 }
 
 func TestFunctionTypes(t *testing.T) {
-	// 函数类型分类测试
+	// Function type classification test
 	tests := []struct {
 		functionType FunctionType
 		functions    []string
@@ -406,7 +404,7 @@ func TestFunctionTypes(t *testing.T) {
 			assert.GreaterOrEqual(t, len(functions), len(tt.functions),
 				"should have at least %d functions of type %s", len(tt.functions), tt.functionType)
 
-			// 验证特定函数存在
+			// Verify the existence of specific functions
 			functionNames := make(map[string]bool)
 			for _, fn := range functions {
 				functionNames[fn.GetName()] = true
@@ -421,7 +419,7 @@ func TestFunctionTypes(t *testing.T) {
 }
 
 func TestCustomFunction(t *testing.T) {
-	// 注册自定义函数
+	// Register custom functions
 	err := RegisterCustomFunction("double2", TypeCustom, "自定义函数", "将数值乘以2", 1, 1,
 		func(ctx *FunctionContext, args []any) (any, error) {
 			val := cast.ToFloat64(args[0])
@@ -429,7 +427,7 @@ func TestCustomFunction(t *testing.T) {
 		})
 	assert.NoError(t, err)
 
-	// 测试自定义函数
+	// Test custom functions
 	tests := []struct {
 		name     string
 		args     []any
@@ -456,7 +454,7 @@ func TestCustomFunction(t *testing.T) {
 		})
 	}
 
-	// 清理
+	// Cleanup
 	Unregister("double2")
 }
 
@@ -465,7 +463,7 @@ func TestComplexFunctionCombinations(t *testing.T) {
 		Data: map[string]any{},
 	}
 
-	// 测试复杂函数组合
+	// Test complex function combinations
 	tests := []struct {
 		name        string
 		description string
@@ -525,7 +523,7 @@ func TestComplexFunctionCombinations(t *testing.T) {
 	}
 }
 
-// TestCaseInsensitiveFunctions 测试函数大小写不敏感
+// TestCaseInsensitiveFunctions: Case-insensitive test functions
 func TestCaseInsensitiveFunctions(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -559,7 +557,7 @@ func TestCaseInsensitiveFunctions(t *testing.T) {
 	}
 }
 
-// TestConcatFunctionCaseInsensitive 测试CONCAT函数的大小写不敏感执行
+// TestConcatFunctionCaseInsensitive Executes the case-insensitive test for the CONCAT function
 func TestConcatFunctionCaseInsensitive(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -589,13 +587,13 @@ func TestConcatFunctionCaseInsensitive(t *testing.T) {
 	}
 }
 
-// TestStringFunctionsCaseInsensitive 测试所有字符串函数的大小写不敏感
+// TestStringFunctionsCaseInsensitive tests all string functions for case insensitivity
 func TestStringFunctionsCaseInsensitive(t *testing.T) {
 	ctx := &FunctionContext{
 		Data: make(map[string]any),
 	}
 
-	// 测试UPPER函数
+	// Test the UPPER function
 	t.Run("UPPER函数大小写不敏感", func(t *testing.T) {
 		functionNames := []string{"upper", "UPPER", "Upper", "uPpEr"}
 		for _, name := range functionNames {
@@ -608,7 +606,7 @@ func TestStringFunctionsCaseInsensitive(t *testing.T) {
 		}
 	})
 
-	// 测试LOWER函数
+	// Test the LOWER function
 	t.Run("LOWER函数大小写不敏感", func(t *testing.T) {
 		functionNames := []string{"lower", "LOWER", "Lower", "lOwEr"}
 		for _, name := range functionNames {
@@ -621,7 +619,7 @@ func TestStringFunctionsCaseInsensitive(t *testing.T) {
 		}
 	})
 
-	// 测试LENGTH函数
+	// Test the LENGTH function
 	t.Run("LENGTH函数大小写不敏感", func(t *testing.T) {
 		functionNames := []string{"length", "LENGTH", "Length", "lEnGtH"}
 		for _, name := range functionNames {
@@ -634,7 +632,7 @@ func TestStringFunctionsCaseInsensitive(t *testing.T) {
 		}
 	})
 
-	// 测试TRIM函数
+	// Test the TRIM function
 	t.Run("TRIM函数大小写不敏感", func(t *testing.T) {
 		functionNames := []string{"trim", "TRIM", "Trim", "tRiM"}
 		for _, name := range functionNames {
@@ -648,13 +646,13 @@ func TestStringFunctionsCaseInsensitive(t *testing.T) {
 	})
 }
 
-// TestMathFunctionsCaseInsensitive 测试数学函数的大小写不敏感
+// TestMathFunctionsCaseInsensitive tests that math functions are case-insensitive
 func TestMathFunctionsCaseInsensitive(t *testing.T) {
 	ctx := &FunctionContext{
 		Data: make(map[string]any),
 	}
 
-	// 测试ABS函数
+	// Testing the ABS function
 	t.Run("ABS函数大小写不敏感", func(t *testing.T) {
 		functionNames := []string{"abs", "ABS", "Abs", "aBs"}
 		for _, name := range functionNames {
@@ -667,7 +665,7 @@ func TestMathFunctionsCaseInsensitive(t *testing.T) {
 		}
 	})
 
-	// 测试SQRT函数
+	// Test the SQRT function
 	t.Run("SQRT函数大小写不敏感", func(t *testing.T) {
 		functionNames := []string{"sqrt", "SQRT", "Sqrt", "sQrT"}
 		for _, name := range functionNames {
@@ -681,9 +679,9 @@ func TestMathFunctionsCaseInsensitive(t *testing.T) {
 	})
 }
 
-// TestAggregationFunctionsCaseInsensitive 测试聚合函数的大小写不敏感
+// TestAggregationFunctionsCaseInsensitive The case insensitive of the test aggregation function
 func TestAggregationFunctionsCaseInsensitive(t *testing.T) {
-	// 测试SUM函数
+	// Test the SUM function
 	t.Run("SUM函数大小写不敏感", func(t *testing.T) {
 		functionNames := []string{"sum", "SUM", "Sum", "sUm"}
 		for _, name := range functionNames {
@@ -693,7 +691,7 @@ func TestAggregationFunctionsCaseInsensitive(t *testing.T) {
 		}
 	})
 
-	// 测试AVG函数
+	// Testing the AVG function
 	t.Run("AVG函数大小写不敏感", func(t *testing.T) {
 		functionNames := []string{"avg", "AVG", "Avg", "aVg"}
 		for _, name := range functionNames {
@@ -703,7 +701,7 @@ func TestAggregationFunctionsCaseInsensitive(t *testing.T) {
 		}
 	})
 
-	// 测试COUNT函数
+	// Test the COUNT function
 	t.Run("COUNT函数大小写不敏感", func(t *testing.T) {
 		functionNames := []string{"count", "COUNT", "Count", "cOuNt"}
 		for _, name := range functionNames {
@@ -714,9 +712,9 @@ func TestAggregationFunctionsCaseInsensitive(t *testing.T) {
 	})
 }
 
-// TestFunctionAliases 测试函数别名功能
+// TestFunctionAliases TestFunction aliases
 func TestFunctionAliases(t *testing.T) {
-	// 测试 power 函数的 pow 别名
+	// Test the pow alias of the Power function
 	powerFunc, exists := Get("power")
 	if !exists {
 		t.Fatal("power function not found")
@@ -727,12 +725,12 @@ func TestFunctionAliases(t *testing.T) {
 		t.Fatal("pow alias not found")
 	}
 
-	// 验证别名指向同一个函数实例
+	// Verify that the alias points to the same function instance
 	if powerFunc != powFunc {
 		t.Error("pow alias should point to the same function as power")
 	}
 
-	// 测试 length 函数的 len 别名
+	// Test the len alias of the length function
 	lengthFunc, exists := Get("length")
 	if !exists {
 		t.Fatal("length function not found")
@@ -743,12 +741,12 @@ func TestFunctionAliases(t *testing.T) {
 		t.Fatal("len alias not found")
 	}
 
-	// 验证别名指向同一个函数实例
+	// Verify that the alias points to the same function instance
 	if lengthFunc != lenFunc {
 		t.Error("len alias should point to the same function as length")
 	}
 
-	// 测试 ceiling 函数的 ceil 别名
+	// Test the ceil alias for the ceiling function
 	ceilingFunc, exists := Get("ceiling")
 	if !exists {
 		t.Fatal("ceiling function not found")
@@ -759,12 +757,12 @@ func TestFunctionAliases(t *testing.T) {
 		t.Fatal("ceil alias not found")
 	}
 
-	// 验证别名指向同一个函数实例
+	// Verify that the alias points to the same function instance
 	if ceilingFunc != ceilFunc {
 		t.Error("ceil alias should point to the same function as ceiling")
 	}
 
-	// 验证别名列表
+	// Verify the aliases list
 	aliases := powerFunc.GetAliases()
 	if len(aliases) != 1 || aliases[0] != "pow" {
 		t.Errorf("Expected aliases [pow], got %v", aliases)
@@ -781,8 +779,8 @@ func TestFunctionAliases(t *testing.T) {
 	}
 }
 
-// TestFunctionAliasExecution 测试通过别名执行函数
-// TestExecuteFunction 测试Execute函数的各种场景
+// TestFunctionAliasExecution executes the function by using an alias
+// TestExecuteFunction tests various scenarios for execute
 func TestExecuteFunction(t *testing.T) {
 	ctx := &FunctionContext{
 		Data: map[string]any{
@@ -791,65 +789,65 @@ func TestExecuteFunction(t *testing.T) {
 		},
 	}
 
-	// 测试正常执行
+	// The test was performed normally
 	result, err := Execute("abs", ctx, []any{-5})
 	assert.NoError(t, err)
 	assert.Equal(t, 5.0, result)
 
-	// 测试函数不存在
+	// The test function does not exist
 	result, err = Execute("nonexistent_function", ctx, []any{1})
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "function nonexistent_function not found")
 
-	// 测试参数验证失败
+	// Test parameter verification failed
 	result, err = Execute("abs", ctx, []any{})
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "validation failed")
 
-	// 测试参数过多
+	// Too many test parameters
 	result, err = Execute("abs", ctx, []any{1, 2, 3})
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "validation failed")
 }
 
-// TestCustomFunctionValidate 测试CustomFunction的Validate方法
+// TestCustomFunctionValidate tests the Validate method of CustomFunction
 func TestCustomFunctionValidate(t *testing.T) {
-	// 注册一个自定义函数
+	// Register a custom function
 	err := RegisterCustomFunction("test_custom", TypeMath, "test", "test function", 1, 2,
 		func(ctx *FunctionContext, args []any) (any, error) {
 			return args[0], nil
 		})
 	assert.NoError(t, err)
 
-	// 获取自定义函数
+	// Get the custom function
 	fn, exists := Get("test_custom")
 	assert.True(t, exists)
 
-	// 测试参数数量正确
+	// The number of test parameters is correct
 	err = fn.Validate([]any{1})
 	assert.NoError(t, err)
 
 	err = fn.Validate([]any{1, 2})
 	assert.NoError(t, err)
 
-	// 测试参数数量不足
+	// Insufficient number of test parameters
 	err = fn.Validate([]any{})
 	assert.Error(t, err)
 
-	// 测试参数数量过多
+	// Too many test parameters
 	err = fn.Validate([]any{1, 2, 3})
 	assert.Error(t, err)
 
-	// 清理
+	// Cleanup
 	Unregister("test_custom")
 }
 
-// TestRegisterCustomFunctionErrors 测试RegisterCustomFunction的错误情况
+// TestRegisterCustomFunctionErrors Tests for RegisterCustomFunction errors
 func TestRegisterCustomFunctionErrors(t *testing.T) {
-	// 测试空函数名
+	// The test empty function name
 	err := RegisterCustomFunction("", TypeMath, "test", "test function", 1, 2,
 		func(ctx *FunctionContext, args []any) (any, error) {
 			return nil, nil
@@ -857,21 +855,21 @@ func TestRegisterCustomFunctionErrors(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "function name cannot be empty")
 
-	// 测试正常注册
+	// Test normal registration
 	err = RegisterCustomFunction("valid_custom", TypeMath, "test", "test function", 1, 2,
 		func(ctx *FunctionContext, args []any) (any, error) {
 			return args[0], nil
 		})
 	assert.NoError(t, err)
 
-	// 清理
+	// Cleanup
 	Unregister("valid_custom")
 }
 
 func TestFunctionAliasExecution(t *testing.T) {
 	ctx := &FunctionContext{}
 
-	// 测试 pow 别名执行
+	// Test pow alias execution
 	result, err := Execute("pow", ctx, []any{2.0, 3.0})
 	if err != nil {
 		t.Fatalf("pow execution failed: %v", err)
@@ -880,7 +878,7 @@ func TestFunctionAliasExecution(t *testing.T) {
 		t.Errorf("Expected 8.0, got %v", result)
 	}
 
-	// 测试 len 别名执行
+	// Test len alias execution
 	result, err = Execute("len", ctx, []any{"hello"})
 	if err != nil {
 		t.Fatalf("len execution failed: %v", err)
@@ -889,7 +887,7 @@ func TestFunctionAliasExecution(t *testing.T) {
 		t.Errorf("Expected 5, got %v", result)
 	}
 
-	// 测试 ceil 别名执行
+	// Test ceil alias execution
 	result, err = Execute("ceil", ctx, []any{3.2})
 	if err != nil {
 		t.Fatalf("ceil execution failed: %v", err)

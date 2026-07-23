@@ -9,7 +9,7 @@ import (
 func TestStdDevFunction(t *testing.T) {
 	fn := NewStdDevFunction()
 	ctx := &FunctionContext{}
-	// Execute 批量
+	// Execute batch execution
 	result, err := fn.Execute(ctx, []any{1.0, 2.0, 3.0, 4.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
@@ -128,7 +128,7 @@ func TestMedianFunction(t *testing.T) {
 	fn := NewMedianFunction()
 	ctx := &FunctionContext{}
 
-	// 测试奇数个元素
+	// Test odd elements
 	result, err := fn.Execute(ctx, []any{1.0, 3.0, 2.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
@@ -137,7 +137,7 @@ func TestMedianFunction(t *testing.T) {
 		t.Errorf("Execute median result = %v, want 2.0", result)
 	}
 
-	// 测试偶数个元素
+	// Test an even number of elements
 	result, err = fn.Execute(ctx, []any{1.0, 3.0, 2.0, 4.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
@@ -146,7 +146,7 @@ func TestMedianFunction(t *testing.T) {
 		t.Errorf("Execute median result = %v, want 2.5", result)
 	}
 
-	// 测试单个元素
+	// Test individual elements
 	result, err = fn.Execute(ctx, []any{5.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
@@ -160,7 +160,7 @@ func TestPercentileFunction(t *testing.T) {
 	fn := NewPercentileFunction()
 	ctx := &FunctionContext{}
 
-	// 测试50%分位数
+	// Test 50% of quantiles
 	result, err := fn.Execute(ctx, []any{0.5, 1.0, 2.0, 3.0, 4.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
@@ -169,7 +169,7 @@ func TestPercentileFunction(t *testing.T) {
 		t.Errorf("Execute percentile result = %v, want 2.0", result)
 	}
 
-	// 测试25%分位数
+	// Testing 25% percentiles
 	result, err = fn.Execute(ctx, []any{0.25, 1.0, 2.0, 3.0, 4.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
@@ -178,7 +178,7 @@ func TestPercentileFunction(t *testing.T) {
 		t.Errorf("Execute percentile result = %v, want 1.0", result)
 	}
 
-	// 测试75%分位数
+	// Testing 75% percentiles
 	result, err = fn.Execute(ctx, []any{0.75, 1.0, 2.0, 3.0, 4.0})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
@@ -192,7 +192,7 @@ func TestCollectFunction(t *testing.T) {
 	fn := NewCollectFunction()
 	ctx := &FunctionContext{}
 
-	// 测试Execute方法
+	// Test the Execute method
 	result, err := fn.Execute(ctx, []any{"a", "b", "c"})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
@@ -202,7 +202,7 @@ func TestCollectFunction(t *testing.T) {
 		t.Errorf("Execute collect result = %v, want %v", result, expected)
 	}
 
-	// 测试聚合器方法
+	// Test aggregator methods
 	agg := fn.New().(*CollectFunction)
 	agg.Add("x")
 	agg.Add("y")
@@ -213,14 +213,14 @@ func TestCollectFunction(t *testing.T) {
 		t.Errorf("Agg collect result = %v, want %v", res, expected)
 	}
 
-	// 测试Reset
+	// Test Reset
 	agg.Reset()
 	res = agg.Result().([]any)
 	if len(res) != 0 {
 		t.Errorf("Reset failed, result length = %d, want 0", len(res))
 	}
 
-	// 测试Clone
+	// Testing Clone
 	clone := agg.Clone().(*CollectFunction)
 	if !reflect.DeepEqual(clone.values, agg.values) {
 		t.Errorf("Clone failed")
@@ -231,7 +231,7 @@ func TestLastValueFunction(t *testing.T) {
 	fn := NewLastValueFunction()
 	ctx := &FunctionContext{}
 
-	// 测试Execute方法
+	// Test the Execute method
 	result, err := fn.Execute(ctx, []any{"a", "b", "c"})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
@@ -240,7 +240,7 @@ func TestLastValueFunction(t *testing.T) {
 		t.Errorf("Execute last_value result = %v, want c", result)
 	}
 
-	// 测试聚合器方法
+	// Test aggregator methods
 	agg := fn.New().(*LastValueFunction)
 	agg.Add("x")
 	agg.Add("y")
@@ -250,14 +250,14 @@ func TestLastValueFunction(t *testing.T) {
 		t.Errorf("Agg last_value result = %v, want z", res)
 	}
 
-	// 测试Reset
+	// Test Reset
 	agg.Reset()
 	res = agg.Result()
 	if res != nil {
 		t.Errorf("Reset failed, result = %v, want nil", res)
 	}
 
-	// 测试Clone
+	// Testing Clone
 	clone := agg.Clone().(*LastValueFunction)
 	if clone.lastValue != agg.lastValue {
 		t.Errorf("Clone failed")
@@ -268,7 +268,7 @@ func TestMergeAggFunction(t *testing.T) {
 	fn := NewMergeAggFunction()
 	ctx := &FunctionContext{}
 
-	// 测试Execute方法
+	// Test the Execute method
 	result, err := fn.Execute(ctx, []any{"a", "b", "c"})
 	if err != nil {
 		t.Errorf("Execute error: %v", err)
@@ -278,7 +278,7 @@ func TestMergeAggFunction(t *testing.T) {
 		t.Errorf("Execute merge_agg result = %v, want %v", result, expected)
 	}
 
-	// 测试聚合器方法
+	// Test aggregator methods
 	agg := fn.New().(*MergeAggFunction)
 	agg.Add("x")
 	agg.Add("y")
@@ -289,14 +289,14 @@ func TestMergeAggFunction(t *testing.T) {
 		t.Errorf("Agg merge_agg result = %v, want %v", res, expected)
 	}
 
-	// 测试Reset
+	// Test Reset
 	agg.Reset()
 	res2 := agg.Result()
 	if res2 != nil {
 		t.Errorf("Reset failed, result = %v, want nil", res2)
 	}
 
-	// 测试Clone
+	// Testing Clone
 	clone := agg.Clone().(*MergeAggFunction)
 	if !reflect.DeepEqual(clone.values, agg.values) {
 		t.Errorf("Clone failed")
@@ -304,7 +304,7 @@ func TestMergeAggFunction(t *testing.T) {
 }
 
 func TestAggregatorFunctions(t *testing.T) {
-	// 测试StdDevAggregatorFunction
+	// Test StdDevAggregatorFunction
 	stdDevAgg := NewStdDevAggregatorFunction()
 	agg := stdDevAgg.New().(*StdDevAggregatorFunction)
 	agg.Add(1.0)
@@ -324,7 +324,7 @@ func TestAggregatorFunctions(t *testing.T) {
 		t.Errorf("StdDevAggregator Clone failed")
 	}
 
-	// 测试MedianAggregatorFunction
+	// Test MedianAggregatorFunction
 	medianAgg := NewMedianAggregatorFunction()
 	agg2 := medianAgg.New().(*MedianAggregatorFunction)
 	agg2.Add(1.0)
@@ -343,7 +343,7 @@ func TestAggregatorFunctions(t *testing.T) {
 		t.Errorf("MedianAggregator Clone failed")
 	}
 
-	// 测试PercentileAggregatorFunction
+	// Test the PercentileAggregatorFunction
 	percentileAgg := NewPercentileAggregatorFunction()
 	agg3 := percentileAgg.New().(*PercentileAggregatorFunction)
 	agg3.Add(1.0)
@@ -363,7 +363,7 @@ func TestAggregatorFunctions(t *testing.T) {
 		t.Errorf("PercentileAggregator Clone failed")
 	}
 
-	// 测试CollectAggregatorFunction
+	// Test CollectAggregatorFunction
 	collectAgg := NewCollectAggregatorFunction()
 	agg4 := collectAgg.New().(*CollectAggregatorFunction)
 	agg4.Add("a")
@@ -383,7 +383,7 @@ func TestAggregatorFunctions(t *testing.T) {
 		t.Errorf("CollectAggregator Clone failed")
 	}
 
-	// 测试LastValueAggregatorFunction
+	// Test the LastValueAggregatorFunction
 	lastValueAgg := NewLastValueAggregatorFunction()
 	agg5 := lastValueAgg.New().(*LastValueAggregatorFunction)
 	agg5.Add("a")
@@ -402,7 +402,7 @@ func TestAggregatorFunctions(t *testing.T) {
 		t.Errorf("LastValueAggregator Clone failed")
 	}
 
-	// 测试MergeAggAggregatorFunction
+	// Test MergeAggAggregatorFunction
 	mergeAggAgg := NewMergeAggAggregatorFunction()
 	agg6 := mergeAggAgg.New().(*MergeAggAggregatorFunction)
 	agg6.Add("a")
@@ -422,7 +422,7 @@ func TestAggregatorFunctions(t *testing.T) {
 		t.Errorf("MergeAggAggregator Clone failed")
 	}
 
-	// 测试StdDevSAggregatorFunction
+	// Test StdDevSAggregatorFunction
 	stdDevSAgg := NewStdDevSAggregatorFunction()
 	agg7 := stdDevSAgg.New().(*StdDevSAggregatorFunction)
 	agg7.Add(1.0)
@@ -442,12 +442,12 @@ func TestAggregatorFunctions(t *testing.T) {
 		t.Errorf("StdDevSAggregator Clone failed")
 	}
 
-	// 测试DeduplicateAggregatorFunction
+	// Test DeduplicateAggregatorFunction
 	dedupAgg := NewDeduplicateAggregatorFunction()
 	agg8 := dedupAgg.New().(*DeduplicateAggregatorFunction)
 	agg8.Add("a")
 	agg8.Add("b")
-	agg8.Add("a") // 重复
+	agg8.Add("a") // Repeat
 	agg8.Add("c")
 	res8 := agg8.Result().([]any)
 	expected = []any{"a", "b", "c"}
@@ -463,7 +463,7 @@ func TestAggregatorFunctions(t *testing.T) {
 		t.Errorf("DeduplicateAggregator Clone failed")
 	}
 
-	// 测试VarAggregatorFunction
+	// Test VarAggregatorFunction
 	varAgg := NewVarAggregatorFunction()
 	agg9 := varAgg.New().(*VarAggregatorFunction)
 	agg9.Add(1.0)
@@ -483,7 +483,7 @@ func TestAggregatorFunctions(t *testing.T) {
 		t.Errorf("VarAggregator Clone failed")
 	}
 
-	// 测试VarSAggregatorFunction
+	// Test the VarSAggregatorFunction
 	varSAgg := NewVarSAggregatorFunction()
 	agg10 := varSAgg.New().(*VarSAggregatorFunction)
 	agg10.Add(1.0)
@@ -505,12 +505,12 @@ func TestAggregatorFunctions(t *testing.T) {
 }
 
 func TestAggregatorEdgeCases(t *testing.T) {
-	// PercentileAggregatorFunction Validate边界
+	// PercentileAggregatorFunction Validate boundary
 	agg := NewPercentileAggregatorFunction()
 	if err := agg.Validate([]any{1.0}); err == nil {
 		t.Error("PercentileAggregatorFunction.Validate should fail for insufficient args")
 	}
-	// 不再直接调用Execute避免panic
+	// No longer directly calling Execute to avoid panic
 	// _, err := agg.Execute(nil, []any{})
 	// if err == nil {
 	// 	t.Error("PercentileAggregatorFunction.Execute should fail for empty args")
@@ -519,7 +519,7 @@ func TestAggregatorEdgeCases(t *testing.T) {
 	agg2.Reset()
 	_ = agg2.Clone()
 
-	// CollectAggregatorFunction Validate/Execute边界
+	// CollectAggregatorFunction Validate/Execute boundary
 	agg3 := NewCollectAggregatorFunction()
 	if err := agg3.Validate([]any{}); err == nil {
 		t.Error("CollectAggregatorFunction.Validate should fail for insufficient args")
@@ -532,7 +532,7 @@ func TestAggregatorEdgeCases(t *testing.T) {
 	agg4.Reset()
 	_ = agg4.Clone()
 
-	// LastValueAggregatorFunction Validate/Execute边界
+	// LastValueAggregatorFunction Validate/Execute boundary
 	agg5 := NewLastValueAggregatorFunction()
 	if err := agg5.Validate([]any{}); err == nil {
 		t.Error("LastValueAggregatorFunction.Validate should fail for insufficient args")
@@ -545,7 +545,7 @@ func TestAggregatorEdgeCases(t *testing.T) {
 	agg6.Reset()
 	_ = agg6.Clone()
 
-	// MergeAggAggregatorFunction Validate/Execute边界
+	// MergeAggAggregatorFunction Validate/Execute boundary
 	agg7 := NewMergeAggAggregatorFunction()
 	if err := agg7.Validate([]any{}); err == nil {
 		t.Error("MergeAggAggregatorFunction.Validate should fail for insufficient args")
@@ -558,7 +558,7 @@ func TestAggregatorEdgeCases(t *testing.T) {
 	agg8.Reset()
 	_ = agg8.Clone()
 
-	// StdDevSAggregatorFunction Validate/Execute边界
+	// StdDevSAggregatorFunction Validate/Execute boundary
 	agg9 := NewStdDevSAggregatorFunction()
 	if err := agg9.Validate([]any{}); err == nil {
 		t.Error("StdDevSAggregatorFunction.Validate should fail for insufficient args")
@@ -571,7 +571,7 @@ func TestAggregatorEdgeCases(t *testing.T) {
 	agg10.Reset()
 	_ = agg10.Clone()
 
-	// DeduplicateAggregatorFunction Validate/Execute边界
+	// DeduplicateAggregatorFunction Validate/Execute boundary
 	agg11 := NewDeduplicateAggregatorFunction()
 	if err := agg11.Validate([]any{}); err == nil {
 		t.Error("DeduplicateAggregatorFunction.Validate should fail for insufficient args")
@@ -584,7 +584,7 @@ func TestAggregatorEdgeCases(t *testing.T) {
 	agg12.Reset()
 	_ = agg12.Clone()
 
-	// VarAggregatorFunction Validate/Execute边界
+	// VarAggregatorFunction Validate/Execute boundary
 	agg13 := NewVarAggregatorFunction()
 	if err := agg13.Validate([]any{}); err == nil {
 		t.Error("VarAggregatorFunction.Validate should fail for insufficient args")
@@ -597,7 +597,7 @@ func TestAggregatorEdgeCases(t *testing.T) {
 	agg14.Reset()
 	_ = agg14.Clone()
 
-	// VarSAggregatorFunction Validate/Execute边界
+	// VarSAggregatorFunction Validate/Execute boundary
 	agg15 := NewVarSAggregatorFunction()
 	if err := agg15.Validate([]any{}); err == nil {
 		t.Error("VarSAggregatorFunction.Validate should fail for insufficient args")

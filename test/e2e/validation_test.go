@@ -54,7 +54,7 @@ func TestFunctionValidationIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ssql := streamsql.New()
-		defer ssql.Stop()
+			defer ssql.Stop()
 			err := ssql.Execute(tt.sql)
 
 			if tt.expectError {
@@ -71,10 +71,10 @@ func TestFunctionValidationIntegration(t *testing.T) {
 
 func TestFunctionValidationWithCustomFunctions(t *testing.T) {
 	t.Parallel()
-	// 测试自定义函数注册后的验证
+	// Test the validation after custom function registration
 	sql := "SELECT custom_func(temperature) FROM stream"
 
-	// 在没有注册自定义函数时应该报错
+	// An error should occur when no custom function is registered
 	ssql := streamsql.New()
 	defer ssql.Stop()
 	err := ssql.Execute(sql)

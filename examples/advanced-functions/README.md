@@ -1,27 +1,27 @@
-# 高级自定义函数示例
+# Advanced custom function examples
 
-## 简介
+## Introduction
 
-展示StreamSQL自定义函数系统的高级特性，包括状态管理、缓存机制、性能优化等。
+Showcase advanced features of StreamSQL custom function systems, including state management, caching mechanisms, performance optimization, and more.
 
-## 功能演示
+## Feature Demonstration
 
-- 🏗️ **结构体方式实现**：完整的函数生命周期管理
-- 💾 **状态管理**：有状态函数的实现和使用
-- ⚡ **性能优化**：缓存机制和优化策略
-- 🛡️ **高级验证**：复杂参数验证和错误处理
-- 🧵 **线程安全**：并发环境下的安全实现
+- 🏗️ **Struct-based implementation**: Complete function lifecycle management
+- 💾 **State Management**: Implementation and use of stateful functions
+- ⚡ **Performance Optimization**: Caching mechanisms and optimization strategies
+- 🛡️ **Advanced Validation**: Complex parameter validation and error handling
+- 🧵 **Thread Safety**: Secure implementation in concurrent environments
 
-## 运行方式
+## Operating Mode
 
 ```bash
 cd examples/advanced-functions
 go run main.go
 ```
 
-## 代码亮点
+## Code Highlights
 
-### 1. 完整结构体实现
+### 1. Complete structural implementation
 ```go
 type AdvancedFunction struct {
     *functions.BaseFunction
@@ -31,16 +31,16 @@ type AdvancedFunction struct {
 }
 
 func (f *AdvancedFunction) Validate(args []interface{}) error {
-    // 自定义验证逻辑
+    // Custom verification logic
     return f.ValidateArgCount(args)
 }
 
 func (f *AdvancedFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
-    // 复杂的执行逻辑
+    // Complex execution logic
 }
 ```
 
-### 2. 状态管理
+### 2. Status management
 ```go
 type StatefulFunction struct {
     *functions.BaseFunction
@@ -48,44 +48,44 @@ type StatefulFunction struct {
     mutex   sync.Mutex
 }
 
-// 维护历史数据状态
+// Maintain the status of historical data
 func (f *StatefulFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
     f.mutex.Lock()
     defer f.mutex.Unlock()
     
-    // 更新状态
+    // Update status
     f.history = append(f.history, value)
     return f.calculate(), nil
 }
 ```
 
-### 3. 缓存优化
+### 3. Cache optimization
 ```go
 func (f *CachedFunction) Execute(ctx *functions.FunctionContext, args []interface{}) (interface{}, error) {
     key := f.generateKey(args)
     
-    // 检查缓存
+    // Check the cache
     if result, exists := f.getFromCache(key); exists {
         return result, nil
     }
     
-    // 计算并缓存
+    // Calculate and cache
     result := f.compute(args)
     f.setCache(key, result)
     return result, nil
 }
 ```
 
-## 高级特性
+## Advanced Features
 
-- **内存管理**：合理的资源分配和释放
-- **错误恢复**：异常情况的处理和恢复
-- **性能监控**：执行时间和资源使用统计
-- **热重载**：运行时函数更新和替换
+- **Memory Management**: Reasonable resource allocation and allocation
+- **Error Recovery**: Handling and restoring exceptions
+- **Performance Monitoring**: Execution time and resource usage statistics
+- **Hot-reloaded**: Runtime function updates and replacements
 
-## 适用场景
+## Applicable Scenarios
 
-- 🎯 **高性能应用**：需要极致性能优化的场景
-- 🔄 **状态跟踪**：需要维护历史状态的计算
-- 📈 **复杂算法**：机器学习、统计分析等
-- 🏢 **企业级系统**：生产环境的稳定性要求 
+- 🎯 **High-performance application**: Scenarios requiring extreme performance optimization
+- 🔄 **Status Tracking**: Calculations that require maintenance of historical status
+- 📈 **Complex algorithms**: machine learning, statistical analysis, etc
+- 🏢 **Enterprise-level system**: Stability requirements for production environments 

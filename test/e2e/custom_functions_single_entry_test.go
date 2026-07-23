@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 本文件验证：标量 / 聚合 / 分析三类自定义函数，各自只需 functions.Register 一个入口，
-// 即可端到端在 SQL 中生效——无需 aggregator.Register 或 RegisterAggregatorAdapter 二次注册。
-// 全局 registry 跨测试共享，函数名统一用 zz_ 前缀并 defer Unregister 清理，避免污染。
+// This document verifies: Scalar, Aggregation, and Analysis are three types of custom functions, each only requiring functions.Register a single entry point,
+// This allows end-to-end implementation in the SQL—no need for a aggregator.Register or RegisterAggregatorAdapter to register again.
+// Global registry is shared across tests, function names are uniformly prefixed with zz_ and defer unregister for cleanup to avoid contamination.
 
-// ===== 标量：RegisterCustomFunction 单入口 =====
+// ===== Scalar: RegisterCustomFunction Single Entry =====
 
 func TestSingleEntry_ScalarFunction(t *testing.T) {
 	require.NoError(t, functions.RegisterCustomFunction(
@@ -41,14 +41,14 @@ func TestSingleEntry_ScalarFunction(t *testing.T) {
 		require.Len(t, r, 1)
 		assert.Equal(t, 42.0, r[0]["d"])
 	case <-time.After(2 * time.Second):
-		t.Fatal("标量函数结果超时")
+		t.Fatal("Scalar function result timeout")
 	}
 }
 
-// ===== 聚合：实现 functions.AggregatorFunction + 只 functions.Register =====
+// ===== Aggregation: Implementing functions.AggregatorFunction + only functions.Register =====
 
-// zzMySum 完整实现 functions.AggregatorFunction，仅通过 functions.Register 注册，
-// 不调 aggregator.Register。证明聚合只需一个入口（adapter 由 registry 自动接通）。
+// zzMySum fully implements functions.AggregatorFunction, only through functions.Register,
+// Not tuned aggregator.Register. Proof aggregation requires only one entry point (the adapter is automatically enabled by the registry).
 type zzMySum struct {
 	*functions.BaseFunction
 	sum float64
@@ -59,7 +59,7 @@ func newZzMySum() *zzMySum {
 	return &zzMySum{BaseFunction: functions.NewBaseFunction("zz_my_sum", functions.TypeAggregation, "test", "custom sum", 1, -1)}
 }
 
-func (f *zzMySum) Validate(args []any) error                            { return f.ValidateArgCount(args) }
+func (f *zzMySum) Validate(args []any) error { return f.ValidateArgCount(args) }
 func (f *zzMySum) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
 	s := 0.0
 	for _, a := range args {
@@ -85,7 +85,7 @@ func (f *zzMySum) Result() any {
 	}
 	return f.sum
 }
-func (f *zzMySum) Reset()                                   { f.sum = 0; f.ok = false }
+func (f *zzMySum) Reset() { f.sum = 0; f.ok = false }
 func (f *zzMySum) Clone() functions.AggregatorFunction {
 	return &zzMySum{BaseFunction: f.BaseFunction, sum: f.sum, ok: f.ok}
 }
@@ -115,13 +115,13 @@ func TestSingleEntry_AggregateFunction(t *testing.T) {
 		assert.Equal(t, "d1", r[0]["device"])
 		assert.Equal(t, 6.0, r[0]["s"])
 	case <-time.After(2 * time.Second):
-		t.Fatal("聚合函数结果超时")
+		t.Fatal("The aggregate function result times out")
 	}
 }
 
-// ===== 分析：实现 functions.StatefulAnalytic + 只 functions.Register =====
+// ===== Analysis: Implementing functions.StatefulAnalytic + only functions.Register =====
 
-// zzMyPrev 是 lag 语义的自定义分析函数，仅通过 functions.Register 注册。
+// zzMyPrev is a custom analysis function for lag semantics, and only through functions.Register.
 type zzMyPrev struct {
 	*functions.BaseFunction
 }
@@ -130,7 +130,7 @@ func newZzMyPrev() *zzMyPrev {
 	return &zzMyPrev{BaseFunction: functions.NewBaseFunction("zz_my_prev", functions.TypeAnalytical, "test", "previous value", 1, 1)}
 }
 
-func (f *zzMyPrev) Validate(args []any) error                            { return f.ValidateArgCount(args) }
+func (f *zzMyPrev) Validate(args []any) error { return f.ValidateArgCount(args) }
 func (f *zzMyPrev) Execute(ctx *functions.FunctionContext, args []any) (any, error) {
 	return nil, fmt.Errorf("analytic function %q must be used with OVER", f.GetName())
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestNewLexer 测试词法分析器的创建
+// TestNewLexer creates a test lexical analyzer
 func TestNewLexer(t *testing.T) {
 	input := "SELECT * FROM table"
 	lexer := NewLexer(input)
@@ -28,7 +28,7 @@ func TestNewLexer(t *testing.T) {
 	}
 }
 
-// TestLexerBasicTokens 测试基本token的识别
+// TestLexerBasicTokens tests the recognition of basic tokens
 func TestLexerBasicTokens(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -64,7 +64,7 @@ func TestLexerBasicTokens(t *testing.T) {
 	}
 }
 
-// TestQuotedIdentifiers 测试反引号标识符的词法分析
+// TestQuotedIdentifiers tests the lexical analysis of backquoted identifiers
 func TestQuotedIdentifiers(t *testing.T) {
 	t.Run("基本反引号标识符", func(t *testing.T) {
 		lexer := NewLexer("`deviceId`")
@@ -100,7 +100,7 @@ func TestQuotedIdentifiers(t *testing.T) {
 	})
 }
 
-// TestStringLiterals 测试字符串常量的词法分析
+// TestStringLiterals: Lexical analysis of test string constants
 func TestStringLiterals(t *testing.T) {
 	t.Run("单引号字符串", func(t *testing.T) {
 		lexer := NewLexer("'hello world'")
@@ -129,7 +129,7 @@ func TestStringLiterals(t *testing.T) {
 	})
 }
 
-// TestLexerErrorHandling 测试词法分析器错误处理
+// TestLexerErrorHandling Error handling in the test lexer analyzer
 func TestLexerErrorHandling(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -148,7 +148,7 @@ func TestLexerErrorHandling(t *testing.T) {
 			errorRecovery := NewErrorRecovery(nil)
 			lexer.SetErrorRecovery(errorRecovery)
 
-			// 读取所有token直到EOF
+			// Read all tokens up to EOF
 			for {
 				token := lexer.NextToken()
 				if token.Type == TokenEOF {
@@ -156,21 +156,21 @@ func TestLexerErrorHandling(t *testing.T) {
 				}
 			}
 
-			// 应该有错误
+			// There should be errors
 			if !errorRecovery.HasErrors() {
 				t.Errorf("Expected errors for input: %s", test.input)
 			}
 		})
 	}
 
-	// 测试词法分析器的位置获取
+	// Test lexical analyzer location acquisition
 	lexer := NewLexer("SELECT * FROM table")
 	pos, line, column := lexer.GetPosition()
 	if pos < 0 || line < 1 || column < 0 {
 		t.Errorf("Invalid position: pos=%d, line=%d, column=%d", pos, line, column)
 	}
 
-	// 测试词法分析器的位置跟踪
+	// Test the lexical analyzer's position tracking
 	lexer = NewLexer("SELECT\n  *\nFROM\n  table")
 
 	// SELECT
@@ -198,7 +198,7 @@ func TestLexerErrorHandling(t *testing.T) {
 	}
 }
 
-// TestLexerOperators 测试操作符的词法分析
+// TestLexerOperators tests the lexical analysis of operators
 func TestLexerOperators(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -233,7 +233,7 @@ func TestLexerOperators(t *testing.T) {
 	}
 }
 
-// TestLexerNumbers 测试数字的词法分析
+// TestLexerNumbers tests the lexical analysis of numbers
 func TestLexerNumbers(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -260,7 +260,7 @@ func TestLexerNumbers(t *testing.T) {
 	}
 }
 
-// TestLexerIdentifiers 测试标识符的词法分析
+// TestLexerIdentifiers: Lexical analysis of test identifiers
 func TestLexerIdentifiers(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -288,9 +288,9 @@ func TestLexerIdentifiers(t *testing.T) {
 	}
 }
 
-// TestTokenTypes 测试Token类型
+// TestTokenTypes Test Token types
 func TestTokenTypes(t *testing.T) {
-	// 测试关键字token
+	// Test keyword tokens
 	keywordTests := []struct {
 		input    string
 		expected TokenType
@@ -324,7 +324,7 @@ func TestTokenTypes(t *testing.T) {
 	}
 }
 
-// TestLexerWhitespace 测试空白字符处理
+// TestLexerWhitespace tests whitespace character handling
 func TestLexerWhitespace(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -366,7 +366,7 @@ func TestLexerWhitespace(t *testing.T) {
 	}
 }
 
-// TestLexerComplexTokens 测试复杂token组合
+// TestLexerComplexTokens Tests complex token combinations
 func TestLexerComplexTokens(t *testing.T) {
 	tests := []struct {
 		name     string

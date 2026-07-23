@@ -133,9 +133,9 @@ func TestEventTimeTumblingLateData(t *testing.T) {
 	assert.Equal(t, 1, openWindows)
 }
 
-// 两次 late update 不得重复累计：第 2 次迟到更新只应新增本次迟到行，不能把第 1 次
-// 迟到行再算一遍。曾因 snapshotData 滚动合并 + tw.data 未驱逐迟到行，每次迟到更新都
-// 把前序迟到行从 tw.data 再读一遍 → COUNT 翻倍（3→4→6，应为 5）。
+// Two late updates must not be accumulated repeatedly: the second late update should only add the current late line; the first update cannot be added
+// If you're late, count again. Previously, because snapshotData rolled merge + tw.data failed to evict the late line, every late update was
+// Read the preorder delayed line from tw.data again, → COUNT doubles (3→4→6, should be 5).
 func TestEventTimeTumblingLateDataNoDoubleCount(t *testing.T) {
 	tw := newEventTimeTumbling(t, 2*time.Second, 500*time.Millisecond, 5*time.Second)
 	tw.Start()
@@ -146,7 +146,7 @@ func TestEventTimeTumblingLateDataNoDoubleCount(t *testing.T) {
 
 	tw.Add(etRow(base, 1))
 	tw.Add(etRow(base.Add(500*time.Millisecond), 2))
-	tw.Add(etRow(base.Add(3*time.Second), 3)) // 推进 watermark，触发 [base, base+2s)
+	tw.Add(etRow(base.Add(3*time.Second), 3)) // Advance watermark, trigger [base, base+2s)
 
 	recv := func() []types.Row {
 		t.Helper()
@@ -159,18 +159,18 @@ func TestEventTimeTumblingLateDataNoDoubleCount(t *testing.T) {
 		}
 	}
 
-	require.Len(t, recv(), 2) // 初始触发：原始 2 行
+	require.Len(t, recv(), 2) // Initial trigger: Original 2 lines
 
-	tw.Add(etRow(base.Add(250*time.Millisecond), 99)) // 第 1 次迟到
-	require.Len(t, recv(), 3)                          // 原始 2 + 迟到 1 = 3
+	tw.Add(etRow(base.Add(250*time.Millisecond), 99)) // The first time I was late
+	require.Len(t, recv(), 3)                         // Original 2 + late 1 = 3
 
-	tw.Add(etRow(base.Add(750*time.Millisecond), 88)) // 第 2 次迟到
-	require.Len(t, recv(), 4)                          // 原始 2 + e1 + e2 = 4（修复前=5，e1 被重复算）
+	tw.Add(etRow(base.Add(750*time.Millisecond), 88)) // Second late
+	require.Len(t, recv(), 4)                         // Original 2 + e1 + e2 = 4 (before repair = 5, e1 is counted repeatedly)
 }
 
-// W2: 释放锁做回调之前，currentSlot 必须已推进到下一窗口（且窗口已登记进 triggeredWindows）。
-// 否则释放锁期间并发 Add 会把迟到行孤立到已触发窗口。用回调里观察 currentSlot 确定性验证，
-// 无需复现竞态。
+// W2: Before releasing the lock to perform a callback, currentSlot must have been advanced to the next window (and the window has been registered into triggeredWindows).
+// Otherwise, during lock release, concurrent Add will isolate the delayed line to the triggered window. Verify determinism by observing currentSlot in callbacks,
+// No need to reproduce racing patterns.
 func TestEventTimeTumblingCurrentSlotAdvancedBeforeCallback(t *testing.T) {
 	tw := newEventTimeTumbling(t, 2*time.Second, 500*time.Millisecond, 5*time.Second)
 	size := 2 * time.Second
@@ -183,7 +183,7 @@ func TestEventTimeTumblingCurrentSlotAdvancedBeforeCallback(t *testing.T) {
 		cs := tw.currentSlot
 		open := len(tw.triggeredWindows)
 		tw.mu.RUnlock()
-		// 回调执行时：currentSlot 应已越过触发窗口，且窗口已登记为可接收迟到补发。
+		// When the callback is executed: currentSlot should have passed the trigger window, and the window has been registered as acceptable for late reshipment.
 		if cs != nil && !cs.Start.Before(triggeredEnd) && open > 0 {
 			atomic.StoreInt32(&advanced, 1)
 		}
@@ -192,7 +192,7 @@ func TestEventTimeTumblingCurrentSlotAdvancedBeforeCallback(t *testing.T) {
 	defer tw.Stop()
 
 	tw.Add(etRow(base, 1))
-	tw.Add(etRow(base.Add(3 * time.Second), 2)) // 触发 [base, base+2s)
+	tw.Add(etRow(base.Add(3*time.Second), 2)) // Trigger [base, base+2s)
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) && atomic.LoadInt32(&advanced) == 0 {

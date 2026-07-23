@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestNewParser 测试解析器的创建
+// TestNewParser Creation of the test parser
 func TestNewParser(t *testing.T) {
 	input := "SELECT * FROM table"
 	parser := NewParser(input)
@@ -28,11 +28,11 @@ func TestNewParser(t *testing.T) {
 	}
 }
 
-// TestParserGetErrors 测试错误获取功能
+// TestParserGetErrors test error retrieval
 func TestParserGetErrors(t *testing.T) {
-	// 使用一个明显无效的SQL，确保会产生错误
+	// Using an obviously invalid SQL ensures errors occur
 	parser := NewParser("SELECT * FROM table WHERE INVALID_FUNCTION()")
-	_, err := parser.Parse() // 这会产生错误
+	_, err := parser.Parse() // This leads to errors
 	if err == nil {
 		t.Error("Expected parser to have errors")
 	}
@@ -46,7 +46,7 @@ func TestParserGetErrors(t *testing.T) {
 	}
 }
 
-// TestParserBasicSelect 测试基本SELECT语句解析
+// TestParserBasicSelect Tests basic SELECT statement parsing
 func TestParserBasicSelect(t *testing.T) {
 	tests := []struct {
 		input       string
@@ -83,9 +83,9 @@ func TestParserBasicSelect(t *testing.T) {
 	}
 }
 
-// TestParserFieldParsing 测试字段解析
+// TestParserFieldParsing Test field parsing
 func TestParserFieldParsing(t *testing.T) {
-	// 测试简单字段
+	// Test simple fields
 	t.Run("simple fields", func(t *testing.T) {
 		sql := "SELECT name, age, city FROM users"
 		parser := NewParser(sql)
@@ -106,7 +106,7 @@ func TestParserFieldParsing(t *testing.T) {
 		}
 	})
 
-	// 测试带别名的字段
+	// Test fields with aliases
 	t.Run("fields with aliases", func(t *testing.T) {
 		sql := "SELECT name AS full_name, age AS years FROM users"
 		parser := NewParser(sql)
@@ -127,7 +127,7 @@ func TestParserFieldParsing(t *testing.T) {
 		}
 	})
 
-	// 测试聚合函数字段
+	// Test the numeric segment of the aggregate function
 	t.Run("aggregate function fields", func(t *testing.T) {
 		sql := "SELECT COUNT(*), SUM(amount), AVG(price) FROM orders"
 		parser := NewParser(sql)
@@ -148,7 +148,7 @@ func TestParserFieldParsing(t *testing.T) {
 		}
 	})
 
-	// 测试复杂表达式字段
+	// Test complex expression fields
 	t.Run("complex expression fields", func(t *testing.T) {
 		sql := "SELECT price * quantity AS total, UPPER(name) AS upper_name FROM products"
 		parser := NewParser(sql)
@@ -170,9 +170,9 @@ func TestParserFieldParsing(t *testing.T) {
 	})
 }
 
-// TestParserWindowFunctionParsing 测试窗口函数解析
+// TestParserWindowFunctionParsing Analysis of the test window function
 func TestParserWindowFunctionParsing(t *testing.T) {
-	// 测试基本窗口相关语法（不使用OVER函数，因为解析器不支持）
+	// Test basic window syntax (do not use the OVER function, as the parser does not support it)
 	t.Run("basic window function", func(t *testing.T) {
 		sql := "SELECT name, COUNT(*) FROM employees GROUP BY name ORDER BY COUNT(*) DESC"
 		parser := NewParser(sql)
@@ -181,13 +181,13 @@ func TestParserWindowFunctionParsing(t *testing.T) {
 		if err != nil {
 			t.Errorf("Parse() error = %v", err)
 		}
-		// 验证基本的聚合和排序功能
+		// Verify basic aggregation and sorting functions
 		if len(stmt.GroupBy) == 0 {
 			t.Error("Expected GROUP BY to be parsed")
 		}
 	})
 
-	// 测试带聚合的查询（替代窗口函数）
+	// Testing queries with aggregation (alternative window functions)
 	t.Run("window function with partition by", func(t *testing.T) {
 		sql := "SELECT department, COUNT(*) FROM employees GROUP BY department ORDER BY COUNT(*) DESC"
 		parser := NewParser(sql)
@@ -196,13 +196,13 @@ func TestParserWindowFunctionParsing(t *testing.T) {
 		if err != nil {
 			t.Errorf("Parse() error = %v", err)
 		}
-		// 验证分组功能
+		// Validate grouping functionality
 		if len(stmt.GroupBy) == 0 {
 			t.Error("Expected GROUP BY to be parsed")
 		}
 	})
 
-	// 测试多个聚合函数
+	// Test multiple aggregate functions
 	t.Run("multiple window functions", func(t *testing.T) {
 		sql := "SELECT name, COUNT(*), SUM(salary) FROM employees GROUP BY name"
 		parser := NewParser(sql)
@@ -217,9 +217,9 @@ func TestParserWindowFunctionParsing(t *testing.T) {
 	})
 }
 
-// TestParserGroupByParsing 测试GROUP BY解析
+// TestParserGroupByParsing Testing GROUP BY analysis
 func TestParserGroupByParsing(t *testing.T) {
-	// 测试单个GROUP BY字段
+	// Test individual GROUP BY fields
 	t.Run("single group by field", func(t *testing.T) {
 		sql := "SELECT category, COUNT(*) FROM products GROUP BY category"
 		parser := NewParser(sql)
@@ -236,7 +236,7 @@ func TestParserGroupByParsing(t *testing.T) {
 		}
 	})
 
-	// 测试多个GROUP BY字段
+	// Test multiple GROUP BY fields
 	t.Run("multiple group by fields", func(t *testing.T) {
 		sql := "SELECT category, region, COUNT(*) FROM products GROUP BY category, region"
 		parser := NewParser(sql)
@@ -256,9 +256,9 @@ func TestParserGroupByParsing(t *testing.T) {
 	})
 }
 
-// TestParserLimitParsing 测试LIMIT解析
+// TestParserLimitParsing Testing LIMIT analysis
 func TestParserLimitParsing(t *testing.T) {
-	// 测试正常的LIMIT值
+	// Test the normal LIMIT value
 	t.Run("normal limit value", func(t *testing.T) {
 		sql := "SELECT name FROM users LIMIT 100"
 		parser := NewParser(sql)
@@ -272,7 +272,7 @@ func TestParserLimitParsing(t *testing.T) {
 		}
 	})
 
-	// 测试LIMIT 0
+	// Test LIMIT 0
 	t.Run("limit zero", func(t *testing.T) {
 		sql := "SELECT name FROM users LIMIT 0"
 		parser := NewParser(sql)
@@ -286,7 +286,7 @@ func TestParserLimitParsing(t *testing.T) {
 		}
 	})
 
-	// 测试大的LIMIT值
+	// Test the large LIMIT value
 	t.Run("large limit value", func(t *testing.T) {
 		sql := "SELECT name FROM users LIMIT 999999"
 		parser := NewParser(sql)
@@ -301,9 +301,9 @@ func TestParserLimitParsing(t *testing.T) {
 	})
 }
 
-// TestParserWhereClauseParsing 测试WHERE子句解析
+// TestParserWhereClauseParsing tests the parsing of the WHERE clause
 func TestParserWhereClauseParsing(t *testing.T) {
-	// 测试简单的WHERE条件
+	// Test simple WHERE conditions
 	t.Run("simple where condition", func(t *testing.T) {
 		sql := "SELECT name FROM users WHERE age = 25"
 		parser := NewParser(sql)
@@ -317,7 +317,7 @@ func TestParserWhereClauseParsing(t *testing.T) {
 		}
 	})
 
-	// 测试复杂的WHERE条件
+	// Test complex WHERE conditions
 	t.Run("complex where condition", func(t *testing.T) {
 		sql := "SELECT name FROM users WHERE age > 18 AND city = 'New York' OR status = 'active'"
 		parser := NewParser(sql)
@@ -332,7 +332,7 @@ func TestParserWhereClauseParsing(t *testing.T) {
 		}
 	})
 
-	// 测试带函数的WHERE条件
+	// Test the WHERE condition with the function
 	t.Run("where condition with functions", func(t *testing.T) {
 		sql := "SELECT name FROM users WHERE UPPER(name) LIKE 'JOHN%'"
 		parser := NewParser(sql)
@@ -348,9 +348,9 @@ func TestParserWhereClauseParsing(t *testing.T) {
 	})
 }
 
-// TestParserEnhancedCoverage 增强Parser的测试覆盖率
+// TestParserEnhancedCoverage Enhances parser's test coverage
 func TestParserEnhancedCoverage(t *testing.T) {
-	// 测试基本的Parser创建和错误处理
+	// Testing basic parser creation and error handling
 	t.Run("parser creation and error handling", func(t *testing.T) {
 		sql := "SELECT * FROM test"
 		parser := NewParser(sql)
@@ -358,7 +358,7 @@ func TestParserEnhancedCoverage(t *testing.T) {
 			t.Error("NewParser() returned nil")
 		}
 
-		// 测试初始状态
+		// Test the initial state
 		if parser.HasErrors() {
 			t.Error("New parser should not have errors")
 		}
@@ -369,7 +369,7 @@ func TestParserEnhancedCoverage(t *testing.T) {
 		}
 	})
 
-	// 测试解析简单的SELECT语句
+	// Test parses simple SELECT statements
 	t.Run("parse simple select", func(t *testing.T) {
 		sql := "SELECT name, age FROM users"
 		parser := NewParser(sql)
@@ -389,7 +389,7 @@ func TestParserEnhancedCoverage(t *testing.T) {
 		}
 	})
 
-	// 测试解析SELECT *
+	// Test Analysis SELECT *
 	t.Run("parse select all", func(t *testing.T) {
 		sql := "SELECT * FROM products"
 		parser := NewParser(sql)
@@ -398,8 +398,8 @@ func TestParserEnhancedCoverage(t *testing.T) {
 		if err != nil {
 			t.Errorf("Parse() error = %v", err)
 		}
-		// SELECT * 应该设置SelectAll为true，但当前实现可能不同
-		// 检查是否正确解析了*字段
+		// SELECT * should set SelectAll to true, but the current implementation may differ
+		// Check whether the * field has been resolved correctly
 		if len(stmt.Fields) == 0 || stmt.Fields[0].Expression != "*" {
 			t.Error("Expected * field to be parsed")
 		}
@@ -408,7 +408,7 @@ func TestParserEnhancedCoverage(t *testing.T) {
 		}
 	})
 
-	// 测试解析SELECT DISTINCT
+	// Test analysis SELECT DISTINCT
 	t.Run("parse select distinct", func(t *testing.T) {
 		sql := "SELECT DISTINCT category FROM products"
 		parser := NewParser(sql)
@@ -428,7 +428,7 @@ func TestParserEnhancedCoverage(t *testing.T) {
 		}
 	})
 
-	// 测试解析带WHERE子句的SELECT语句
+	// Test parsing SELECT statements with WHERE clauses
 	t.Run("parse select with where", func(t *testing.T) {
 		sql := "SELECT name FROM users WHERE age > 18"
 		parser := NewParser(sql)
@@ -442,7 +442,7 @@ func TestParserEnhancedCoverage(t *testing.T) {
 		}
 	})
 
-	// 测试解析带GROUP BY的SELECT语句
+	// Test and parse SELECT statements with GROUP BY
 	t.Run("parse select with group by", func(t *testing.T) {
 		sql := "SELECT category, COUNT(*) FROM products GROUP BY category"
 		parser := NewParser(sql)
@@ -459,7 +459,7 @@ func TestParserEnhancedCoverage(t *testing.T) {
 		}
 	})
 
-	// 测试解析带HAVING的SELECT语句
+	// Test parsing SELECT statements with HAVING
 	t.Run("parse select with having", func(t *testing.T) {
 		sql := "SELECT category, COUNT(*) FROM products GROUP BY category HAVING COUNT(*) > 5"
 		parser := NewParser(sql)
@@ -473,7 +473,7 @@ func TestParserEnhancedCoverage(t *testing.T) {
 		}
 	})
 
-	// 测试解析带LIMIT的SELECT语句
+	// Test and parse SELECT statements with LIMIT
 	t.Run("parse select with limit", func(t *testing.T) {
 		sql := "SELECT name FROM users LIMIT 10"
 		parser := NewParser(sql)
@@ -487,7 +487,7 @@ func TestParserEnhancedCoverage(t *testing.T) {
 		}
 	})
 
-	// 测试解析简单的窗口相关语句（避免复杂的窗口函数语法）
+	// Test parses of simple window-related statements (avoiding complex window function syntax)
 	t.Run("parse select with window function", func(t *testing.T) {
 		sql := "SELECT name, COUNT(*) FROM employees GROUP BY name"
 		parser := NewParser(sql)
@@ -499,13 +499,13 @@ func TestParserEnhancedCoverage(t *testing.T) {
 		if stmt == nil {
 			t.Error("Expected statement to be parsed")
 		}
-		// 验证基本的GROUP BY解析
+		// Verify basic GROUP BY resolution
 		if len(stmt.GroupBy) != 1 || stmt.GroupBy[0] != "name" {
 			t.Error("Expected GROUP BY name to be parsed")
 		}
 	})
 
-	// 测试解析复杂的SELECT语句
+	// Test parses complex SELECT statements
 	t.Run("parse complex select", func(t *testing.T) {
 		sql := "SELECT DISTINCT category, SUM(price) as total FROM products WHERE price > 100 GROUP BY category HAVING SUM(price) > 1000 LIMIT 5"
 		parser := NewParser(sql)
@@ -532,9 +532,9 @@ func TestParserEnhancedCoverage(t *testing.T) {
 	})
 }
 
-// TestParserErrorHandling 测试Parser的错误处理
+// TestParserErrorHandling tests Parser's error handling
 func TestParserErrorHandling(t *testing.T) {
-	// 测试无效的SQL语句
+	// Testing for invalid SQL statements
 	t.Run("invalid sql syntax", func(t *testing.T) {
 		sql := "INVALID SQL STATEMENT"
 		parser := NewParser(sql)
@@ -546,13 +546,13 @@ func TestParserErrorHandling(t *testing.T) {
 		if stmt != nil {
 			t.Error("Expected nil statement for invalid SQL")
 		}
-		// 检查是否有错误（某些解析器可能不实现HasErrors方法）
+		// Check for errors (some parsers may not implement the HasErrors method)
 		if err == nil {
 			t.Error("Expected error for invalid SQL")
 		}
 	})
 
-	// 测试空的SQL语句
+	// Test the empty SQL statement
 	t.Run("empty sql", func(t *testing.T) {
 		sql := ""
 		parser := NewParser(sql)
@@ -566,7 +566,7 @@ func TestParserErrorHandling(t *testing.T) {
 		}
 	})
 
-	// 测试缺少FROM子句的SELECT语句
+	// Test the SELECT statement missing the FROM clause
 	t.Run("missing from clause", func(t *testing.T) {
 		sql := "SELECT name"
 		parser := NewParser(sql)
@@ -575,14 +575,14 @@ func TestParserErrorHandling(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error for missing FROM clause")
 		}
-		// 某些解析器可能允许没有FROM子句的SELECT
-		// 只检查是否有错误
+		// Some parsers may allow SELECT without a FROM clause
+		// Only check for errors
 		if err == nil && stmt == nil {
 			t.Error("Expected either error or valid statement")
 		}
 	})
 
-	// 测试无效的LIMIT值
+	// Test for invalid LIMIT values
 	t.Run("invalid limit value", func(t *testing.T) {
 		sql := "SELECT name FROM users LIMIT abc"
 		parser := NewParser(sql)
@@ -591,27 +591,27 @@ func TestParserErrorHandling(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error for invalid LIMIT value")
 		}
-		// 某些解析器可能有不同的LIMIT处理方式
-		// 只检查是否有错误
+		// Some parsers may have different LIMIT handling methods
+		// Only check for errors
 		if err == nil && stmt == nil {
 			t.Error("Expected either error or valid statement")
 		}
 	})
 
-	// 测试HAVING子句但没有GROUP BY
+	// Testing HAVING clause but no GROUP BY
 	t.Run("having without group by", func(t *testing.T) {
 		sql := "SELECT name FROM users HAVING COUNT(*) > 5"
 		parser := NewParser(sql)
 		stmt, err := parser.Parse()
 
-		// 这可能是有效的或无效的，取决于实现
-		// 如果实现要求HAVING必须与GROUP BY一起使用，则应该有错误
+		// This may be effective or ineffective, depending on the implementation
+		// If the implementation requires HAVING to be used with GROUP BY, there should be an error
 		_ = stmt
 		_ = err
 	})
 }
 
-// TestParserErrorRecovery 测试错误恢复功能
+// TestParserErrorRecovery: Test error recovery function
 func TestParserErrorRecovery(t *testing.T) {
 	tests := []struct {
 		input       string
@@ -629,19 +629,19 @@ func TestParserErrorRecovery(t *testing.T) {
 			parser := NewParser(test.input)
 			_, err := parser.Parse()
 
-			// 对于 "SELECT FROM table" 这种情况，可能不会产生错误，因为解析器可能会将其解释为有效的语法
+			// For the case of "SELECT FROM table"," errors may not occur, because the parser may interpret it as valid syntax
 			if test.input == "SELECT FROM table" {
-				// 这种情况下，我们不强制要求有错误
+				// In such cases, we do not force errors
 				return
 			}
 
-			// 应该有错误
+			// There should be errors
 			if err == nil && !parser.HasErrors() {
 				t.Errorf("Expected error but got none for input: %s", test.input)
 				return
 			}
 
-			// 检查是否记录了错误
+			// Check if any errors have been recorded
 			if !parser.HasErrors() {
 				t.Errorf("Expected errors to be recorded for input: %s", test.input)
 			}
@@ -649,7 +649,7 @@ func TestParserErrorRecovery(t *testing.T) {
 	}
 }
 
-// TestParseBasicSQL 测试基本SQL解析功能
+// TestParseBasicSQL tests basic SQL parsing functions
 func TestParseBasicSQL(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -689,11 +689,11 @@ func TestParseBasicSQL(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error for %s: %v", test.sql, err)
 				} else {
-					// 基本验证
+					// Basic verification
 					if config == nil {
 						t.Errorf("Expected config but got nil for %s", test.sql)
 					}
-					// condition可以为空
+					// 'condition' can be emptiness
 					_ = condition
 				}
 			}
@@ -701,7 +701,7 @@ func TestParseBasicSQL(t *testing.T) {
 	}
 }
 
-// TestRSQLIntegration 测试RSQL包的集成功能
+// TestRSQLIntegration Tests the integration functionality of RSQL packages
 func TestRSQLIntegration(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -776,7 +776,7 @@ func TestRSQLIntegration(t *testing.T) {
 	}
 }
 
-// TestEdgeCases 测试边界情况
+// TestEdgeCases tests boundary conditions
 func TestEdgeCases(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -805,7 +805,7 @@ func TestEdgeCases(t *testing.T) {
 		{
 			name:        "VeryLongFieldList",
 			input:       "SELECT " + strings.Repeat("field, ", 10) + "field FROM table",
-			expectError: false, // 改回false，因为这应该是有效的SQL
+			expectError: false, // Change it back to false, because this should be valid SQL
 			description: "长字段列表",
 		},
 	}
@@ -828,7 +828,7 @@ func TestEdgeCases(t *testing.T) {
 	}
 }
 
-// TestParserAdvancedFeatures 测试解析器的高级功能
+// TestParserAdvancedFeatures Advanced features of the test parser
 func TestParserAdvancedFeatures(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -885,7 +885,7 @@ func TestParserAdvancedFeatures(t *testing.T) {
 	}
 }
 
-// TestComplexQueries 测试复杂查询
+// TestComplexQueries tests complex queries
 func TestComplexQueries(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -921,9 +921,9 @@ func TestComplexQueries(t *testing.T) {
 	}
 }
 
-// TestParserPerformance 测试解析器性能
+// TestParserPerformance Tests the parser performance
 func TestParserPerformance(t *testing.T) {
-	// 测试大量解析操作的性能
+	// Testing the performance of large-scale parsing operations
 	for i := 0; i < 1000; i++ {
 		sql := "SELECT field1, field2, field3 FROM table WHERE condition = 'value'"
 		parser := NewParser(sql)
@@ -935,7 +935,7 @@ func TestParserPerformance(t *testing.T) {
 	}
 }
 
-// TestParserConcurrency 测试解析器并发安全性
+// TestParserConcurrency tests the parser for concurrency security
 func TestParserConcurrency(t *testing.T) {
 	const numGoroutines = 10
 	const numIterations = 10
@@ -956,15 +956,15 @@ func TestParserConcurrency(t *testing.T) {
 		}(i)
 	}
 
-	// 等待所有goroutines完成
+	// Wait for all the goroutines to be completed
 	for i := 0; i < numGoroutines; i++ {
 		<-done
 	}
 }
 
-// TestParserMemoryUsage 测试内存使用情况
+// TestParserMemoryUsage tests memory usage
 func TestParserMemoryUsage(t *testing.T) {
-	// 测试大量解析操作不会导致内存泄漏
+	// Testing large numbers of parsing operations will not cause memory leaks
 	for i := 0; i < 1000; i++ {
 		sql := "SELECT field1, field2, field3 FROM table WHERE condition = 'value'"
 		parser := NewParser(sql)
@@ -976,7 +976,7 @@ func TestParserMemoryUsage(t *testing.T) {
 	}
 }
 
-// TestParserWithDifferentInputSizes 测试不同输入大小的解析
+// TestParserWithDifferentInputSizes tests the parsing of different input sizes
 func TestParserWithDifferentInputSizes(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -986,7 +986,7 @@ func TestParserWithDifferentInputSizes(t *testing.T) {
 		{
 			name:        "VeryShort",
 			input:       "SELECT 1",
-			expectError: true, // 缺少FROM子句
+			expectError: true, // Missing the FROM clause
 		},
 		{
 			name:        "Short",

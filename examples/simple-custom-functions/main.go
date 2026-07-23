@@ -14,20 +14,20 @@ func main() {
 	fmt.Println("🚀 StreamSQL 简单自定义函数演示")
 	fmt.Println("=================================")
 
-	// 注册一些简单的自定义函数
+	// Register some simple custom functions
 	registerSimpleFunctions()
 
-	// 演示函数在SQL中的使用
+	// Demonstrating the use of functions in SQL
 	demonstrateFunctions()
 
 	fmt.Println("\n✅ 演示完成！")
 }
 
-// 注册简单的自定义函数
+// Register simple custom functions
 func registerSimpleFunctions() {
 	fmt.Println("\n📋 注册自定义函数...")
 
-	// 1. 数学函数：平方
+	// 1. Mathematical function: square
 	err := functions.RegisterCustomFunction(
 		"square",
 		functions.TypeMath,
@@ -45,7 +45,7 @@ func registerSimpleFunctions() {
 		fmt.Println("  ✓ 注册数学函数: square")
 	}
 
-	// 2. 华氏度转摄氏度函数
+	// 2. Fahrenheit to Celsius function
 	err = functions.RegisterCustomFunction(
 		"f_to_c",
 		functions.TypeConversion,
@@ -64,7 +64,7 @@ func registerSimpleFunctions() {
 		fmt.Println("  ✓ 注册转换函数: f_to_c")
 	}
 
-	// 3. 圆面积计算函数
+	// 3. Circle Area Calculation Function
 	err = functions.RegisterCustomFunction(
 		"circle_area",
 		functions.TypeMath,
@@ -87,19 +87,19 @@ func registerSimpleFunctions() {
 	}
 }
 
-// 演示自定义函数的使用
+// Demonstrate the use of custom functions
 func demonstrateFunctions() {
 	fmt.Println("\n🎯 演示自定义函数在SQL中的使用")
 	fmt.Println("================================")
 
-	// 创建StreamSQL实例
+	// Create a StreamSQL instance
 	ssql := streamsql.New()
 	defer ssql.Stop()
 
-	// 1. 测试简单查询（不使用窗口）
+	// 1. Test simple queries (without using windows)
 	testSimpleQuery(ssql)
 
-	// 2. 测试聚合查询（使用窗口）
+	// 2. Test aggregation queries (using the window)
 	testAggregateQuery(ssql)
 }
 
@@ -121,30 +121,30 @@ func testSimpleQuery(ssql *streamsql.Streamsql) {
 		return
 	}
 
-	// 添加结果监听器
+	// Add a result listener
 	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 简单查询结果: %v\n", result)
 	})
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
 		{
 			"device":      "sensor1",
 			"value":       5.0,
-			"temperature": 68.0, // 华氏度
+			"temperature": 68.0, // The degree of the Fahrenheit degree
 			"radius":      3.0,
 		},
 		{
 			"device":      "sensor2",
 			"value":       10.0,
-			"temperature": 86.0, // 华氏度
+			"temperature": 86.0, // The degree of the Fahrenheit degree
 			"radius":      2.5,
 		},
 	}
 
 	for _, data := range testData {
 		ssql.Emit(data)
-		time.Sleep(200 * time.Millisecond) // 稍微延迟
+		time.Sleep(200 * time.Millisecond) // A slight delay
 	}
 
 	time.Sleep(500 * time.Millisecond)
@@ -170,12 +170,12 @@ func testAggregateQuery(ssql *streamsql.Streamsql) {
 		return
 	}
 
-	// 添加结果监听器
+	// Add a result listener
 	ssql.AddSink(func(result []map[string]any) {
 		fmt.Printf("  📊 聚合查询结果: %v\n", result)
 	})
 
-	// 添加测试数据
+	// Add test data
 	testData := []map[string]any{
 		{
 			"device":      "sensor1",
@@ -201,14 +201,14 @@ func testAggregateQuery(ssql *streamsql.Streamsql) {
 		ssql.Emit(data)
 	}
 
-	// 等待窗口触发
+	// Wait for the window to trigger
 	time.Sleep(1 * time.Second)
 	ssql.Stream().Window.Trigger()
 	time.Sleep(500 * time.Millisecond)
 
 	fmt.Println("  ✅ 聚合查询测试完成")
 
-	// 展示函数管理功能
+	// Showcase function management features
 	showFunctionManagement()
 }
 
@@ -216,21 +216,21 @@ func showFunctionManagement() {
 	fmt.Println("\n🔧 函数管理功能演示")
 	fmt.Println("==================")
 
-	// 列出所有数学函数
+	// List all mathematical functions
 	fmt.Println("\n📊 数学函数:")
 	mathFunctions := functions.GetByType(functions.TypeMath)
 	for _, fn := range mathFunctions {
 		fmt.Printf("  • %s - %s\n", fn.GetName(), fn.GetDescription())
 	}
 
-	// 列出所有字符串函数
+	// List all string functions
 	fmt.Println("\n📝 字符串函数:")
 	stringFunctions := functions.GetByType(functions.TypeString)
 	for _, fn := range stringFunctions {
 		fmt.Printf("  • %s - %s\n", fn.GetName(), fn.GetDescription())
 	}
 
-	// 检查特定函数是否存在
+	// Check whether a specific function exists
 	fmt.Println("\n🔍 函数查找:")
 	if fn, exists := functions.Get("square"); exists {
 		fmt.Printf("  ✓ 找到函数: %s (%s)\n", fn.GetName(), fn.GetDescription())
@@ -240,12 +240,12 @@ func showFunctionManagement() {
 		fmt.Printf("  ✓ 找到函数: %s (%s)\n", fn.GetName(), fn.GetDescription())
 	}
 
-	// 统计函数数量
+	// Count the number of functions
 	allFunctions := functions.ListAll()
 	fmt.Printf("\n📈 统计信息:\n")
 	fmt.Printf("  • 总函数数量: %d\n", len(allFunctions))
 
-	// 按类型统计
+	// Statistics by type
 	typeCount := make(map[functions.FunctionType]int)
 	for _, fn := range allFunctions {
 		typeCount[fn.GetType()]++

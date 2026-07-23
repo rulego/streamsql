@@ -22,9 +22,9 @@ func durationFromInterval(interval int64, unit time.Duration) (time.Duration, er
 	return time.Duration(interval) * unit, nil
 }
 
-// dateArgString 把日期参数转为可被 time.Parse 的字符串。time.Time 入参（如 now()）
-// 按 "2006-01-02 15:04:05" 格式化，避免 time.Time.String() 的时区/纳秒文本导致解析失败；
-// 其余类型走 cast.ToStringE。供 year/month/date_add 等日期函数统一使用。
+// dateArgString Convert the date parameter into a string that can be time.Parse. time.Time Entry (e.g., now())
+// Format according to "2006-01-02 15:04:05" to avoid time.Time.String() in the timezone/nanosecond text causes parsing failure;
+// The rest of the types go cast.ToStringE. Unified use for date functions such as year/month/date_add.
 func dateArgString(v any) (string, error) {
 	if t, ok := v.(time.Time); ok {
 		return t.Format("2006-01-02 15:04:05"), nil
@@ -124,7 +124,7 @@ func (f *DateAddFunction) Execute(ctx *FunctionContext, args []any) (any, error)
 
 	t, err := time.Parse("2006-01-02 15:04:05", dateStr)
 	if err != nil {
-		// 尝试其他格式
+		// Try other formats
 		if t, err = time.Parse("2006-01-02", dateStr); err != nil {
 			return nil, fmt.Errorf("invalid date format: %v", err)
 		}
@@ -162,7 +162,7 @@ func (f *DateAddFunction) Execute(ctx *FunctionContext, args []any) (any, error)
 	return t.Format("2006-01-02 15:04:05"), nil
 }
 
-// DateSubFunction 日期减法函数
+// DateSubFunction is a date subtraction function
 type DateSubFunction struct {
 	*BaseFunction
 }
@@ -232,7 +232,7 @@ func (f *DateSubFunction) Execute(ctx *FunctionContext, args []any) (any, error)
 	return t.Format("2006-01-02 15:04:05"), nil
 }
 
-// DateDiffFunction 日期差函数
+// DateDiffFunction
 type DateDiffFunction struct {
 	*BaseFunction
 }
@@ -297,7 +297,7 @@ func (f *DateDiffFunction) Execute(ctx *FunctionContext, args []any) (any, error
 	}
 }
 
-// DateFormatFunction 日期格式化函数
+// DateFormatFunction Date formatting function
 type DateFormatFunction struct {
 	*BaseFunction
 }
@@ -330,14 +330,14 @@ func (f *DateFormatFunction) Execute(ctx *FunctionContext, args []any) (any, err
 		}
 	}
 
-	// 转换常见的格式字符串
+	// Convert common format strings
 	goFormat := convertToGoFormat(format)
 	return t.Format(goFormat), nil
 }
 
-// convertToGoFormat 将常见的日期格式转换为Go的时间格式
+// convertToGoFormat converts common date formats into Go time formats
 func convertToGoFormat(format string) string {
-	// 按照长度从长到短的顺序替换，避免短的模式覆盖长的模式
+	// Replace them in order from length to shortest, avoiding short patterns overriding long patterns
 	replacements := []struct {
 		old string
 		new string
@@ -365,7 +365,7 @@ func convertToGoFormat(format string) string {
 	return result
 }
 
-// DateParseFunction 日期解析函数
+// DateParseFunction Date parsing function
 type DateParseFunction struct {
 	*BaseFunction
 }
@@ -400,7 +400,7 @@ func (f *DateParseFunction) Execute(ctx *FunctionContext, args []any) (any, erro
 	return t.Format("2006-01-02 15:04:05"), nil
 }
 
-// ExtractFunction 提取日期部分函数
+// ExtractFunction Extract the date part function
 type ExtractFunction struct {
 	*BaseFunction
 }
@@ -455,7 +455,7 @@ func (f *ExtractFunction) Execute(ctx *FunctionContext, args []any) (any, error)
 	}
 }
 
-// UnixTimestampFunction Unix时间戳函数
+// UnixTimestampFunction: Unix timestamp function
 type UnixTimestampFunction struct {
 	*BaseFunction
 }
@@ -471,7 +471,7 @@ func (f *UnixTimestampFunction) Validate(args []any) error {
 }
 
 func (f *UnixTimestampFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 无参返回当前 Unix 秒
+	// Returns the current Unix second without parameters
 	if len(args) == 0 {
 		return time.Now().Unix(), nil
 	}
@@ -498,7 +498,7 @@ func (f *UnixTimestampFunction) Execute(ctx *FunctionContext, args []any) (any, 
 	}
 }
 
-// FromUnixtimeFunction 从Unix时间戳转换函数
+// FromUnixtimeFunction: A function that converts Unix timestamps
 type FromUnixtimeFunction struct {
 	*BaseFunction
 }
@@ -523,7 +523,7 @@ func (f *FromUnixtimeFunction) Execute(ctx *FunctionContext, args []any) (any, e
 	return t.Format("2006-01-02 15:04:05"), nil
 }
 
-// YearFunction 提取年份函数
+// YearFunction extracts the year function
 type YearFunction struct {
 	*BaseFunction
 }
@@ -539,7 +539,7 @@ func (f *YearFunction) Validate(args []any) error {
 }
 
 func (f *YearFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 尝试转换为字符串并解析
+	// Try converting to strings and parsing
 	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -555,7 +555,7 @@ func (f *YearFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return t.Year(), nil
 }
 
-// MonthFunction 提取月份函数
+// MonthFunction extracts the month function
 type MonthFunction struct {
 	*BaseFunction
 }
@@ -571,7 +571,7 @@ func (f *MonthFunction) Validate(args []any) error {
 }
 
 func (f *MonthFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
-	// 转换为字符串并解析
+	// Convert to strings and parse
 	dateStr, err := dateArgString(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid date: %v", err)
@@ -587,7 +587,7 @@ func (f *MonthFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return int(t.Month()), nil
 }
 
-// DayFunction 提取日期函数
+// DayFunction extracts the date function
 type DayFunction struct {
 	*BaseFunction
 }
@@ -618,7 +618,7 @@ func (f *DayFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return t.Day(), nil
 }
 
-// HourFunction 提取小时函数
+// HourFunction extracts hourly functions
 type HourFunction struct {
 	*BaseFunction
 }
@@ -649,7 +649,7 @@ func (f *HourFunction) Execute(ctx *FunctionContext, args []any) (any, error) {
 	return t.Hour(), nil
 }
 
-// MinuteFunction 提取分钟函数
+// MinuteFunction extracts the minute function
 type MinuteFunction struct {
 	*BaseFunction
 }
@@ -680,7 +680,7 @@ func (f *MinuteFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 	return t.Minute(), nil
 }
 
-// SecondFunction 提取秒数函数
+// SecondFunction extracts the seconds function
 type SecondFunction struct {
 	*BaseFunction
 }
@@ -711,7 +711,7 @@ func (f *SecondFunction) Execute(ctx *FunctionContext, args []any) (any, error) 
 	return t.Second(), nil
 }
 
-// DayOfWeekFunction 获取星期几函数
+// DayOfWeekFunction to get the day of the week
 type DayOfWeekFunction struct {
 	*BaseFunction
 }
@@ -742,7 +742,7 @@ func (f *DayOfWeekFunction) Execute(ctx *FunctionContext, args []any) (any, erro
 	return int(t.Weekday()), nil
 }
 
-// DayOfYearFunction 获取一年中的第几天函数
+// DayOfYearFunction Gets the day of the year
 type DayOfYearFunction struct {
 	*BaseFunction
 }
@@ -773,7 +773,7 @@ func (f *DayOfYearFunction) Execute(ctx *FunctionContext, args []any) (any, erro
 	return t.YearDay(), nil
 }
 
-// WeekOfYearFunction 获取一年中的第几周函数
+// WeekOfYearFunction gets the week of the year
 type WeekOfYearFunction struct {
 	*BaseFunction
 }

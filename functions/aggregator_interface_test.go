@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockParameterizedAggregator 实现ParameterizedFunction接口用于测试
+// mockParameterizedAggregator implements the ParameterizedFunction interface for testing
 type mockParameterizedAggregator struct {
 	name        string
 	args        []any
@@ -17,7 +17,7 @@ type mockParameterizedAggregator struct {
 	result      any
 }
 
-// 实现Function接口
+// Implement the Function interface
 func (m *mockParameterizedAggregator) GetName() string {
 	return m.name
 }
@@ -54,7 +54,7 @@ func (m *mockParameterizedAggregator) GetDescription() string {
 	return "Mock parameterized aggregator"
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (m *mockParameterizedAggregator) New() AggregatorFunction {
 	return &mockParameterizedAggregator{
 		name:        m.name,
@@ -70,7 +70,7 @@ func (m *mockParameterizedAggregator) Result() any {
 	if m.result != nil {
 		return m.result
 	}
-	// 默认返回值的数量
+	// The default number of return values
 	return len(m.addedValues)
 }
 
@@ -89,26 +89,26 @@ func (m *mockParameterizedAggregator) Clone() AggregatorFunction {
 	}
 }
 
-// 实现ParameterizedFunction接口
+// Implement the ParameterizedFunction interface
 func (m *mockParameterizedAggregator) Init(args []any) error {
 	m.args = args
 	m.initialized = true
-	// 根据参数设置结果
+	// Set the results according to the parameters
 	if len(args) > 0 {
 		if val, ok := args[0].(int); ok {
-			m.result = val * 10 // 简单的计算逻辑
+			m.result = val * 10 // Simple calculation logic
 		}
 	}
 	return nil
 }
 
-// mockSimpleAggregator 实现AggregatorFunction接口但不实现ParameterizedFunction
+// mockSimpleAggregator implements the AggregatorFunction interface but does not implement ParameterizedFunction
 type mockSimpleAggregator struct {
 	name   string
 	values []any
 }
 
-// 实现Function接口
+// Implement the Function interface
 func (m *mockSimpleAggregator) GetName() string {
 	return m.name
 }
@@ -145,7 +145,7 @@ func (m *mockSimpleAggregator) GetDescription() string {
 	return "Mock simple aggregator"
 }
 
-// 实现AggregatorFunction接口
+// Implement the AggregatorFunction interface
 func (m *mockSimpleAggregator) New() AggregatorFunction {
 	return &mockSimpleAggregator{
 		name:   m.name,
@@ -172,54 +172,54 @@ func (m *mockSimpleAggregator) Clone() AggregatorFunction {
 	}
 }
 
-// TestCreateParameterizedAggregator 测试CreateParameterizedAggregator函数的完整功能
+// TestCreateParameterizedAggregator Test the full functionality of the CreateParameterizedAggregator function
 func TestCreateParameterizedAggregator(t *testing.T) {
 	t.Run("测试参数化聚合器创建和初始化", func(t *testing.T) {
-		// 注册测试用的参数化聚合器
+		// Parametric aggregators for registration testing
 		mockParamAgg := &mockParameterizedAggregator{name: "test_param_agg"}
 		err := Register(mockParamAgg)
 		require.NoError(t, err)
 
-		// 测试创建参数化聚合器
+		// Test the creation of parametric aggregators
 		args := []any{5, "test", 3.14}
 		aggregator, err := CreateParameterizedAggregator("test_param_agg", args)
 		require.NoError(t, err)
 		require.NotNil(t, aggregator)
 
-		// 验证聚合器类型
+		// Verify aggregator types
 		paramAgg, ok := aggregator.(*mockParameterizedAggregator)
 		require.True(t, ok)
 		assert.True(t, paramAgg.initialized)
 		assert.Equal(t, args, paramAgg.args)
 		assert.Equal(t, 50, paramAgg.result) // 5 * 10 = 50
 
-		// 清理
+		// Cleanup
 		Unregister("test_param_agg")
 	})
 
 	t.Run("测试非参数化聚合器的回退处理", func(t *testing.T) {
-		// 注册测试用的简单聚合器
+		// A simple aggregator for registration testing
 		mockSimpleAgg := &mockSimpleAggregator{name: "test_simple_agg"}
 		err := Register(mockSimpleAgg)
 		require.NoError(t, err)
 
-		// 测试创建非参数化聚合器（应该回退到常规创建）
+		// Test creating a non-parametric aggregator (should rollback to regular creation)
 		args := []any{1, 2, 3}
 		aggregator, err := CreateParameterizedAggregator("test_simple_agg", args)
 		require.NoError(t, err)
 		require.NotNil(t, aggregator)
 
-		// 验证聚合器类型
+		// Verify aggregator types
 		simpleAgg, ok := aggregator.(*mockSimpleAggregator)
 		require.True(t, ok)
 		assert.Equal(t, "test_simple_agg", simpleAgg.name)
 
-		// 清理
+		// Cleanup
 		Unregister("test_simple_agg")
 	})
 
 	t.Run("测试不存在的聚合器函数", func(t *testing.T) {
-		// 测试创建不存在的聚合器
+		// Test to create aggregators that don't exist
 		args := []any{1, 2, 3}
 		aggregator, err := CreateParameterizedAggregator("non_existent_agg", args)
 		assert.Error(t, err)
@@ -228,79 +228,79 @@ func TestCreateParameterizedAggregator(t *testing.T) {
 	})
 
 	t.Run("测试参数化聚合器初始化失败", func(t *testing.T) {
-		// 创建一个会初始化失败的参数化聚合器
+		// Create a parameterized aggregator that will initialize failure
 		failingAgg := &mockParameterizedAggregatorWithFailingInit{
 			mockParameterizedAggregator: mockParameterizedAggregator{name: "failing_agg"},
 		}
 		err := Register(failingAgg)
 		require.NoError(t, err)
 
-		// 测试创建时初始化失败
+		// Initialization fails when the test is created
 		args := []any{"invalid"}
 		aggregator, err := CreateParameterizedAggregator("failing_agg", args)
 		assert.Error(t, err)
 		assert.Nil(t, aggregator)
 		assert.Contains(t, err.Error(), "failed to initialize parameterized function")
 
-		// 清理
+		// Cleanup
 		Unregister("failing_agg")
 	})
 
 	t.Run("测试空参数列表", func(t *testing.T) {
-		// 注册测试用的参数化聚合器
+		// Parametric aggregators for registration testing
 		mockParamAgg := &mockParameterizedAggregator{name: "test_empty_args"}
 		err := Register(mockParamAgg)
 		require.NoError(t, err)
 
-		// 测试空参数列表
+		// Test null parameter list
 		args := []any{}
 		aggregator, err := CreateParameterizedAggregator("test_empty_args", args)
 		require.NoError(t, err)
 		require.NotNil(t, aggregator)
 
-		// 验证聚合器已初始化
+		// Verify that the aggregator has been initialized
 		paramAgg, ok := aggregator.(*mockParameterizedAggregator)
 		require.True(t, ok)
 		assert.True(t, paramAgg.initialized)
 		assert.Equal(t, args, paramAgg.args)
 
-		// 清理
+		// Cleanup
 		Unregister("test_empty_args")
 	})
 
 	t.Run("测试聚合器功能", func(t *testing.T) {
-		// 注册测试用的参数化聚合器
+		// Parametric aggregators for registration testing
 		mockParamAgg := &mockParameterizedAggregator{name: "test_functionality"}
 		err := Register(mockParamAgg)
 		require.NoError(t, err)
 
-		// 创建聚合器
+		// Create aggregators
 		args := []any{3}
 		aggregator, err := CreateParameterizedAggregator("test_functionality", args)
 		require.NoError(t, err)
 		require.NotNil(t, aggregator)
 
-		// 测试聚合器功能
+		// Test the aggregator function
 		aggregator.Add(10)
 		aggregator.Add(20)
 		aggregator.Add(30)
 
-		// 验证结果（应该是初始化时设置的值：3 * 10 = 30）
+		// Verification result (should be the value set at initialization: 3 * 10 = 30)
 		result := aggregator.Result()
 		assert.Equal(t, 30, result)
 
-		// 清理
+		// Cleanup
 		Unregister("test_functionality")
 	})
 }
 
-// mockParameterizedAggregatorWithFailingInit 用于测试初始化失败的情况
+// mockParameterizedAggregatorWithFailingInit is used to test for initialization failures
 type mockParameterizedAggregatorWithFailingInit struct {
 	mockParameterizedAggregator
 }
 
 func (m *mockParameterizedAggregatorWithFailingInit) Init(args []any) error {
-	return errors.New("initialization failed") // 返回一个错误
+	return errors.New("initialization failed") // Returns an error
 }
 
 func (m *mockParameterizedAggregatorWithFailingInit) New() AggregatorFunction {
@@ -313,21 +313,21 @@ func (m *mockParameterizedAggregatorWithFailingInit) New() AggregatorFunction {
 	}
 }
 
-// TestCreateAggregatorInterface 测试CreateAggregator函数
+// TestCreateAggregatorInterface tests the CreateAggregator function
 func TestCreateAggregatorInterface(t *testing.T) {
 	t.Run("测试创建存在的聚合器", func(t *testing.T) {
-		// 注册测试聚合器
+		// Register for the test aggregator
 		mockAgg := &mockSimpleAggregator{name: "test_create_agg"}
 		err := Register(mockAgg)
 		require.NoError(t, err)
 
-		// 创建聚合器
+		// Create aggregators
 		aggregator, err := CreateAggregator("test_create_agg")
 		require.NoError(t, err)
 		require.NotNil(t, aggregator)
 		assert.IsType(t, &mockSimpleAggregator{}, aggregator)
 
-		// 清理
+		// Cleanup
 		Unregister("test_create_agg")
 	})
 
@@ -339,19 +339,19 @@ func TestCreateAggregatorInterface(t *testing.T) {
 	})
 }
 
-// TestIsAggregatorFunction 测试IsAggregatorFunction函数
+// TestIsAggregatorFunction Test the IsAggregatorFunction function
 func TestIsAggregatorFunction(t *testing.T) {
 	t.Run("测试已注册的聚合器函数", func(t *testing.T) {
-		// 注册测试聚合器
+		// Register for the test aggregator
 		mockAgg := &mockSimpleAggregator{name: "test_is_agg"}
 		err := Register(mockAgg)
 		require.NoError(t, err)
 
-		// 测试IsAggregatorFunction
+		// Test IsAggregatorFunction
 		isAgg := IsAggregatorFunction("test_is_agg")
 		assert.True(t, isAgg)
 
-		// 清理
+		// Cleanup
 		Unregister("test_is_agg")
 	})
 

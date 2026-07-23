@@ -1,756 +1,756 @@
-# StreamSQL 函数使用指南
+# StreamSQL Function usage guide
 
-StreamSQL 具有丰富的内置函数，可以对数据执行各种计算。所有函数都支持在流式处理环境中使用，部分函数支持增量计算以提高性能。
+StreamSQL Rich built-in functions that can perform various calculations on data. All functions support use in streaming environments, with some supporting incremental computation to improve performance.
 
-## 📊 聚合函数
+## 📊 Aggregation Function
 
-聚合函数对一组值执行计算并返回单个值。聚合函数只能用在以下表达式中：
-- SELECT 语句的 SELECT 列表（子查询或外部查询）
-- HAVING 子句
+The aggregate function performs calculations on a set of values and returns a single value. Aggregation functions can only be used in the following expressions:
+- SELECT list of SELECT statements (subqueries or external queries)
+- HAVING Clause
 
-### SUM - 求和函数
-**语法**: `sum(col)`  
-**描述**: 返回组中数值的总和。空值不参与计算。  
-**增量计算**: ✅ 支持  
-**示例**:
+### SUM - Summation function
+**Grammar**: `sum(col)`  
+**Description**: Returns the sum of values in the group. Null values are not involved in the calculation.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, sum(temperature) as total_temp 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### AVG - 平均值函数
-**语法**: `avg(col)`  
-**描述**: 返回组中数值的平均值。空值不参与计算。  
-**增量计算**: ✅ 支持  
-**示例**:
+### AVG - Average Function
+**Grammar**: `avg(col)`  
+**Description**: Returns the average of the values in the group. Null values are not involved in the calculation.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, avg(temperature) as avg_temp 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### COUNT - 计数函数
-**语法**: `count(*)`  
-**描述**: 返回组中的行数。  
-**增量计算**: ✅ 支持  
-**示例**:
+### COUNT - Counting Function
+**Grammar**: `count(*)`  
+**Description**: Returns the number of rows in the group.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, count(*) as record_count 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### MIN - 最小值函数
-**语法**: `min(col)`  
-**描述**: 返回组中数值的最小值。空值不参与计算。  
-**增量计算**: ✅ 支持  
-**示例**:
+### MIN - Minimum value function
+**Grammar**: `min(col)`  
+**Description**: Returns the minimum value of the value in the group. Null values are not involved in the calculation.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, min(temperature) as min_temp 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### MAX - 最大值函数
-**语法**: `max(col)`  
-**描述**: 返回组中数值的最大值。空值不参与计算。  
-**增量计算**: ✅ 支持  
-**示例**:
+### MAX - Maximum value function
+**Grammar**: `max(col)`  
+**Description**: Returns the maximum value of the value in the group. Null values are not involved in the calculation.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, max(temperature) as max_temp 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### COLLECT - 收集函数
-**语法**: `collect(col)`  
-**描述**: 获取当前窗口所有消息的列值组成的数组。  
-**增量计算**: ✅ 支持  
-**示例**:
+### COLLECT - Collection function
+**Grammar**: `collect(col)`  
+**Description**: Retrieves an array of column values for all messages in the current window.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, collect(temperature) as temp_values 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### LAST_VALUE - 最后值函数
-**语法**: `last_value(col)`  
-**描述**: 返回组中最后一行的值。  
-**增量计算**: ✅ 支持  
-**示例**:
+### LAST_VALUE - The last value function
+**Grammar**: `last_value(col)`  
+**Description**: Returns the value of the last row in the group.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, last_value(temperature) as last_temp 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### MERGE_AGG - 合并聚合函数
-**语法**: `merge_agg(col)`  
-**描述**: 将组中的值合并为单个值。对于对象类型，合并所有键值对；对于其他类型，用逗号连接。  
-**增量计算**: ✅ 支持  
-**示例**:
+### MERGE_AGG - Merge Aggregation Function
+**Grammar**: `merge_agg(col)`  
+**Description**: Merge values from a group into a single value. For object types, merge all key-value pairs; For other types, connect with commas.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, merge_agg(status) as all_status 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### DEDUPLICATE - 去重函数
-**语法**: `deduplicate(col, false)`  
-**描述**: 返回当前组去重的结果，通常用在窗口中。第二个参数指定是否返回全部结果。  
-**增量计算**: ✅ 支持  
-**示例**:
+### DEDUPLICATE - Deduplication function
+**Grammar**: `deduplicate(col, false)`  
+**Description**: Returns the result of deduplication from the current group, usually used in windows. The second parameter specifies whether to return all results.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, deduplicate(temperature, true) as unique_temps 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### STDDEV - 标准差函数
-**语法**: `stddev(col)`  
-**描述**: 返回组中所有值的总体标准差。空值不参与计算。  
-**增量计算**: ✅ 支持（使用韦尔福德算法优化）  
-**示例**:
+### STDDEV - Standard Deviation Function
+**Grammar**: `stddev(col)`  
+**Description**: Returns the population standard deviation of all values in the group. Null values are not involved in the calculation.  
+**Incremental Computation**: ✅ Supported (optimized using the Welford algorithm)  
+**Example**:
 ```sql
 SELECT device, stddev(temperature) as temp_stddev 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### STDDEVS - 样本标准差函数
-**语法**: `stddevs(col)`  
-**描述**: 返回组中所有值的样本标准差。空值不参与计算。  
-**增量计算**: ✅ 支持（使用韦尔福德算法优化）  
-**示例**:
+### STDDEVS - Sample Standard Deviation Function
+**Grammar**: `stddevs(col)`  
+**Description**: Returns the sample standard deviation of all values in the group. Null values are not involved in the calculation.  
+**Incremental Computation**: ✅ Supported (optimized using the Welford algorithm)  
+**Example**:
 ```sql
 SELECT device, stddevs(temperature) as temp_sample_stddev 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### VAR - 方差函数
-**语法**: `var(col)`  
-**描述**: 返回组中所有值的总体方差。空值不参与计算。  
-**增量计算**: ✅ 支持（使用韦尔福德算法优化）  
-**示例**:
+### VAR - Variance Function
+**Grammar**: `var(col)`  
+**Description**: Returns the population variance of all values in the group. Null values are not involved in the calculation.  
+**Incremental Computation**: ✅ Supported (optimized using the Welford algorithm)  
+**Example**:
 ```sql
 SELECT device, var(temperature) as temp_variance 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### VARS - 样本方差函数
-**语法**: `vars(col)`  
-**描述**: 返回组中所有值的样本方差。空值不参与计算。  
-**增量计算**: ✅ 支持（使用韦尔福德算法优化）  
-**示例**:
+### VARS - Sample variance function
+**Grammar**: `vars(col)`  
+**Description**: Returns the sample variance of all non-NULL values in the group.  
+**Incremental Computation**: ✅ Supported (optimized using the Welford algorithm)  
+**Example**:
 ```sql
 SELECT device, vars(temperature) as temp_sample_variance 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### MEDIAN - 中位数函数
-**语法**: `median(col)`  
-**描述**: 返回组中所有值的中位数。空值不参与计算。  
-**增量计算**: ✅ 支持  
-**示例**:
+### MEDIAN - Median function
+**Grammar**: `median(col)`  
+**Description**: Returns the median of all values in the group. Null values are not involved in the calculation.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, median(temperature) as temp_median 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### PERCENTILE - 百分位数函数
-**语法**: `percentile(col, 0.5)`  
-**描述**: 返回组中所有值的指定百分位数。第二个参数指定百分位数的值，取值范围为 0.0 ~ 1.0。  
-**增量计算**: ✅ 支持  
-**示例**:
+### PERCENTILE - Percentile Function
+**Grammar**: `percentile(col, 0.5)`  
+**Description**: Returns the specified percentile of all values in the group. The second parameter specifies the percentile value, with a range of 0.0 ~ 1.0.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, percentile(temperature, 0.95) as temp_p95 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-## 🔍 分析函数
+## 🔍 Analyze the function
 
-分析函数用于在数据流中进行复杂的分析计算，支持状态管理和历史数据访问。
+Analysis functions are used to perform complex analytical calculations within data streams, supporting state management and access to historical data.
 
-### LAG - 滞后函数
-**语法**: `lag(col, offset, default_value)`  
-**描述**: 返回当前行之前的第N行的值。offset指定偏移量，default_value为默认值。  
-**增量计算**: ✅ 支持  
-**示例**:
+### LAG - Lag function
+**Grammar**: `lag(col, offset, default_value)`  
+**Description**: Returns the value of the N-th line before the current line. offset Specify the offset, default_value is the default value.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, temperature, lag(temperature, 1) as prev_temp 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### LATEST - 最新值函数
-**语法**: `latest(col)`  
-**描述**: 返回指定列的最新值。  
-**增量计算**: ✅ 支持  
-**示例**:
+### LATEST - Latest value function
+**Grammar**: `latest(col)`  
+**Description**: Returns the latest value for the specified column.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, latest(temperature) as current_temp 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### CHANGED_COL - 变化列函数
-**语法**: `changed_col(row_data)`  
-**描述**: 返回发生变化的列名数组。  
-**增量计算**: ✅ 支持  
-**示例**:
+### CHANGED_COL - Change column function
+**Grammar**: `changed_col(row_data)`  
+**Description**: Returns the column name array where it changed.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, changed_col(*) as changed_columns 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### HAD_CHANGED - 变化检测函数
-**语法**: `had_changed(col)`  
-**描述**: 判断指定列的值是否发生变化，返回布尔值。  
-**增量计算**: ✅ 支持  
-**示例**:
+### HAD_CHANGED - Change detection function
+**Grammar**: `had_changed(col)`  
+**Description**: Check whether the value of a specified column has changed, and return a boolean value.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, had_changed(status) as status_changed 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-## 🪟 窗口函数
+## 🪟 Window function
 
-窗口函数提供窗口相关的信息。
+The window function provides information related to the window.
 
-### WINDOW_START - 窗口开始时间
-**语法**: `window_start()`  
-**描述**: 返回当前窗口的开始时间。  
-**增量计算**: ✅ 支持  
-**示例**:
+### WINDOW_START - Window start time
+**Grammar**: `window_start()`  
+**Description**: Returns the start time of the current window.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, window_start() as window_begin, avg(temperature) as avg_temp 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-### WINDOW_END - 窗口结束时间
-**语法**: `window_end()`  
-**描述**: 返回当前窗口的结束时间。  
-**增量计算**: ✅ 支持  
-**示例**:
+### WINDOW_END - Window closing time
+**Grammar**: `window_end()`  
+**Description**: Returns the end time of the current window.  
+**Incremental Calculation**: ✅ Supported  
+**Example**:
 ```sql
 SELECT device, window_end() as window_finish, avg(temperature) as avg_temp 
 FROM stream 
 GROUP BY device, TumblingWindow('10s')
 ```
 
-## 🧮 数学函数
+## 🧮 Mathematical Functions
 
-数学函数用于数值计算。
+Mathematical functions are used for numerical calculations.
 
-### ABS - 绝对值函数
-**语法**: `abs(number)`  
-**描述**: 返回数值的绝对值。  
+### ABS - Absolute value function
+**Grammar**: `abs(number)`  
+**Description**: Returns the absolute value of the value.  
 
-### SQRT - 平方根函数
-**语法**: `sqrt(number)`  
-**描述**: 返回数值的平方根。  
+### SQRT - Square root function
+**Grammar**: `sqrt(number)`  
+**Description**: Returns the square root of the value.  
 
-### POWER - 幂函数
-**语法**: `power(base, exponent)`  
-**描述**: 返回底数的指定次幂。  
+### POWER - Power Function
+**Grammar**: `power(base, exponent)`  
+**Description**: Returns the specified power of the base.  
  
-### CEILING - 向上取整函数
-**语法**: `ceiling(number)`  
-**描述**: 返回大于或等于指定数值的最小整数。  
+### CEILING - The uptake function
+**Grammar**: `ceiling(number)`  
+**Description**: Returns the smallest integer greater than or equal to the specified value.  
 
-### FLOOR - 向下取整函数
-**语法**: `floor(number)`  
-**描述**: 返回小于或等于指定数值的最大整数。  
+### FLOOR - Downturn function
+**Grammar**: `floor(number)`  
+**Description**: Returns the largest integer less than or equal to the specified value.  
  
-### ROUND - 四舍五入函数
-**语法**: `round(number, [precision])`  
-**描述**: 将数值四舍五入到指定的小数位数。  
+### ROUND - Rounding function
+**Grammar**: `round(number, [precision])`  
+**Description**: Rounding values to a specified decimal place.  
  
-### MOD - 取模函数
-**语法**: `mod(dividend, divisor)`  
-**描述**: 返回除法运算的余数。  
+### MOD - Taking the modulus function
+**Grammar**: `mod(dividend, divisor)`  
+**Description**: Returns the remainder of the division operation.  
  
-### RAND - 随机数函数
-**语法**: `rand()`  
-**描述**: 返回0到1之间的随机数。  
+### RAND - Random Number Function
+**Grammar**: `rand()`  
+**Description**: Returns a random number between 0 and 1.  
 
-### SIGN - 符号函数
-**语法**: `sign(number)`  
-**描述**: 返回数值的符号（-1、0或1）。  
+### SIGN - Symbolic function
+**Grammar**: `sign(number)`  
+**Description**: Returns the symbol for a value (-1, 0, or 1).  
  
-### 三角函数
+### Trigonometric Functions
 
-#### SIN - 正弦函数
-**语法**: `sin(number)`  
-**描述**: 返回角度的正弦值（弧度制）。  
+#### SIN - Sine function
+**Grammar**: `sin(number)`  
+**Description**: Returns the sine of an angle in radians.  
 
-#### COS - 余弦函数
-**语法**: `cos(number)`  
-**描述**: 返回角度的余弦值（弧度制）。  
+#### COS - Cosine function
+**Grammar**: `cos(number)`  
+**Description**: Returns the cosine of an angle in radians.  
  
-#### TAN - 正切函数
-**语法**: `tan(number)`  
-**描述**: 返回角度的正切值（弧度制）。  
+#### TAN - Tangent function
+**Grammar**: `tan(number)`  
+**Description**: Returns the tangent of an angle in radians.  
  
-#### ASIN - 反正弦函数
-**语法**: `asin(number)`  
-**描述**: 返回数值的反正弦值（弧度制）。  
+#### ASIN - Arcsine function
+**Grammar**: `asin(number)`  
+**Description**: Returns the arcsine value of the value (radian system).  
  
-#### ACOS - 反余弦函数
-**语法**: `acos(number)`  
-**描述**: 返回数值的反余弦值（弧度制）。  
+#### ACOS - Inverse cosine function
+**Grammar**: `acos(number)`  
+**Description**: Returns the arccosine value of the value (radian system).  
  
-#### ATAN - 反正切函数
-**语法**: `atan(number)`  
-**描述**: 返回数值的反正切值（弧度制）。  
+#### ATAN - arctangent function
+**Grammar**: `atan(number)`  
+**Description**: Returns the arctangent value of the value (in radians).  
  
-#### ATAN2 - 双参数反正切函数
-**语法**: `atan2(y, x)`  
-**描述**: 返回y/x的反正切值（弧度制）。  
+#### ATAN2 - Two-parameter arctangent function
+**Grammar**: `atan2(y, x)`  
+**Description**: Returns the arctangent of y/x in radians.  
  
-### 双曲函数
+### Hyperbolic Functions
 
-#### SINH - 双曲正弦函数
-**语法**: `sinh(number)`  
-**描述**: 返回数值的双曲正弦值。  
+#### SINH - Hyperbolic Sine Function
+**Grammar**: `sinh(number)`  
+**Description**: Returns the hyperbolic sine value of the value.  
  
-#### COSH - 双曲余弦函数
-**语法**: `cosh(number)`  
-**描述**: 返回数值的双曲余弦值。  
+#### COSH - Hyperbolic cosine function
+**Grammar**: `cosh(number)`  
+**Description**: Returns the hyperbolic cosine value of the value.  
  
-#### TANH - 双曲正切函数
-**语法**: `tanh(number)`  
-**描述**: 返回数值的双曲正切值。  
+#### TANH - Hyperbolic tangent function
+**Grammar**: `tanh(number)`  
+**Description**: Returns the hyperbolic tangent value of the value.  
  
-### 对数和指数函数
+### Logarithmic and exponential functions
 
-#### EXP - 指数函数
-**语法**: `exp(number)`  
-**描述**: 返回e的指定次幂。  
+#### EXP - Exponential Function
+**Grammar**: `exp(number)`  
+**Description**: Returns e raised to the specified power.  
  
-#### LN - 自然对数函数
-**语法**: `ln(number)`  
-**描述**: 返回数值的自然对数。  
+#### LN - Natural logarithmic function
+**Grammar**: `ln(number)`  
+**Description**: Returns the natural logarithm of the value.  
  
-#### LOG - 对数函数
-**语法**: `log(base, number)`  
-**描述**: 返回指定底数的对数。  
+#### LOG - Logarithmic function
+**Grammar**: `log(base, number)`  
+**Description**: Returns the logarithm of the specified base.  
  
-#### LOG10 - 常用对数函数
-**语法**: `log10(number)`  
-**描述**: 返回数值的常用对数（以10为底）。  
+#### LOG10 - Common logarithmic functions
+**Grammar**: `log10(number)`  
+**Description**: Returns the commonly used logarithm of the value (base 10).  
  
-#### LOG2 - 二进制对数函数
-**语法**: `log2(number)`  
-**描述**: 返回数值的二进制对数（以2为底）。  
+#### LOG2 - Binary logarithmic function
+**Grammar**: `log2(number)`  
+**Description**: Returns the binary logarithm of the value (base 2).  
  
-### 位运算函数
+### Bitwise Arithmetic Function
 
-#### BIT_AND - 位与函数
-**语法**: `bit_and(number1, number2)`  
-**描述**: 对两个整数执行位与运算。  
+#### BIT_AND - Bits and functions
+**Grammar**: `bit_and(number1, number2)`  
+**Description**: Perform bits and operations on two integers.  
  
-#### BIT_OR - 位或函数
-**语法**: `bit_or(number1, number2)`  
-**描述**: 对两个整数执行位或运算。  
+#### BIT_OR - Bits or functions
+**Grammar**: `bit_or(number1, number2)`  
+**Description**: Executes bits or operations on two integers.  
  
-#### BIT_XOR - 位异或函数
-**语法**: `bit_xor(number1, number2)`  
-**描述**: 对两个整数执行位异或运算。  
+#### BIT_XOR - Bitwise XOR function
+**Grammar**: `bit_xor(number1, number2)`  
+**Description**: Performs bitwise OR operations on two integers.  
  
-#### BIT_NOT - 位非函数
-**语法**: `bit_not(number)`  
-**描述**: 对整数执行位非运算。  
+#### BIT_NOT - Bits are nonfunctional
+**Grammar**: `bit_not(number)`  
+**Description**: Performs bitwise non-operations on integers.  
  
-## 📝 字符串函数
+## 📝 String function
 
-字符串函数用于文本处理。
+String functions are used for text processing.
 
-### UPPER - 转大写函数
-**语法**: `upper(str)`  
-**描述**: 将字符串转换为大写。  
+### UPPER - Uppercase Conversion Function
+**Grammar**: `upper(str)`  
+**Description**: Converts strings to uppercase.  
  
-### LOWER - 转小写函数
-**语法**: `lower(str)`  
-**描述**: 将字符串转换为小写。  
+### LOWER - Lowercase conversion function
+**Grammar**: `lower(str)`  
+**Description**: Converts strings to lowercase.  
  
-### CONCAT - 字符串连接函数
-**语法**: `concat(str1, str2, ...)`  
-**描述**: 连接多个字符串。  
+### CONCAT - String concatenation function
+**Grammar**: `concat(str1, str2,.)`  
+**Description**: Concatenate multiple strings.  
  
-### LENGTH - 字符串长度函数
-**语法**: `length(str)`  
-**描述**: 返回字符串的长度。  
+### LENGTH - String length function
+**Grammar**: `length(str)`  
+**Description**: Returns the length of the string.  
  
-### SUBSTRING - 子字符串函数
-**语法**: `substring(str, start, [length])`  
-**描述**: 从字符串中提取子字符串。  
+### SUBSTRING - Substring function
+**Grammar**: `substring(str, start, [length])`  
+**Description**: Extracting substrings from a string.  
  
-### TRIM - 去除空格函数
-**语法**: `trim(str)`  
-**描述**: 去除字符串两端的空格。  
+### TRIM - Remove the space function
+**Grammar**: `trim(str)`  
+**Description**: Remove spaces at both ends of a string.  
  
-### LTRIM - 去除左侧空格函数
-**语法**: `ltrim(str)`  
-**描述**: 去除字符串左侧的空格。  
+### LTRIM - Remove the space function on the left
+**Grammar**: `ltrim(str)`  
+**Description**: Remove the space on the left side of the string.  
  
-### RTRIM - 去除右侧空格函数
-**语法**: `rtrim(str)`  
-**描述**: 去除字符串右侧的空格。  
+### RTRIM - Remove the space function on the right
+**Grammar**: `rtrim(str)`  
+**Description**: Remove the space on the right side of the string.  
 
-### FORMAT - 格式化函数
-**语法**: `format(format_str, ...)`  
-**描述**: 按照指定格式格式化字符串。  
+### FORMAT - Formatting function
+**Grammar**: `format(format_str,.)`  
+**Description**: Format the string according to the specified format.  
 
-### ENDSWITH - 结尾检查函数
-**语法**: `endswith(str, suffix)`  
-**描述**: 检查字符串是否以指定后缀结尾。  
+### ENDSWITH - End-check function
+**Grammar**: `endswith(str, suffix)`  
+**Description**: Check whether the string ends with the specified suffix.  
 
-### STARTSWITH - 开头检查函数
-**语法**: `startswith(str, prefix)`  
-**描述**: 检查字符串是否以指定前缀开头。  
+### STARTSWITH - Opening check function
+**Grammar**: `startswith(str, prefix)`  
+**Description**: Check whether the string starts with a specified prefix.  
 
-### INDEXOF - 查找位置函数
-**语法**: `indexof(str, substring)`  
-**描述**: 返回子字符串在字符串中的位置。  
+### INDEXOF - Find the position function
+**Grammar**: `indexof(str, substring)`  
+**Description**: Returns the position of the substring within the string.  
  
-### REPLACE - 替换函数
-**语法**: `replace(str, old_str, new_str)`  
-**描述**: 替换字符串中的指定内容。  
+### REPLACE - Replace the function
+**Grammar**: `replace(str, old_str, new_str)`  
+**Description**: Replace the specified content in the string.  
 
-### SPLIT - 分割函数
-**语法**: `split(str, delimiter)`  
-**描述**: 按照分隔符分割字符串。  
+### SPLIT - Partition function
+**Grammar**: `split(str, delimiter)`  
+**Description**: Split strings by separators.  
  
-### LPAD - 左填充函数
-**语法**: `lpad(str, length, pad_str)`  
-**描述**: 在字符串左侧填充字符到指定长度。  
+### LPAD - Left padding function
+**Grammar**: `lpad(str, length, pad_str)`  
+**Description**: Fill the left side of the string with characters to a specified length.  
  
-### RPAD - 右填充函数
-**语法**: `rpad(str, length, pad_str)`  
-**描述**: 在字符串右侧填充字符到指定长度。  
+### RPAD - Right padding function
+**Grammar**: `rpad(str, length, pad_str)`  
+**Description**: Fill the right side of the string with characters to a specified length.  
  
-### 正则表达式函数
+### Regular Expression Functions
 
-#### REGEXP_MATCHES - 正则匹配函数
-**语法**: `regexp_matches(str, pattern)`  
-**描述**: 检查字符串是否匹配正则表达式。  
+#### REGEXP_MATCHES - Regular matching function
+**Grammar**: `regexp_matches(str, pattern)`  
+**Description**: Check if the string matches a regular expression.  
 
-#### REGEXP_REPLACE - 正则替换函数
-**语法**: `regexp_replace(str, pattern, replacement)`  
-**描述**: 使用正则表达式替换字符串内容。  
+#### REGEXP_REPLACE - Regular replacement function
+**Grammar**: `regexp_replace(str, pattern, replacement)`  
+**Description**: Replace string content with regular expressions.  
  
-#### REGEXP_SUBSTRING - 正则提取函数
-**语法**: `regexp_substring(str, pattern)`  
-**描述**: 使用正则表达式提取字符串内容。  
+#### REGEXP_SUBSTRING - Regular extraction function
+**Grammar**: `regexp_substring(str, pattern)`  
+**Description**: Use regular expressions to extract string content.  
 
-## 🔄 类型转换函数
+## 🔄 Type conversion function
 
-类型转换函数用于数据类型转换。
+The type conversion function is used for data type conversion.
 
-### CAST - 类型转换函数
-**语法**: `cast(value as type)`  
-**描述**: 将值转换为指定类型。  
+### CAST - Type conversion function
+**Grammar**: `cast(value as type)`  
+**Description**: Converts values to specified types.  
  
-### HEX2DEC - 十六进制转十进制函数
-**语法**: `hex2dec(hex_str)`  
-**描述**: 将十六进制字符串转换为十进制数。  
+### HEX2DEC - Hexadecimal to decimal function
+**Grammar**: `hex2dec(hex_str)`  
+**Description**: Converts hexadecimal strings to decimal numbers.  
  
-### DEC2HEX - 十进制转十六进制函数
-**语法**: `dec2hex(number)`  
-**描述**: 将十进制数转换为十六进制字符串。  
+### DEC2HEX - Decimal to hexadecimal function
+**Grammar**: `dec2hex(number)`  
+**Description**: Converts decimal numbers into hexadecimal strings.  
 
-### ENCODE - 编码函数
-**语法**: `encode(str, encoding)`  
-**描述**: 按照指定编码方式编码字符串。  
+### ENCODE - Encoding function
+**Grammar**: `encode(str, encoding)`  
+**Description**: Encodes strings according to the specified encoding method.  
  
-### DECODE - 解码函数
-**语法**: `decode(str, encoding)`  
-**描述**: 按照指定编码方式解码字符串。  
+### DECODE - Decode function
+**Grammar**: `decode(str, encoding)`  
+**Description**: Decode the string according to the specified encoding method.  
  
-### CONVERT_TZ - 时区转换函数
-**语法**: `convert_tz(datetime, from_tz, to_tz)`  
-**描述**: 将日期时间从一个时区转换到另一个时区。  
+### CONVERT_TZ - Time zone conversion function
+**Grammar**: `convert_tz(datetime, from_tz, to_tz)`  
+**Description**: Convert date and time from one time zone to another.  
 
-### TO_SECONDS - 转换为秒函数
-**语法**: `to_seconds(datetime)`  
-**描述**: 将日期时间转换为秒数。  
+### TO_SECONDS - Convert to seconds function
+**Grammar**: `to_seconds(datetime)`  
+**Description**: Convert date and time into seconds.  
 
-### CHR - 字符函数
-**语法**: `chr(number)`  
-**描述**: 将ASCII码转换为字符。  
+### CHR - Character function
+**Grammar**: `chr(number)`  
+**Description**: Convert ASCII codes to characters.  
  
-### TRUNC - 截断函数
-**语法**: `trunc(number, [precision])`  
-**描述**: 截断数值到指定精度。  
+### TRUNC - Truncation function
+**Grammar**: `trunc(number, [precision])`  
+**Description**: Truncate values to specified precision.  
  
-### URL_ENCODE - URL编码函数
-**语法**: `url_encode(str)`  
-**描述**: 对字符串进行URL编码。  
+### URL_ENCODE - URL Encoding Function
+**Grammar**: `url_encode(str)`  
+**Description**: Perform URL encoding on strings.  
  
-### URL_DECODE - URL解码函数
-**语法**: `url_decode(str)`  
-**描述**: 对字符串进行URL解码。  
+### URL_DECODE - URL Decode function
+**Grammar**: `url_decode(str)`  
+**Description**: Perform URL decoding of strings.  
  
-## ⏰ 时间日期函数
+## ⏰ Time and date function
 
-时间日期函数用于处理时间和日期数据。
+The time-date function is used to process time and date data.
 
-### NOW - 当前时间函数
-**语法**: `now()`  
-**描述**: 返回当前的日期和时间。  
+### NOW - Current time function
+**Grammar**: `now()`  
+**Description**: Returns the current date and time.  
  
-### CURRENT_TIME - 当前时间函数
-**语法**: `current_time()`  
-**描述**: 返回当前时间。  
+### CURRENT_TIME - Current time function
+**Grammar**: `current_time()`  
+**Description**: Returns the current time.  
  
-### CURRENT_DATE - 当前日期函数
-**语法**: `current_date()`  
-**描述**: 返回当前日期。  
+### CURRENT_DATE - Current date function
+**Grammar**: `current_date()`  
+**Description**: Returns the current date.  
  
-## 🔗 JSON函数
+## 🔗 JSON Function
 
-JSON函数用于处理JSON数据。
+JSON functions are used to handle JSON data.
 
-### TO_JSON - 转换为JSON函数
-**语法**: `to_json(value)`  
-**描述**: 将值转换为JSON字符串。  
+### TO_JSON - Convert to JSON function
+**Grammar**: `to_json(value)`  
+**Description**: Converts values into JSON strings.  
  
-### FROM_JSON - 从JSON解析函数
-**语法**: `from_json(json_str)`  
-**描述**: 从JSON字符串解析值。  
+### FROM_JSON - Parsing functions from JSON
+**Grammar**: `from_json(json_str)`  
+**Description**: Parsing values from JSON strings.  
  
-### JSON_EXTRACT - JSON提取函数
-**语法**: `json_extract(json_source, path)`  
-**描述**: 从JSON字符串、Map或Array中提取指定路径的值。支持嵌套对象和数组索引。
+### JSON_EXTRACT - JSON Extraction Function
+**Grammar**: `json_extract(json_source, path)`  
+**Description**: Extract the value of a specified path from a JSON string, Map, or Array. Supports nested objects and array indexes.
 
-**参数**:
-- `json_source`: 输入数据，可以是JSON格式字符串，也可以是Map或Array类型对象
-- `path`: 提取路径，支持 `.` 访问字段，`[]` 访问数组索引或Map Key
+**Parameters**:
+- `json_source`: Input data, which can be a JSON format string or an object of type Map or Array
+- `path`: Extracts paths, supports `.` access to fields, `[]` access to array indexes or Map Key
 
-**示例**:
+**Example**:
 ```sql
--- 提取基本字段
-json_extract('{"name": "Alice"}', 'name') -- 返回 "Alice"
-json_extract('{"name": "Alice"}', '$.name') -- 返回 "Alice"
+-- Extract the basic field
+json_extract('{"name": "Alice"}', 'name') -- Back to "Alice"
+json_extract('{"name": "Alice"}', '$.name') -- Back to "Alice"
 
--- 提取嵌套字段
-json_extract('{"user": {"address": {"city": "New York"}}}', 'user.address.city') -- 返回 "New York"
-json_extract('{"user": {"address": {"city": "New York"}}}', '$.user.address.city') -- 返回 "New York"
+-- Extract nested fields
+json_extract('{"user": {"address": {"city": "New York"}}}', 'user.address.city') -- Back to "New York"
+json_extract('{"user": {"address": {"city": "New York"}}}', '$.user.address.city') -- Back to "New York"
 
--- 提取数组元素
-json_extract('[10, 20, 30]', '[1]') -- 返回 20
-json_extract('[10, 20, 30]', '$[1]') -- 返回 20
+-- Extract array elements
+json_extract('[10, 20, 30]', '[1]') -- Back to 20
+json_extract('[10, 20, 30]', '$[1]') -- Back to 20
 
--- 复杂嵌套提取
-json_extract('{"users": [{"name": "Alice"}, {"name": "Bob"}]}', 'users[1].name') -- 返回 "Bob"
+-- Complex nested extraction
+json_extract('{"users": [{"name": "Alice"}, {"name": "Bob"}]}', 'users[1].name') -- Back to "Bob"
 ```
  
-### JSON_VALID - JSON验证函数
-**语法**: `json_valid(json_str)`  
-**描述**: 验证字符串是否为有效的JSON。  
+### JSON_VALID - JSON Validation Function
+**Grammar**: `json_valid(json_str)`  
+**Description**: Verify whether the string is a valid JSON.  
 
-### JSON_TYPE - JSON类型函数
-**语法**: `json_type(json_str)`  
-**描述**: 返回JSON值的类型。  
+### JSON_TYPE - JSON type function
+**Grammar**: `json_type(json_str)`  
+**Description**: Returns the type of JSON value.  
 
-### JSON_LENGTH - JSON长度函数
-**语法**: `json_length(json_str)`  
-**描述**: 返回JSON数组或对象的长度。  
+### JSON_LENGTH - JSON length function
+**Grammar**: `json_length(json_str)`  
+**Description**: Returns the length of a JSON array or object.  
 
-## 🔐 哈希函数
+## 🔐 Hash function
 
-哈希函数用于生成数据的哈希值。
+Hash functions are used to generate the hash value of data.
 
-### MD5 - MD5哈希函数
-**语法**: `md5(str)`  
-**描述**: 生成字符串的MD5哈希值。  
+### MD5 - MD5 Hash function
+**Grammar**: `md5(str)`  
+**Description**: Generates the MD5 hash of a string.  
  
-### SHA1 - SHA1哈希函数
-**语法**: `sha1(str)`  
-**描述**: 生成字符串的SHA1哈希值。  
+### SHA1 - SHA1 Hash function
+**Grammar**: `sha1(str)`  
+**Description**: Generates the SHA-1 hash of a string.  
 
-### SHA256 - SHA256哈希函数
-**语法**: `sha256(str)`  
-**描述**: 生成字符串的SHA256哈希值。  
+### SHA256 - SHA256 Hash function
+**Grammar**: `sha256(str)`  
+**Description**: Generates the SHA-256 hash of a string.  
 
-### SHA512 - SHA512哈希函数
-**语法**: `sha512(str)`  
-**描述**: 生成字符串的SHA512哈希值。  
+### SHA512 - SHA512 Hash function
+**Grammar**: `sha512(str)`  
+**Description**: Generates the SHA-512 hash of a string.  
 
-## 📋 数组函数
+## 📋 Array functions
 
-数组函数用于处理数组数据。
+Array functions are used to process array data.
 
-### ARRAY_LENGTH - 数组长度函数
-**语法**: `array_length(array)`  
-**描述**: 返回数组的长度。  
+### ARRAY_LENGTH - Array length function
+**Grammar**: `array_length(array)`  
+**Description**: Returns the length of the array.  
 
-### ARRAY_CONTAINS - 数组包含函数
-**语法**: `array_contains(array, value)`  
-**描述**: 检查数组是否包含指定值。  
+### ARRAY_CONTAINS - Array inclusion function
+**Grammar**: `array_contains(array, value)`  
+**Description**: Check whether the array contains specified values.  
  
-### ARRAY_POSITION - 数组位置函数
-**语法**: `array_position(array, value)`  
-**描述**: 返回值在数组中的位置。  
+### ARRAY_POSITION - Array position function
+**Grammar**: `array_position(array, value)`  
+**Description**: The position of the returned value in the array.  
 
-### ARRAY_REMOVE - 数组移除函数
-**语法**: `array_remove(array, value)`  
-**描述**: 从数组中移除指定值。  
- 
-
-### ARRAY_DISTINCT - 数组去重函数
-**语法**: `array_distinct(array)`  
-**描述**: 返回数组的去重结果。  
- 
-### ARRAY_INTERSECT - 数组交集函数
-**语法**: `array_intersect(array1, array2)`  
-**描述**: 返回两个数组的交集。  
- 
-### ARRAY_UNION - 数组并集函数
-**语法**: `array_union(array1, array2)`  
-**描述**: 返回两个数组的并集。  
- 
-### ARRAY_EXCEPT - 数组差集函数
-**语法**: `array_except(array1, array2)`  
-**描述**: 返回两个数组的差集。  
- 
-## 🔍 类型检查函数
-
-类型检查函数用于检查数据类型。
-
-### IS_NULL - 空值检查函数
-**语法**: `is_null(value)`  
-**描述**: 检查值是否为NULL。  
- 
-### IS_NOT_NULL - 非空值检查函数
-**语法**: `is_not_null(value)`  
-**描述**: 检查值是否不为NULL。  
+### ARRAY_REMOVE - Array removal function
+**Grammar**: `array_remove(array, value)`  
+**Description**: Remove specified values from an array.  
  
 
-### IS_NUMERIC - 数值检查函数
-**语法**: `is_numeric(value)`  
-**描述**: 检查值是否为数值类型。  
+### ARRAY_DISTINCT - Array deduplication function
+**Grammar**: `array_distinct(array)`  
+**Description**: Returns the deduplication result of the array.  
  
-### IS_STRING - 字符串检查函数
-**语法**: `is_string(value)`  
-**描述**: 检查值是否为字符串类型。  
+### ARRAY_INTERSECT - Array Intersection Function
+**Grammar**: `array_intersect(array1, array2)`  
+**Description**: Returns the intersection of two arrays.  
  
-### IS_BOOL - 布尔值检查函数
-**语法**: `is_bool(value)`  
-**描述**: 检查值是否为布尔类型。  
+### ARRAY_UNION - Array union function
+**Grammar**: `array_union(array1, array2)`  
+**Description**: Returns the union of two arrays.  
  
-### IS_ARRAY - 数组检查函数
-**语法**: `is_array(value)`  
-**描述**: 检查值是否为数组类型。  
+### ARRAY_EXCEPT - Array difference set function
+**Grammar**: `array_except(array1, array2)`  
+**Description**: Returns the difference between two arrays.  
  
-### IS_OBJECT - 对象检查函数
-**语法**: `is_object(value)`  
-**描述**: 检查值是否为对象类型。  
+## 🔍 Type Check Function
+
+The type check function is used to check data types.
+
+### IS_NULL - Null check function
+**Grammar**: `is_null(value)`  
+**Description**: Check if the value is NULL.  
  
-## ❓ 条件函数
-
-条件函数用于条件判断和值选择。
-
-### IF_NULL - 空值处理函数
-**语法**: `if_null(value, default_value)`  
-**描述**: 如果值为NULL，返回默认值，否则返回原值。  
+### IS_NOT_NULL - Non-null check function
+**Grammar**: `is_not_null(value)`  
+**Description**: Check if the value is not NULL.  
  
-### COALESCE - 合并函数
-**语法**: `coalesce(value1, value2, ...)`  
-**描述**: 返回第一个非NULL值。  
 
-### NULL_IF - 空值转换函数
-**语法**: `null_if(value1, value2)`  
-**描述**: 如果两个值相等，返回NULL，否则返回第一个值。  
-
-### GREATEST - 最大值函数
-**语法**: `greatest(value1, value2, ...)`  
-**描述**: 返回参数中的最大值。  
-
-### LEAST - 最小值函数
-**语法**: `least(value1, value2, ...)`  
-**描述**: 返回参数中的最小值。  
-
-### CASE_WHEN - 条件选择函数
-**语法**: `case_when(condition, value_if_true, value_if_false)`  
-**描述**: 根据条件返回不同的值。  
-
-## 📊 多行函数
-
-多行函数用于处理多行数据。
-
-### UNNEST - 展开函数
-**语法**: `unnest(array)`  
-**描述**: 将数组展开为多行。  
+### IS_NUMERIC - Numeric Check Function
+**Grammar**: `is_numeric(value)`  
+**Description**: Check whether the value is of the numeric type.  
  
-## 🪟 扩展窗口函数
-
-扩展窗口函数提供更多窗口相关功能。
-
-### ROW_NUMBER - 行号函数
-**语法**: `row_number() OVER (ORDER BY col)`  
-**描述**: 为结果集中的每一行分配一个唯一的行号。  
-**增量计算**: ✅ 支持  
-
-### FIRST_VALUE - 首值函数
-**语法**: `first_value(col) OVER (ORDER BY col)`  
-**描述**: 返回窗口中第一行的值。  
-**增量计算**: ✅ 支持  
-
-### LEAD - 前导函数
-**语法**: `lead(col, offset, default_value) OVER (ORDER BY col)`  
-**描述**: 返回当前行之后第N行的值。  
-**增量计算**: ✅ 支持  
-
-### NTH_VALUE - 第N个值函数
-**语法**: `nth_value(col, n) OVER (ORDER BY col)`  
-**描述**: 返回窗口中第N行的值。  
-**增量计算**: ✅ 支持  
-
-## 🔧 表达式函数
-
-表达式函数用于动态表达式计算。
-
-### EXPRESSION - 表达式函数
-**语法**: `expression(expr_str)`  
-**描述**: 动态计算表达式字符串。  
-
-### EXPR - 表达式简写函数
-**语法**: `expr(expr_str)`  
-**描述**: expression函数的简写形式。  
+### IS_STRING - String Check Function
+**Grammar**: `is_string(value)`  
+**Description**: Check whether the value is of the string type.  
  
-## ⚡ 增量计算性能优势
+### IS_BOOL - Boolean check function
+**Grammar**: `is_bool(value)`  
+**Description**: Check whether the value is of boolean type.  
+ 
+### IS_ARRAY - Array check function
+**Grammar**: `is_array(value)`  
+**Description**: Check whether the value is of array type.  
+ 
+### IS_OBJECT - Object Checking Function
+**Grammar**: `is_object(value)`  
+**Description**: Check whether the value is of the object type.  
+ 
+## ❓ Conditional Function
 
-支持增量计算的函数具有以下性能优势：
+Conditional functions are used for conditional judgment and value selection.
 
-### 内存效率
-- **传统批量计算**: 需要存储窗口内所有数据，内存使用 O(n)
-- **增量计算**: 只存储必要的状态信息，内存使用 O(1) 或 O(log n)
+### IF_NULL - Null Value Handler Function
+**Grammar**: `if_null(value, default_value)`  
+**Description**: If the value is NULL, returns the default value; otherwise, returns the original value.  
+ 
+### COALESCE - Merge function
+**Grammar**: `coalesce(value1, value2,.)`  
+**Description**: Returns the first non-NULL value.  
 
-### 计算效率
-- **传统批量计算**: 每次窗口触发都重新计算所有数据，时间复杂度 O(n)
-- **增量计算**: 只处理新增数据，时间复杂度 O(1)
+### NULL_IF - Null Value Conversion Function
+**Grammar**: `null_if(value1, value2)`  
+**Description**: If two values are equal, return NULL; otherwise, return the first value.  
 
-### 实时性
-- **传统批量计算**: 只能在窗口结束时输出结果
-- **增量计算**: 可以实时输出中间结果
+### GREATEST - Maximum value function
+**Grammar**: `greatest(value1, value2,.)`  
+**Description**: Returns the maximum value in the parameters.  
 
-## 🔧 自定义函数扩展
+### LEAST - Minimum value function
+**Grammar**: `least(value1, value2,.)`  
+**Description**: Returns the minimum value in the argument.  
 
-StreamSQL 支持自定义函数扩展，详见 `functions/custom_example.go` 中的示例。可以实现：
-- 自定义聚合函数（支持增量计算）
-- 自定义分析函数（支持状态管理）
-- 自定义数学函数
-- 自定义字符串函数
+### CASE_WHEN - Conditional Selection Function
+**Grammar**: `case_when(condition, value_if_true, value_if_false)`  
+**Description**: Returns different values based on conditions.  
 
-通过实现相应的接口，自定义函数可以无缝集成到 StreamSQL 的函数体系中。
+## 📊 Multiline Functions
+
+Multi-line functions are used to process multi-line data.
+
+### UNNEST - Expansion Function
+**Grammar**: `unnest(array)`  
+**Description**: Expand the array into multiple rows.  
+ 
+## 🪟 Extend window function
+
+The extended window function provides more window-related features.
+
+### ROW_NUMBER - Line number function
+**Grammar**: `row_number() OVER (ORDER BY col)`  
+**Description**: Assign a unique row number to each row in the result set.  
+**Incremental Calculation**: ✅ Supported  
+
+### FIRST_VALUE - Head-value function
+**Grammar**: `first_value(col) OVER (ORDER BY col)`  
+**Description**: Returns the value of the first row in the window.  
+**Incremental Calculation**: ✅ Supported  
+
+### LEAD - Preceding Function
+**Grammar**: `lead(col, offset, default_value) OVER (ORDER BY col)`  
+**Description**: Returns the value of the N line after the current line.  
+**Incremental Calculation**: ✅ Supported  
+
+### NTH_VALUE - The N th valued function
+**Grammar**: `nth_value(col, n) OVER (ORDER BY col)`  
+**Description**: Returns the value from row N in the window.  
+**Incremental Calculation**: ✅ Supported  
+
+## 🔧 Expression Function
+
+Expression functions are used for dynamic expression calculations.
+
+### EXPRESSION - Expression function
+**Grammar**: `expression(expr_str)`  
+**Description**: Dynamically computes an expression string.  
+
+### EXPR - Expression shorthand function
+**Grammar**: `expr(expr_str)`  
+**Describe the abbreviated form of the**:expression function.  
+ 
+## ⚡ Advantages in incremental computing performance
+
+Functions supporting incremental computing have the following performance advantages:
+
+### Memory Efficiency
+- **Traditional batch computing**: Needs to store all data within the window, memory usage O(n)
+- **Incremental Computation**: Only stores necessary state information, memory uses O(1) or O(log n)
+
+### Computational Efficiency
+- **Traditional batch computing**: All data is recalculated each time a window is triggered, with time complexity O(n)
+- **Incremental Calculation**: Only processes newly added data, time complexity O(1)
+
+### Real-time capability
+- **Traditional batch computing**: Only outputs results at the end of the window
+- **Incremental Calculation**: Can output intermediate results in real time
+
+## 🔧 Custom Function Extensions
+
+StreamSQL Supports custom function extensions; see examples in `functions/custom_example.go` for details. It can be achieved:
+- Custom aggregation functions (supports incremental calculations)
+- Custom analysis functions (supports state management)
+- Custom mathematical functions
+- Custom string function
+
+By implementing the corresponding interfaces, custom functions can be seamlessly integrated into StreamSQL's function system.

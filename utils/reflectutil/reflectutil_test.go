@@ -21,7 +21,7 @@ import (
 	"testing"
 )
 
-// TestStruct 用于测试的结构体
+// TestStruct is used for testing structures
 type TestStruct struct {
 	Name    string
 	Age     int
@@ -30,7 +30,7 @@ type TestStruct struct {
 	Balance float64
 }
 
-// TestSafeFieldByName 测试 SafeFieldByName 函数的基本功能
+// TestSafeFieldByName Tests the basic functionality of the SafeFieldByName function
 func TestSafeFieldByName(t *testing.T) {
 	testObj := TestStruct{
 		Name:    "John Doe",
@@ -42,7 +42,7 @@ func TestSafeFieldByName(t *testing.T) {
 
 	v := reflect.ValueOf(testObj)
 
-	// 测试获取存在的字段
+	// Test to retrieve the fields that exist
 	nameField, err := SafeFieldByName(v, "Name")
 	if err != nil {
 		t.Errorf("Expected no error for existing field 'Name', got: %v", err)
@@ -56,7 +56,7 @@ func TestSafeFieldByName(t *testing.T) {
 		t.Errorf("Expected field value 'John Doe', got: %v", nameField.String())
 	}
 
-	// 测试获取 Age 字段
+	// Test to get the Age field
 	ageField, err := SafeFieldByName(v, "Age")
 	if err != nil {
 		t.Errorf("Expected no error for existing field 'Age', got: %v", err)
@@ -66,7 +66,7 @@ func TestSafeFieldByName(t *testing.T) {
 		t.Errorf("Expected field value 30, got: %v", ageField.Int())
 	}
 
-	// 测试获取 Active 字段
+	// Test to get the Active field
 	activeField, err := SafeFieldByName(v, "Active")
 	if err != nil {
 		t.Errorf("Expected no error for existing field 'Active', got: %v", err)
@@ -76,7 +76,7 @@ func TestSafeFieldByName(t *testing.T) {
 		t.Errorf("Expected field value true, got: %v", activeField.Bool())
 	}
 
-	// 测试获取 Balance 字段
+	// Test to get the Balance field
 	balanceField, err := SafeFieldByName(v, "Balance")
 	if err != nil {
 		t.Errorf("Expected no error for existing field 'Balance', got: %v", err)
@@ -87,12 +87,12 @@ func TestSafeFieldByName(t *testing.T) {
 	}
 }
 
-// TestSafeFieldByNameNonExistentField 测试获取不存在的字段
+// TestSafeFieldByNameNonExistentField tests to retrieve fields that do not exist
 func TestSafeFieldByNameNonExistentField(t *testing.T) {
 	testObj := TestStruct{Name: "John Doe"}
 	v := reflect.ValueOf(testObj)
 
-	// 测试获取不存在的字段
+	// Test to retrieve fields that don't exist
 	_, err := SafeFieldByName(v, "NonExistentField")
 	if err == nil {
 		t.Error("Expected error for non-existent field, got nil")
@@ -104,9 +104,9 @@ func TestSafeFieldByNameNonExistentField(t *testing.T) {
 	}
 }
 
-// TestSafeFieldByNameInvalidValue 测试无效的 reflect.Value
+// TestSafeFieldByNameInvalidValue Invalid test reflect.Value
 func TestSafeFieldByNameInvalidValue(t *testing.T) {
-	// 创建一个无效的 reflect.Value
+	// Create an invalid reflect.Value
 	var invalidValue reflect.Value
 
 	_, err := SafeFieldByName(invalidValue, "Name")
@@ -120,9 +120,9 @@ func TestSafeFieldByNameInvalidValue(t *testing.T) {
 	}
 }
 
-// TestSafeFieldByNameNonStructValue 测试非结构体类型的值
+// TestSafeFieldByNameNonStructValue tests the value of the non-structure type
 func TestSafeFieldByNameNonStructValue(t *testing.T) {
-	// 测试字符串类型
+	// Test string types
 	stringValue := reflect.ValueOf("test string")
 	_, err := SafeFieldByName(stringValue, "Name")
 	if err == nil {
@@ -134,7 +134,7 @@ func TestSafeFieldByNameNonStructValue(t *testing.T) {
 		t.Errorf("Expected error message '%s', got: %v", expectedError, err.Error())
 	}
 
-	// 测试整数类型
+	// Test integer types
 	intValue := reflect.ValueOf(42)
 	_, err = SafeFieldByName(intValue, "Name")
 	if err == nil {
@@ -146,7 +146,7 @@ func TestSafeFieldByNameNonStructValue(t *testing.T) {
 		t.Errorf("Expected error message '%s', got: %v", expectedError, err.Error())
 	}
 
-	// 测试切片类型
+	// Test the type of slice
 	sliceValue := reflect.ValueOf([]string{"a", "b", "c"})
 	_, err = SafeFieldByName(sliceValue, "Name")
 	if err == nil {
@@ -159,7 +159,7 @@ func TestSafeFieldByNameNonStructValue(t *testing.T) {
 	}
 }
 
-// TestSafeFieldByNameWithPointer 测试指针类型的结构体
+// TestSafeFieldByNameWithPointer to test the structure of pointer type
 func TestSafeFieldByNameWithPointer(t *testing.T) {
 	testObj := &TestStruct{
 		Name:   "Jane Doe",
@@ -167,10 +167,10 @@ func TestSafeFieldByNameWithPointer(t *testing.T) {
 		Active: false,
 	}
 
-	// 获取指针指向的值
+	// Get the value pointed to by the pointer
 	v := reflect.ValueOf(testObj).Elem()
 
-	// 测试获取字段
+	// Test to get fields
 	nameField, err := SafeFieldByName(v, "Name")
 	if err != nil {
 		t.Errorf("Expected no error for existing field 'Name', got: %v", err)
@@ -190,7 +190,7 @@ func TestSafeFieldByNameWithPointer(t *testing.T) {
 	}
 }
 
-// TestSafeFieldByNameWithInterface 测试接口类型
+// TestSafeFieldByNameWithInterface Test interface type
 func TestSafeFieldByNameWithInterface(t *testing.T) {
 	var testInterface any = TestStruct{
 		Name:  "Interface Test",
@@ -210,14 +210,14 @@ func TestSafeFieldByNameWithInterface(t *testing.T) {
 	}
 }
 
-// TestSafeFieldByNameEmptyStruct 测试空结构体
+// TestSafeFieldByNameEmptyStruct Tests the empty structure
 func TestSafeFieldByNameEmptyStruct(t *testing.T) {
 	type EmptyStruct struct{}
 
 	emptyObj := EmptyStruct{}
 	v := reflect.ValueOf(emptyObj)
 
-	// 尝试获取不存在的字段
+	// Try to get fields that don't exist
 	_, err := SafeFieldByName(v, "NonExistentField")
 	if err == nil {
 		t.Error("Expected error for non-existent field in empty struct, got nil")
@@ -229,12 +229,12 @@ func TestSafeFieldByNameEmptyStruct(t *testing.T) {
 	}
 }
 
-// TestSafeFieldByNameCaseSensitive 测试字段名大小写敏感性
+// TestSafeFieldByNameCaseSensitive tests field name case sensitivity
 func TestSafeFieldByNameCaseSensitive(t *testing.T) {
 	testObj := TestStruct{Name: "Case Test"}
 	v := reflect.ValueOf(testObj)
 
-	// 测试正确的大小写
+	// Test the correct case case
 	nameField, err := SafeFieldByName(v, "Name")
 	if err != nil {
 		t.Errorf("Expected no error for correct case 'Name', got: %v", err)
@@ -244,19 +244,19 @@ func TestSafeFieldByNameCaseSensitive(t *testing.T) {
 		t.Errorf("Expected field value 'Case Test', got: %v", nameField.String())
 	}
 
-	// 测试错误的大小写
-	_, err = SafeFieldByName(v, "name") // 小写
+	// Test for case errors
+	_, err = SafeFieldByName(v, "name") // Lowercase
 	if err == nil {
 		t.Error("Expected error for incorrect case 'name', got nil")
 	}
 
-	_, err = SafeFieldByName(v, "NAME") // 大写
+	_, err = SafeFieldByName(v, "NAME") // Uppercase
 	if err == nil {
 		t.Error("Expected error for incorrect case 'NAME', got nil")
 	}
 }
 
-// TestSafeFieldByNameConcurrentAccess 测试并发访问
+// TestSafeFieldByNameConcurrentAccess tests for concurrent access
 func TestSafeFieldByNameConcurrentAccess(t *testing.T) {
 	testObj := TestStruct{
 		Name:    "Concurrent Test",
@@ -268,12 +268,12 @@ func TestSafeFieldByNameConcurrentAccess(t *testing.T) {
 
 	v := reflect.ValueOf(testObj)
 
-	// 启动多个 goroutine 并发访问
+	// Initiate multiple GoRoutine concurrent accesses
 	done := make(chan bool, 10)
 	for i := 0; i < 10; i++ {
 		go func() {
 			for j := 0; j < 100; j++ {
-				// 测试获取不同字段
+				// Test to obtain different fields
 				nameField, err := SafeFieldByName(v, "Name")
 				if err != nil {
 					t.Errorf("Concurrent access error for Name: %v", err)
@@ -298,7 +298,7 @@ func TestSafeFieldByNameConcurrentAccess(t *testing.T) {
 		}()
 	}
 
-	// 等待所有 goroutine 完成
+	// Wait for all goroutines to complete
 	for i := 0; i < 10; i++ {
 		<-done
 	}
