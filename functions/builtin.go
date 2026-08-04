@@ -124,6 +124,8 @@ func registerBuiltinFunctions() {
 	_ = Register(NewAccMinFunction())
 	_ = Register(NewAccCountFunction())
 	_ = Register(NewAccAvgFunction())
+	_ = Register(NewHysteresisFunction())
+	_ = Register(NewLatchFunction())
 
 	// Expression functions
 	_ = Register(NewExpressionFunction())
