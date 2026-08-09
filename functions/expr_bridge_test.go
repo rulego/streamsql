@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,6 +30,65 @@ func TestExprFunctionGetsRowData(t *testing.T) {
 	got, err = bridge.EvaluateExpression("abs(-3) + expr('humidity')", data)
 	assert.NoError(t, err)
 	assert.Equal(t, 63.0, got)
+}
+
+// usesExprFunction 的判定被按表达式缓存。缓存必须逐表达式区分，且重复调用稳定——
+// 否则 expr() 会被错误路由到编译路径（拿不到行数据，静默返回 nil）。
+func TestUsesExprFunctionCache(t *testing.T) {
+	bridge := NewExprBridge()
+
+	cases := []struct {
+		expression string
+		want       bool
+	}{
+		{"expr('temperature')", true},
+		{"EXPR('temperature')", true},  // 大小写不敏感
+		{"expr ('temperature')", true}, // 允许括号前空格
+		{"abs(-3) + expr('h')", true},  // 混在其它调用中
+		{"temperature * 2", false},     // 纯算术
+		{"myexpr(temperature)", false}, // 词边界：不误判 myexpr(
+		{"expression", false},          // 无调用括号
+		{"upper(device)", false},       // 其它函数
+	}
+
+	// 两轮：第一轮填充缓存，第二轮命中缓存，结果必须一致
+	for round := 1; round <= 2; round++ {
+		for _, c := range cases {
+			got := bridge.usesExprFunction(c.expression)
+			assert.Equal(t, c.want, got, "第 %d 轮 %q", round, c.expression)
+		}
+	}
+
+	// 缓存不得影响求值正确性：expr() 仍须拿到行数据
+	data := map[string]any{"temperature": 42.0}
+	for i := 0; i < 3; i++ {
+		got, err := bridge.EvaluateExpression("expr('temperature')", data)
+		assert.NoError(t, err)
+		assert.Equal(t, 42.0, got, "第 %d 次求值", i+1)
+	}
+}
+
+// 并发调用缓存不得竞态（sync.Map），且结果一致。用 -race 跑有效。
+func TestUsesExprFunctionCacheConcurrent(t *testing.T) {
+	bridge := NewExprBridge()
+	exprs := []string{"expr('a')", "a * 2", "myexpr(a)", "abs(a) + expr('b')"}
+	want := []bool{true, false, false, true}
+
+	var wg sync.WaitGroup
+	for g := 0; g < 8; g++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 200; i++ {
+				idx := i % len(exprs)
+				if got := bridge.usesExprFunction(exprs[idx]); got != want[idx] {
+					t.Errorf("%q → %v, 期望 %v", exprs[idx], got, want[idx])
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func TestExprBridge(t *testing.T) {

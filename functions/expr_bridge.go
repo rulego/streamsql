@@ -37,7 +37,11 @@ type ExprBridge struct {
 	// preprocessing result per input expression, avoiding repeated
 	// ToUpper/Contains/regex scans on every row.
 	preprocessCache sync.Map
-	exprEnv         map[string]any
+	// exprCallCache caches the usesExprFunction regex verdict per expression.
+	// The verdict depends only on the expression text, so running the regex on
+	// every row is pure waste — it dominated CPU on the computed-field path.
+	exprCallCache sync.Map
+	exprEnv       map[string]any
 	mutex           sync.RWMutex // Add read-write lock to protect concurrent access
 }
 
@@ -283,7 +287,12 @@ var exprCallPattern = regexp.MustCompile(`(?i)\bexpr\s*\(`)
 // StreamSQL function that reads the per-row data context. Such expressions must
 // take the env path so the dynamic sub-expression is evaluated against the row.
 func (bridge *ExprBridge) usesExprFunction(expression string) bool {
-	return exprCallPattern.MatchString(expression)
+	if v, ok := bridge.exprCallCache.Load(expression); ok {
+		return v.(bool)
+	}
+	uses := exprCallPattern.MatchString(expression)
+	bridge.exprCallCache.Store(expression, uses)
+	return uses
 }
 
 // isStringConcatenationExpression 检查是否是字符串拼接表达式

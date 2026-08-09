@@ -45,6 +45,29 @@ func BenchmarkExprBridge_Field(b *testing.B) {
 	})
 }
 
+// usesExprFunction runs on every row but its verdict depends only on the
+// expression text. Before caching, its regex dominated CPU on the computed-field
+// path (~26% of samples). These isolate that check.
+func BenchmarkExprBridge_UsesExprFunction(b *testing.B) {
+	bridge := GetExprBridge()
+	const expression = "temperature * 2 + humidity - offset / scale"
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		bridge.usesExprFunction(expression)
+	}
+}
+
+// Uncached baseline for comparison: the raw regex the cache replaces.
+func BenchmarkExprBridge_UsesExprFunctionRegex(b *testing.B) {
+	const expression = "temperature * 2 + humidity - offset / scale"
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		exprCallPattern.MatchString(expression)
+	}
+}
+
 // Isolate the per-call environment construction cost.
 func BenchmarkExprBridge_CreateEnv(b *testing.B) {
 	bridge := GetExprBridge()
