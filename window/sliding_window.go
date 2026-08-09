@@ -224,6 +224,15 @@ func (sw *SlidingWindow) Add(data any) {
 		}
 		sw.initialized = true
 	}
+	// Processing time: an empty buffer plus a row landing past the current slot
+	// means the slot is stale from an idle gap (everything before was already
+	// emitted). Jump it forward so the row is emitted after one slide instead of
+	// waiting for the slot to step there one tick at a time. A non-empty buffer
+	// means the window is still filling and must advance normally.
+	if timeChar != types.EventTime && len(sw.data) == 0 {
+		sw.catchUpToRowLocked(eventTime)
+	}
+
 	row := types.Row{
 		Data:      data,
 		Timestamp: eventTime,
@@ -645,11 +654,6 @@ func (sw *SlidingWindow) Trigger() {
 	// Lock to ensure thread safety
 	sw.mu.Lock()
 
-	// Return directly if no data in window
-	if len(sw.data) == 0 {
-		sw.mu.Unlock()
-		return
-	}
 	if !sw.initialized {
 		sw.mu.Unlock()
 		return
@@ -672,6 +676,10 @@ func (sw *SlidingWindow) Trigger() {
 
 	// Extract current window data
 	currentSlot := sw.currentSlot
+	// Advance unconditionally — including when the window holds no data. Returning
+	// early without advancing leaves currentSlot parked in the past, and since the
+	// slot then only moves one slide per tick it can never catch up: after an idle
+	// gap, new data waited roughly the length of the gap before being emitted.
 	sw.currentSlot = next
 
 	resultData := sw.extractWindowDataLocked(currentSlot)
@@ -812,6 +820,36 @@ func (sw *SlidingWindow) SetCallback(callback func([]types.Row)) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 	sw.callback = callback
+}
+
+// catchUpToRowLocked fast-forwards currentSlot when a newly arrived row lands
+// beyond it entirely, which happens after an idle gap: ticks keep firing while
+// the window is empty, and because the slot only advances one slide per tick it
+// stays parked in the past. Without this, a row arriving after N seconds of
+// silence waited roughly N seconds to be emitted instead of one window.
+//
+// The target is the earliest slide-aligned slot that still contains the row, so
+// the row is emitted after one slide rather than after a full window. Slots stay
+// slide-aligned, so boundaries on the normal (non-idle) path are unchanged.
+// Caller holds sw.mu.
+func (sw *SlidingWindow) catchUpToRowLocked(rowTime time.Time) {
+	if sw.currentSlot == nil || sw.slide <= 0 {
+		return
+	}
+	// Only jump when the row falls outside the current window: an in-window row
+	// belongs to the still-filling window and must not skip it.
+	if sw.currentSlot.Contains(rowTime) || rowTime.Before(*sw.currentSlot.Start) {
+		return
+	}
+	// Earliest aligned start whose window still covers rowTime (start > rowTime-size).
+	target := alignWindowStart(rowTime.Add(-sw.size), sw.slide)
+	for !target.After(rowTime.Add(-sw.size)) {
+		target = target.Add(sw.slide)
+	}
+	if !target.After(*sw.currentSlot.Start) {
+		return
+	}
+	sw.currentSlot = sw.createSlotFromStart(target)
 }
 
 func (sw *SlidingWindow) NextSlot() *types.TimeSlot {
