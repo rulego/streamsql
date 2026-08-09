@@ -171,14 +171,13 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 			}
 		}
 
-		if parseErr, ok := err.(*ParseError); ok {
-			p.errorRecovery.AddError(parseErr)
-		}
+		p.recordClauseError(err)
 		// 对于其他错误，继续尝试解析其他部分
 	}
 
 	// 解析FROM子句
 	if err := p.parseFrom(stmt); err != nil {
+		p.recordClauseError(err)
 		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
 			return nil, p.createDetailedError(err)
 		}
@@ -186,6 +185,7 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 
 	// 解析JOIN子句（流-表 JOIN，v0.5）
 	if err := p.parseJoin(stmt); err != nil {
+		p.recordClauseError(err)
 		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
 			return nil, p.createDetailedError(err)
 		}
@@ -193,6 +193,7 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 
 	// 解析 MATCH_RECOGNIZE 子句（CEP，FROM 后、WHERE 前）
 	if err := p.parseMatchRecognize(stmt); err != nil {
+		p.recordClauseError(err)
 		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
 			return nil, p.createDetailedError(err)
 		}
@@ -200,6 +201,7 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 
 	// 解析WHERE子句
 	if err := p.parseWhere(stmt); err != nil {
+		p.recordClauseError(err)
 		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
 			return nil, p.createDetailedError(err)
 		}
@@ -207,6 +209,7 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 
 	// 解析GROUP BY子句
 	if err := p.parseGroupBy(stmt); err != nil {
+		p.recordClauseError(err)
 		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
 			return nil, p.createDetailedError(err)
 		}
@@ -214,12 +217,14 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 
 	// 解析 HAVING 子句
 	if err := p.parseHaving(stmt); err != nil {
+		p.recordClauseError(err)
 		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
 			return nil, p.createDetailedError(err)
 		}
 	}
 
 	if err := p.parseWith(stmt); err != nil {
+		p.recordClauseError(err)
 		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
 			return nil, p.createDetailedError(err)
 		}
@@ -227,6 +232,7 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 
 	// 解析 ORDER BY 子句
 	if err := p.parseOrderBy(stmt); err != nil {
+		p.recordClauseError(err)
 		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
 			return nil, p.createDetailedError(err)
 		}
@@ -234,6 +240,7 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 
 	// 解析LIMIT子句
 	if err := p.parseLimit(stmt); err != nil {
+		p.recordClauseError(err)
 		if !p.errorRecovery.RecoverFromError(ErrorTypeSyntax) {
 			return nil, p.createDetailedError(err)
 		}
@@ -245,6 +252,58 @@ func (p *Parser) Parse() (*SelectStatement, error) {
 	}
 
 	return stmt, nil
+}
+
+// loopGuard 检测子句解析循环是否卡住不前进。每轮循环应至少消费一个 token，
+// 故 lexer 位置必须推进；连续若干轮位置不变才判定死循环。
+// 取代原先的固定迭代上限（100 次）——那个上限会把长而合法的子句误判为语法错，
+// 且错误被吞后表现为子句被静默截断（如 WHERE 超 24 个 AND 条件后条件丢失，错误放行数据）。
+type loopGuard struct {
+	lexer    *Lexer
+	lastPos  int
+	stalled  int
+	maxStall int
+}
+
+func newLoopGuard(l *Lexer) *loopGuard {
+	return &loopGuard{lexer: l, lastPos: -1, maxStall: 8}
+}
+
+// advanced 报告循环是否仍在推进。返回 false 表示位置连续多轮未变，应判定死循环并报错。
+func (g *loopGuard) advanced() bool {
+	pos := g.lexer.pos
+	if pos > g.lastPos {
+		g.lastPos = pos
+		g.stalled = 0
+		return true
+	}
+	g.stalled++
+	return g.stalled <= g.maxStall
+}
+
+// recordClauseError 把子句解析错误登记进 errorRecovery，使 Parse 末尾的 HasErrors
+// 能感知。不登记的话语法错会被 RecoverFromError 吞掉、Parse 返回 nil，查询静默退化
+// 成另一个查询（如畸形 MATCH_RECOGNIZE 变透传）。
+// 子句解析器内部（expectToken 等）可能已登记同一个 *ParseError，按指针去重避免重复计数。
+func (p *Parser) recordClauseError(err error) {
+	if err == nil {
+		return
+	}
+	if pe, ok := err.(*ParseError); ok {
+		for _, existing := range p.errorRecovery.GetErrors() {
+			if existing == pe {
+				return
+			}
+		}
+		p.errorRecovery.AddError(pe)
+		return
+	}
+	p.errorRecovery.AddError(&ParseError{
+		Type:        ErrorTypeSyntax,
+		Message:     err.Error(),
+		Position:    p.lexer.pos,
+		Recoverable: true,
+	})
 }
 
 // isKeyword 检查给定的字符串是否是SQL关键字
@@ -488,15 +547,12 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 		return nil
 	}
 
-	// Set max iterations limit to prevent infinite loops
-	maxIterations := 100
-	iterations := 0
+	// 防死循环：按 lexer 是否推进判定，不限制子句长度
+	guard := newLoopGuard(p.lexer)
 
 	for {
-		iterations++
-		// 安全检查：防止无限循环
-		if iterations > maxIterations {
-			return errors.New("WHERE clause parsing exceeded maximum iterations, possible syntax error")
+		if !guard.advanced() {
+			return errors.New("WHERE clause parsing stalled, possible syntax error")
 		}
 
 		tok := p.lexer.NextToken()
@@ -561,14 +617,12 @@ func (p *Parser) parseWindowFunction(stmt *SelectStatement, winType string) erro
 	}
 
 	var params []any
-	maxIterations := 100
-	iterations := 0
+	guard := newLoopGuard(p.lexer)
 
 	// Parse parameters until we find the closing parenthesis
 	for {
-		iterations++
-		if iterations > maxIterations {
-			return fmt.Errorf("window function parameter parsing exceeded maximum iterations")
+		if !guard.advanced() {
+			return fmt.Errorf("window function parameter parsing stalled, possible syntax error")
 		}
 
 		// Read the next token first
@@ -993,9 +1047,8 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 		return nil
 	}
 
-	// 设置最大次数限制，防止无限循环
-	maxIterations := 100
-	iterations := 0
+	// 防死循环：按 lexer 是否推进判定，不限制分组字段数
+	guard := newLoopGuard(p.lexer)
 
 	var limitToken *Token // 保存LIMIT token以便后续处理
 
@@ -1011,10 +1064,8 @@ func (p *Parser) parseGroupBy(stmt *SelectStatement) error {
 	}
 
 	for {
-		iterations++
-		// 安全检查：防止无限循环
-		if iterations > maxIterations {
-			return errors.New("group by clause parsing exceeded maximum iterations, possible syntax error")
+		if !guard.advanced() {
+			return errors.New("group by clause parsing stalled, possible syntax error")
 		}
 
 		tok := p.lexer.NextToken()
@@ -1094,15 +1145,12 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 
 	p.lexer.NextToken() // 跳过(
 
-	// 设置最大次数限制，防止无限循环
-	maxIterations := 100
-	iterations := 0
+	// 防死循环：按 lexer 是否推进判定，不限制属性数
+	guard := newLoopGuard(p.lexer)
 
 	for p.lexer.peekChar() != ')' {
-		iterations++
-		// 安全检查：防止无限循环
-		if iterations > maxIterations {
-			return errors.New("WITH clause parsing exceeded maximum iterations, possible syntax error")
+		if !guard.advanced() {
+			return errors.New("WITH clause parsing stalled, possible syntax error")
 		}
 
 		valTok := p.lexer.NextToken()
@@ -1517,16 +1565,13 @@ func (p *Parser) parseHaving(stmt *SelectStatement) error {
 		return nil // 没有 HAVING 子句，不是错误
 	}
 
-	// 设置最大次数限制，防止无限循环
-	maxIterations := 100
-	iterations := 0
+	// 防死循环：按 lexer 是否推进判定，不限制子句长度
+	guard := newLoopGuard(p.lexer)
 
 	var conditions []string
 	for {
-		iterations++
-		// 安全检查：防止无限循环
-		if iterations > maxIterations {
-			return errors.New("HAVING clause parsing exceeded maximum iterations, possible syntax error")
+		if !guard.advanced() {
+			return errors.New("HAVING clause parsing stalled, possible syntax error")
 		}
 
 		tok := p.lexer.NextToken()
