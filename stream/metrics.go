@@ -28,6 +28,13 @@ const (
 	// window emitted them, so those groups are missing (or restart from zero) in
 	// the output — raise WithGroupMaxPartitions above the peak active-group count.
 	GroupEvictedCount = "group_evicted_count"
+	// WindowRowsDroppedCount counts input rows the window refused to buffer
+	// because WithWindowMaxRows was reached. Non-zero means the window's
+	// aggregates cover only a truncated sample of its interval (COUNT
+	// under-reports, AVG skews to the window's earlier rows) — raise
+	// WithWindowMaxRows above the peak (input rate × window duration), or shorten
+	// the window.
+	WindowRowsDroppedCount = "window_rows_dropped_count"
 	DataChanLen       = "data_chan_len"
 	DataChanCap       = "data_chan_cap"
 	ResultChanLen     = "result_chan_len"

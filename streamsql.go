@@ -64,6 +64,9 @@ type Streamsql struct {
 
 	// 聚合器 GROUP BY 分组数上限（≤0 用默认）。由 WithGroupMaxPartitions 设置。
 	groupMaxPartitions int
+
+	// 时间窗口原始行缓冲上限（≤0 表示无界）。由 WithWindowMaxRows 设置。
+	windowMaxRows int
 }
 
 // New creates a new StreamSQL instance.
@@ -164,6 +167,9 @@ func (s *Streamsql) Execute(sql string) error {
 
 	// 聚合器分组上限（≤0 时聚合器用默认值）。
 	config.GroupMaxPartitions = s.groupMaxPartitions
+
+	// 窗口行缓冲上限（≤0 表示无界，与现有默认行为一致）。
+	config.WindowConfig.MaxRows = s.windowMaxRows
 
 	// Create stream processor based on performance mode
 	var streamInstance *stream.Stream

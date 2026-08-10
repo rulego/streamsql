@@ -99,7 +99,15 @@ type Stream struct {
 	// 10s, carrying the count since the previous log.
 	lastGroupEvictLog int64
 	lastEvictedSeen   int64
-	mOutputDropped    *metrics.Counter
+	// mWindowRowsDropped mirrors the window's MaxRows drop count. Dropped rows are
+	// missing from the aggregate that the window emits, so this must be observable
+	// rather than silent.
+	mWindowRowsDropped *metrics.Counter
+	// lastWindowDropLog / lastWindowDropSeen throttle the row-cap warning to one
+	// per 10s, carrying the count since the previous log.
+	lastWindowDropLog  int64
+	lastWindowDropSeen int64
+	mOutputDropped     *metrics.Counter
 
 	// Log throttling fields for "Result channel is full" messages
 	lastDropLogTime int64 // Last time drop log was printed (unix timestamp)

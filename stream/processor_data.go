@@ -387,6 +387,11 @@ func (dp *DataProcessor) startWindowProcessing() {
 
 // processWindowBatch processes window batch data
 func (dp *DataProcessor) processWindowBatch(batch []types.Row) {
+	// Surface rows the window refused to buffer (MaxRows cap) before emitting:
+	// they are absent from this batch, so the aggregate below covers only part of
+	// the window's interval.
+	dp.stream.reportWindowRowDrops()
+
 	// Global window maintains its own running aggregate and emits final result
 	// maps directly (FIRE_AND_PURGE per group); each Row.Data is already a
 	// complete result row, so skip the stream aggregator and go straight to
@@ -450,6 +455,35 @@ func (s *Stream) reportGroupEvictions() {
 	last := atomic.LoadInt64(&s.lastGroupEvictLog)
 	if now-last >= 10 && atomic.CompareAndSwapInt64(&s.lastGroupEvictLog, last, now) {
 		s.log.Warn("GROUP BY partition cap exceeded: %d group(s) evicted (total %d); their aggregates were discarded. Raise WithGroupMaxPartitions above the peak active-group count.",
+			total-prev, total)
+	}
+}
+
+// reportWindowRowDrops mirrors the window's MaxRows drop count into the stream
+// metric and logs a throttled warning (at most once per 10s) carrying the number
+// dropped since the last log. Drops mean the window's raw-row buffer hit
+// WithWindowMaxRows, so the emitted aggregate covers only part of the interval.
+func (s *Stream) reportWindowRowDrops() {
+	if s.Window == nil {
+		return
+	}
+	total, ok := s.Window.GetStats()["rowsDroppedCount"]
+	if !ok {
+		return
+	}
+	prev := atomic.LoadInt64(&s.lastWindowDropSeen)
+	if total <= prev {
+		return
+	}
+	atomic.StoreInt64(&s.lastWindowDropSeen, total)
+	if s.mWindowRowsDropped != nil {
+		s.mWindowRowsDropped.IncBy(total - prev)
+	}
+
+	now := time.Now().Unix()
+	last := atomic.LoadInt64(&s.lastWindowDropLog)
+	if now-last >= 10 && atomic.CompareAndSwapInt64(&s.lastWindowDropLog, last, now) {
+		s.log.Warn("Window row buffer cap exceeded: %d row(s) dropped (total %d); the window's results cover only part of its interval. Raise WithWindowMaxRows above the peak (input rate × window duration), or shorten the window.",
 			total-prev, total)
 	}
 }

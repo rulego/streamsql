@@ -602,8 +602,12 @@ func (gw *GlobalWindow) GetStats() map[string]int64 {
 	return map[string]int64{
 		"sentCount":    atomic.LoadInt64(&gw.sentCount),
 		"droppedCount": atomic.LoadInt64(&gw.droppedCount),
-		"bufferSize":   int64(cap(gw.outputChan)),
-		"bufferUsed":   int64(len(gw.outputChan)),
+		// Always 0: a global window keeps aggregation state per group rather than
+		// raw rows, and STATETTL reaps idle groups. Reported for a uniform stat
+		// shape across window types.
+		"rowsDroppedCount": 0,
+		"bufferSize":       int64(cap(gw.outputChan)),
+		"bufferUsed":       int64(len(gw.outputChan)),
 	}
 }
 

@@ -50,6 +50,8 @@ func (s *Stream) GetStats() map[string]int64 {
 		ActiveRetries:      int64(atomic.LoadInt32(&s.activeRetries)),
 		Expanding:          int64(atomic.LoadInt32(&s.expanding)),
 		GroupEvictedCount:  s.mGroupEvicted.Value(),
+
+		WindowRowsDroppedCount: s.mWindowRowsDropped.Value(),
 	}
 
 	if s.Window != nil {

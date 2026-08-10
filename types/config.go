@@ -142,6 +142,17 @@ type WindowConfig struct {
 	AllowedLateness    time.Duration      `json:"allowedLateness"`    // Maximum allowed lateness for event time windows (default: 0, meaning no late data accepted after window closes)
 	IdleTimeout        time.Duration      `json:"idleTimeout"`        // Idle source timeout: when no data arrives within this duration, the watermark advances to (now - maxOutOfOrderness) so idle event-time windows can close. Default 0 disables it. Trade-off: a finite IdleTimeout (e.g. 60s) reaps idle state and closes windows promptly, but events arriving after an idle gap with an event-time behind the advanced watermark are dropped as late; keep IdleTimeout=0 if stale events on resume must not be lost (then idle event-time windows stay open until new data arrives).
 	CountStateTTL      time.Duration      `json:"countStateTtl"`      // Counting-window keyed state TTL: keys inactive longer than this are reaped (lazy, in the Start goroutine). Default 0 = disabled. Set via SQL STATETTL='24h'.
+
+	// MaxRows caps the raw rows a time window buffers before it triggers. Rows
+	// arriving above the cap are dropped (newest-dropped) and counted in the
+	// window's rowsDroppedCount stat. Default 0 = unbounded, i.e. buffering is
+	// limited only by available memory (~438 B/row measured, so 1M buffered rows
+	// ≈ 417MB). Set a cap when the window duration × input rate can exceed the
+	// memory budget, e.g. a 30s window at 10k msg/s buffers 300k rows ≈ 131MB.
+	// Applies to tumbling / sliding / session windows; counting and global
+	// windows are already bounded by their count threshold and STATETTL.
+	// Injected by WithWindowMaxRows.
+	MaxRows int `json:"maxRows"`
 	GroupByKeys        []string           `json:"groupByKeys"`        // Multiple grouping keys for keyed windows
 	PerformanceConfig  PerformanceConfig  `json:"performanceConfig"`  // Performance configuration
 	Callback           func([]Row)        `json:"-"`                  // Callback function (not serialized)

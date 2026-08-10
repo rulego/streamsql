@@ -93,6 +93,10 @@ type TumblingWindow struct {
 	// Performance statistics
 	droppedCount int64 // Number of dropped results
 	sentCount    int64 // Number of successfully sent results
+	// rowsDroppedCount counts input rows rejected by the MaxRows buffer cap.
+	// Non-zero means the window's aggregates are computed over a truncated
+	// sample of its interval.
+	rowsDroppedCount int64
 }
 
 // NewTumblingWindow creates a new tumbling window instance
@@ -222,6 +226,14 @@ func (tw *TumblingWindow) Add(data any) {
 		default:
 			close(tw.initChan)
 		}
+	}
+
+	// Row buffer cap: reject the newest row once the buffer is full, keeping the
+	// window's earlier rows (and therefore its start boundary) intact. Checked
+	// before append so an over-cap row costs no allocation.
+	if tw.config.MaxRows > 0 && len(tw.data) >= tw.config.MaxRows {
+		atomic.AddInt64(&tw.rowsDroppedCount, 1)
+		return
 	}
 
 	row := types.Row{
@@ -909,10 +921,11 @@ func (tw *TumblingWindow) SetCallback(callback func([]types.Row)) {
 // GetStats returns window performance statistics
 func (tw *TumblingWindow) GetStats() map[string]int64 {
 	return map[string]int64{
-		"sentCount":    atomic.LoadInt64(&tw.sentCount),
-		"droppedCount": atomic.LoadInt64(&tw.droppedCount),
-		"bufferSize":   int64(cap(tw.outputChan)),
-		"bufferUsed":   int64(len(tw.outputChan)),
+		"sentCount":        atomic.LoadInt64(&tw.sentCount),
+		"droppedCount":     atomic.LoadInt64(&tw.droppedCount),
+		"rowsDroppedCount": atomic.LoadInt64(&tw.rowsDroppedCount),
+		"bufferSize":       int64(cap(tw.outputChan)),
+		"bufferUsed":       int64(len(tw.outputChan)),
 	}
 }
 

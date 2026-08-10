@@ -95,6 +95,10 @@ type SlidingWindow struct {
 	// Performance statistics
 	droppedCount int64 // Number of dropped results
 	sentCount    int64 // Number of successfully sent results
+	// rowsDroppedCount counts input rows rejected by the MaxRows buffer cap.
+	// Non-zero means the window's aggregates are computed over a truncated
+	// sample of its interval.
+	rowsDroppedCount int64
 }
 
 // NewSlidingWindow creates a new sliding window instance
@@ -236,6 +240,15 @@ func (sw *SlidingWindow) Add(data any) {
 	// means the window is still filling and must advance normally.
 	if timeChar != types.EventTime && len(sw.data) == 0 {
 		sw.catchUpToRowLocked(eventTime)
+	}
+
+	// Row buffer cap: reject the newest row once the buffer is full. Dropping the
+	// newest (rather than evicting the oldest) matters here because older rows can
+	// still belong to earlier slides that have not emitted yet — evicting them
+	// would retroactively change results already in flight.
+	if sw.config.MaxRows > 0 && len(sw.data) >= sw.config.MaxRows {
+		atomic.AddInt64(&sw.rowsDroppedCount, 1)
+		return
 	}
 
 	row := types.Row{
@@ -782,10 +795,11 @@ func (sw *SlidingWindow) sendResult(data []types.Row) {
 // GetStats returns window performance statistics
 func (sw *SlidingWindow) GetStats() map[string]int64 {
 	return map[string]int64{
-		"sentCount":    atomic.LoadInt64(&sw.sentCount),
-		"droppedCount": atomic.LoadInt64(&sw.droppedCount),
-		"bufferSize":   int64(cap(sw.outputChan)),
-		"bufferUsed":   int64(len(sw.outputChan)),
+		"sentCount":        atomic.LoadInt64(&sw.sentCount),
+		"droppedCount":     atomic.LoadInt64(&sw.droppedCount),
+		"rowsDroppedCount": atomic.LoadInt64(&sw.rowsDroppedCount),
+		"bufferSize":       int64(cap(sw.outputChan)),
+		"bufferUsed":       int64(len(sw.outputChan)),
 	}
 }
 

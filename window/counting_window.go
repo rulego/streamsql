@@ -295,8 +295,12 @@ func (cw *CountingWindow) GetStats() map[string]int64 {
 	return map[string]int64{
 		"sentCount":    atomic.LoadInt64(&cw.sentCount),
 		"droppedCount": atomic.LoadInt64(&cw.droppedCount),
-		"bufferSize":   int64(cap(cw.outputChan)),
-		"bufferUsed":   int64(len(cw.outputChan)),
+		// Always 0: a counting window emits every threshold rows, so its buffer is
+		// bounded by the threshold (and STATETTL reaps idle keys). Reported for a
+		// uniform stat shape across window types.
+		"rowsDroppedCount": 0,
+		"bufferSize":       int64(cap(cw.outputChan)),
+		"bufferUsed":       int64(len(cw.outputChan)),
 	}
 }
 

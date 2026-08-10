@@ -67,6 +67,14 @@ type SessionWindow struct {
 	// Performance statistics
 	sentCount    int64 // Number of successfully sent results
 	droppedCount int64 // Number of dropped results
+	// rowsDroppedCount counts input rows rejected by the MaxRows buffer cap.
+	// Non-zero means some sessions are computed over a truncated sample.
+	rowsDroppedCount int64
+	// bufferedRows tracks rows held across sessionMap + triggeredSessions, so the
+	// MaxRows check stays O(1) per Add instead of summing every session. Appends
+	// increment it; the batchy removal paths recompute it via recountBufferedRowsLocked
+	// so it cannot drift away from the real total. Guarded by mu.
+	bufferedRows int
 }
 
 // sessionInfo stores information about a triggered session that is still open for late data
@@ -206,6 +214,14 @@ func (sw *SessionWindow) Add(data any) {
 		row.Timestamp = timestamp
 	}
 
+	// Row buffer cap: reject the newest row once the total buffered across all
+	// sessions is full. Checked before the session lookup so an over-cap row
+	// cannot create a new session either.
+	if sw.config.MaxRows > 0 && sw.bufferedRows >= sw.config.MaxRows {
+		atomic.AddInt64(&sw.rowsDroppedCount, 1)
+		return
+	}
+
 	// Extract session key (supports multiple group by keys)
 	key := extractSessionCompositeKey(data, sw.config.GroupByKeys)
 
@@ -240,6 +256,24 @@ func (sw *SessionWindow) Add(data any) {
 	// Add data to session
 	row.Slot = s.slot
 	s.data = append(s.data, row)
+	sw.bufferedRows++
+}
+
+// recountBufferedRowsLocked recomputes bufferedRows from the live sessions. Called
+// from the removal paths (trigger/expiry/reset), which are batchy and far rarer
+// than Add, so an exact recount there is cheaper than decrementing everywhere and
+// cannot drift. Caller holds sw.mu.
+func (sw *SessionWindow) recountBufferedRowsLocked() {
+	total := 0
+	for _, s := range sw.sessionMap {
+		total += len(s.data)
+	}
+	for _, info := range sw.triggeredSessions {
+		if info.session != nil {
+			total += len(info.session.data)
+		}
+	}
+	sw.bufferedRows = total
 }
 
 // Start starts the session window's periodic check mechanism
@@ -425,6 +459,10 @@ func (sw *SessionWindow) collectExpiredSessions(currentTime time.Time) [][]types
 		delete(sw.sessionMap, key)
 	}
 
+	if len(expiredKeys) > 0 {
+		sw.recountBufferedRowsLocked()
+	}
+
 	return resultsToSend
 }
 
@@ -489,10 +527,11 @@ func (sw *SessionWindow) sendResult(data []types.Row) {
 // GetStats returns window performance statistics
 func (sw *SessionWindow) GetStats() map[string]int64 {
 	return map[string]int64{
-		"sentCount":    atomic.LoadInt64(&sw.sentCount),
-		"droppedCount": atomic.LoadInt64(&sw.droppedCount),
-		"bufferSize":   int64(cap(sw.outputChan)),
-		"bufferUsed":   int64(len(sw.outputChan)),
+		"sentCount":        atomic.LoadInt64(&sw.sentCount),
+		"droppedCount":     atomic.LoadInt64(&sw.droppedCount),
+		"rowsDroppedCount": atomic.LoadInt64(&sw.rowsDroppedCount),
+		"bufferSize":       int64(cap(sw.outputChan)),
+		"bufferUsed":       int64(len(sw.outputChan)),
 	}
 }
 
@@ -518,6 +557,7 @@ func (sw *SessionWindow) Trigger() {
 	}
 	// Clear all sessions
 	sw.sessionMap = make(map[string]*session)
+	sw.recountBufferedRowsLocked()
 
 	// Capture callback under the lock; release before sending to avoid blocking.
 	callback := sw.callback
@@ -569,6 +609,7 @@ func (sw *SessionWindow) Reset() {
 	// Clear session data
 	sw.sessionMap = make(map[string]*session)
 	sw.triggeredSessions = make(map[string]*sessionInfo)
+	sw.bufferedRows = 0
 	sw.initialized = false
 	sw.initChan = make(chan struct{})
 }
@@ -592,8 +633,15 @@ func (sw *SessionWindow) SetCallback(callback func([]types.Row)) {
 func (sw *SessionWindow) handleLateData(row types.Row) bool {
 	for _, info := range sw.triggeredSessions {
 		if info.session.slot.Contains(row.Timestamp) {
+			// Honour the buffer cap here too: a triggered session stays open for
+			// AllowedLateness, so unbounded late arrivals could grow it past the cap.
+			if sw.config.MaxRows > 0 && sw.bufferedRows >= sw.config.MaxRows {
+				atomic.AddInt64(&sw.rowsDroppedCount, 1)
+				return true // counted as handled: the event is late and dropped either way
+			}
 			// Append the late event before re-emitting so the update includes it.
 			info.session.data = append(info.session.data, row)
+			sw.bufferedRows++
 			sw.triggerLateUpdateLocked(info.session)
 			return true
 		}
@@ -629,11 +677,16 @@ func (sw *SessionWindow) triggerLateUpdateLocked(s *session) {
 
 // closeExpiredSessions closes sessions that have exceeded allowedLateness
 func (sw *SessionWindow) closeExpiredSessions(watermarkTime time.Time) {
+	closed := false
 	for key, info := range sw.triggeredSessions {
 		if !watermarkTime.Before(info.closeTime) {
 			// Session has expired, remove it
 			delete(sw.triggeredSessions, key)
+			closed = true
 		}
+	}
+	if closed {
+		sw.recountBufferedRowsLocked()
 	}
 }
 

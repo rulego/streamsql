@@ -168,3 +168,28 @@ func WithGroupMaxPartitions(n int) Option {
 		ss.groupMaxPartitions = n
 	}
 }
+
+// WithWindowMaxRows caps the raw rows a time window buffers before it triggers.
+// Above the cap the newest arriving rows are dropped, counted in the
+// window_rows_dropped_count stat and reported through a throttled warning.
+// Default (n<=0) is unbounded.
+//
+// This bounds the one remaining unbounded path: window buffering holds every raw
+// row for the window's duration (~438B/row measured), so window duration × input
+// rate sets the peak. A 30s window at 10k msg/s buffers 300k rows ≈ 131MB, which
+// alone exceeds a 128MB gateway. Unlike WithGroupMaxPartitions (which bounds
+// high-cardinality keys), this bounds throughput × time and applies even with a
+// single group.
+//
+// Note that dropping rows changes results: aggregates are then computed over a
+// truncated sample of the interval — COUNT under-reports, AVG skews toward the
+// window's earlier rows. Prefer sizing the cap above the expected peak
+// (rate × window duration) so it acts as an OOM backstop rather than a routine
+// limit, and alert on window_rows_dropped_count. Applies to tumbling / sliding /
+// session windows; counting and global windows are already bounded by their count
+// threshold and STATETTL.
+func WithWindowMaxRows(n int) Option {
+	return func(ss *Streamsql) {
+		ss.windowMaxRows = n
+	}
+}
