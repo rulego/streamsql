@@ -35,14 +35,14 @@ const (
 	// WithWindowMaxRows above the peak (input rate × window duration), or shorten
 	// the window.
 	WindowRowsDroppedCount = "window_rows_dropped_count"
-	DataChanLen       = "data_chan_len"
-	DataChanCap       = "data_chan_cap"
-	ResultChanLen     = "result_chan_len"
-	ResultChanCap     = "result_chan_cap"
-	SinkPoolLen       = "sink_pool_len"
-	SinkPoolCap       = "sink_pool_cap"
-	ActiveRetries     = "active_retries"
-	Expanding         = "expanding"
+	DataChanLen            = "data_chan_len"
+	DataChanCap            = "data_chan_cap"
+	ResultChanLen          = "result_chan_len"
+	ResultChanCap          = "result_chan_cap"
+	SinkPoolLen            = "sink_pool_len"
+	SinkPoolCap            = "sink_pool_cap"
+	ActiveRetries          = "active_retries"
+	Expanding              = "expanding"
 )
 
 // Detailed statistics field keys returned by GetDetailedStats.
