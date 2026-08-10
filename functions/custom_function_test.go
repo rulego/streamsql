@@ -177,20 +177,27 @@ func BenchmarkAggregatorIncremental(b *testing.B) {
 	_ = aggInstance.Result()
 }
 
+// batchBenchSize 是批量聚合基准的固定批大小。必须与 b.N 无关：入参切片若按 b.N 分配，
+// 而被测调用又只执行一次，则每次迭代的耗时不随 b.N 增长，框架会持续放大 b.N 追 -benchtime，
+// 直到分配量把进程压垮（实测索要 8.5GB 后 OOM，CI 上表现为被杀退出 143）。
+const batchBenchSize = 1000
+
 func BenchmarkAggregatorBatch(b *testing.B) {
 	sumFunc := NewSumFunction()
 	ctx := &FunctionContext{
 		Data: make(map[string]any),
 	}
 
-	// 准备测试数据
-	args := make([]any, b.N)
-	for i := 0; i < b.N; i++ {
+	// 准备测试数据（固定批大小，不随 b.N 变化）
+	args := make([]any, batchBenchSize)
+	for i := 0; i < batchBenchSize; i++ {
 		args[i] = float64(i)
 	}
 
 	b.ResetTimer()
-	_, _ = sumFunc.Execute(ctx, args)
+	for i := 0; i < b.N; i++ {
+		_, _ = sumFunc.Execute(ctx, args)
+	}
 }
 
 // CustomProductFunction 自定义乘积聚合函数示例
