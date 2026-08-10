@@ -109,6 +109,14 @@ type Stream struct {
 	compiledFieldInfo map[string]*fieldProcessInfo      // Field processing information cache
 	compiledExprInfo  map[string]*expressionProcessInfo // Expression processing information cache
 
+	// compiledHaving is the once-compiled HAVING filter. config.Having is
+	// immutable for the life of the stream, so preprocessing (backtick / LIKE /
+	// IS NULL) and expression compilation are done once at construction instead
+	// of on every window trigger. A nil entry means HAVING is either empty or
+	// failed to compile (in which case applyHavingFilter falls back to the
+	// documented pass-through behavior, matching the prior per-trigger path).
+	compiledHaving *compiledHaving
+
 	// groupOutputNames holds the OUTPUT column name for each GROUP BY field
 	// (parallel to config.GroupFields): the SELECT AS alias if present, else the
 	// join-alias-stripped name. The aggregator/global-window emit the qualified

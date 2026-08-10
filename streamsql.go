@@ -61,6 +61,9 @@ type Streamsql struct {
 
 	// 分析函数 PARTITION 分区数上限（≤0 用默认）。由 WithAnalyticMaxPartitions 设置。
 	analyticMaxPartitions int
+
+	// 聚合器 GROUP BY 分组数上限（≤0 用默认）。由 WithGroupMaxPartitions 设置。
+	groupMaxPartitions int
 }
 
 // New creates a new StreamSQL instance.
@@ -158,6 +161,9 @@ func (s *Streamsql) Execute(sql string) error {
 
 	// 分析函数分区上限（≤0 时引擎用默认值）。
 	config.AnalyticMaxPartitions = s.analyticMaxPartitions
+
+	// 聚合器分组上限（≤0 时聚合器用默认值）。
+	config.GroupMaxPartitions = s.groupMaxPartitions
 
 	// Create stream processor based on performance mode
 	var streamInstance *stream.Stream

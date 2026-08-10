@@ -299,15 +299,42 @@ func isOperator(s string) bool {
 	return false
 }
 
-// isComparisonOperator checks if it's a comparison operator
+// isComparisonOperator checks if it's a comparison operator.
+// Implemented as a zero-allocation switch instead of allocating a []string on
+// every call: this is a per-row, per-token hot path (profile second hotspot
+// after the usesExprFunction cache fix). The symbol operators are exact ASCII,
+// and LIKE/IS are matched case-insensitively to preserve EqualFold semantics.
 func isComparisonOperator(op string) bool {
-	comparisonOps := []string{"==", "=", "!=", "<>", ">", "<", ">=", "<=", "LIKE", "IS"}
-	for _, compOp := range comparisonOps {
-		if strings.EqualFold(op, compOp) {
-			return true
+	switch op {
+	case "==", "=", "!=", "<>", ">", "<", ">=", "<=":
+		return true
+	}
+	// LIKE / IS may arrive in any case from the user's expression; match them
+	// case-insensitively without allocating.
+	return equalFoldASCII(op, "LIKE") || equalFoldASCII(op, "IS")
+}
+
+// equalFoldASCII reports whether s and t are equal under ASCII case-folding,
+// without allocating. Faster than strings.EqualFold (which is unicode-aware)
+// for the pure-ASCII operator tokens compared here.
+func equalFoldASCII(s, t string) bool {
+	if len(s) != len(t) {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		d := t[i]
+		if c >= 'A' && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		if d >= 'A' && d <= 'Z' {
+			d += 'a' - 'A'
+		}
+		if c != d {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // isStringLiteral checks if it's a string literal

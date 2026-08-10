@@ -94,9 +94,17 @@ func (sf *StreamFactory) createStreamWithUnifiedConfig(config types.Config) (*St
 
 	// Resolve GROUP BY output names and reject ambiguous output columns
 	// (e.g. SELECT a.name, b.name) before any data flows.
+	// compileOutputNames also rewrites HAVING/ORDER BY qualified references
+	// (m.location -> location) in place on s.config.Having, so the HAVING
+	// pre-compilation below must run AFTER it to capture the rewritten text.
 	if err := stream.compileOutputNames(); err != nil {
 		return nil, err
 	}
+
+	// Pre-compile the HAVING filter once (config.Having is immutable for the
+	// stream's lifetime after the qualified-ref rewrite above) instead of
+	// re-deriving it on every window trigger.
+	stream.compiledHaving = stream.compileHaving()
 
 	// CEP 模式：构造期编译并实例化引擎。fail-fast（编译错误在 Execute 即暴露），
 	// 且引擎在 Start 派生 goroutine 前就绪，消除原懒初始化对 s.cep 的并发读。

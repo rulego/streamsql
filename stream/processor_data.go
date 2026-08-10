@@ -163,10 +163,15 @@ func (dp *DataProcessor) initializeAggregator() {
 			}
 		}
 
+		// Apply GROUP BY partition cap (WithGroupMaxPartitions); 0/default keeps
+		// the aggregator's built-in default (defaultMaxPartitions).
+		enhancedAgg.SetMaxPartitions(dp.stream.config.GroupMaxPartitions)
 		dp.stream.aggregator = enhancedAgg
 	} else {
 		// Use regular aggregator
-		dp.stream.aggregator = aggregator.NewGroupAggregator(dp.stream.config.GroupFields, aggregationFields)
+		groupAgg := aggregator.NewGroupAggregator(dp.stream.config.GroupFields, aggregationFields)
+		groupAgg.SetMaxPartitions(dp.stream.config.GroupMaxPartitions)
+		dp.stream.aggregator = groupAgg
 	}
 
 	// Register expression calculators
@@ -513,39 +518,89 @@ func (dp *DataProcessor) applyDistinct(results []map[string]any) []map[string]an
 	return finalResults
 }
 
-// applyHavingFilter applies HAVING filter
-func (dp *DataProcessor) applyHavingFilter(results []map[string]any) []map[string]any {
-	// Check if HAVING condition contains CASE expression
-	hasCaseExpression := strings.Contains(strings.ToUpper(dp.stream.config.Having), SQLKeywordCase)
-
-	var filteredResults []map[string]any
-
-	if hasCaseExpression {
-		filteredResults = dp.applyHavingWithCaseExpression(results)
-	} else {
-		filteredResults = dp.applyHavingWithCondition(results)
-	}
-
-	return filteredResults
+// compiledHaving holds the once-compiled HAVING filter. It mirrors the two
+// runtime branches that the per-trigger code used to re-derive each time:
+//   - CASE expressions go through expr.NewExpression (after backtick preprocessing);
+//   - plain conditions go through condition.NewExprCondition (after LIKE + IS NULL
+//     preprocessing).
+//
+// Exactly one of caseExpr / cond is set, selected by hasCase at compile time.
+// The HAVING text is immutable for the stream's lifetime, so this is built once
+// at construction (compileHaving) and shared across every window trigger.
+type compiledHaving struct {
+	hasCase  bool
+	caseExpr *expr.Expression    // valid when hasCase
+	cond     condition.Condition // valid when !hasCase
 }
 
-// applyHavingWithCaseExpression applies HAVING filter using CASE expression
-func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]any) []map[string]any {
-	// HAVING condition contains CASE expression, use our expression parser
-	// Preprocess backtick identifiers
-	exprToUse := dp.stream.config.Having
+// compileHaving preprocesses and compiles config.Having once. It is the
+// construction-time equivalent of the per-trigger work that applyHavingFilter
+// previously repeated on every window close. Compilation errors are logged but
+// not fatal: a nil compiledHaving means applyHavingFilter will pass results
+// through unfiltered, exactly as the old path did when compilation failed
+// mid-trigger. Returns nil when HAVING is empty.
+func (s *Stream) compileHaving() *compiledHaving {
+	raw := strings.TrimSpace(s.config.Having)
+	if raw == "" {
+		return nil
+	}
+
+	hasCase := strings.Contains(strings.ToUpper(raw), SQLKeywordCase)
 	bridge := functions.GetExprBridge()
-	if bridge.ContainsBacktickIdentifiers(exprToUse) {
-		if processed, err := bridge.PreprocessBacktickIdentifiers(exprToUse); err == nil {
-			exprToUse = processed
+
+	if hasCase {
+		exprToUse := raw
+		if bridge.ContainsBacktickIdentifiers(raw) {
+			if processed, err := bridge.PreprocessBacktickIdentifiers(raw); err == nil {
+				exprToUse = processed
+			}
+		}
+		compiled, err := expr.NewExpression(exprToUse)
+		if err != nil {
+			s.log.Error("having filter error (CASE expression): %v", err)
+			return nil
+		}
+		return &compiledHaving{hasCase: true, caseExpr: compiled}
+	}
+
+	processedHaving := raw
+	if bridge.ContainsLikeOperator(raw) {
+		if processed, err := bridge.PreprocessLikeExpression(raw); err == nil {
+			processedHaving = processed
 		}
 	}
-	expression, err := expr.NewExpression(exprToUse)
+	if bridge.ContainsIsNullOperator(processedHaving) {
+		if processed, err := bridge.PreprocessIsNullExpression(processedHaving); err == nil {
+			processedHaving = processed
+		}
+	}
+	havingFilter, err := condition.NewExprCondition(processedHaving)
 	if err != nil {
-		dp.stream.log.Error("having filter error (CASE expression): %v", err)
+		s.log.Error("having filter error: %v", err)
+		return nil
+	}
+	return &compiledHaving{hasCase: false, cond: havingFilter}
+}
+
+// applyHavingFilter applies HAVING filter
+func (dp *DataProcessor) applyHavingFilter(results []map[string]any) []map[string]any {
+	ch := dp.stream.compiledHaving
+	if ch == nil {
+		// HAVING empty or failed to compile at construction: pass through
+		// unfiltered (matches the prior per-trigger fallback behavior).
 		return results
 	}
 
+	if ch.hasCase {
+		return dp.applyHavingWithCaseExpression(results, ch.caseExpr)
+	}
+	return dp.applyHavingWithCondition(results, ch.cond)
+}
+
+// applyHavingWithCaseExpression applies HAVING filter using a pre-compiled CASE
+// expression. The expression is compiled once at construction (compileHaving);
+// here we only evaluate it per result row.
+func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]any, expression *expr.Expression) []map[string]any {
 	var filteredResults []map[string]any
 	// Apply HAVING filter using CASE expression calculator
 	for _, result := range results {
@@ -582,32 +637,10 @@ func (dp *DataProcessor) applyHavingWithCaseExpression(results []map[string]any)
 	return filteredResults
 }
 
-// applyHavingWithCondition applies HAVING filter using condition expression
-func (dp *DataProcessor) applyHavingWithCondition(results []map[string]any) []map[string]any {
-	// HAVING condition doesn't contain CASE expression, use original expr-lang processing
-	// Preprocess LIKE syntax in HAVING condition, convert to expr-lang understandable form
-	processedHaving := dp.stream.config.Having
-	bridge := functions.GetExprBridge()
-	if bridge.ContainsLikeOperator(dp.stream.config.Having) {
-		if processed, err := bridge.PreprocessLikeExpression(dp.stream.config.Having); err == nil {
-			processedHaving = processed
-		}
-	}
-
-	// Preprocess IS NULL syntax in HAVING condition
-	if bridge.ContainsIsNullOperator(processedHaving) {
-		if processed, err := bridge.PreprocessIsNullExpression(processedHaving); err == nil {
-			processedHaving = processed
-		}
-	}
-
-	// Create HAVING condition
-	havingFilter, err := condition.NewExprCondition(processedHaving)
-	if err != nil {
-		dp.stream.log.Error("having filter error: %v", err)
-		return results
-	}
-
+// applyHavingWithCondition applies HAVING filter using a pre-compiled condition
+// expression. The condition is compiled once at construction (compileHaving);
+// here we only evaluate it per result row.
+func (dp *DataProcessor) applyHavingWithCondition(results []map[string]any, havingFilter condition.Condition) []map[string]any {
 	var filteredResults []map[string]any
 	// Apply HAVING filter
 	for _, result := range results {

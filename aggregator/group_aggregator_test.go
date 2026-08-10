@@ -2026,3 +2026,244 @@ func TestGroupAggregatorExpressionEvaluationError(t *testing.T) {
 	// sum_value 应该有值，expr_result 应该没有值或为默认值
 	assert.Equal(t, float64(10), results[0]["sum_value"])
 }
+
+// aggProbeRow is an exported struct so reflect.FieldByName can read its fields
+// (unexported fields are invisible to reflection). Used to exercise the struct
+// input path of GroupAggregator.Add, which goes through reflect.FieldByName
+// while the map[string]any path uses a direct map lookup.
+type aggProbeRow struct {
+	Device      string
+	Temperature float64
+	Count       int
+}
+
+// TestGroupAggregator_StructInputMatchesMap verifies the struct input path
+// (reflect.FieldByName) produces identical aggregation results to the
+// map[string]any path (direct lookup) for the same logical data. This guards
+// the de-reflection optimization of the map fast-path: a regression that
+// mis-routes map data into the struct branch, or breaks struct field access,
+// shows up here as a mismatch.
+func TestGroupAggregator_StructInputMatchesMap(t *testing.T) {
+	aggFields := []AggregationField{
+		{InputField: "Temperature", AggregateType: Sum, OutputAlias: "temp_sum"},
+		{InputField: "Count", AggregateType: Sum, OutputAlias: "count_sum"},
+		{InputField: "*", AggregateType: Count, OutputAlias: "row_count"},
+	}
+
+	// Map path
+	gaMap := NewGroupAggregator([]string{"Device"}, aggFields)
+	require.NoError(t, gaMap.Add(map[string]any{"Device": "A", "Temperature": 10.5, "Count": 1}))
+	require.NoError(t, gaMap.Add(map[string]any{"Device": "A", "Temperature": 20.5, "Count": 2}))
+	require.NoError(t, gaMap.Add(map[string]any{"Device": "B", "Temperature": 5.0, "Count": 4}))
+
+	// Struct path with logically identical data
+	gaStruct := NewGroupAggregator([]string{"Device"}, aggFields)
+	require.NoError(t, gaStruct.Add(aggProbeRow{Device: "A", Temperature: 10.5, Count: 1}))
+	require.NoError(t, gaStruct.Add(aggProbeRow{Device: "A", Temperature: 20.5, Count: 2}))
+	require.NoError(t, gaStruct.Add(aggProbeRow{Device: "B", Temperature: 5.0, Count: 4}))
+
+	mapResults, err := gaMap.GetResults()
+	require.NoError(t, err)
+	structResults, err := gaStruct.GetResults()
+	require.NoError(t, err)
+
+	require.Len(t, mapResults, 2, "应有两个分组")
+	require.Len(t, structResults, 2, "应有两个分组")
+
+	byDevice := func(rs []map[string]any) map[string]map[string]any {
+		out := make(map[string]map[string]any, len(rs))
+		for _, r := range rs {
+			if d, ok := r["Device"].(string); ok {
+				out[d] = r
+			}
+		}
+		return out
+	}
+	gotMap := byDevice(mapResults)
+	gotStruct := byDevice(structResults)
+
+	for _, device := range []string{"A", "B"} {
+		m, ok := gotMap[device]
+		require.True(t, ok, "map 路径缺少分组 %s", device)
+		s, ok := gotStruct[device]
+		require.True(t, ok, "struct 路径缺少分组 %s", device)
+		assert.Equal(t, m["temp_sum"], s["temp_sum"], "设备 %s temp_sum 不一致", device)
+		assert.Equal(t, m["count_sum"], s["count_sum"], "设备 %s count_sum 不一致", device)
+		assert.Equal(t, m["row_count"], s["row_count"], "设备 %s row_count 不一致", device)
+	}
+}
+
+// TestGroupAggregator_MapMissingKeyIsNotFound confirms a map key that is
+// genuinely absent is reported as not-found (not as a nil/zero value) after
+// switching the map fast-path to a direct lookup. With reflect.MapIndex a
+// missing key returns an invalid Value (found=false); the direct lookup must
+// match that semantics so a missing group field still collapses into the NULL
+// group rather than being treated as present-with-zero.
+func TestGroupAggregator_MapMissingKeyIsNotFound(t *testing.T) {
+	aggFields := []AggregationField{
+		{InputField: "value", AggregateType: Sum, OutputAlias: "value_sum"},
+	}
+	ga := NewGroupAggregator([]string{"group"}, aggFields)
+
+	// "group" key absent -> should land in the NULL group, not error.
+	require.NoError(t, ga.Add(map[string]any{"value": 42}))
+
+	results, err := ga.GetResults()
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	// NULL group key carries a nil group value per the documented LEFT-JOIN rule.
+	assert.Nil(t, results[0]["group"])
+	assert.Equal(t, float64(42), results[0]["value_sum"])
+}
+
+// TestGroupAggregator_MaxPartitionsEvictsLRU verifies the P1-5 bound: with a
+// small partition cap, adding groups beyond the cap evicts the
+// least-recently-used group, and that group's accumulated aggregate disappears
+// from GetResults. Behavior is derived from the design (not the impl): the cap
+// means "at most N groups retained"; exceeding it drops the oldest.
+func TestGroupAggregator_MaxPartitionsEvictsLRU(t *testing.T) {
+	ga := NewGroupAggregator([]string{"g"}, []AggregationField{
+		{InputField: "v", AggregateType: Sum, OutputAlias: "s"},
+	})
+	ga.SetMaxPartitions(3)
+
+	// Add four distinct groups A,B,C,D in order. With cap=3, after D is added
+	// the oldest (A) must be evicted.
+	for _, g := range []string{"A", "B", "C", "D"} {
+		require.NoError(t, ga.Add(map[string]any{"g": g, "v": 1}))
+	}
+
+	results, err := ga.GetResults()
+	require.NoError(t, err)
+
+	groups := make(map[string]bool, len(results))
+	for _, r := range results {
+		if gv, ok := r["g"].(string); ok {
+			groups[gv] = true
+		}
+	}
+	assert.Len(t, results, 3, "上限 3 时应只保留 3 个分组")
+	assert.False(t, groups["A"], "最久未用的 A 应被淘汰")
+	for _, g := range []string{"B", "C", "D"} {
+		assert.True(t, groups[g], "%s 应保留", g)
+	}
+}
+
+// TestGroupAggregator_LRUAddPromotesGroup verifies that touching an existing
+// group via Add promotes it to most-recently-used, so it survives eviction
+// over a group added more recently than its last touch but older overall.
+func TestGroupAggregator_LRUAddPromotesGroup(t *testing.T) {
+	ga := NewGroupAggregator([]string{"g"}, []AggregationField{
+		{InputField: "v", AggregateType: Sum, OutputAlias: "s"},
+	})
+	ga.SetMaxPartitions(3)
+
+	// A, B, C added in order. Touch A again to make it most-recently-used.
+	require.NoError(t, ga.Add(map[string]any{"g": "A", "v": 1}))
+	require.NoError(t, ga.Add(map[string]any{"g": "B", "v": 1}))
+	require.NoError(t, ga.Add(map[string]any{"g": "C", "v": 1}))
+	require.NoError(t, ga.Add(map[string]any{"g": "A", "v": 1})) // promote A
+	// Add D -> cap exceeded, evict the LRU which is now B (A was promoted, C is recent).
+	require.NoError(t, ga.Add(map[string]any{"g": "D", "v": 1}))
+
+	results, err := ga.GetResults()
+	require.NoError(t, err)
+	groups := make(map[string]bool, len(results))
+	sums := make(map[string]float64, len(results))
+	for _, r := range results {
+		gv := r["g"].(string)
+		groups[gv] = true
+		sums[gv] = r["s"].(float64)
+	}
+	assert.False(t, groups["B"], "B 应作为最久未用被淘汰（A 被提升后）")
+	assert.True(t, groups["A"], "A 被提升后应保留")
+	// A 的 Sum 应为 2（被 promote 那次也累加了），证明淘汰没有误删它的状态。
+	assert.Equal(t, float64(2), sums["A"], "A 的累加值应保留（未被淘汰）")
+}
+
+// TestGroupAggregator_EvictedGroupResetsOnReturn confirms a group that was
+// evicted and then reappears starts its aggregation over (SUM from 0), not from
+// its pre-eviction total. This is the documented "silent reset" trade-off.
+func TestGroupAggregator_EvictedGroupResetsOnReturn(t *testing.T) {
+	ga := NewGroupAggregator([]string{"g"}, []AggregationField{
+		{InputField: "v", AggregateType: Sum, OutputAlias: "s"},
+	})
+	ga.SetMaxPartitions(2)
+
+	// A accumulates 10, then is evicted when B and C arrive (cap=2).
+	require.NoError(t, ga.Add(map[string]any{"g": "A", "v": 10}))
+	require.NoError(t, ga.Add(map[string]any{"g": "B", "v": 1}))
+	require.NoError(t, ga.Add(map[string]any{"g": "C", "v": 1})) // evicts A
+	// A reappears and adds 5. Since it was evicted, its Sum should be 5, not 15.
+	require.NoError(t, ga.Add(map[string]any{"g": "A", "v": 5})) // evicts B
+
+	results, err := ga.GetResults()
+	require.NoError(t, err)
+	sums := make(map[string]float64, len(results))
+	for _, r := range results {
+		sums[r["g"].(string)] = r["s"].(float64)
+	}
+	assert.Equal(t, float64(5), sums["A"], "被淘汰后重新出现的分组应从 0 重新累加")
+	assert.Equal(t, float64(1), sums["C"])
+}
+
+// TestGroupAggregator_DefaultMaxPartitionsApplied confirms that without an
+// explicit SetMaxPartitions the default cap (defaultMaxPartitions=10000) is
+// enforced. We add defaultMaxPartitions+1 groups and assert exactly the cap is
+// retained — proves the bound is active by default (the regression this guards:
+// unbounded growth the audit measured at 85MB for 200k keys).
+func TestGroupAggregator_DefaultMaxPartitionsApplied(t *testing.T) {
+	ga := NewGroupAggregator([]string{"g"}, []AggregationField{
+		{InputField: "v", AggregateType: Count, OutputAlias: "c"},
+	})
+	// Do NOT call SetMaxPartitions; default must apply.
+	for i := 0; i < defaultMaxPartitions+50; i++ {
+		require.NoError(t, ga.Add(map[string]any{"g": fmt.Sprintf("k%d", i), "v": 1}))
+	}
+	results, err := ga.GetResults()
+	require.NoError(t, err)
+	assert.Len(t, results, defaultMaxPartitions, "默认上限应生效，保留恰好 defaultMaxPartitions 个分组")
+}
+
+// TestGroupAggregator_SetMaxPartitionsZeroKeepsDefault confirms SetMaxPartitions(0)
+// is treated as "use default", not "unlimited" — important because 0 is the
+// zero-value of the config field, so a user who never sets it must still get
+// the protective bound.
+func TestGroupAggregator_SetMaxPartitionsZeroKeepsDefault(t *testing.T) {
+	ga := NewGroupAggregator([]string{"g"}, []AggregationField{
+		{InputField: "v", AggregateType: Count, OutputAlias: "c"},
+	})
+	ga.SetMaxPartitions(0) // explicit zero -> default, not unlimited
+	for i := 0; i < defaultMaxPartitions+10; i++ {
+		require.NoError(t, ga.Add(map[string]any{"g": fmt.Sprintf("k%d", i), "v": 1}))
+	}
+	results, err := ga.GetResults()
+	require.NoError(t, err)
+	assert.Len(t, results, defaultMaxPartitions, "SetMaxPartitions(0) 应退回默认上限，而非无限制")
+}
+
+// TestGroupAggregator_ResetClearsLRU confirms Reset wipes the LRU tracking so a
+// fresh batch after Reset isn't constrained by stale counts or dangles.
+func TestGroupAggregator_ResetClearsLRU(t *testing.T) {
+	ga := NewGroupAggregator([]string{"g"}, []AggregationField{
+		{InputField: "v", AggregateType: Sum, OutputAlias: "s"},
+	})
+	ga.SetMaxPartitions(2)
+	require.NoError(t, ga.Add(map[string]any{"g": "A", "v": 1}))
+	require.NoError(t, ga.Add(map[string]any{"g": "B", "v": 1}))
+	ga.Reset()
+
+	// After Reset, adding A,B,C with cap=2 must behave as if fresh: C evicts A.
+	require.NoError(t, ga.Add(map[string]any{"g": "A", "v": 1}))
+	require.NoError(t, ga.Add(map[string]any{"g": "B", "v": 1}))
+	require.NoError(t, ga.Add(map[string]any{"g": "C", "v": 1}))
+
+	results, err := ga.GetResults()
+	require.NoError(t, err)
+	groups := make(map[string]bool, len(results))
+	for _, r := range results {
+		groups[r["g"].(string)] = true
+	}
+	assert.Len(t, results, 2, "Reset 后 LRU 应清空，上限按新批次生效")
+	assert.False(t, groups["A"], "Reset 后最久未用的 A 应被淘汰")
+}

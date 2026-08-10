@@ -1,6 +1,7 @@
 package aggregator
 
 import (
+	"container/list"
 	"fmt"
 	"reflect"
 	"strings"
@@ -20,6 +21,13 @@ const nullGroupKeyMarker = "\x00NULL"
 // groupKeySep 分隔分组键各字段。\x1f（单元分隔符）在真实数据中极少出现，避免字段值含
 // 分隔符导致的键碰撞（曾用 "|"：含 "|" 的值会被还原阶段截断、多字段还会错位）。
 const groupKeySep = "\x1f"
+
+// defaultMaxPartitions bounds the number of GROUP BY partitions (distinct group
+// keys) kept at once, mirroring the analytic-function and CEP caps so the three
+// high-cardinality-key paths have consistent memory bounds. Above the cap the
+// least-recently-used group is evicted, discarding its accumulated aggregation
+// state. Set via SetMaxPartitions / WithGroupMaxPartitions; 0 keeps the default.
+const defaultMaxPartitions = 10000
 
 // Aggregator aggregator interface
 type Aggregator interface {
@@ -48,6 +56,15 @@ type GroupAggregator struct {
 	context           map[string]any
 	// Expression evaluators
 	expressions map[string]*ExpressionEvaluator
+
+	// LRU 分区上限：groups/groupKeyVals 在高基数 GROUP BY（如万级 deviceId）下会无界增长，
+	// 与分析函数/CEP 的有界分区不一致（见 V1.2.0 审计 P1-5）。maxPartitions>0 时，
+	// 新建分组超过上限即淘汰最久未用的分组（连同其聚合状态）。
+	maxPartitions int
+	// groupOrder 维护分组的 LRU 顺序：front=最近 Add 命中，back=待淘汰。
+	groupOrder *list.List
+	// groupElems 把 group key 映射到其在 groupOrder 中的节点，O(1) 提升与淘汰。
+	groupElems map[string]*list.Element
 }
 
 // ExpressionEvaluator wraps expression evaluation functionality
@@ -78,6 +95,49 @@ func NewGroupAggregator(groupFields []string, aggregationFields []AggregationFie
 		groups:            make(map[string]map[string]AggregatorFunction),
 		groupKeyVals:      make(map[string][]any),
 		expressions:       make(map[string]*ExpressionEvaluator),
+		groupOrder:        list.New(),
+		groupElems:        make(map[string]*list.Element),
+	}
+}
+
+// SetMaxPartitions overrides the GROUP BY partition cap. A value <=0 keeps the
+// default (defaultMaxPartitions). Safe to call before the aggregator receives
+// data; calling after data has been added only affects future eviction.
+func (ga *GroupAggregator) SetMaxPartitions(n int) {
+	ga.mu.Lock()
+	defer ga.mu.Unlock()
+	if n > 0 {
+		ga.maxPartitions = n
+	} else {
+		ga.maxPartitions = 0 // 0 means "use default" resolved in effectiveMaxPartitions
+	}
+}
+
+// effectiveMaxPartitions returns the active cap, resolving 0 to the default.
+// Caller must hold ga.mu (or call under lock).
+func (ga *GroupAggregator) effectiveMaxPartitions() int {
+	if ga.maxPartitions > 0 {
+		return ga.maxPartitions
+	}
+	return defaultMaxPartitions
+}
+
+// evictIfNeeded drops the least-recently-used group (and all its aggregation
+// state) while the partition count exceeds the cap. Must be called under ga.mu.
+// Eviction is silent by design — mirroring analytic/CEP partition eviction —
+// and resets that group's aggregates to empty the next time it appears.
+func (ga *GroupAggregator) evictIfNeeded() {
+	cap := ga.effectiveMaxPartitions()
+	for ga.groupOrder.Len() > cap {
+		oldest := ga.groupOrder.Back()
+		if oldest == nil {
+			return
+		}
+		key := oldest.Value.(string)
+		ga.groupOrder.Remove(oldest)
+		delete(ga.groupElems, key)
+		delete(ga.groups, key)
+		delete(ga.groupKeyVals, key)
 	}
 }
 
@@ -168,11 +228,17 @@ func (ga *GroupAggregator) Add(data any) error {
 	}
 
 	var v reflect.Value
+	// dataMap is set for the common map[string]any path so that field access can
+	// use a direct map lookup instead of reflect.ValueOf/MapIndex (which allocate
+	// a reflect.Value for the key on every field of every row). v is still needed
+	// for the struct path below.
+	var dataMap map[string]any
 
-	switch data.(type) {
+	switch dm := data.(type) {
 	case map[string]any:
-		dataMap := data.(map[string]any)
-		v = reflect.ValueOf(dataMap)
+		dataMap = dm
+		// v is intentionally left invalid for the map path; the direct-lookup
+		// branch below handles it without reflection.
 	default:
 		v = reflect.ValueOf(data)
 		if v.Kind() == reflect.Ptr {
@@ -193,8 +259,12 @@ func (ga *GroupAggregator) Add(data any) error {
 		// Check if it's a nested field
 		if fieldpath.IsNestedField(field) {
 			fieldVal, found = fieldpath.GetNestedField(data, field)
+		} else if dataMap != nil {
+			// Hot path: map[string]any with a flat key. Direct lookup avoids two
+			// reflect.Value allocations per field that the MapIndex path costs.
+			fieldVal, found = dataMap[field]
 		} else {
-			// Original field access logic
+			// Struct (or non-string-keyed map) path: field access via reflection.
 			var f reflect.Value
 			if v.Kind() == reflect.Map {
 				keyVal := reflect.ValueOf(field)
@@ -229,6 +299,12 @@ func (ga *GroupAggregator) Add(data any) error {
 	if _, exists := ga.groups[key]; !exists {
 		ga.groups[key] = make(map[string]AggregatorFunction)
 		ga.groupKeyVals[key] = keyVals
+		// Track new group as most-recently-used, then enforce the cap.
+		ga.groupElems[key] = ga.groupOrder.PushFront(key)
+		ga.evictIfNeeded()
+	} else {
+		// Existing group: promote to most-recently-used so it is evicted last.
+		ga.groupOrder.MoveToFront(ga.groupElems[key])
 	}
 
 	// Create aggregator instances for each field
@@ -275,8 +351,12 @@ func (ga *GroupAggregator) Add(data any) error {
 
 		if fieldpath.IsNestedField(inputField) {
 			fieldVal, found = fieldpath.GetNestedField(data, inputField)
+		} else if dataMap != nil {
+			// Hot path: map[string]any with a flat key. Direct lookup avoids two
+			// reflect.Value allocations per field that the MapIndex path costs.
+			fieldVal, found = dataMap[inputField]
 		} else {
-			// Original field access logic
+			// Struct (or non-string-keyed map) path: field access via reflection.
 			var f reflect.Value
 			if v.Kind() == reflect.Map {
 				keyVal := reflect.ValueOf(inputField)
@@ -381,4 +461,9 @@ func (ga *GroupAggregator) Reset() {
 	defer ga.mu.Unlock()
 	ga.groups = make(map[string]map[string]AggregatorFunction)
 	ga.groupKeyVals = make(map[string][]any)
+	// Reset LRU tracking too: stale list/elems after a Reset would dangle and
+	// cause evictIfNeeded to delete already-cleared map keys (harmless but
+	// confusing), and would keep the cap applied to stale counts.
+	ga.groupOrder = list.New()
+	ga.groupElems = make(map[string]*list.Element)
 }

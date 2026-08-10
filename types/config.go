@@ -21,21 +21,21 @@ const (
 // Config stream processing configuration
 type Config struct {
 	// SQL processing related configuration
-	WindowConfig       WindowConfig                        `json:"windowConfig"`
-	GroupFields        []string                            `json:"groupFields"`
-	SelectFields       map[string]aggregator.AggregateType `json:"selectFields"`
-	FieldAlias         map[string]string                   `json:"fieldAlias"`
+	WindowConfig WindowConfig                        `json:"windowConfig"`
+	GroupFields  []string                            `json:"groupFields"`
+	SelectFields map[string]aggregator.AggregateType `json:"selectFields"`
+	FieldAlias   map[string]string                   `json:"fieldAlias"`
 	// SelectAlias maps a SELECT item's raw expression to its AS alias (e.g.
 	// "m.location" -> "loc"). The aggregation path uses it to name output
 	// columns for grouped non-aggregate columns, matching the direct path
 	// (where the alias is applied during SimpleField compilation).
-	SelectAlias        map[string]string                   `json:"selectAlias"`
-	SimpleFields       []string                            `json:"simpleFields"`
-	FieldExpressions   map[string]FieldExpression          `json:"fieldExpressions"`
-	PostAggExpressions []PostAggregationExpression         `json:"postAggExpressions"` // Post-aggregation expressions
-	FieldOrder         []string                            `json:"fieldOrder"`         // Original order of fields in SELECT statement
-	Where              string                              `json:"where"`
-	Having             string                              `json:"having"`
+	SelectAlias        map[string]string           `json:"selectAlias"`
+	SimpleFields       []string                    `json:"simpleFields"`
+	FieldExpressions   map[string]FieldExpression  `json:"fieldExpressions"`
+	PostAggExpressions []PostAggregationExpression `json:"postAggExpressions"` // Post-aggregation expressions
+	FieldOrder         []string                    `json:"fieldOrder"`         // Original order of fields in SELECT statement
+	Where              string                      `json:"where"`
+	Having             string                      `json:"having"`
 
 	// Feature switches
 	NeedWindow bool `json:"needWindow"`
@@ -70,6 +70,15 @@ type Config struct {
 	// LRU 淘汰最久未用的分区。≤0 表示用默认值（见 stream.defaultMaxPartitions）。
 	// 由 WithAnalyticMaxPartitions 注入。高基数分区键（如设备上万）且内存充裕时可调高。
 	AnalyticMaxPartitions int `json:"analyticMaxPartitions"`
+
+	// GroupMaxPartitions 聚合器（GROUP BY）保留的分组数上限，超出按 LRU 淘汰最久未用
+	// 的分组（连同其聚合状态一起丢弃）。≤0 表示用默认值（见 aggregator.defaultMaxPartitions）。
+	// 由 WithGroupMaxPartitions 注入。与分析函数的 AnalyticMaxPartitions 独立。
+	//
+	// 注意：淘汰一个分组会静默丢弃它的累计聚合（SUM/AVG 归零、COUNT 归零等），与
+	// 窗口触发后 Reset 等价。仅当分组键基数远超窗口内活跃分组数、且内存紧张时才有意义；
+	// 需要全量准确聚合时应把上限调到高于峰值活跃分组数。
+	GroupMaxPartitions int `json:"groupMaxPartitions"`
 
 	// Logger is the per-instance logger for the stream pipeline. Injected by
 	// Streamsql.Execute (from WithLogger, else the process default); nil falls
@@ -143,7 +152,7 @@ type WindowConfig struct {
 	// group without buffering raw rows. Populated from the parsed SELECT for
 	// windowType=global only.
 	TriggerCondition string                              `json:"triggerCondition,omitempty"`
-	SelectFields    map[string]aggregator.AggregateType `json:"selectFields,omitempty"`
+	SelectFields     map[string]aggregator.AggregateType `json:"selectFields,omitempty"`
 	FieldAlias       map[string]string                   `json:"fieldAlias,omitempty"`
 }
 

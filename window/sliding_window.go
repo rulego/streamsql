@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -62,6 +61,12 @@ type SlidingWindow struct {
 	mu sync.RWMutex
 	// data stores window data
 	data []types.Row
+	// dataSeq carries a monotonic id per row in data (same index), used to tell
+	// rows apart across late updates. Row identity cannot be derived from Data
+	// itself: it is `any`, and reflect.Value.Pointer panics on struct/int values.
+	dataSeq []int64
+	// nextSeq issues the ids in dataSeq.
+	nextSeq int64
 	// outputChan is the channel for outputting window data
 	outputChan chan []types.Row
 	// callback function executed when window triggers
@@ -238,6 +243,8 @@ func (sw *SlidingWindow) Add(data any) {
 		Timestamp: eventTime,
 	}
 	sw.data = append(sw.data, row)
+	sw.dataSeq = append(sw.dataSeq, sw.nextSeq)
+	sw.nextSeq++
 	debugLogSliding("Add: added data, eventTime=%v, totalData=%d, currentSlot=[%v, %v), inWindow=%v",
 		eventTime.UnixMilli(), len(sw.data),
 		sw.currentSlot.Start.UnixMilli(), sw.currentSlot.End.UnixMilli(),
@@ -278,6 +285,7 @@ func (sw *SlidingWindow) dropLastRow() {
 	if n := len(sw.data); n > 0 {
 		sw.data[n-1] = types.Row{}
 		sw.data = sw.data[:n-1]
+		sw.dataSeq = sw.dataSeq[:n-1]
 	}
 }
 
@@ -486,12 +494,25 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 		// Check if window has data before triggering
 		hasData := false
 		dataInWindow := 0
+		// dataTimestamps is only consumed by the debug log below; build it only
+		// when debug is on to avoid an append (and backing-array growth) per
+		// trigger on the hot path. dataInWindow is always needed for the snapshot
+		// capacity hint.
 		var dataTimestamps []int64
-		for _, item := range sw.data {
-			if slotToTrigger.Contains(item.Timestamp) {
-				hasData = true
-				dataInWindow++
-				dataTimestamps = append(dataTimestamps, item.Timestamp.UnixMilli())
+		if EnableDebug {
+			for _, item := range sw.data {
+				if slotToTrigger.Contains(item.Timestamp) {
+					hasData = true
+					dataInWindow++
+					dataTimestamps = append(dataTimestamps, item.Timestamp.UnixMilli())
+				}
+			}
+		} else {
+			for _, item := range sw.data {
+				if slotToTrigger.Contains(item.Timestamp) {
+					hasData = true
+					dataInWindow++
+				}
 			}
 		}
 
@@ -505,10 +526,12 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 
 			// Save snapshot data before triggering
 			var snapshotData []types.Row
+			var snapshotSeq map[int64]struct{}
 			if allowedLateness > 0 {
 				// Create a deep copy of window data for snapshot
 				snapshotData = make([]types.Row, 0, dataInWindow)
-				for _, item := range sw.data {
+				snapshotSeq = make(map[int64]struct{}, dataInWindow)
+				for i, item := range sw.data {
 					if slotToTrigger.Contains(item.Timestamp) {
 						// Create a copy of the row
 						snapshotData = append(snapshotData, types.Row{
@@ -516,6 +539,7 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 							Timestamp: item.Timestamp,
 							Slot:      slotToTrigger,
 						})
+						snapshotSeq[sw.seqAt(i)] = struct{}{}
 					}
 				}
 			}
@@ -535,6 +559,7 @@ func (sw *SlidingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 					slot:         slotToTrigger,
 					closeTime:    closeTime,
 					snapshotData: snapshotData, // Save snapshot for late updates
+					snapshotSeq:  snapshotSeq,
 				}
 				debugLogSliding("checkAndTriggerWindows: window [%v, %v) kept open for late data until %v",
 					windowStart.UnixMilli(), windowEnd.UnixMilli(), closeTime.UnixMilli())
@@ -577,14 +602,27 @@ func (sw *SlidingWindow) extractWindowDataLocked(slot *types.TimeSlot) []types.R
 
 	nextWindowStart := slot.Start.Add(sw.slide)
 	newData := make([]types.Row, 0)
-	for _, item := range sw.data {
+	newSeq := make([]int64, 0, len(sw.dataSeq))
+	for i, item := range sw.data {
 		if !item.Timestamp.Before(nextWindowStart) {
 			newData = append(newData, item)
+			newSeq = append(newSeq, sw.seqAt(i))
 		}
 	}
 	sw.data = newData
+	sw.dataSeq = newSeq
 
 	return resultData
+}
+
+// seqAt returns the row id at index i, tolerating a short dataSeq (rows added
+// through paths that predate id tracking) by falling back to a negative value
+// that never matches a recorded snapshot id.
+func (sw *SlidingWindow) seqAt(i int) int64 {
+	if i < len(sw.dataSeq) {
+		return sw.dataSeq[i]
+	}
+	return -1
 }
 
 // triggerSpecificWindowLocked triggers the specified window (must be called with lock held)
@@ -800,6 +838,7 @@ func (sw *SlidingWindow) Reset() {
 
 	// Clear window data
 	sw.data = nil
+	sw.dataSeq = nil
 	sw.currentSlot = nil
 	sw.initialized = false
 	sw.initChan = make(chan struct{})
@@ -921,28 +960,25 @@ func (sw *SlidingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
 		}
 	}
 
-	// Add late rows from sw.data, skipping any already in the snapshot (matched by
-	// Data pointer) so each row is counted once across late updates.
-	seen := make(map[uintptr]struct{})
-	if windowInfo != nil {
-		for _, item := range windowInfo.snapshotData {
-			if item.Data != nil {
-				seen[reflect.ValueOf(item.Data).Pointer()] = struct{}{}
-			}
-		}
-	}
+	// Add late rows from sw.data, skipping any already merged into the snapshot so
+	// each row is counted once across late updates. Matching is by row id, not by
+	// Data identity: Data is `any`, and reflect.Value.Pointer panics outright on
+	// struct/int values (Window.Add accepts both, and the aggregator supports them).
+	lateSeq := make([]int64, 0)
 	lateDataCount := 0
-	for _, item := range sw.data {
+	for i, item := range sw.data {
 		if !slot.Contains(item.Timestamp) {
 			continue
 		}
-		if item.Data != nil {
-			if _, dup := seen[reflect.ValueOf(item.Data).Pointer()]; dup {
+		seq := sw.seqAt(i)
+		if windowInfo != nil && windowInfo.snapshotSeq != nil {
+			if _, dup := windowInfo.snapshotSeq[seq]; dup {
 				continue
 			}
 		}
 		item.Slot = slot
 		resultData = append(resultData, item)
+		lateSeq = append(lateSeq, seq)
 		lateDataCount++
 	}
 
@@ -960,6 +996,13 @@ func (sw *SlidingWindow) triggerLateUpdateLocked(slot *types.TimeSlot) {
 				Timestamp: item.Timestamp,
 				Slot:      slot,
 			}
+		}
+		// Record the newly merged ids so the next late update skips them too.
+		if windowInfo.snapshotSeq == nil {
+			windowInfo.snapshotSeq = make(map[int64]struct{}, len(lateSeq))
+		}
+		for _, seq := range lateSeq {
+			windowInfo.snapshotSeq[seq] = struct{}{}
 		}
 	}
 

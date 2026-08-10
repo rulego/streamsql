@@ -476,3 +476,55 @@ func TestStreamSQLStressTest(t *testing.T) {
 		ssql.Stop()
 	})
 }
+
+// TestJoinRequiresOn locks in the documented behavior that a JOIN without an
+// ON clause is rejected at parse time. The v1.2 audit (P2-7) once flagged
+// "JOIN no ON silently accepted" — verification against current code shows it
+// is in fact rejected for INNER/LEFT and all alias forms. This test guards
+// against a regression that re-introduces silent acceptance (which would
+// produce un-enriched rows, an incorrect-data bug worse than an error).
+func TestJoinRequiresOn(t *testing.T) {
+	t.Parallel()
+	cases := []string{
+		`SELECT * FROM stream s JOIN meta m`,
+		`SELECT * FROM stream JOIN meta m`,
+		`SELECT * FROM stream s INNER JOIN meta m`,
+		`SELECT * FROM stream s LEFT JOIN meta m`,
+		// ON missing while a following clause (WHERE) is present — must still error.
+		`SELECT s.x FROM stream s JOIN meta m WHERE s.y > 1`,
+	}
+	for _, sql := range cases {
+		sql := sql
+		t.Run(sql, func(t *testing.T) {
+			t.Parallel()
+			ssql := streamsql.New()
+			defer ssql.Stop()
+			err := ssql.Execute(sql)
+			require.Error(t, err, "JOIN 缺少 ON 必须报错")
+			assert.Contains(t, err.Error(), "ON")
+		})
+	}
+}
+
+// TestBareAggregationUsesDefaultWindow locks in that an aggregate query with
+// no explicit window/GROUP BY does not silently produce zero output: the
+// parser assigns a default tumbling window so results still emit. The v1.2
+// audit (P2-7) suspected "never outputs"; current code routes through a
+// default 10s window. We assert the observable preconditions that make output
+// possible — a window is allocated and the stream is flagged as an
+// aggregation query — rather than waiting on the real 10s tick (slow/flaky).
+// Deleting the default-window fallback would make NeedWindow=false and
+// Window nil, turning the aggregate into a silent no-output path.
+func TestBareAggregationUsesDefaultWindow(t *testing.T) {
+	t.Parallel()
+	ssql := streamsql.New()
+	defer ssql.Stop()
+	require.NoError(t, ssql.Execute(`SELECT COUNT(*) AS c FROM stream`))
+
+	// IsAggregationQuery reflects that a window (default) was assigned.
+	assert.True(t, ssql.Stream().IsAggregationQuery(),
+		"裸聚合应被赋予默认窗口（NeedWindow=true），否则会静默无输出")
+	// A concrete window must exist for the aggregate to ever emit.
+	assert.NotNil(t, ssql.Stream().Window,
+		"裸聚合必须构造出窗口实例，否则聚合结果无处触发")
+}

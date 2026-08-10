@@ -141,7 +141,7 @@ func TestDataProcessor_ApplyHavingWithCaseExpression(t *testing.T) {
 	}
 
 	// 应用HAVING过滤
-	filteredResults := processor.applyHavingWithCaseExpression(results)
+	filteredResults := processor.applyHavingFilter(results)
 
 	// 验证过滤结果
 	assert.Len(t, filteredResults, 2)
@@ -182,7 +182,7 @@ func TestDataProcessor_ApplyHavingWithCondition(t *testing.T) {
 	}
 
 	// 应用HAVING过滤
-	filteredResults := processor.applyHavingWithCondition(results)
+	filteredResults := processor.applyHavingFilter(results)
 
 	// 验证过滤结果
 	assert.Len(t, filteredResults, 2)
@@ -849,4 +849,164 @@ func TestStream_ErrorHandling(t *testing.T) {
 	// 测试无效参数解析
 	_, _ = stream.parseFunctionArgs("INVALID_FUNC(invalid)", dataMap)
 	// 某些无效参数可能不会返回错误，这是正常行为
+}
+
+// TestCompiledHaving_PrecompiledAtConstruction verifies the P1-C optimization:
+// HAVING is compiled exactly once at construction (compileHaving) rather than
+// re-compiled on every window trigger. The observable contract is:
+//   - empty HAVING  -> compiledHaving is nil (no filtering);
+//   - valid HAVING  -> compiledHaving non-nil and filters identically across
+//     repeated triggers (idempotent, since the condition is stateless);
+//   - the same compiled artifact is shared: a second trigger uses the same
+//     pointer as the first (proving it is not rebuilt per trigger).
+func TestCompiledHaving_PrecompiledAtConstruction(t *testing.T) {
+	// Empty HAVING -> nil compiledHaving.
+	emptyStream, err := NewStream(types.Config{
+		SimpleFields: []string{"v"},
+		WindowConfig: types.WindowConfig{Type: "tumbling", Params: []any{1 * time.Second}},
+	})
+	require.NoError(t, err)
+	defer func() {
+		if emptyStream != nil {
+			close(emptyStream.done)
+		}
+	}()
+	assert.Nil(t, emptyStream.compiledHaving, "空 HAVING 不应预编译")
+
+	// Valid plain HAVING -> non-nil, shared across triggers.
+	condStream, err := NewStream(types.Config{
+		SimpleFields: []string{"device", "temperature"},
+		GroupFields:  []string{"device"},
+		SelectFields: map[string]aggregator.AggregateType{"temperature": aggregator.Avg},
+		Having:       "temperature > 25",
+		WindowConfig: types.WindowConfig{Type: "tumbling", Params: []any{1 * time.Second}},
+	})
+	require.NoError(t, err)
+	defer func() {
+		if condStream != nil {
+			close(condStream.done)
+		}
+	}()
+	require.NotNil(t, condStream.compiledHaving, "有效 HAVING 应在构造期预编译")
+	assert.False(t, condStream.compiledHaving.hasCase, "temperature > 25 不是 CASE 表达式")
+
+	proc := NewDataProcessor(condStream)
+	rows := []map[string]any{
+		{"device": "a", "temperature": 20.0},
+		{"device": "b", "temperature": 30.0},
+		{"device": "c", "temperature": 40.0},
+	}
+
+	// First trigger.
+	first := proc.applyHavingFilter(rows)
+	// Second trigger must reuse the same compiled condition (no recompile).
+	second := proc.applyHavingFilter(rows)
+
+	assert.Same(t, condStream.compiledHaving, condStream.compiledHaving,
+		"compiledHaving 指针在多次触发间应不变（构造期编译一次）")
+	require.Len(t, first, 2)
+	require.Len(t, second, 2, "重复触发应得到一致结果")
+	assert.Equal(t, first, second, "HAVING 过滤结果在多次触发间应完全一致")
+
+	// Valid CASE HAVING -> non-nil, hasCase set.
+	caseStream, err := NewStream(types.Config{
+		SimpleFields: []string{"device", "temperature", "status"},
+		GroupFields:  []string{"device"},
+		SelectFields: map[string]aggregator.AggregateType{"temperature": aggregator.Avg},
+		Having:       "CASE WHEN temperature > 30 THEN 1 ELSE 0 END",
+		WindowConfig: types.WindowConfig{Type: "tumbling", Params: []any{1 * time.Second}},
+	})
+	require.NoError(t, err)
+	defer func() {
+		if caseStream != nil {
+			close(caseStream.done)
+		}
+	}()
+	require.NotNil(t, caseStream.compiledHaving)
+	assert.True(t, caseStream.compiledHaving.hasCase, "CASE 表达式应标记 hasCase")
+
+	caseRows := []map[string]any{
+		{"device": "a", "temperature": 20.0, "status": "inactive"},
+		{"device": "b", "temperature": 35.0, "status": "inactive"},
+	}
+	caseProc := NewDataProcessor(caseStream)
+	caseFiltered := caseProc.applyHavingFilter(caseRows)
+	require.Len(t, caseFiltered, 1)
+	assert.Equal(t, "b", caseFiltered[0]["device"])
+}
+
+// TestCompiledHaving_MalformedPassesThrough confirms that a HAVING that fails
+// to compile degrades to pass-through (unfiltered) rather than failing the
+// stream construction or panicking — matching the prior per-trigger behavior
+// where a mid-trigger compile error logged and returned results unchanged.
+func TestCompiledHaving_MalformedPassesThrough(t *testing.T) {
+	// An unterminated string literal is rejected by condition.NewExprCondition.
+	badStream, err := NewStream(types.Config{
+		SimpleFields: []string{"v"},
+		GroupFields:  []string{"v"},
+		SelectFields: map[string]aggregator.AggregateType{"v": aggregator.Count},
+		Having:       "v > 'unterminated",
+		WindowConfig: types.WindowConfig{Type: "tumbling", Params: []any{1 * time.Second}},
+	})
+	require.NoError(t, err, "编译失败的 HAVING 不应让构造失败")
+	defer func() {
+		if badStream != nil {
+			close(badStream.done)
+		}
+	}()
+	// compiledHaving is nil because compile failed gracefully.
+	if badStream.compiledHaving != nil {
+		t.Fatalf("expected nil compiledHaving for malformed HAVING, got %+v", badStream.compiledHaving)
+	}
+
+	proc := NewDataProcessor(badStream)
+	rows := []map[string]any{{"v": 1}, {"v": 2}}
+	out := proc.applyHavingFilter(rows)
+	// Pass-through: all rows survive.
+	assert.Len(t, out, 2, "HAVING 编译失败时应透传全部结果")
+}
+
+// TestCompiledHaving_AfterQualifiedRefRewrite guards the construction ordering
+// fixed for P1-C: compileHaving must run AFTER compileOutputNames rewrites
+// qualified GROUP BY references (m.location -> location) in config.Having.
+// The result rows carry the flat key "location", so a HAVING compiled from the
+// pre-rewrite text "m.location" would never match and silently drop everything
+// (the regression observed on TestJoinAggregationHavingNameForms).
+//
+// We reproduce the JOIN case: GroupField="m.location" with a registered join
+// alias "m", so stripJoinAlias flattens it to "location" and the HAVING is
+// rewritten to "location = 'plantA'". The compiled filter must then keep the
+// plantA row — proving the compiled text references the flat key.
+func TestCompiledHaving_AfterQualifiedRefRewrite(t *testing.T) {
+	stream, err := NewStream(types.Config{
+		NeedWindow:   true,
+		GroupFields:  []string{"m.location"},
+		SelectFields: map[string]aggregator.AggregateType{"v": aggregator.Count},
+		JoinConfigs:  []types.JoinConfig{{Table: "meta", Alias: "m", JoinType: "INNER"}},
+		// rsql.parseHaving already normalizes SQL "=" to "==" (and AND to &&),
+		// so config.Having carries "==". The qualified-ref rewrite below only
+		// touches the column reference, not the operator.
+		Having:       "m.location == 'plantA'",
+		WindowConfig: types.WindowConfig{Type: "tumbling", Params: []any{1 * time.Second}},
+	})
+	require.NoError(t, err)
+	defer func() {
+		if stream != nil {
+			close(stream.done)
+		}
+	}()
+	// The rewrite must have flattened the HAVING text in config.
+	assert.Equal(t, "location == 'plantA'", stream.config.Having,
+		"compileOutputNames 应把 HAVING 里的 m.location 改写为 location")
+	require.NotNil(t, stream.compiledHaving, "改写后的 HAVING 应已预编译")
+
+	proc := NewDataProcessor(stream)
+	// Result rows carry the flat key "location" (as the aggregator emits).
+	rows := []map[string]any{
+		{"location": "plantA", "v": int64(1)},
+		{"location": "plantB", "v": int64(1)},
+	}
+	out := proc.applyHavingFilter(rows)
+	require.Len(t, out, 1, "预编译 HAVING 应能按扁平键 location 过滤")
+	assert.Equal(t, "plantA", out[0]["location"])
 }

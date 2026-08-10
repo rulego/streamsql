@@ -50,6 +50,11 @@ type triggeredWindowInfo struct {
 	slot         *types.TimeSlot
 	closeTime    time.Time   // window end + allowedLateness
 	snapshotData []types.Row // snapshot of window data when first triggered
+	// snapshotSeq holds the row ids already merged into snapshotData, so a later
+	// late update can skip them instead of counting the same row twice. Only the
+	// sliding window populates it (tumbling evicts merged rows outright, and its
+	// windows do not overlap).
+	snapshotSeq map[int64]struct{}
 }
 
 // TumblingWindow represents a tumbling window for collecting data and triggering processing at fixed time intervals
@@ -468,12 +473,25 @@ func (tw *TumblingWindow) checkAndTriggerWindows(watermarkTime time.Time) {
 		// Check if window has data before triggering
 		hasData := false
 		dataInWindow := 0
+		// dataTimestamps is only consumed by the debug log below; build it only
+		// when debug is on to avoid an append (and backing-array growth) per
+		// trigger on the hot path. dataInWindow is always needed for the snapshot
+		// capacity hint.
 		var dataTimestamps []int64
-		for _, item := range tw.data {
-			if tw.currentSlot.Contains(item.Timestamp) {
-				hasData = true
-				dataInWindow++
-				dataTimestamps = append(dataTimestamps, item.Timestamp.UnixMilli())
+		if EnableDebug {
+			for _, item := range tw.data {
+				if tw.currentSlot.Contains(item.Timestamp) {
+					hasData = true
+					dataInWindow++
+					dataTimestamps = append(dataTimestamps, item.Timestamp.UnixMilli())
+				}
+			}
+		} else {
+			for _, item := range tw.data {
+				if tw.currentSlot.Contains(item.Timestamp) {
+					hasData = true
+					dataInWindow++
+				}
 			}
 		}
 

@@ -146,6 +146,7 @@ func TestDocCases_WindowSQL_Parses(t *testing.T) {
 	}
 	for name, sql := range sqls {
 		sql := sql
+		name := name
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			ssql := streamsql.New()

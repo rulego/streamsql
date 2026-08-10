@@ -152,3 +152,19 @@ func WithAnalyticMaxPartitions(n int) Option {
 		ss.analyticMaxPartitions = n
 	}
 }
+
+// WithGroupMaxPartitions caps the number of GROUP BY partitions (distinct group
+// keys) the aggregator keeps at once. Above the cap the least-recently-used
+// group is evicted, discarding its accumulated aggregation state. Independent
+// from WithAnalyticMaxPartitions. Default (n<=0) is 10000.
+//
+// This bounds memory for high-cardinality GROUP BY keys (e.g.
+// GROUP BY deviceId, TumblingWindow('30s') behind a 128MB gateway). Note that
+// evicting a group silently resets its aggregates — SUM/COUNT restart from 0
+// the next time that key appears. Raise the cap above the peak active-group
+// count when full accuracy is required.
+func WithGroupMaxPartitions(n int) Option {
+	return func(ss *Streamsql) {
+		ss.groupMaxPartitions = n
+	}
+}

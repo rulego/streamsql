@@ -3,6 +3,7 @@ package e2e
 import (
 	"sync"
 	"testing"
+	"time"
 
 	streamsql "github.com/rulego/streamsql"
 	"github.com/stretchr/testify/assert"
@@ -343,4 +344,63 @@ func TestAnalytic_LagOffsetDefaultIgnoreNull(t *testing.T) {
 		require.NotNil(t, r)
 		assert.Equal(t, expected[i], r["lg"], "row %d", i)
 	}
+}
+
+// --- 聚合器 GROUP BY 分区上限（WithGroupMaxPartitions） ---
+
+// WithGroupMaxPartitions 在 SQL 聚合路径下生效，且上限足够大时不丢分组：
+// 设置 cap=100，窗口内只有 3 个分组，聚合结果应全部保留且 SUM 正确。
+// 回归 P1-5：既验证选项能从 New(...Option) 一路流到聚合器，又确认默认上限
+// 没有被错误地设成 0（那会无界增长）或过小（那会静默淘汰正确分组）。
+func TestGroupAggregator_WithGroupMaxPartitions_SQLPath(t *testing.T) {
+	ssql := streamsql.New(streamsql.WithGroupMaxPartitions(100))
+	defer ssql.Stop()
+	require.NoError(t, ssql.Execute(
+		`SELECT deviceId, SUM(v) AS s FROM stream GROUP BY deviceId, TumblingWindow('1s')`))
+
+	var mu sync.Mutex
+	var got []map[string]any
+	ssql.Stream().AddSink(func(result []map[string]any) {
+		mu.Lock()
+		defer mu.Unlock()
+		got = append(got, result...)
+	})
+
+	// 3 个分组，cap=100 远大于活跃数，全部应保留。
+	for _, d := range []map[string]any{
+		{"deviceId": "d1", "v": 10},
+		{"deviceId": "d1", "v": 5},
+		{"deviceId": "d2", "v": 7},
+		{"deviceId": "d3", "v": 3},
+	} {
+		ssql.Emit(d)
+	}
+
+	ssql.TriggerWindow()
+	// 等待 sink 回调。
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		mu.Lock()
+		n := len(got)
+		mu.Unlock()
+		if n >= 3 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	sums := make(map[string]float64, len(got))
+	for _, r := range got {
+		if id, ok := r["deviceId"].(string); ok {
+			if s, ok := r["s"].(float64); ok {
+				sums[id] = s
+			}
+		}
+	}
+	assert.Len(t, sums, 3, "cap=100 时 3 个分组应全部保留")
+	assert.Equal(t, float64(15), sums["d1"])
+	assert.Equal(t, float64(7), sums["d2"])
+	assert.Equal(t, float64(3), sums["d3"])
 }
