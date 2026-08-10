@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/rulego/streamsql/functions"
 	"github.com/rulego/streamsql/utils/cast"
@@ -37,6 +38,10 @@ type Aggregator interface {
 	Reset()
 	// RegisterExpression registers expression evaluator
 	RegisterExpression(field, expression string, fields []string, evaluator func(data any) (any, error))
+	// EvictedGroups returns the cumulative number of GROUP BY partitions dropped
+	// by the LRU cap. Non-zero means aggregates were discarded before being
+	// emitted, so the caller can surface it instead of losing groups silently.
+	EvictedGroups() int64
 }
 
 // AggregationField defines configuration for a single aggregation field
@@ -65,6 +70,9 @@ type GroupAggregator struct {
 	groupOrder *list.List
 	// groupElems 把 group key 映射到其在 groupOrder 中的节点，O(1) 提升与淘汰。
 	groupElems map[string]*list.Element
+	// evictedGroups 累计被 LRU 淘汰的分组数。淘汰会丢弃该组已累计的聚合值，
+	// 属静默错值风险，故计数暴露给上层上报（见 stream 的 group_evicted_count）。
+	evictedGroups int64
 }
 
 // ExpressionEvaluator wraps expression evaluation functionality
@@ -138,7 +146,14 @@ func (ga *GroupAggregator) evictIfNeeded() {
 		delete(ga.groupElems, key)
 		delete(ga.groups, key)
 		delete(ga.groupKeyVals, key)
+		atomic.AddInt64(&ga.evictedGroups, 1)
 	}
+}
+
+// EvictedGroups returns the cumulative count of LRU-evicted groups. Read without
+// ga.mu so callers can poll it cheaply from another goroutine.
+func (ga *GroupAggregator) EvictedGroups() int64 {
+	return atomic.LoadInt64(&ga.evictedGroups)
 }
 
 // RegisterExpression registers expression evaluator

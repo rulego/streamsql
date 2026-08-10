@@ -23,14 +23,19 @@ const (
 	InputDroppedCount  = "input_dropped_count"
 	OutputDroppedCount = "output_dropped_count"
 	DroppedCount       = "dropped_count"
-	DataChanLen        = "data_chan_len"
-	DataChanCap        = "data_chan_cap"
-	ResultChanLen      = "result_chan_len"
-	ResultChanCap      = "result_chan_cap"
-	SinkPoolLen        = "sink_pool_len"
-	SinkPoolCap        = "sink_pool_cap"
-	ActiveRetries      = "active_retries"
-	Expanding          = "expanding"
+	// GroupEvictedCount counts GROUP BY partitions dropped by the aggregator's
+	// LRU cap. Non-zero means some groups' aggregates were discarded before the
+	// window emitted them, so those groups are missing (or restart from zero) in
+	// the output — raise WithGroupMaxPartitions above the peak active-group count.
+	GroupEvictedCount = "group_evicted_count"
+	DataChanLen       = "data_chan_len"
+	DataChanCap       = "data_chan_cap"
+	ResultChanLen     = "result_chan_len"
+	ResultChanCap     = "result_chan_cap"
+	SinkPoolLen       = "sink_pool_len"
+	SinkPoolCap       = "sink_pool_cap"
+	ActiveRetries     = "active_retries"
+	Expanding         = "expanding"
 )
 
 // Detailed statistics field keys returned by GetDetailedStats.

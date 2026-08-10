@@ -165,6 +165,7 @@ func (sf *StreamFactory) createStreamInstance(config types.Config, win window.Wi
 		mInput:           reg.Counter(InputCount),
 		mOutput:          reg.Counter(OutputCount),
 		mInputDropped:    reg.Counter(InputDroppedCount),
+		mGroupEvicted:    reg.Counter(GroupEvictedCount),
 		mOutputDropped:   reg.Counter(OutputDroppedCount),
 	}
 }

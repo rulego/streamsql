@@ -49,6 +49,7 @@ func (s *Stream) GetStats() map[string]int64 {
 		SinkPoolCap:        int64(cap(s.sinkWorkerPool)),
 		ActiveRetries:      int64(atomic.LoadInt32(&s.activeRetries)),
 		Expanding:          int64(atomic.LoadInt32(&s.expanding)),
+		GroupEvictedCount:  s.mGroupEvicted.Value(),
 	}
 
 	if s.Window != nil {

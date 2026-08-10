@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/rulego/streamsql/aggregator"
@@ -414,11 +415,42 @@ func (dp *DataProcessor) processWindowBatch(batch []types.Row) {
 		}
 	}
 
+	// Surface LRU-evicted groups before emitting: an evicted group's aggregate was
+	// discarded, so it is absent from these results. Reporting it turns a silently
+	// short result set into an observable signal.
+	dp.stream.reportGroupEvictions()
+
 	// Get and send aggregation results
 	if results, err := dp.stream.aggregator.GetResults(); err == nil {
 		stampWindowID(results, batch)
 		dp.processAggregationResults(results)
 		dp.stream.aggregator.Reset()
+	}
+}
+
+// reportGroupEvictions mirrors the aggregator's cumulative eviction count into
+// the stream metric and logs a throttled warning (at most once per 10s) carrying
+// the number evicted since the last log. Evictions mean GROUP BY partitions
+// exceeded WithGroupMaxPartitions and their aggregates were dropped.
+func (s *Stream) reportGroupEvictions() {
+	if s.aggregator == nil {
+		return
+	}
+	total := s.aggregator.EvictedGroups()
+	prev := atomic.LoadInt64(&s.lastEvictedSeen)
+	if total <= prev {
+		return
+	}
+	atomic.StoreInt64(&s.lastEvictedSeen, total)
+	if s.mGroupEvicted != nil {
+		s.mGroupEvicted.IncBy(total - prev)
+	}
+
+	now := time.Now().Unix()
+	last := atomic.LoadInt64(&s.lastGroupEvictLog)
+	if now-last >= 10 && atomic.CompareAndSwapInt64(&s.lastGroupEvictLog, last, now) {
+		s.log.Warn("GROUP BY partition cap exceeded: %d group(s) evicted (total %d); their aggregates were discarded. Raise WithGroupMaxPartitions above the peak active-group count.",
+			total-prev, total)
 	}
 }
 

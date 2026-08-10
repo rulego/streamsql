@@ -91,7 +91,15 @@ type Stream struct {
 	mInput          *metrics.Counter
 	mOutput         *metrics.Counter
 	mInputDropped   *metrics.Counter
-	mOutputDropped  *metrics.Counter
+	// mGroupEvicted mirrors the aggregator's LRU eviction count. Evicting a group
+	// discards its accumulated aggregate, so this must be observable rather than
+	// silent — the group simply goes missing from the output otherwise.
+	mGroupEvicted *metrics.Counter
+	// lastGroupEvictLog / lastEvictedSeen throttle the eviction warning to one per
+	// 10s, carrying the count since the previous log.
+	lastGroupEvictLog int64
+	lastEvictedSeen   int64
+	mOutputDropped    *metrics.Counter
 
 	// Log throttling fields for "Result channel is full" messages
 	lastDropLogTime int64 // Last time drop log was printed (unix timestamp)
