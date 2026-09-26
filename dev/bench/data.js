@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790434927693,
+  "lastUpdate": 1790436247328,
   "repoUrl": "https://github.com/rulego/streamsql",
   "entries": {
     "Benchmark": [
@@ -15966,6 +15966,540 @@ window.BENCHMARK_DATA = {
             "value": 5,
             "unit": "allocs/op",
             "extra": "4731613 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rulego@outlook.com",
+            "name": "rulego-team",
+            "username": "whki"
+          },
+          "committer": {
+            "email": "rulego@outlook.com",
+            "name": "rulego-team",
+            "username": "whki"
+          },
+          "distinct": true,
+          "id": "5185656ff1c5fef154d1fbbf05fd826dddee18aa",
+          "message": "feat(stream): 流-流 JOIN（WITHIN）：语法解析、级联引擎、EmitTo API 与集成测试",
+          "timestamp": "2026-09-26T23:21:47+08:00",
+          "tree_id": "829bcf3b7b93b8ca9827d622855e849183dd6c30",
+          "url": "https://github.com/rulego/streamsql/commit/5185656ff1c5fef154d1fbbf05fd826dddee18aa"
+        },
+        "date": 1790436246307,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkConfigurationOptimized/Lightweight (github.com/rulego/streamsql)",
+            "value": 540.6,
+            "unit": "ns/op\t         0 drop_rate_%\t   1849899 ops/sec\t        66.67 process_rate_%\t     267 B/op\t       2 allocs/op",
+            "extra": "4522790 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkConfigurationOptimized/Lightweight (github.com/rulego/streamsql) - ns/op",
+            "value": 540.6,
+            "unit": "ns/op",
+            "extra": "4522790 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkConfigurationOptimized/Lightweight (github.com/rulego/streamsql) - drop_rate_%",
+            "value": 0,
+            "unit": "drop_rate_%",
+            "extra": "4522790 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkConfigurationOptimized/Lightweight (github.com/rulego/streamsql) - ops/sec",
+            "value": 1849899,
+            "unit": "ops/sec",
+            "extra": "4522790 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkConfigurationOptimized/Lightweight (github.com/rulego/streamsql) - process_rate_%",
+            "value": 66.67,
+            "unit": "process_rate_%",
+            "extra": "4522790 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkConfigurationOptimized/Lightweight (github.com/rulego/streamsql) - B/op",
+            "value": 267,
+            "unit": "B/op",
+            "extra": "4522790 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkConfigurationOptimized/Lightweight (github.com/rulego/streamsql) - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "4522790 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPureInputOptimized (github.com/rulego/streamsql)",
+            "value": 579.1,
+            "unit": "ns/op\t   1726774 pure_ops/sec\t     314 B/op\t       2 allocs/op",
+            "extra": "5171158 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPureInputOptimized (github.com/rulego/streamsql) - ns/op",
+            "value": 579.1,
+            "unit": "ns/op",
+            "extra": "5171158 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPureInputOptimized (github.com/rulego/streamsql) - pure_ops/sec",
+            "value": 1726774,
+            "unit": "pure_ops/sec",
+            "extra": "5171158 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPureInputOptimized (github.com/rulego/streamsql) - B/op",
+            "value": 314,
+            "unit": "B/op",
+            "extra": "5171158 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkPureInputOptimized (github.com/rulego/streamsql) - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "5171158 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMemoryEfficiency/Lightweight5K (github.com/rulego/streamsql)",
+            "value": 533.5,
+            "unit": "ns/op\t         0 data_chan_usage_%\t   1874583 ops/sec\t        66.67 process_rate_%\t         0 result_chan_usage_%\t   4382270 results\t     268 B/op\t       2 allocs/op",
+            "extra": "6573405 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMemoryEfficiency/Lightweight5K (github.com/rulego/streamsql) - ns/op",
+            "value": 533.5,
+            "unit": "ns/op",
+            "extra": "6573405 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMemoryEfficiency/Lightweight5K (github.com/rulego/streamsql) - data_chan_usage_%",
+            "value": 0,
+            "unit": "data_chan_usage_%",
+            "extra": "6573405 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMemoryEfficiency/Lightweight5K (github.com/rulego/streamsql) - ops/sec",
+            "value": 1874583,
+            "unit": "ops/sec",
+            "extra": "6573405 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMemoryEfficiency/Lightweight5K (github.com/rulego/streamsql) - process_rate_%",
+            "value": 66.67,
+            "unit": "process_rate_%",
+            "extra": "6573405 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMemoryEfficiency/Lightweight5K (github.com/rulego/streamsql) - result_chan_usage_%",
+            "value": 0,
+            "unit": "result_chan_usage_%",
+            "extra": "6573405 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMemoryEfficiency/Lightweight5K (github.com/rulego/streamsql) - results",
+            "value": 4382270,
+            "unit": "results",
+            "extra": "6573405 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMemoryEfficiency/Lightweight5K (github.com/rulego/streamsql) - B/op",
+            "value": 268,
+            "unit": "B/op",
+            "extra": "6573405 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMemoryEfficiency/Lightweight5K (github.com/rulego/streamsql) - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "6573405 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_FilterProject (github.com/rulego/streamsql)",
+            "value": 259.5,
+            "unit": "ns/op\t     344 B/op\t       3 allocs/op",
+            "extra": "9296512 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_FilterProject (github.com/rulego/streamsql) - ns/op",
+            "value": 259.5,
+            "unit": "ns/op",
+            "extra": "9296512 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_FilterProject (github.com/rulego/streamsql) - B/op",
+            "value": 344,
+            "unit": "B/op",
+            "extra": "9296512 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_FilterProject (github.com/rulego/streamsql) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "9296512 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_MultiFieldFilter (github.com/rulego/streamsql)",
+            "value": 324.9,
+            "unit": "ns/op\t     344 B/op\t       3 allocs/op",
+            "extra": "7332126 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_MultiFieldFilter (github.com/rulego/streamsql) - ns/op",
+            "value": 324.9,
+            "unit": "ns/op",
+            "extra": "7332126 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_MultiFieldFilter (github.com/rulego/streamsql) - B/op",
+            "value": 344,
+            "unit": "B/op",
+            "extra": "7332126 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_MultiFieldFilter (github.com/rulego/streamsql) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "7332126 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_ComputedFields (github.com/rulego/streamsql)",
+            "value": 1047,
+            "unit": "ns/op\t     456 B/op\t      11 allocs/op",
+            "extra": "2303989 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_ComputedFields (github.com/rulego/streamsql) - ns/op",
+            "value": 1047,
+            "unit": "ns/op",
+            "extra": "2303989 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_ComputedFields (github.com/rulego/streamsql) - B/op",
+            "value": 456,
+            "unit": "B/op",
+            "extra": "2303989 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_ComputedFields (github.com/rulego/streamsql) - allocs/op",
+            "value": 11,
+            "unit": "allocs/op",
+            "extra": "2303989 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_StringConcat (github.com/rulego/streamsql)",
+            "value": 657.2,
+            "unit": "ns/op\t     464 B/op\t       7 allocs/op",
+            "extra": "3668300 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_StringConcat (github.com/rulego/streamsql) - ns/op",
+            "value": 657.2,
+            "unit": "ns/op",
+            "extra": "3668300 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_StringConcat (github.com/rulego/streamsql) - B/op",
+            "value": 464,
+            "unit": "B/op",
+            "extra": "3668300 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_StringConcat (github.com/rulego/streamsql) - allocs/op",
+            "value": 7,
+            "unit": "allocs/op",
+            "extra": "3668300 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_NoFilter (github.com/rulego/streamsql)",
+            "value": 286.4,
+            "unit": "ns/op\t     344 B/op\t       3 allocs/op",
+            "extra": "8271522 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_NoFilter (github.com/rulego/streamsql) - ns/op",
+            "value": 286.4,
+            "unit": "ns/op",
+            "extra": "8271522 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_NoFilter (github.com/rulego/streamsql) - B/op",
+            "value": 344,
+            "unit": "B/op",
+            "extra": "8271522 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkMainPath_NoFilter (github.com/rulego/streamsql) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "8271522 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAggregatorIncremental (github.com/rulego/streamsql/functions)",
+            "value": 17.13,
+            "unit": "ns/op\t       8 B/op\t       1 allocs/op",
+            "extra": "143721152 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAggregatorIncremental (github.com/rulego/streamsql/functions) - ns/op",
+            "value": 17.13,
+            "unit": "ns/op",
+            "extra": "143721152 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAggregatorIncremental (github.com/rulego/streamsql/functions) - B/op",
+            "value": 8,
+            "unit": "B/op",
+            "extra": "143721152 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAggregatorIncremental (github.com/rulego/streamsql/functions) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "143721152 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAggregatorBatch (github.com/rulego/streamsql/functions)",
+            "value": 3765,
+            "unit": "ns/op\t       8 B/op\t       1 allocs/op",
+            "extra": "628066 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAggregatorBatch (github.com/rulego/streamsql/functions) - ns/op",
+            "value": 3765,
+            "unit": "ns/op",
+            "extra": "628066 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAggregatorBatch (github.com/rulego/streamsql/functions) - B/op",
+            "value": 8,
+            "unit": "B/op",
+            "extra": "628066 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkAggregatorBatch (github.com/rulego/streamsql/functions) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "628066 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_Arithmetic (github.com/rulego/streamsql/functions)",
+            "value": 308.8,
+            "unit": "ns/op\t      80 B/op\t       4 allocs/op",
+            "extra": "7737169 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_Arithmetic (github.com/rulego/streamsql/functions) - ns/op",
+            "value": 308.8,
+            "unit": "ns/op",
+            "extra": "7737169 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_Arithmetic (github.com/rulego/streamsql/functions) - B/op",
+            "value": 80,
+            "unit": "B/op",
+            "extra": "7737169 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_Arithmetic (github.com/rulego/streamsql/functions) - allocs/op",
+            "value": 4,
+            "unit": "allocs/op",
+            "extra": "7737169 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_FunctionCall (github.com/rulego/streamsql/functions)",
+            "value": 264.8,
+            "unit": "ns/op\t      88 B/op\t       5 allocs/op",
+            "extra": "8986765 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_FunctionCall (github.com/rulego/streamsql/functions) - ns/op",
+            "value": 264.8,
+            "unit": "ns/op",
+            "extra": "8986765 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_FunctionCall (github.com/rulego/streamsql/functions) - B/op",
+            "value": 88,
+            "unit": "B/op",
+            "extra": "8986765 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_FunctionCall (github.com/rulego/streamsql/functions) - allocs/op",
+            "value": 5,
+            "unit": "allocs/op",
+            "extra": "8986765 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_StringConcat (github.com/rulego/streamsql/functions)",
+            "value": 335.3,
+            "unit": "ns/op\t     136 B/op\t       5 allocs/op",
+            "extra": "7176592 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_StringConcat (github.com/rulego/streamsql/functions) - ns/op",
+            "value": 335.3,
+            "unit": "ns/op",
+            "extra": "7176592 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_StringConcat (github.com/rulego/streamsql/functions) - B/op",
+            "value": 136,
+            "unit": "B/op",
+            "extra": "7176592 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_StringConcat (github.com/rulego/streamsql/functions) - allocs/op",
+            "value": 5,
+            "unit": "allocs/op",
+            "extra": "7176592 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_Field (github.com/rulego/streamsql/functions)",
+            "value": 133.8,
+            "unit": "ns/op\t      32 B/op\t       1 allocs/op",
+            "extra": "17775268 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_Field (github.com/rulego/streamsql/functions) - ns/op",
+            "value": 133.8,
+            "unit": "ns/op",
+            "extra": "17775268 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_Field (github.com/rulego/streamsql/functions) - B/op",
+            "value": 32,
+            "unit": "B/op",
+            "extra": "17775268 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_Field (github.com/rulego/streamsql/functions) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "17775268 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_UsesExprFunction (github.com/rulego/streamsql/functions)",
+            "value": 24.95,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "96266928 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_UsesExprFunction (github.com/rulego/streamsql/functions) - ns/op",
+            "value": 24.95,
+            "unit": "ns/op",
+            "extra": "96266928 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_UsesExprFunction (github.com/rulego/streamsql/functions) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "96266928 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_UsesExprFunction (github.com/rulego/streamsql/functions) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "96266928 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_UsesExprFunctionRegex (github.com/rulego/streamsql/functions)",
+            "value": 994.9,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "2389614 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_UsesExprFunctionRegex (github.com/rulego/streamsql/functions) - ns/op",
+            "value": 994.9,
+            "unit": "ns/op",
+            "extra": "2389614 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_UsesExprFunctionRegex (github.com/rulego/streamsql/functions) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "2389614 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_UsesExprFunctionRegex (github.com/rulego/streamsql/functions) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "2389614 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_CreateEnv (github.com/rulego/streamsql/functions)",
+            "value": 46057,
+            "unit": "ns/op\t   45486 B/op\t     307 allocs/op",
+            "extra": "52050 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_CreateEnv (github.com/rulego/streamsql/functions) - ns/op",
+            "value": 46057,
+            "unit": "ns/op",
+            "extra": "52050 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_CreateEnv (github.com/rulego/streamsql/functions) - B/op",
+            "value": 45486,
+            "unit": "B/op",
+            "extra": "52050 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_CreateEnv (github.com/rulego/streamsql/functions) - allocs/op",
+            "value": 307,
+            "unit": "allocs/op",
+            "extra": "52050 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_ListAll (github.com/rulego/streamsql/functions)",
+            "value": 4.68,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "513444684 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_ListAll (github.com/rulego/streamsql/functions) - ns/op",
+            "value": 4.68,
+            "unit": "ns/op",
+            "extra": "513444684 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_ListAll (github.com/rulego/streamsql/functions) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "513444684 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkExprBridge_ListAll (github.com/rulego/streamsql/functions) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "513444684 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTumblingWindowThroughput (github.com/rulego/streamsql/window)",
+            "value": 509.2,
+            "unit": "ns/op\t     338 B/op\t       5 allocs/op",
+            "extra": "4588810 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTumblingWindowThroughput (github.com/rulego/streamsql/window) - ns/op",
+            "value": 509.2,
+            "unit": "ns/op",
+            "extra": "4588810 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTumblingWindowThroughput (github.com/rulego/streamsql/window) - B/op",
+            "value": 338,
+            "unit": "B/op",
+            "extra": "4588810 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTumblingWindowThroughput (github.com/rulego/streamsql/window) - allocs/op",
+            "value": 5,
+            "unit": "allocs/op",
+            "extra": "4588810 times\n4 procs"
           }
         ]
       }
