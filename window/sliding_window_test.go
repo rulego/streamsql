@@ -35,6 +35,7 @@ func TestSlidingWindow(t *testing.T) {
 
 	})
 	sw.Start()
+	defer sw.Stop()
 
 	// 添加数据
 	t_3 := TestDate{Ts: time.Date(2025, 4, 7, 16, 46, 56, 789000000, time.UTC), tag: "1"}

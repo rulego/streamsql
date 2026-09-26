@@ -75,6 +75,15 @@ func (s *Stream) stripJoinAlias(name string) string {
 			return parts[1]
 		}
 	}
+	// 流-流 JOIN（WITHIN）模式：右侧行挂载别名在 StreamJoin.Stages 里
+	//（该模式 JoinConfigs 为空），级联各级别名同样参与输出列名剥前缀。
+	if s.config.StreamJoin != nil {
+		for _, st := range s.config.StreamJoin.Stages {
+			if first == st.RightAlias {
+				return parts[1]
+			}
+		}
+	}
 	return name
 }
 

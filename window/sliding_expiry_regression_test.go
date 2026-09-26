@@ -24,6 +24,7 @@ func TestCloseExpiredWindowsKeepsOverlappingData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSlidingWindow error: %v", err)
 	}
+	defer sw.Stop() // 事件时间窗构造即起 watermark goroutine，不 Stop 会泄漏（goleak 门禁）
 
 	base := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	// Row at 1.5s belongs to overlapping windows A=[0,2s), B=[0.5s,2.5s),

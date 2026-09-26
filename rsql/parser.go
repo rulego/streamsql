@@ -585,7 +585,7 @@ func (p *Parser) parseWhere(stmt *SelectStatement) error {
 		case TokenNULL:
 			conditions = append(conditions, "NULL")
 		case TokenNOT:
-			conditions = append(conditions, "NOT")
+			conditions = append(conditions, lowerSqlNot(prevCondWord(conditions)))
 		default:
 			// Handle string value quotes
 			if len(conditions) > 0 && conditions[len(conditions)-1] == "'" {
@@ -710,6 +710,8 @@ func (p *Parser) parseGlobalWindow(stmt *SelectStatement) error {
 			parts = append(parts, "&&")
 		case TokenOR:
 			parts = append(parts, "||")
+		case TokenNOT:
+			parts = append(parts, lowerSqlNot(prevCondWord(parts)))
 		default:
 			parts = append(parts, t.Value)
 		}
@@ -802,6 +804,8 @@ func (p *Parser) parseOverWhen() (string, error) {
 			parts = append(parts, "&&")
 		case TokenOR:
 			parts = append(parts, "||")
+		case TokenNOT:
+			parts = append(parts, lowerSqlNot(prevCondWord(parts)))
 		default:
 			parts = append(parts, t.Value)
 		}
@@ -867,6 +871,29 @@ func (p *Parser) parseFrom(stmt *SelectStatement) error {
 	return nil
 }
 
+// lowerSqlNot 把 SQL 逻辑非 NOT lower 成 expr-lang 的 "!"。expr-lang 只认小写
+// not/!(以及 &&/||——AND/OR 在各收集点已同步 lower);大写 NOT 是普通标识符:
+// "NOT (...)" 会被当"调用未定义变量"编译通过、运行期恒错——条件整体静默为假,
+// 全部行被丢弃;裸 NOT 则直接编译错。
+// 例外:前一词是 IS 时保留原样——"IS NOT NULL" 由 IS NULL 预处理按大写文本整体
+// 改写为 != nil / is_not_null(),lower 会破坏它。
+// 语义注记:lower 后 NOT 的优先级与 expr 的 ! 一致(高于比较),对 NOT 的复合
+// 操作数建议加括号(如 NOT (a IS NULL)),与用户手写 ! 的既有行为一致。
+func lowerSqlNot(prevWord string) string {
+	if prevWord == "IS" {
+		return "NOT"
+	}
+	return "!"
+}
+
+// prevCondWord 返回条件词切片的最后一个词(空切片返回 "")。
+func prevCondWord(words []string) string {
+	if len(words) == 0 {
+		return ""
+	}
+	return words[len(words)-1]
+}
+
 // isClauseBoundaryIdent reports whether an identifier-looking token value is a
 // keyword that starts a later clause (JOIN/WHERE/...) rather than a stream
 // alias. JOIN/ON/INNER/LEFT/RIGHT/FULL/CROSS are not lexer keywords, so they
@@ -875,6 +902,7 @@ func isClauseBoundaryIdent(value string) bool {
 	switch strings.ToUpper(value) {
 	case "JOIN", "INNER", "LEFT", "RIGHT", "FULL", "CROSS", "ON",
 		"WHERE", "GROUP", "HAVING", "ORDER", "LIMIT", "WITH",
+		"WITHIN",          // 流-流 JOIN 的时间窗标记（ksqlDB 位置在 JOIN 表后），不得当别名消费
 		"MATCH_RECOGNIZE": // 子句起点（词法器把 MATCH_RECOGNIZE 读成单标识符），不得当源别名消费
 		return true
 	}
@@ -908,6 +936,9 @@ func (p *Parser) parseJoin(stmt *SelectStatement) error {
 			joinType = "LEFT"
 		case "JOIN":
 			// bare JOIN == INNER
+		case "RIGHT", "FULL", "CROSS":
+			// 显式报错而非静默走别路径：v1 双流/流表 JOIN 都只支持 INNER/LEFT。
+			return fmt.Errorf("%s JOIN is not supported (supported JOIN types: INNER, LEFT)", strings.ToUpper(tok.Value))
 		default:
 			// Not a JOIN clause; restore and let the next clause parser handle it.
 			p.lexer.restore(snap)
@@ -938,6 +969,13 @@ func (p *Parser) parseJoin(stmt *SelectStatement) error {
 		}
 		if jc.Alias == "" {
 			jc.Alias = jc.Table
+		}
+
+		// Optional WITHIN before ON (ksqlDB position: JOIN table [AS alias] WITHIN d ON ...).
+		if d, ok, err := p.tryParseJoinWithin(); err != nil {
+			return err
+		} else if ok {
+			jc.Within = d
 		}
 
 		// ON <field> = <field> [AND <field> = <field>]...
@@ -972,8 +1010,54 @@ func (p *Parser) parseJoin(stmt *SelectStatement) error {
 			}
 		}
 
+		// Optional WITHIN after ON (equivalent postfix position).
+		if d, ok, err := p.tryParseJoinWithin(); err != nil {
+			return err
+		} else if ok {
+			if jc.Within > 0 {
+				return fmt.Errorf("WITHIN specified twice for JOIN %s (once after the table and once after ON); use exactly one", jc.Table)
+			}
+			jc.Within = d
+		}
+
 		stmt.JoinConfigs = append(stmt.JoinConfigs, jc)
 	}
+}
+
+// tryParseJoinWithin 解析可选的 WITHIN 子句（流-流 JOIN 的语法标记，ksqlDB 拼写）：
+//
+//	WITHIN 30 SECONDS / WITHIN (30 SECONDS) / WITHIN '30s' / WITHIN 100 MS
+//
+// 未出现时恢复现场返回 ok=false。时长解析复用 parseMRDuration。
+func (p *Parser) tryParseJoinWithin() (time.Duration, bool, error) {
+	snap := p.lexer.save()
+	tok := p.lexer.NextToken()
+	if tok.Type != TokenIdent || !strings.EqualFold(tok.Value, "WITHIN") {
+		p.lexer.restore(snap)
+		return 0, false, nil
+	}
+	// optional '(' ... ')': '(' 一旦消费就必须闭合，否则报错——
+	// 容忍未闭合会把 "WITHIN (5 SECONDS ON ..." 这类畸形语法静默当合法解析。
+	parenSnap := p.lexer.save()
+	openedParen := false
+	if t := p.lexer.NextToken(); t.Type == TokenLParen {
+		openedParen = true
+	} else {
+		p.lexer.restore(parenSnap)
+	}
+	d, err := p.parseMRDuration()
+	if err != nil {
+		return 0, true, err
+	}
+	if openedParen {
+		if t := p.lexer.NextToken(); t.Type != TokenRParen {
+			return 0, true, fmt.Errorf("expected ')' to close WITHIN (%s, got %q", d, t.Value)
+		}
+	}
+	if d <= 0 {
+		return 0, true, fmt.Errorf("WITHIN duration must be positive, got %s", d)
+	}
+	return d, true, nil
 }
 
 // readJoinedFieldName reads a dotted field path from the lexer (e.g. "s.deviceId"
@@ -1175,14 +1259,10 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 				if strings.HasPrefix(next.Value, "'") && strings.HasSuffix(next.Value, "'") {
 					next.Value = strings.Trim(next.Value, "'")
 				}
-				// Check if Window is initialized; if not, create new WindowDefinition
-				if stmt.Window.Type == "" {
-					stmt.Window = WindowDefinition{
-						TsProp: next.Value,
-					}
-				} else {
-					stmt.Window.TsProp = next.Value
-				}
+				// 字段级赋值：WindowDefinition 是零值安全值类型。原先在
+				// Window.Type=="" 时整体替换会清掉先解析的选项（无 GROUP BY 窗口
+				// 的查询里 TIMESTAMP+IDLETIMEOUT 组合互相覆盖）。
+				stmt.Window.TsProp = next.Value
 			}
 		}
 		if valTok.Type == TokenTimeUnit {
@@ -1209,14 +1289,7 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 				default:
 					// If unknown unit, keep default (milliseconds)
 				}
-				// Check if Window is initialized; if not, create new WindowDefinition
-				if stmt.Window.Type == "" {
-					stmt.Window = WindowDefinition{
-						TimeUnit: timeUnit,
-					}
-				} else {
-					stmt.Window.TimeUnit = timeUnit
-				}
+				stmt.Window.TimeUnit = timeUnit
 			}
 		}
 		if valTok.Type == TokenMaxOutOfOrderness {
@@ -1229,14 +1302,7 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 				}
 				// Parse duration string like '5s', '2m', '1h', etc.
 				if duration, err := cast.ToDurationE(durationStr); err == nil {
-					// Check if Window is initialized; if not, create new WindowDefinition
-					if stmt.Window.Type == "" {
-						stmt.Window = WindowDefinition{
-							MaxOutOfOrderness: duration,
-						}
-					} else {
-						stmt.Window.MaxOutOfOrderness = duration
-					}
+					stmt.Window.MaxOutOfOrderness = duration
 				}
 				// If parsing fails, silently ignore (keep default 0)
 			}
@@ -1251,14 +1317,7 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 				}
 				// Parse duration string like '5s', '2m', '1h', etc.
 				if duration, err := cast.ToDurationE(durationStr); err == nil {
-					// Check if Window is initialized; if not, create new WindowDefinition
-					if stmt.Window.Type == "" {
-						stmt.Window = WindowDefinition{
-							AllowedLateness: duration,
-						}
-					} else {
-						stmt.Window.AllowedLateness = duration
-					}
+					stmt.Window.AllowedLateness = duration
 				}
 				// If parsing fails, silently ignore (keep default 0)
 			}
@@ -1273,14 +1332,7 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 				}
 				// Parse duration string like '5s', '2m', '1h', etc.
 				if duration, err := cast.ToDurationE(durationStr); err == nil {
-					// Check if Window is initialized; if not, create new WindowDefinition
-					if stmt.Window.Type == "" {
-						stmt.Window = WindowDefinition{
-							IdleTimeout: duration,
-						}
-					} else {
-						stmt.Window.IdleTimeout = duration
-					}
+					stmt.Window.IdleTimeout = duration
 				}
 				// If parsing fails, silently ignore (keep default 0)
 			}
@@ -1294,13 +1346,7 @@ func (p *Parser) parseWith(stmt *SelectStatement) error {
 					durationStr = strings.Trim(durationStr, "'")
 				}
 				if duration, err := cast.ToDurationE(durationStr); err == nil {
-					if stmt.Window.Type == "" {
-						stmt.Window = WindowDefinition{
-							CountStateTTL: duration,
-						}
-					} else {
-						stmt.Window.CountStateTTL = duration
-					}
+					stmt.Window.CountStateTTL = duration
 				}
 			}
 		}
@@ -1601,7 +1647,7 @@ func (p *Parser) parseHaving(stmt *SelectStatement) error {
 		case TokenNULL:
 			conditions = append(conditions, "NULL")
 		case TokenNOT:
-			conditions = append(conditions, "NOT")
+			conditions = append(conditions, lowerSqlNot(prevCondWord(conditions)))
 		default:
 			// Handle string value quotes
 			if len(conditions) > 0 && conditions[len(conditions)-1] == "'" {

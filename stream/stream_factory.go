@@ -123,6 +123,17 @@ func (sf *StreamFactory) createStreamWithUnifiedConfig(config types.Config) (*St
 		stream.cep = cr
 	}
 
+	// 流-流 JOIN 模式：构造期建输入 chan 集合与 N-1 级 runner 级联，
+	// Start 前全部就绪。fail-fast（重名输入流等配置错误在 Execute 即暴露）。
+	if config.Mode == types.ExecStreamJoin {
+		if config.StreamJoin == nil {
+			return nil, fmt.Errorf("internal error: ExecStreamJoin mode requires StreamJoin config")
+		}
+		if err := stream.initJoinPipeline(); err != nil {
+			return nil, fmt.Errorf("stream JOIN init failed: %w", err)
+		}
+	}
+
 	// Start worker routines
 	sf.startWorkerRoutines(stream, config.PerformanceConfig)
 

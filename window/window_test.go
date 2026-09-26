@@ -113,6 +113,7 @@ func TestWindowWithNilCallback(t *testing.T) {
 		if err == nil {
 			require.NotNil(t, window)
 			window.Start()
+			defer window.Stop()
 
 			// 添加数据不应该panic
 			row := types.Row{
@@ -131,6 +132,7 @@ func TestWindowWithNilCallback(t *testing.T) {
 		if err == nil {
 			require.NotNil(t, window)
 			window.Start()
+			defer window.Stop()
 
 			row := types.Row{
 				Data:      map[string]any{"id": 1},
@@ -148,6 +150,7 @@ func TestWindowWithNilCallback(t *testing.T) {
 		if err == nil {
 			require.NotNil(t, window)
 			window.Start()
+			defer window.Stop()
 
 			row := types.Row{
 				Data:      map[string]any{"id": 1},
@@ -165,6 +168,7 @@ func TestWindowWithNilCallback(t *testing.T) {
 		if err == nil {
 			require.NotNil(t, window)
 			window.Start()
+			defer window.Stop()
 
 			row := types.Row{
 				Data:      map[string]any{"id": 1},
@@ -197,6 +201,7 @@ func TestWindowConcurrency(t *testing.T) {
 		require.Nil(t, err)
 
 		window.Start()
+		defer window.Stop()
 
 		var wg sync.WaitGroup
 		numGoroutines := 10
@@ -243,6 +248,7 @@ func TestWindowConcurrency(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				window.Start()
+				defer window.Stop()
 				time.Sleep(time.Millisecond * 10)
 
 			}()
@@ -262,6 +268,7 @@ func TestWindowConcurrency(t *testing.T) {
 		require.Nil(t, err)
 
 		window.Start()
+		defer window.Stop()
 
 		var wg sync.WaitGroup
 
@@ -309,6 +316,7 @@ func TestWindowMemoryManagement(t *testing.T) {
 		require.Nil(t, err)
 
 		window.Start()
+		defer window.Stop()
 
 		// 添加大量数据
 		largeData := make([]byte, 1024*1024) // 1MB
@@ -351,6 +359,7 @@ func TestWindowMemoryManagement(t *testing.T) {
 		require.Nil(t, err)
 
 		window.Start()
+		defer window.Stop()
 
 		// 快速添加大量小数据
 		for i := 0; i < 1000; i++ {
@@ -379,6 +388,7 @@ func TestWindowErrorConditions(t *testing.T) {
 		require.Nil(t, err)
 
 		window.Start()
+		defer window.Stop()
 
 		// 向已停止的窗口添加数据不应该panic
 		row := types.Row{
@@ -399,6 +409,7 @@ func TestWindowErrorConditions(t *testing.T) {
 		require.Nil(t, err)
 
 		window.Start()
+		defer window.Stop()
 
 		// 添加包含不可序列化数据的行
 		row := types.Row{
@@ -423,6 +434,7 @@ func TestWindowErrorConditions(t *testing.T) {
 		require.Nil(t, err)
 
 		window.Start()
+		defer window.Stop()
 
 		// 添加时间戳为零值的行
 		row := types.Row{
@@ -443,6 +455,7 @@ func TestWindowErrorConditions(t *testing.T) {
 		require.Nil(t, err)
 
 		window.Start()
+		defer window.Stop()
 
 		// 添加未来时间戳的行
 		row := types.Row{
@@ -463,6 +476,7 @@ func TestWindowErrorConditions(t *testing.T) {
 		require.Nil(t, err)
 
 		window.Start()
+		defer window.Stop()
 
 		// 添加很久以前的时间戳的行
 		row := types.Row{
@@ -501,6 +515,7 @@ func TestWindowStatsAndMetrics(t *testing.T) {
 		assert.Nil(t, err)
 
 		window.Start()
+		defer window.Stop()
 
 		// 添加一些数据
 		row := types.Row{
@@ -1074,6 +1089,7 @@ func TestCountingWindowWithCallback(t *testing.T) {
 	assert.NoError(t, err)
 
 	cw.Start()
+	defer cw.Stop() // 旧注释称无 Stop 方法，实际有（counting_window.go Stop），不停会泄漏 goroutine
 	// CountingWindow doesn't have Stop method, will be handled by context cancellation
 
 	// 添加数据
@@ -1488,6 +1504,7 @@ func TestCountingWindowAdvanced(t *testing.T) {
 
 	// 启动窗口
 	cw.Start()
+	defer cw.Stop() // 旧注释称无 Stop 方法，实际有（counting_window.go Stop），不停会泄漏 goroutine
 	// CountingWindow doesn't have Stop method
 
 	// 添加数据直到达到阈值

@@ -67,6 +67,12 @@ type Streamsql struct {
 
 	// 时间窗口原始行缓冲上限（≤0 表示无界）。由 WithWindowMaxRows 设置。
 	windowMaxRows int
+
+	// 流-流 JOIN 每侧缓冲 key 数上限（≤0 用默认 10000）。由 WithJoinMaxKeys 设置。
+	joinMaxKeys int
+
+	// 流-流 JOIN 每侧行缓冲上限（0=无界）。由 WithJoinMaxRows 设置。
+	joinMaxRows int
 }
 
 // New creates a new StreamSQL instance.
@@ -170,6 +176,10 @@ func (s *Streamsql) Execute(sql string) error {
 
 	// 窗口行缓冲上限（≤0 表示无界，与现有默认行为一致）。
 	config.WindowConfig.MaxRows = s.windowMaxRows
+
+	// 流-流 JOIN 资源闸（≤0 时各级用默认值）。
+	config.JoinMaxKeys = s.joinMaxKeys
+	config.JoinMaxRows = s.joinMaxRows
 
 	// Create stream processor based on performance mode
 	var streamInstance *stream.Stream
@@ -283,6 +293,9 @@ func (s *Streamsql) EmitSync(data map[string]interface{}) (map[string]interface{
 	if s.stream.IsCEPQuery() {
 		return nil, fmt.Errorf("synchronous mode does not support MATCH_RECOGNIZE, use Emit() method")
 	}
+	if s.stream.IsStreamJoinQuery() {
+		return nil, fmt.Errorf("synchronous mode does not support stream JOIN (WITHIN), use Emit()/EmitTo() methods")
+	}
 
 	if s.schemaValidator != nil {
 		if err := s.schemaValidator.Validate(data); err != nil {
@@ -314,6 +327,38 @@ func (s *Streamsql) IsCEPQuery() bool {
 		return false
 	}
 	return s.stream.IsCEPQuery()
+}
+
+// IsStreamJoinQuery reports whether the current query is a stream-stream JOIN
+// (WITHIN) query. Components use it to route such queries to EmitTo feeding
+// (one EmitTo per input stream named in FROM/JOIN), since they have multiple
+// inputs and do not support EmitSync.
+func (s *Streamsql) IsStreamJoinQuery() bool {
+	if s.stream == nil {
+		return false
+	}
+	return s.stream.IsStreamJoinQuery()
+}
+
+// EmitTo feeds one row to the named input stream of a stream-stream JOIN
+// (WITHIN) query. The stream name must match the SQL's FROM / JOIN source name
+// (case-sensitive); unknown names return an error. Emit(data) is equivalent to
+// EmitTo(<FROM stream>, data).
+//
+// Must be called after Execute. Example:
+//
+//	ssql.Execute(`FROM tempStream AS s JOIN vibrationStream AS v WITHIN 30 SECONDS
+//	              ON s.deviceId = v.deviceId ...`)
+//	ssql.EmitTo("tempStream", map[string]any{"deviceId": "d1", "temperature": 80})
+//	ssql.EmitTo("vibrationStream", map[string]any{"deviceId": "d1", "vibration": 35})
+//
+// Note: EmitTo performs no schema validation (one Streamsql instance = one
+// query; per-stream schemas are not modeled).
+func (s *Streamsql) EmitTo(stream string, data map[string]interface{}) error {
+	if s.stream == nil {
+		return fmt.Errorf("Execute must be called before EmitTo")
+	}
+	return s.stream.EmitTo(stream, data)
 }
 
 // Stream returns the underlying stream processor instance.

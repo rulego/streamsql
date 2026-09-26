@@ -61,6 +61,13 @@ func (s *Stream) GetStats() map[string]int64 {
 		}
 	}
 
+	// 流-流 JOIN 指标（级前缀 join_stage{i}_*）。
+	if s.join != nil {
+		for k, v := range s.join.statsSnapshot() {
+			stats[k] = v
+		}
+	}
+
 	return stats
 }
 

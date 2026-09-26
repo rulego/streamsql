@@ -193,3 +193,33 @@ func WithWindowMaxRows(n int) Option {
 		ss.windowMaxRows = n
 	}
 }
+
+// WithJoinMaxKeys caps the buffered join keys per side per stream-JOIN stage
+// (LRU eviction of the least-recently-used key above the cap). Default (n<=0)
+// is 10000, aligned with the analytic/CEP partition caps.
+//
+// This bounds memory for high-cardinality join keys (e.g. deviceId with tens of
+// thousands of devices). Note that evicting a key discards its buffered rows
+// silently except for the join_stage{i}_keys_evicted metric and a throttled
+// warning: unmatched LEFT rows among them are NOT NULL-complemented (same
+// semantics as the GROUP BY LRU cap). Raise the cap above the peak active-key
+// count (WITHIN × key arrival rate) when match completeness matters.
+func WithJoinMaxKeys(n int) Option {
+	return func(ss *Streamsql) {
+		ss.joinMaxKeys = n
+	}
+}
+
+// WithJoinMaxRows caps the raw rows buffered per side per stream-JOIN stage.
+// Above the cap the newest arriving rows are dropped, counted in the
+// join_stage{i}_rows_dropped metric and reported through a throttled warning.
+// Default (n<=0) is unbounded; the primary bound is WITHIN (retention).
+//
+// Size it above the peak (input rate × WITHIN) so it acts as an OOM backstop
+// rather than a routine limit: dropping rows silently truncates matches the
+// same way WindowMaxRows truncates aggregates (~440B per buffered row).
+func WithJoinMaxRows(n int) Option {
+	return func(ss *Streamsql) {
+		ss.joinMaxRows = n
+	}
+}

@@ -47,10 +47,14 @@ func TestWindowSlotAggregation(t *testing.T) {
 		strm.Emit(data)
 	}
 
-	// 捕获结果
-	resultChan := make(chan any)
+	// 捕获结果（带缓冲 + 非阻塞投递：滑动窗会多次触发，无缓冲 chan 会把
+	// sink worker 永久阻塞在发送上——goleak 门禁抓到的既有测试泄漏）。
+	resultChan := make(chan any, 16)
 	strm.AddSink(func(result []map[string]any) {
-		resultChan <- result
+		select {
+		case resultChan <- result:
+		default:
+		}
 	})
 
 	// 等待窗口触发

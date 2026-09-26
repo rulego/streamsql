@@ -32,6 +32,7 @@
 | 可嵌入 / 作基础库 | ✅ | ❌ | ⚠️ | ⚠️ |
 | 完整 SQL | ✅ | ✅ | ✅ | 有限 |
 | **复杂事件识别（CEP）** | ✅ | ✅ | ❌ | ❌ |
+| **流-流 JOIN（WITHIN）** | ✅ | ✅ | ✅ | ✅ |
 | 分析函数 / 变化检测 | ✅ | ✅ | ✅ | ❌ |
 | 事件时间 + Watermark | ✅ | ✅ | ⚠️ | ❌ |
 | 边缘部署 | ✅ | ❌ | ✅ | ⚠️ |
@@ -80,6 +81,31 @@ func main() {
 ```
 
 ## 核心能力
+
+### 🔗 流-流 JOIN —— 双流窗口化时间邻近关联（WITHIN）
+
+把**两条实时流**按键 + 时间邻近度（`|L.ts − R.ts| ≤ WITHIN`）关联：ksqlDB 拼写的 `WITHIN` 语法、LEFT 缺席检测、3+ 流左深级联。append-only、状态有界——Flink Interval Join / Kafka Streams JoinWindows 的语义跑在边缘规模上。
+
+```sql
+-- 指令下发 10 秒未收到回执即告警（LEFT 缺席检测）
+SELECT c.cmdId, c.deviceId, r.ackCode
+FROM cmdStream AS c
+LEFT JOIN ackStream AS r WITHIN 10 SECONDS
+  ON c.cmdId = r.cmdId
+WHERE r.ackCode IS NULL
+```
+
+```go
+ssql := streamsql.New()
+ssql.Execute(`...`)                 -- 带 WITHIN = 流-流 JOIN（不带 = 流表富化，现状不变）
+ssql.EmitTo("cmdStream", row)       -- 按流名喂入两侧数据
+ssql.EmitTo("ackStream", row)       -- Emit(row) 等价于 EmitTo(FROM 流, row)
+ssql.IsStreamJoinQuery()            -- 组件路由判定
+```
+
+语义：到行即匹配即产出（窗内可重复匹配）；事件时间用 `WITH (TIMESTAMP='ts')` 指定，缺省到达时间；每侧 maxSeenTs 最简水位 + 保留期回收；LEFT 未匹配在窗口关闭时补 NULL（sweeper + Stop-Flush 兜底）；3+ 流为 N−1 级左深级联（每级独立 WITHIN，中间行时间戳取 `max(两匹配行 ts)`）。内存三道闸：WITHIN 必填 → `WithJoinMaxKeys`（LRU，默认每侧每级 10000）→ `WithJoinMaxRows`。每处丢行/淘汰均有 `join_stage{i}_*` 指标 + 10s 节流告警，不静默。
+
+v1.3 显式不支持（编译期报错，不做静默近似）：WITHIN JOIN 与流表 JOIN 混用、RIGHT/FULL/CROSS、JOIN 与 GROUP BY/HAVING/DISTINCT/LIMIT/分析函数组合、JOIN 与 MaxOutOfOrderness/AllowedLateness 组合、EmitSync。超保留期的迟到行丢弃并计数。RuleGo 组件示例随 v1.3.1。
 
 ### 🧩 复杂事件识别（CEP）—— 轻量边缘引擎独有
 

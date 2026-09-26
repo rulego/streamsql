@@ -78,6 +78,9 @@ func TestCountingWindow(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Error("No results after reset received within timeout")
 	}
+
+	// 释放 Start 派生的 goroutine（goleak 门禁：不 Stop 会泄漏）。
+	cw.Stop()
 }
 
 func TestCountingWindowBadThreshold(t *testing.T) {

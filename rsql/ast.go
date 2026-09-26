@@ -45,11 +45,11 @@ type WindowDefinition struct {
 	Params            []any
 	TsProp            string
 	TimeUnit          time.Duration
-	MaxOutOfOrderness time.Duration // Maximum allowed out-of-orderness for event time
-	AllowedLateness   time.Duration // Maximum allowed lateness for event time windows
-	IdleTimeout       time.Duration // Idle source timeout: when no data arrives within this duration, watermark advances based on processing time
-	CountStateTTL     time.Duration // Counting-window keyed state TTL; inactive keys reaped after this (0 = disabled)
-	TriggerCondition  string        // Global-window TRIGGER WHEN predicate (raw string)
+	MaxOutOfOrderness time.Duration   // Maximum allowed out-of-orderness for event time
+	AllowedLateness   time.Duration   // Maximum allowed lateness for event time windows
+	IdleTimeout       time.Duration   // Idle source timeout: when no data arrives within this duration, watermark advances based on processing time
+	CountStateTTL     time.Duration   // Counting-window keyed state TTL; inactive keys reaped after this (0 = disabled)
+	TriggerCondition  string          // Global-window TRIGGER WHEN predicate (raw string)
 	Over              *types.OverSpec // GROUP BY window OVER(...) 子句（仅 WHEN 输入门控）
 }
 
@@ -273,6 +273,44 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		mode = types.ExecCEP
 	}
 
+	// 流-流 JOIN（WITHIN）：任一 JOIN 带 WITHIN 即切换到 ExecStreamJoin 模式。
+	// 带 WITHIN = 双流；不带 = 流表（现状不变）。混用暂不支持，编译期报错。
+	var streamJoin *types.StreamJoinConfig
+	withinJoins := 0
+	for _, jc := range s.JoinConfigs {
+		if jc.Within > 0 {
+			withinJoins++
+		}
+	}
+	if withinJoins > 0 {
+		if err := validateStreamJoinQuery(s, needWindow, analyticFields); err != nil {
+			return nil, "", err
+		}
+		if withinJoins != len(s.JoinConfigs) {
+			return nil, "", fmt.Errorf("cannot mix WITHIN (stream-stream) JOINs with stream-table JOINs in one query (join-then-enrich is not supported yet); add WITHIN to every JOIN or remove it from all")
+		}
+		inputs := make([]string, 0, len(s.JoinConfigs)+1)
+		inputs = append(inputs, s.Source)
+		stages := make([]types.StreamJoinStage, 0, len(s.JoinConfigs))
+		for _, jc := range s.JoinConfigs {
+			stages = append(stages, types.StreamJoinStage{
+				RightName:  jc.Table,
+				RightAlias: jc.Alias,
+				JoinType:   jc.JoinType,
+				OnPairs:    jc.OnPairs,
+				Within:     jc.Within,
+			})
+			inputs = append(inputs, jc.Table)
+		}
+		streamJoin = &types.StreamJoinConfig{
+			Inputs:      inputs,
+			Stages:      stages,
+			TsProp:      s.Window.TsProp,
+			IdleTimeout: s.Window.IdleTimeout,
+		}
+		mode = types.ExecStreamJoin
+	}
+
 	// Build Stream configuration
 	config := types.Config{
 		WindowConfig: types.WindowConfig{
@@ -311,6 +349,13 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 		SourceAlias:        s.SourceAlias,
 	}
 
+	// 流-流 JOIN 模式：JOIN 信息由 StreamJoin 携带；JoinConfigs 清空，
+	// 防止任何流-表富化路径（enrichJoin）误把输入流当注册表查找。
+	if streamJoin != nil {
+		config.JoinConfigs = nil
+		config.StreamJoin = streamJoin
+	}
+
 	// 提取 WHERE 中的分析函数调用（含 OVER），替换为占位符，供直连路径状态机求值。
 	rewrittenCondition, whereCalls, err := extractWhereAnalyticCalls(s.Condition)
 	if err != nil {
@@ -319,6 +364,45 @@ func (s *SelectStatement) ToStreamConfig() (*types.Config, string, error) {
 	config.WhereAnalyticCalls = whereCalls
 
 	return &config, rewrittenCondition, nil
+}
+
+// validateStreamJoinQuery 校验 WITHIN（流-流）JOIN 与其它子句的组合。
+// 每条"不支持"都必须编译期报错，不允许静默忽略或"看起来支持实际没接通"。
+// 允许：ORDER BY（直连尾巴逐批生效）与 WITH (TIMESTAMP / IDLETIMEOUT)。
+func validateStreamJoinQuery(s *SelectStatement, needWindow bool, analyticFields []types.AnalyticField) error {
+	if needWindow {
+		return fmt.Errorf("WITHIN JOIN cannot be combined with GROUP BY/window/aggregation (join-then-aggregate is not supported yet; aggregate the JOIN output in a downstream query)")
+	}
+	if len(s.GroupBy) > 0 {
+		return fmt.Errorf("WITHIN JOIN cannot be combined with GROUP BY (join-then-aggregate is not supported yet)")
+	}
+	if s.Having != "" {
+		return fmt.Errorf("WITHIN JOIN does not support HAVING")
+	}
+	if s.Distinct {
+		return fmt.Errorf("WITHIN JOIN does not support DISTINCT")
+	}
+	if s.Limit > 0 {
+		return fmt.Errorf("WITHIN JOIN does not support LIMIT")
+	}
+	if len(analyticFields) > 0 {
+		return fmt.Errorf("WITHIN JOIN cannot be combined with analytic functions (their evaluation order against the two-sided matcher is undefined)")
+	}
+	if s.Window.MaxOutOfOrderness > 0 {
+		return fmt.Errorf("WITHIN JOIN does not support MaxOutOfOrderness > 0 (watermark is per-side maxSeenTs with no out-of-orderness margin). Use WITHIN slack or IdleTimeout")
+	}
+	if s.Window.AllowedLateness > 0 {
+		return fmt.Errorf("WITHIN JOIN does not support AllowedLateness > 0 (watermark is per-side maxSeenTs)")
+	}
+	// unnest 的行展开只存在于直连尾巴(processDirectData→expandUnnestResults)，
+	// JOIN 直连尾巴不做展开——静默输出原始结构会造成"看起来支持实际没接通"，
+	// 显式报错。
+	for _, f := range s.Fields {
+		if strings.Contains(strings.ToLower(stripStringLiterals(f.Expression)), "unnest(") {
+			return fmt.Errorf("WITHIN JOIN does not support unnest(...) (row expansion only exists on the direct path; the JOIN tail emits rows as matched)")
+		}
+	}
+	return nil
 }
 
 // isAnalyticField 判断 Field 是否为分析函数（TypeAnalytical）。
@@ -349,7 +433,7 @@ func containsAnalyticCall(expr string) bool {
 // stripStringLiterals 去掉字符串字面量内容，仅保留字面量外的表达式文本。
 // 本方言单引号 '...' 与双引号 "..." 都是字符串字面量（如 changed_cols("t",...)），
 // 二者都要剥离，否则 "lag(x)" 这类双引号字面量里的分析函数名会被误判为调用。
-// 处理 SQL 转义的两个连续引号（'' 或 ""）。
+// 处理 SQL 转义：字面量内两个连续相同引号是一个字面引号。
 func stripStringLiterals(expr string) string {
 	var b strings.Builder
 	b.Grow(len(expr))
@@ -557,6 +641,7 @@ func collapseSpacesOutsideQuotes(s string) string {
 //   - selectAlias[ac] 命中（SELECT 里 ac AS alias）→ 改写 HAVING 里 ac 为 alias（聚合已在算）。
 //   - aggs[ac] 命中（无别名选出，键恰为调用文本）→ 不动。
 //   - 否则（未选出）→ 注册隐藏聚合 __having_N__（aggs/fieldMap 原地扩充），ac 改写为 __having_N__。
+//
 // 返回改写后的 HAVING 文本。aggs/fieldMap 为 map 引用，原地修改。
 func extractHavingAggregates(having string, aggs map[string]aggregator.AggregateType, fieldMap map[string]string, selectAlias map[string]string) string {
 	if strings.TrimSpace(having) == "" {
@@ -874,7 +959,8 @@ func detectNestedAggregation(expr string) error {
 // detectNestedAggregationRecursive 递归检测嵌套聚合/分析函数。
 // inAggregation：当前在真聚合（TypeAggregation）内部；inAnalytic：当前在分析函数内部。
 // 规则：聚合套聚合 → 报错；分析套分析 → 报错；聚合套分析 → 报错；
-//       分析套聚合 → 允许（如 changed_cols(avg(...))，分析函数对窗口聚合输出求值）。
+//
+//	分析套聚合 → 允许（如 changed_cols(avg(...))，分析函数对窗口聚合输出求值）。
 func detectNestedAggregationRecursive(expr string, inAggregation, inAnalytic bool) error {
 	pattern := regexp.MustCompile(`(?i)([a-z_]+)\s*\(`)
 	matches := pattern.FindAllStringSubmatchIndex(expr, -1)

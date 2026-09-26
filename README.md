@@ -32,6 +32,7 @@ Traditional stream processing forces two extremes: **time-series databases** sto
 | Embeddable / as a library | ✅ | ❌ | ⚠️ | ⚠️ |
 | Full SQL | ✅ | ✅ | ✅ | Limited |
 | **Complex Event Processing (CEP)** | ✅ | ✅ | ❌ | ❌ |
+| **Stream-stream JOIN (WITHIN)** | ✅ | ✅ | ✅ | ✅ |
 | Analytic / change detection | ✅ | ✅ | ✅ | ❌ |
 | Event time + watermark | ✅ | ✅ | ⚠️ | ❌ |
 | Edge deployment | ✅ | ❌ | ✅ | ⚠️ |
@@ -80,6 +81,39 @@ func main() {
 ```
 
 ## Core Capabilities
+
+### 🔗 Stream-stream JOIN — windowed interval join across two (or more) live streams
+
+Correlate **two live streams** by key and time proximity (`|L.ts − R.ts| ≤ WITHIN`), ksqlDB-style `WITHIN` syntax, LEFT absence detection, and left-deep cascades for 3+ streams. Append-only, bounded state — the semantics of Flink Interval Join / Kafka Streams JoinWindows at edge scale.
+
+```sql
+-- Alert on commands not ACKed within 10 seconds (LEFT absence detection)
+SELECT c.cmdId, c.deviceId, r.ackCode
+FROM cmdStream AS c
+LEFT JOIN ackStream AS r WITHIN 10 SECONDS
+  ON c.cmdId = r.cmdId
+WHERE r.ackCode IS NULL
+```
+
+```go
+ssql := streamsql.New()
+ssql.Execute(`...`)                       -- WITHIN marks a stream-stream JOIN
+ssql.EmitTo("cmdStream", row)             -- feed each stream by name
+ssql.EmitTo("ackStream", row)             -- Emit(row) == EmitTo(FROM stream, row)
+ssql.IsStreamJoinQuery()                  -- route detection for components
+```
+
+Semantics: match on arrival (rows stay matchable for the whole window), event time via `WITH (TIMESTAMP='ts')` or arrival time by default, per-side `maxSeenTs` watermark with retention eviction, window-close NULL complement for unmatched LEFT rows (sweeper + Stop-Flush), 3+ streams via N−1 left-deep binary stages (each with its own `WITHIN`; intermediate-row timestamp = `max` of matched rows). Memory bounded by three gates: mandatory `WITHIN` → `WithJoinMaxKeys` (LRU, default 10000/side/stage) → `WithJoinMaxRows`. Every drop/eviction is counted (`join_stage{i}_*` metrics) and throttled-warned.
+
+| | StreamSQL v1.3 | Flink | ksqlDB | Kafka Streams |
+|---|---|---|---|---|
+| Syntax | `JOIN ... WITHIN 30 SECONDS ON ...` | `ON a.ts BETWEEN b.ts±30s` | `JOIN ... WITHIN 30 SECONDS` | `JoinWindows.of(...)` (API) |
+| Time | event time (`WITH TIMESTAMP`) / arrival time | event time + watermark | stream time | stream time |
+| Unmatched LEFT | NULL on window close | NULL on watermark pass | NULL on window close | NULL on window close |
+| 3+ streams | left-deep cascade, per-stage WITHIN | arbitrary plans | no | no |
+| Retract/updates | ❌ append-only | ✅ | ✅ | ✅ |
+
+Not supported in v1.3 (explicit compile-time errors, no silent no-ops): mixing `WITHIN` JOINs with stream-table JOINs, `RIGHT`/`FULL`/`CROSS`, JOIN + GROUP BY/HAVING/DISTINCT/LIMIT/analytic functions, `MaxOutOfOrderness`/`AllowedLateness` with JOIN, `EmitSync`. Late rows beyond retention are dropped and counted, not silently matched. RuleGo component examples ship with v1.3.1.
 
 ### 🧩 Complex Event Processing (CEP) — unique among lightweight edge engines
 

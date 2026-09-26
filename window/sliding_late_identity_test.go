@@ -38,6 +38,8 @@ func TestSlidingWindow_LateUpdateNonMapData(t *testing.T) {
 				AllowedLateness:    2 * time.Second,
 			})
 			require.NoError(t, err)
+			defer sw.Stop()
+
 
 			start := time.Now().Add(-10 * time.Second)
 			end := start.Add(time.Second)
@@ -76,6 +78,8 @@ func TestSlidingWindow_LateUpdateNoDoubleCount(t *testing.T) {
 		AllowedLateness:    2 * time.Second,
 	})
 	require.NoError(t, err)
+	defer sw.Stop() // 事件时间窗构造即起 watermark goroutine，不 Stop 会泄漏（goleak 门禁）
+
 
 	start := time.Now().Add(-10 * time.Second)
 	end := start.Add(time.Second)
@@ -124,6 +128,8 @@ func TestSlidingWindow_RepeatedLateUpdatesCountOnce(t *testing.T) {
 		AllowedLateness:    2 * time.Second,
 	})
 	require.NoError(t, err)
+	defer sw.Stop() // 事件时间窗构造即起 watermark goroutine，不 Stop 会泄漏（goleak 门禁）
+
 
 	start := time.Now().Add(-10 * time.Second)
 	end := start.Add(time.Second)
@@ -171,6 +177,8 @@ func TestSlidingWindow_SeqStaysAlignedAfterEviction(t *testing.T) {
 		TimeCharacteristic: types.ProcessingTime,
 	})
 	require.NoError(t, err)
+	defer sw.Stop() // 事件时间窗构造即起 watermark goroutine，不 Stop 会泄漏（goleak 门禁）
+
 
 	base := time.Now()
 	for i := 0; i < 5; i++ {

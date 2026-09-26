@@ -13,6 +13,9 @@ const (
 	ExecWindow
 	// ExecCEP MATCH_RECOGNIZE 模式识别路径：逐事件推进 NFA，匹配完成时输出。
 	ExecCEP
+	// ExecStreamJoin 流-流 JOIN（WITHIN 窗口化 interval join）路径：N-1 个二元
+	// runner 左深级联，双侧缓冲按保留期回收，匹配即产出（append-only）。
+	ExecStreamJoin
 )
 
 // RowsPerMatch 选择每次匹配的输出形态。

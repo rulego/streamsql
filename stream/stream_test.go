@@ -1028,9 +1028,12 @@ func TestStreamConfigErrorHandlingEnhanced(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewStream(tt.config)
+			s, err := NewStream(tt.config)
 			if (err != nil) != tt.expectError {
 				t.Errorf("expected error: %v, got: %v", tt.expectError, err)
+			}
+			if err == nil && s != nil {
+				s.Stop() // 释放 sink worker pool（goleak 门禁：不 Stop 会泄漏 worker goroutine）
 			}
 		})
 	}
@@ -1087,7 +1090,7 @@ func TestStreamDataValidationEnhanced(t *testing.T) {
 		})
 	}
 
-	_ = stream
+	stream.Stop()
 }
 
 // TestStreamMemoryPressureEnhanced 测试内存压力场景增强版
@@ -1119,8 +1122,8 @@ func TestStreamMemoryPressureEnhanced(t *testing.T) {
 		}
 	}
 
-	_ = stream
 	_ = largeData
+	stream.Stop()
 }
 
 // TestStreamConcurrentAccessEnhanced 测试并发访问边界条件增强版
@@ -1200,9 +1203,12 @@ func TestStreamWindowEdgeCasesEnhanced(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewStream(tt.config)
+			s, err := NewStream(tt.config)
 			if (err != nil) != tt.expectError {
 				t.Errorf("expected error: %v, got: %v", tt.expectError, err)
+			}
+			if err == nil && s != nil {
+				s.Stop()
 			}
 		})
 	}

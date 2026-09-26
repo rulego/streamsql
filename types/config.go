@@ -56,6 +56,19 @@ type Config struct {
 	// name and is resolved at row-processing time.
 	JoinConfigs []JoinConfig `json:"joinConfigs"`
 
+	// StreamJoin carries the stream-stream JOIN (WITHIN syntax) pipeline when
+	// every JOIN in the query has a WITHIN clause. Non-nil implies
+	// Mode==ExecStreamJoin and JoinConfigs is empty (the two JOIN kinds cannot
+	// be mixed in one query). Inputs are fed via EmitTo.
+	StreamJoin *StreamJoinConfig `json:"streamJoin,omitempty"`
+	// JoinMaxKeys caps the buffered join keys per side per stage (LRU eviction
+	// above the cap). ≤0 uses the default (10000). Injected by WithJoinMaxKeys.
+	JoinMaxKeys int `json:"joinMaxKeys"`
+	// JoinMaxRows caps the buffered rows per side per stage; the newest rows are
+	// dropped above the cap and counted. 0 = unbounded. Injected by
+	// WithJoinMaxRows.
+	JoinMaxRows int `json:"joinMaxRows"`
+
 	// SourceAlias is the optional FROM alias (e.g. "s" in "FROM stream AS s").
 	// When set, stream fields can be qualified as "s.<field>" in SELECT/WHERE.
 	SourceAlias string `json:"sourceAlias"`
@@ -95,6 +108,32 @@ type JoinConfig struct {
 	Alias    string       // table alias; matched columns are namespaced under it. Defaults to Table.
 	JoinType string       // "INNER" (default) or "LEFT"
 	OnPairs  []JoinOnPair // equality predicates linking stream and table fields
+	// Within > 0 marks this JOIN as a stream-stream (windowed interval) JOIN:
+	// the joined source is an input stream fed via EmitTo, not a registered
+	// table. All JOINs of one query must agree (all WITHIN or none); mixed is
+	// rejected at config-build time. ksqlDB WITHIN syntax.
+	Within time.Duration
+}
+
+// StreamJoinStage is one binary join of the left-deep cascade: stage i
+// joins the composite output of stage i-1 (or the FROM stream for stage 1)
+// with its RightName stream.
+type StreamJoinStage struct {
+	RightName  string        // right-side input stream name (the JOIN'd source)
+	RightAlias string        // alias under which the matched right row is attached
+	JoinType   string        // "INNER" or "LEFT"
+	OnPairs    []JoinOnPair  // StreamField resolves on the left row (may be an alias-qualified path like "b.k" for stage ≥2); TableField resolves on the right row
+	Within     time.Duration // per-stage match window / retention (|L.ts−R.ts| ≤ Within)
+}
+
+// StreamJoinConfig carries the full stream-stream JOIN pipeline: N input
+// streams, N-1 left-deep binary stages. Unified time model: TsProp event time
+// when set, arrival (processing) time otherwise.
+type StreamJoinConfig struct {
+	Inputs      []string          // all input stream names in SQL order: [FROM, JOIN1, JOIN2, ...]
+	Stages      []StreamJoinStage // len(Stages) == len(Inputs)-1
+	TsProp      string            // event-time field; empty = processing time (arrival)
+	IdleTimeout time.Duration     // idle-side watermark advance to wall clock (event-time mode), mirrors WindowConfig.IdleTimeout semantics
 }
 
 // JoinOnPair is one equality of a JOIN ON clause. StreamField is resolved

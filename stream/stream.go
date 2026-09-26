@@ -150,6 +150,11 @@ type Stream struct {
 
 	// CEP（MATCH_RECOGNIZE）引擎适配器。构造期（StreamFactory）初始化，消除懒初始化并发读。
 	cep *cepRunner
+
+	// join 携带流-流 JOIN（WITHIN）管线。构造期（StreamFactory）初始化：每流一条
+	// 输入 chan + N-1 级左深级联 runner。非 JOIN 查询为 nil，
+	// 单流热路径零开销。
+	join *joinPipeline
 }
 
 // NewStream creates Stream using unified configuration
@@ -245,6 +250,24 @@ func convertToAggregationFields(selectFields map[string]aggregator.AggregateType
 }
 
 func (s *Stream) Start() {
+	// 流-流 JOIN 模式：只 spawn 各级 join processor（内嵌 sweeper
+	// ticker），不启动通用 DataProcessor——join 走专用输入 chan，不碰 dataChan。
+	if s.join != nil {
+		s.startMu.Lock()
+		if atomic.LoadInt32(&s.stopped) != 0 {
+			s.startMu.Unlock()
+			return
+		}
+		s.lifecycle.Add(len(s.join.stages))
+		s.startMu.Unlock()
+		for _, st := range s.join.stages {
+			go func(rt *joinStageRuntime) {
+				defer s.lifecycle.Done()
+				rt.run(s.done)
+			}(st)
+		}
+		return
+	}
 	// Create data processor and start
 	processor := NewDataProcessor(s)
 	// Register tracked goroutines before spawning so Stop's join always observes
@@ -276,8 +299,27 @@ func (s *Stream) Start() {
 //   - data: data to be processed, must be map[string]any type
 func (s *Stream) Emit(data map[string]any) {
 	s.mInput.Inc()
+	// 流-流 JOIN 模式：投递到 FROM 流的专用输入 chan，不经 dataChan/
+	// dataStrategy——单流热路径零改动）。FROM 名 = StreamJoin.Inputs[0]。
+	if s.join != nil {
+		_ = s.join.emitToName(s.join.inputNames[0], data)
+		return
+	}
 	// Use strategy pattern to process data, providing better extensibility
 	s.dataStrategy.ProcessData(data)
+}
+
+// EmitTo 向流-流 JOIN（WITHIN）查询的指定输入流投递一行。流名与 SQL 中
+// FROM/JOIN 后的名字一致（大小写敏感）；未知名返回 error。
+func (s *Stream) EmitTo(name string, data map[string]any) error {
+	if s.join == nil {
+		return fmt.Errorf("EmitTo is only available for stream JOIN (WITHIN) queries; use Emit for other queries")
+	}
+	if atomic.LoadInt32(&s.stopped) == 1 {
+		return fmt.Errorf("stream is stopped")
+	}
+	s.mInput.Inc()
+	return s.join.emitToName(name, data)
 }
 
 // Stop stops stream processing
@@ -327,6 +369,13 @@ func (s *Stream) Stop() {
 	// 使 Flush 结果丢失。
 	if s.cep != nil {
 		s.emitCepFlushSync(s.projectCep(s.cep.engine.Flush()))
+	}
+
+	// 流-流 JOIN Stop-Flush：所有 processor goroutine 已 join，单线程
+	// 按级联序 Flush——上级 pending LEFT 补发的 NULL 行先（内联）流入下级，再由下级
+	// Flush；末级输出经内联 sink 派发（worker pool 已退出，走 pool 会丢）。
+	if s.join != nil {
+		s.join.flush()
 	}
 
 	// Release table sources (custom sources may own background refresh goroutines).
@@ -417,6 +466,46 @@ func (s *Stream) IsAggregationQuery() bool {
 // IsCEPQuery reports whether this stream runs the MATCH_RECOGNIZE (CEP) path.
 func (s *Stream) IsCEPQuery() bool {
 	return s.config.Mode == types.ExecCEP
+}
+
+// IsStreamJoinQuery reports whether this stream runs the stream-stream JOIN
+// (WITHIN) path. Components use it to route join queries to EmitTo feeding.
+func (s *Stream) IsStreamJoinQuery() bool {
+	return s.config.Mode == types.ExecStreamJoin
+}
+
+// emitJoinRowAsync 末级 JOIN 输出进直连尾巴：WHERE → 投影 → ORDER BY →
+// resultChan/sink 异步派发（与直连路径 processDirectData 尾巴一致）。
+func (s *Stream) emitJoinRowAsync(row map[string]any) {
+	analyticResults, pass := s.applyWhereAndAnalytic(row)
+	if !pass {
+		return
+	}
+	result, emit := s.projectDirectRow(row, analyticResults)
+	if !emit {
+		return
+	}
+	results := []map[string]any{result}
+	s.applyOrderBy(results)
+	s.sendResultNonBlocking(results)
+	s.callSinksAsync(results)
+}
+
+// emitJoinRowSync Stop-Flush 期的末级输出：worker pool 已随 done 退出，内联派发
+// （照抄 emitCepFlushSync 模式），保证流末 LEFT NULL 补发不丢。
+func (s *Stream) emitJoinRowSync(row map[string]any) {
+	analyticResults, pass := s.applyWhereAndAnalytic(row)
+	if !pass {
+		return
+	}
+	result, emit := s.projectDirectRow(row, analyticResults)
+	if !emit {
+		return
+	}
+	results := []map[string]any{result}
+	s.applyOrderBy(results)
+	s.sendResultForFlush(results)
+	s.invokeSinksInline(results)
 }
 
 // projectCep 对 MATCH_RECOGNIZE 原始输出行做外层 SELECT 投影（复用直连路径投影），
@@ -654,6 +743,9 @@ func (s *Stream) ProcessSync(data map[string]any) (map[string]any, error) {
 	}
 	if s.config.Mode == types.ExecCEP {
 		return nil, fmt.Errorf("Synchronous processing is not supported for MATCH_RECOGNIZE queries.")
+	}
+	if s.config.Mode == types.ExecStreamJoin {
+		return nil, fmt.Errorf("Synchronous processing is not supported for stream JOIN (WITHIN) queries, use Emit()/EmitTo()")
 	}
 
 	// Directly process data and return result. processDirectDataSync applies the

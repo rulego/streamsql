@@ -46,7 +46,7 @@ func (s *Stream) enrichJoin(data map[string]any) (working map[string]any, keep b
 	for _, jc := range s.config.JoinConfigs {
 		src, ok := s.tables.get(jc.Table)
 		if !ok {
-			return nil, false, fmt.Errorf("join table %q is not registered", jc.Table)
+			return nil, false, fmt.Errorf("join table %q is not registered (for a stream-stream JOIN add a WITHIN clause and feed it with EmitTo)", jc.Table)
 		}
 		key := make([]any, len(jc.OnPairs))
 		for i, p := range jc.OnPairs {

@@ -409,6 +409,11 @@ func (p *Parser) readMRUntilAS() (string, error) {
 			depth++
 		case TokenRParen, TokenRBrace:
 			depth--
+		case TokenNOT:
+			// SQL NOT lower 为 expr 的 !(见 lowerSqlNot):DEFINE/MEASURES 条件
+			// 最终经 cep 的 expr 编译,大写 NOT 会静默变未定义标识符。
+			parts = append(parts, lowerSqlNot(prevCondWord(parts)))
+			continue
 		}
 		parts = append(parts, t.Value)
 	}
@@ -437,6 +442,10 @@ func (p *Parser) readMRExpr() (string, error) {
 			depth++
 		case TokenRParen, TokenRBrace:
 			depth--
+		case TokenNOT:
+			// 同 readMRUntilAS:SQL NOT lower 为 expr 的 !(见 lowerSqlNot)。
+			parts = append(parts, lowerSqlNot(prevCondWord(parts)))
+			continue
 		}
 		parts = append(parts, t.Value)
 	}

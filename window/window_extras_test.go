@@ -202,6 +202,7 @@ func TestTumblingResetEventTime(t *testing.T) {
 	tw.Stop()
 	// Reset on an event-time window recreates the watermark; must not panic
 	assert.NotPanics(t, func() { tw.Reset() })
+	tw.Stop() // Reset 重建了 watermark goroutine，需再停一次（goleak 门禁）
 }
 
 func TestSlidingResetEventTime(t *testing.T) {
@@ -210,6 +211,7 @@ func TestSlidingResetEventTime(t *testing.T) {
 	sw.Add(etRow(time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC), 1))
 	sw.Stop()
 	assert.NotPanics(t, func() { sw.Reset() })
+	sw.Stop() // Reset 重建了 watermark goroutine，需再停一次（goleak 门禁）
 }
 
 func TestSessionResetEventTime(t *testing.T) {
@@ -218,6 +220,7 @@ func TestSessionResetEventTime(t *testing.T) {
 	sw.Add(map[string]any{"user": "a", "ts": time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC), "v": 1})
 	sw.Stop()
 	assert.NotPanics(t, func() { sw.Reset() })
+	sw.Stop() // Reset 重建了 watermark goroutine，需再停一次（goleak 门禁）
 }
 
 func TestSessionTriggerEmpty(t *testing.T) {
