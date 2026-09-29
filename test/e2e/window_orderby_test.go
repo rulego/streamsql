@@ -12,7 +12,7 @@ import (
 
 // runOrderByWindow runs a windowed SQL query, emits the given rows, and returns
 // the largest result batch received by the sink (polled until it has at least
-// want rows or ~1s elapses). All ORDER BY ordering happens server-side before
+// want rows or ~3s elapses). All ORDER BY ordering happens server-side before
 // the sink sees the batch.
 func runOrderByWindow(t *testing.T, sql string, emit []map[string]any, want int) []map[string]any {
 	t.Helper()
@@ -34,7 +34,9 @@ func runOrderByWindow(t *testing.T, sql string, emit []map[string]any, want int)
 		ssql.Emit(d)
 	}
 
-	deadline := time.Now().Add(1500 * time.Millisecond)
+	// 3s covers the worst case of emitting just after an epoch-aligned window
+	// boundary on a loaded CI runner; the poll breaks early once got >= want.
+	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
 		mu.Lock()
 		n := len(got)
@@ -55,7 +57,7 @@ func TestIntegration_OrderBy_DescOnAggAlias(t *testing.T) {
 	t.Parallel()
 	sql := `SELECT deviceId, avg(temperature) AS m
 	        FROM stream
-	        GROUP BY deviceId, TumblingWindow('100ms')
+	        GROUP BY deviceId, TumblingWindow('1s')
 	        ORDER BY m DESC`
 	batch := runOrderByWindow(t, sql, []map[string]any{
 		{"deviceId": "d1", "temperature": 30.0},
@@ -73,7 +75,7 @@ func TestIntegration_OrderBy_AscOnAggAlias(t *testing.T) {
 	t.Parallel()
 	sql := `SELECT deviceId, avg(temperature) AS m
 	        FROM stream
-	        GROUP BY deviceId, TumblingWindow('100ms')
+	        GROUP BY deviceId, TumblingWindow('1s')
 	        ORDER BY m ASC`
 	batch := runOrderByWindow(t, sql, []map[string]any{
 		{"deviceId": "d1", "temperature": 30.0},
@@ -91,7 +93,7 @@ func TestIntegration_OrderBy_WithLimitTopN(t *testing.T) {
 	t.Parallel()
 	sql := `SELECT deviceId, avg(temperature) AS m
 	        FROM stream
-	        GROUP BY deviceId, TumblingWindow('100ms')
+	        GROUP BY deviceId, TumblingWindow('1s')
 	        ORDER BY m DESC LIMIT 2`
 	batch := runOrderByWindow(t, sql, []map[string]any{
 		{"deviceId": "d1", "temperature": 30.0},
@@ -109,7 +111,7 @@ func TestIntegration_OrderBy_OnGroupKey(t *testing.T) {
 	t.Parallel()
 	sql := `SELECT deviceId, avg(temperature) AS m
 	        FROM stream
-	        GROUP BY deviceId, TumblingWindow('100ms')
+	        GROUP BY deviceId, TumblingWindow('1s')
 	        ORDER BY deviceId ASC`
 	batch := runOrderByWindow(t, sql, []map[string]any{
 		{"deviceId": "gamma", "temperature": 1.0},
@@ -128,7 +130,7 @@ func TestIntegration_OrderBy_MultiKey(t *testing.T) {
 	t.Parallel()
 	sql := `SELECT deviceId, avg(temperature) AS m
 	        FROM stream
-	        GROUP BY deviceId, TumblingWindow('100ms')
+	        GROUP BY deviceId, TumblingWindow('1s')
 	        ORDER BY m DESC, deviceId ASC`
 	batch := runOrderByWindow(t, sql, []map[string]any{
 		{"deviceId": "zzz", "temperature": 40.0}, // m=40 (tie)
